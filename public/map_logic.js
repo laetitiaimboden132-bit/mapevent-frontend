@@ -894,26 +894,32 @@ async function handleCognitoCallbackIfPresent() {
 
 // Fonction centralisée pour afficher le formulaire d'inscription après validation Google
 function displayRegistrationFormAfterGoogleAuth(backendUser) {
-  console.log('🎯 displayRegistrationFormAfterGoogleAuth appelé', { backendUser: !!backendUser });
+  console.log('🎯 displayRegistrationFormAfterGoogleAuth appelé', { backendUser: !!backendUser, isEditingProfile: window.isEditingProfile });
   
-  // VÉRIFICATION CRITIQUE : Ne JAMAIS afficher le formulaire si le profil est déjà complet
-  // Même si isLoggedIn est false, si profileComplete est true, c'est que l'utilisateur a déjà rempli le formulaire
-  if (currentUser && currentUser.profileComplete === true) {
-    console.log('⚠️ Tentative d\'affichage formulaire alors que profileComplete === true - Bloqué (profil déjà complet)');
-    return; // Ne JAMAIS afficher le formulaire si le profil est déjà complet
-  }
-  
-  // Vérifier aussi dans localStorage au cas où
-  const savedUser = localStorage.getItem('currentUser');
-  if (savedUser) {
-    try {
-      const savedUserObj = JSON.parse(savedUser);
-      if (savedUserObj && savedUserObj.profileComplete === true) {
-        console.log('⚠️ Tentative d\'affichage formulaire alors que profileComplete === true dans localStorage - Bloqué');
-        return; // Ne JAMAIS afficher le formulaire si le profil est déjà complet
+  // EXCEPTION : Si c'est une modification de profil, permettre l'affichage même si profileComplete === true
+  if (window.isEditingProfile === true) {
+    console.log('✅ Mode modification détecté - Affichage du formulaire autorisé');
+    // Ne pas retourner, continuer pour afficher le formulaire
+  } else {
+    // VÉRIFICATION CRITIQUE : Ne JAMAIS afficher le formulaire si le profil est déjà complet
+    // Même si isLoggedIn est false, si profileComplete est true, c'est que l'utilisateur a déjà rempli le formulaire
+    if (currentUser && currentUser.profileComplete === true) {
+      console.log('⚠️ Tentative d\'affichage formulaire alors que profileComplete === true - Bloqué (profil déjà complet)');
+      return; // Ne JAMAIS afficher le formulaire si le profil est déjà complet
+    }
+    
+    // Vérifier aussi dans localStorage au cas où
+    const savedUser = localStorage.getItem('currentUser');
+    if (savedUser) {
+      try {
+        const savedUserObj = JSON.parse(savedUser);
+        if (savedUserObj && savedUserObj.profileComplete === true) {
+          console.log('⚠️ Tentative d\'affichage formulaire alors que profileComplete === true dans localStorage - Bloqué');
+          return; // Ne JAMAIS afficher le formulaire si le profil est déjà complet
+        }
+      } catch (e) {
+        console.warn('⚠️ Impossible de parser currentUser depuis localStorage:', e);
       }
-    } catch (e) {
-      console.warn('⚠️ Impossible de parser currentUser depuis localStorage:', e);
     }
   }
   
