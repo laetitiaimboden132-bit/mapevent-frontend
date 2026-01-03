@@ -457,15 +457,79 @@ async function handleCognitoCallbackIfPresent() {
           console.warn('⚠️ Impossible de parser currentUser depuis localStorage:', e);
         }
         
+        // Vérifier si le profil est déjà complet dans localStorage (source de vérité absolue)
         const isProfileAlreadyComplete = (savedUserObj && savedUserObj.profileComplete === true) ||
                                          (currentUser && currentUser.profileComplete === true);
         
-        // Afficher le formulaire si :
-        // - Profil PAS déjà complet dans localStorage ET
-        // - (Nouvel utilisateur OU Profil incomplet selon backend OU Données essentielles manquantes)
-        const shouldShowForm = !isProfileAlreadyComplete && (isNewUser || !profileComplete || !hasUsername || !hasPostalAddress || !hasProfilePhoto);
+        // SI LE PROFIL EST DÉJÀ COMPLET DANS LOCALSTORAGE, NE JAMAIS AFFICHER LE FORMULAIRE
+        if (isProfileAlreadyComplete) {
+          console.log('✅ Profil déjà complet dans localStorage - Connexion directe (PAS de formulaire)', {
+            email: savedUserObj?.email || currentUser?.email,
+            username: savedUserObj?.username || currentUser?.username,
+            profileComplete: true
+          });
+          
+          // Restaurer l'utilisateur depuis localStorage
+          if (savedUserObj) {
+            currentUser = {
+              ...currentUser,
+              ...savedUserObj,
+              isLoggedIn: true,
+              profileComplete: true // GARANTIR que profileComplete est true
+            };
+          } else {
+            currentUser.isLoggedIn = true;
+            currentUser.profileComplete = true;
+          }
+          
+          // Sauvegarder avec profileComplete: true
+          safeSetItem("currentUser", JSON.stringify(currentUser));
+          updateAccountButton();
+          updateUserUI();
+          
+          showNotification(`✅ Connexion réussie ! Bienvenue ${currentUser.username || currentUser.name || currentUser.email}`, "success");
+          
+          // Nettoyer l'URL des paramètres OAuth
+          if (window.history && window.history.replaceState) {
+            window.history.replaceState({}, document.title, window.location.pathname);
+          }
+          
+          // FERMER le formulaire s'il était ouvert (sécurité supplémentaire)
+          closePublishModal();
+          return; // SORTIR ICI - NE JAMAIS AFFICHER LE FORMULAIRE
+        }
+        
+        // Afficher le formulaire UNIQUEMENT si le profil n'est PAS déjà complet dans localStorage
+        // ET si c'est un nouvel utilisateur OU profil incomplet selon backend OU données essentielles manquantes
+        const shouldShowForm = isNewUser || !profileComplete || !hasUsername || !hasPostalAddress || !hasProfilePhoto;
         
         if (shouldShowForm) {
+          // DOUBLE VÉRIFICATION : Si le profil est complet dans localStorage, NE JAMAIS afficher le formulaire
+          if (isProfileAlreadyComplete) {
+            console.log('⚠️ Tentative d\'affichage formulaire alors que profil déjà complet dans localStorage - Bloqué');
+            // Restaurer l'utilisateur depuis localStorage
+            if (savedUserObj) {
+              currentUser = {
+                ...currentUser,
+                ...savedUserObj,
+                isLoggedIn: true,
+                profileComplete: true
+              };
+            } else {
+              currentUser.isLoggedIn = true;
+              currentUser.profileComplete = true;
+            }
+            safeSetItem("currentUser", JSON.stringify(currentUser));
+            updateAccountButton();
+            updateUserUI();
+            showNotification(`✅ Connexion réussie ! Bienvenue ${currentUser.username || currentUser.name || currentUser.email}`, "success");
+            if (window.history && window.history.replaceState) {
+              window.history.replaceState({}, document.title, window.location.pathname);
+            }
+            closePublishModal();
+            return; // SORTIR ICI - NE JAMAIS AFFICHER LE FORMULAIRE
+          }
+          
           // Afficher le formulaire IMMÉDIATEMENT
           console.log('📝 Affichage formulaire d\'inscription', {
             isNewUser,
