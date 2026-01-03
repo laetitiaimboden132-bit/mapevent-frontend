@@ -16042,6 +16042,13 @@ window.showProRegisterForm = showProRegisterForm;
 window.cycleUITheme = cycleUITheme;
 window.cycleMapTheme = cycleMapTheme;
 window.onSearchCity = onSearchCity;
+
+// Exposer les fonctions du formulaire de publication
+window.toggleRepeatOptions = toggleRepeatOptions;
+window.updateRepeatPreview = updateRepeatPreview;
+window.toggleAdvancedOptions = toggleAdvancedOptions;
+window.initRepeatHandlers = initRepeatHandlers;
+window.initMultipleImagesHandler = initMultipleImagesHandler;
 window.onAction = onAction;
 window.onBuyContact = onBuyContact;
 window.toggleCategory = toggleCategory;
