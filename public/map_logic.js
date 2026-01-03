@@ -9927,12 +9927,17 @@ function showError(elementId, message) {
 async function handleProRegisterSubmit(event) {
   event.preventDefault();
   
-  // VÉRIFICATION CRITIQUE : Si le profil est déjà complet, ne pas permettre la soumission
-  if (currentUser && currentUser.profileComplete === true && currentUser.isLoggedIn === true) {
-    console.warn('⚠️ Tentative de soumission formulaire alors que le profil est déjà complet');
-    showNotification('✅ Votre compte est déjà créé et complet. Vous êtes connecté !', 'success');
-    closePublishModal();
-    return;
+  // Si c'est une modification de profil (pas une nouvelle inscription), permettre la soumission
+  const isEditing = window.isEditingProfile === true;
+  
+  if (!isEditing) {
+    // VÉRIFICATION CRITIQUE : Si le profil est déjà complet ET ce n'est PAS une modification, ne pas permettre la soumission
+    if (currentUser && currentUser.profileComplete === true && currentUser.isLoggedIn === true) {
+      console.warn('⚠️ Tentative de soumission formulaire alors que le profil est déjà complet');
+      showNotification('✅ Votre compte est déjà créé et complet. Vous êtes connecté !', 'success');
+      closePublishModal();
+      return;
+    }
   }
   
   // Récupérer toutes les valeurs
