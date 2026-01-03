@@ -573,18 +573,25 @@ async function handleCognitoCallbackIfPresent() {
           
           // Restaurer l'utilisateur depuis le backend (priorité) ou localStorage (fallback)
           if (syncData.user) {
-            currentUser = {
-              ...currentUser,
-              ...syncData.user,
-              profilePhoto: syncData.user.profile_photo_url || syncData.user.avatar || syncData.user.profilePhoto || null,
-              avatar: syncData.user.avatar || syncData.user.profile_photo_url || syncData.user.profilePhoto || '👤',
-              isLoggedIn: true,
-              provider: 'google',
-              profileComplete: true, // GARANTIR que profileComplete est true
-              googleValidated: true,
-              username: syncData.user.username || currentUser.username,
-              postalAddress: syncData.user.postal_address || syncData.user.postalAddress || currentUser.postalAddress
-            };
+        currentUser = {
+          ...currentUser,
+          ...syncData.user,
+          // GARANTIR que l'ID est toujours défini
+          id: syncData.user.id || syncData.user.user_id || currentUser.id || currentUser.sub || null,
+          profilePhoto: syncData.user.profile_photo_url || syncData.user.avatar || syncData.user.profilePhoto || null,
+          avatar: syncData.user.avatar || syncData.user.profile_photo_url || syncData.user.profilePhoto || '👤',
+          isLoggedIn: true,
+          provider: 'google',
+          profileComplete: true, // GARANTIR que profileComplete est true
+          googleValidated: true,
+          username: syncData.user.username || currentUser.username,
+          postalAddress: syncData.user.postal_address || syncData.user.postalAddress || currentUser.postalAddress
+        };
+        
+        // Vérifier que l'ID est bien défini
+        if (!currentUser.id) {
+          console.warn('⚠️ currentUser.id est undefined après synchronisation backend');
+        }
           } else if (savedUserObj) {
             currentUser = {
               ...currentUser,
