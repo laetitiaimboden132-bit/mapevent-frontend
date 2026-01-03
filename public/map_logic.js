@@ -710,17 +710,25 @@ async function handleCognitoCallbackIfPresent() {
 function displayRegistrationFormAfterGoogleAuth(backendUser) {
   console.log('🎯 displayRegistrationFormAfterGoogleAuth appelé', { backendUser: !!backendUser });
   
-  // VÉRIFICATION CRITIQUE : Ne JAMAIS afficher le formulaire si le profil est déjà complet ET l'utilisateur est connecté
-  // MAIS on force l'affichage si l'utilisateur vient de Google et n'est pas encore connecté
-  if (currentUser && currentUser.profileComplete === true && currentUser.isLoggedIn === true) {
-    console.log('⚠️ Tentative d\'affichage formulaire alors que profileComplete === true ET isLoggedIn === true - Bloqué');
-    return; // Ne pas afficher le formulaire
+  // VÉRIFICATION CRITIQUE : Ne JAMAIS afficher le formulaire si le profil est déjà complet
+  // Même si isLoggedIn est false, si profileComplete est true, c'est que l'utilisateur a déjà rempli le formulaire
+  if (currentUser && currentUser.profileComplete === true) {
+    console.log('⚠️ Tentative d\'affichage formulaire alors que profileComplete === true - Bloqué (profil déjà complet)');
+    return; // Ne JAMAIS afficher le formulaire si le profil est déjà complet
   }
   
-  // Si profileComplete est true mais isLoggedIn est false, on force l'affichage du formulaire
-  if (currentUser && currentUser.profileComplete === true && currentUser.isLoggedIn === false) {
-    console.log('⚠️ profileComplete === true mais isLoggedIn === false - FORCER profileComplete à false pour afficher le formulaire');
-    currentUser.profileComplete = false;
+  // Vérifier aussi dans localStorage au cas où
+  const savedUser = localStorage.getItem('currentUser');
+  if (savedUser) {
+    try {
+      const savedUserObj = JSON.parse(savedUser);
+      if (savedUserObj && savedUserObj.profileComplete === true) {
+        console.log('⚠️ Tentative d\'affichage formulaire alors que profileComplete === true dans localStorage - Bloqué');
+        return; // Ne JAMAIS afficher le formulaire si le profil est déjà complet
+      }
+    } catch (e) {
+      console.warn('⚠️ Impossible de parser currentUser depuis localStorage:', e);
+    }
   }
   
   // Mettre à jour currentUser avec les données du backend ou Google
