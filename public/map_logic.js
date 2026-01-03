@@ -15820,6 +15820,13 @@ function toggleNotification(type) {
 function openEditProfileModal() {
   console.log('✏️ openEditProfileModal appelé - Affichage formulaire d\'inscription complet pour modification');
   
+  // Vérifier que l'utilisateur est connecté
+  if (!currentUser || !currentUser.isLoggedIn) {
+    showNotification('⚠️ Vous devez être connecté pour modifier votre profil', 'warning');
+    openLoginModal();
+    return;
+  }
+  
   // Pré-remplir registerData avec les données actuelles de l'utilisateur
   const nameParts = (currentUser.name || '').split(' ');
   const addressValue = currentUser.postalAddress && typeof currentUser.postalAddress === 'object' 
@@ -15852,17 +15859,44 @@ function openEditProfileModal() {
   };
   
   // Marquer que c'est une modification (pas une nouvelle inscription)
+  // IMPORTANT: Forcer ce flag AVANT d'appeler showProRegisterForm
   window.isEditingProfile = true;
   
+  console.log('✅ Données pré-remplies pour modification:', {
+    email: registerData.email,
+    username: registerData.username,
+    firstName: registerData.firstName,
+    lastName: registerData.lastName,
+    hasPhoto: !!registerData.profilePhoto,
+    isEditingProfile: window.isEditingProfile
+  });
+  
   // Afficher le formulaire d'inscription complet
-  if (typeof window.showProRegisterForm === 'function') {
-    window.showProRegisterForm();
-  } else if (typeof showProRegisterForm === 'function') {
-    showProRegisterForm();
-  } else {
-    console.error('❌ showProRegisterForm non disponible');
-    showNotification('⚠️ Erreur: formulaire non disponible', 'error');
-  }
+  // Vérifier plusieurs fois pour être sûr que la fonction est disponible
+  const showForm = () => {
+    if (typeof window.showProRegisterForm === 'function') {
+      console.log('✅ Appel de window.showProRegisterForm()');
+      window.showProRegisterForm();
+    } else if (typeof showProRegisterForm === 'function') {
+      console.log('✅ Appel de showProRegisterForm()');
+      showProRegisterForm();
+    } else {
+      console.error('❌ showProRegisterForm non disponible');
+      showNotification('⚠️ Erreur: formulaire non disponible. Rechargez la page.', 'error');
+    }
+  };
+  
+  // Essayer immédiatement
+  showForm();
+  
+  // Si ça ne fonctionne pas, réessayer après un court délai
+  setTimeout(() => {
+    const modal = document.getElementById('publish-modal-backdrop');
+    if (!modal || modal.style.display === 'none') {
+      console.warn('⚠️ Le formulaire ne s\'est pas affiché, nouvelle tentative...');
+      showForm();
+    }
+  }, 300);
 }
 
 // Gérer le changement de photo de profil
