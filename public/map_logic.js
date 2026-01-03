@@ -10237,17 +10237,25 @@ async function handleProRegisterSubmit(event) {
         const profilePhoto = data.user.profile_photo_url || data.user.avatar || data.user.profilePhoto || registerData.profilePhoto || null;
         const avatar = data.user.avatar || data.user.profile_photo_url || data.user.profilePhoto || registerData.profilePhoto || '👤';
         
+        const isEditing = window.isEditingProfile === true;
+        
+        // IMPORTANT : Le backend renvoie profileComplete dans data.profileComplete OU data.user
+        // Le backend est la source de vérité absolue
+        const backendProfileComplete = data.profileComplete === true || data.user.profileComplete === true;
+        
         currentUser = {
           ...currentUser,
           ...data.user,
+          // GARANTIR que l'ID est toujours défini
+          id: data.user.id || data.user.user_id || currentUser.id || currentUser.sub || Date.now(),
           // PRIORITÉ ABSOLUE : username du backend OU du formulaire (GARANTIR qu'il est présent)
           username: data.user.username || registerData.username || currentUser.username,
           // S'assurer que profilePhoto et avatar sont correctement mappés
           profilePhoto: profilePhoto,
           avatar: avatar,
           isLoggedIn: true,
-          profileComplete: true, // Profil maintenant complet après inscription - IMPORTANT !
-          googleValidated: false, // Plus besoin du marqueur
+          profileComplete: backendProfileComplete, // Utiliser la valeur du backend (source de vérité)
+          googleValidated: currentUser.googleValidated || false,
           likes: currentUser.likes || [],
           favorites: currentUser.favorites || [],
           agenda: currentUser.agenda || [],
