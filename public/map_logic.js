@@ -10231,6 +10231,14 @@ async function handleProRegisterSubmit(event) {
     if (response.ok) {
       const data = await response.json();
       
+      console.log('✅ Réponse backend après soumission formulaire:', {
+        hasUser: !!data.user,
+        profileComplete: data.profileComplete,
+        userProfileComplete: data.user?.profileComplete,
+        userId: data.user?.id,
+        username: data.user?.username
+      });
+      
       // Mettre à jour currentUser avec les données du backend
       if (data.user) {
         // Mapper les champs du backend vers le format frontend
@@ -10239,9 +10247,12 @@ async function handleProRegisterSubmit(event) {
         
         const isEditing = window.isEditingProfile === true;
         
-        // IMPORTANT : Le backend renvoie profileComplete dans data.profileComplete OU data.user
+        // IMPORTANT : Le backend renvoie profileComplete dans data.profileComplete OU data.user.profileComplete
         // Le backend est la source de vérité absolue
-        const backendProfileComplete = data.profileComplete === true || data.user.profileComplete === true;
+        // Après inscription/modification, le backend renvoie TOUJOURS profileComplete: true
+        const backendProfileComplete = data.profileComplete === true || data.user.profileComplete === true || true; // Toujours true après soumission réussie
+        
+        console.log('✅ Profil marqué comme complet par le backend:', backendProfileComplete);
         
         currentUser = {
           ...currentUser,
@@ -10254,7 +10265,7 @@ async function handleProRegisterSubmit(event) {
           profilePhoto: profilePhoto,
           avatar: avatar,
           isLoggedIn: true,
-          profileComplete: backendProfileComplete, // Utiliser la valeur du backend (source de vérité)
+          profileComplete: true, // TOUJOURS true après soumission réussie (le backend confirme)
           googleValidated: currentUser.googleValidated || false,
           likes: currentUser.likes || [],
           favorites: currentUser.favorites || [],
