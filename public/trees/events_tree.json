@@ -1,0 +1,359 @@
+{
+  "Events": {
+    "Music": {
+      "Electronic": {
+        "Techno": [
+          "Acid Techno",
+          "Minimal Techno",
+          "Hard Techno",
+          "Industrial Techno",
+          "Peak Time Techno",
+          "Detroit Techno",
+          "Melodic Techno",
+          "Dub Techno",
+          "Hypnotic Techno"
+        ],
+        "House": [
+          "Deep House",
+          "Electro House",
+          "Tech House",
+          "Progressive House",
+          "Tribal House",
+          "Funky House",
+          "Afro House",
+          "Soulful House"
+        ],
+        "Trance": [
+          "Psytrance",
+          "Full On",
+          "Goa",
+          "Progressive Psy",
+          "Dark Psy",
+          "Psyprog",
+          "Forest",
+          "Hi-Tech",
+          "Uplifting Trance",
+          "Vocal Trance",
+          "Classic Trance",
+          "Acid Trance"
+        ],
+        "Drum & Bass": [
+          "Neurofunk",
+          "Jungle",
+          "Liquid DnB",
+          "Jump Up",
+          "Halftime DnB",
+          "Darkstep",
+          "Ragga Jungle"
+        ],
+        "Bass Music": [
+          "Dubstep",
+          "Riddim",
+          "UK Bass",
+          "Future Bass",
+          "Trap Bass"
+        ],
+        "Hard Music": [
+          "Hardstyle",
+          "Hardcore",
+          "Gabber",
+          "Rawstyle"
+        ],
+        "Chill / Ambient": [
+          "Ambient",
+          "Chillout",
+          "Lofi",
+          "Downtempo"
+        ]
+      },
+      "Urban": {
+        "Rap": [],
+        "Trap": [],
+        "Drill": [],
+        "Hip-Hop": [],
+        "RnB": [],
+        "Grime": [],
+        "Afro / Afrobeats": [],
+        "Dancehall": [],
+        "Reggaeton": [],
+        "Jersey Club": [],
+        "Phonk": []
+      },
+      "Rock / Metal": {
+        "Rock": [
+          "Indie Rock",
+          "Alternative Rock",
+          "Punk Rock",
+          "Classic Rock",
+          "Grunge",
+          "Garage Rock"
+        ],
+        "Metal": [
+          "Heavy Metal",
+          "Thrash Metal",
+          "Black Metal",
+          "Death Metal",
+          "Metalcore",
+          "Nu Metal",
+          "Symphonic Metal",
+          "Progressive Metal",
+          "Doom Metal"
+        ]
+      },
+      "Reggae / Ska / World": [
+        "Reggae",
+        "Dub",
+        "Ska",
+        "Roots Reggae",
+        "Dancehall Roots",
+        "Cumbia",
+        "Afrobeat"
+      ],
+      "Jazz / Soul / Funk": [
+        "Jazz",
+        "Smooth Jazz",
+        "Blues",
+        "Soul",
+        "Funk",
+        "Neo Soul",
+        "Swing",
+        "Fusion Jazz"
+      ],
+      "Pop / Variété": [
+        "Pop",
+        "K-Pop",
+        "J-Pop",
+        "Chanson Française",
+        "Variété Internationale",
+        "Indie Pop",
+        "Electro Pop"
+      ],
+      "Folk / Acoustic": [
+        "Folk",
+        "Country",
+        "Bluegrass",
+        "Acoustic Live",
+        "Irish / Celtic"
+      ],
+      "Classique": {
+        "Périodes": [
+          "Médiéval",
+          "Renaissance",
+          "Baroque",
+          "Classique",
+          "Romantique",
+          "Moderne",
+          "Contemporain"
+        ],
+        "Formes": [
+          "Symphonie",
+          "Concerto",
+          "Sonate",
+          "Opéra",
+          "Opérette",
+          "Oratorio",
+          "Requiem",
+          "Messe",
+          "Cantate",
+          "Lied"
+        ],
+        "Ensembles": [
+          "Orchestre symphonique",
+          "Orchestre de chambre",
+          "Quatuor à cordes",
+          "Trio",
+          "Duo",
+          "Solo",
+          "Chœur",
+          "Ensemble vocal",
+          "Brass Band",
+          "Harmonie"
+        ],
+        "Instruments": [
+          "Piano",
+          "Violon",
+          "Violoncelle",
+          "Flûte",
+          "Clarinette",
+          "Hautbois",
+          "Trompette",
+          "Cor",
+          "Orgue",
+          "Harpe"
+        ]
+      }
+    },
+
+    "Culture": {
+      "Cinéma & Projections": [
+        "Projection film",
+        "Avant-première",
+        "Court-métrage",
+        "Ciné-concert"
+      ],
+      "Expositions": [
+        "Galerie",
+        "Vernissage",
+        "Photographie",
+        "Peinture",
+        "Sculpture",
+        "Art numérique",
+        "Street Art"
+      ],
+      "Conférences & Rencontres": [
+        "Conférence",
+        "Débat",
+        "Rencontre associative",
+        "Rencontre célibataire",
+        "Lecture publique",
+        "Présentation",
+        "Histoire / Société"
+      ],
+      "Workshops": [
+        "Atelier créatif",
+        "Atelier enfants",
+        "Atelier bien-être",
+        "Atelier danse",
+        "Atelier musique",
+        "Atelier écriture",
+        "Atelier cuisine",
+        "Atelier cocktails"
+      ]
+    },
+
+    "Arts Vivants": {
+      "Théâtre": [
+        "Théâtre classique",
+        "Théâtre contemporain",
+        "Stand-up",
+        "Improvisation",
+        "Comédie musicale",
+        "One-man show"
+      ],
+      "Danse": [
+        "Danse contemporaine",
+        "Danse classique / Ballet",
+        "Danse urbaine",
+        "Danse latine",
+        "Danse orientale",
+        "K-pop Dance"
+      ],
+      "Cirque": [],
+      "Autres": [
+        "Performance artistique",
+        "Lecture scénique",
+        "Spectacle immersif",
+        "Show visuel",
+        "Cabaret"
+      ]
+    },
+
+    "Food & Drinks": {
+      "Dégustations": [
+        "Dégustation vin",
+        "Dégustation bière",
+        "Dégustation spiritueux",
+        "Dégustation gastronomie"
+      ],
+      "Restauration": [
+        "Brunch",
+        "BBQ",
+        "Soirée cocktails",
+        "Food Trucks",
+        "Marché alimentaire"
+      ]
+    },
+
+    "Loisirs & Animation": {
+      "Jeux & Soirées": [
+        "Karaoke",
+        "Blind Test",
+        "Quiz",
+        "Soirée jeux",
+        "Jeux - lottos",
+        "Jeux - tournois"
+      ],
+      "Défilés & Fêtes": [
+        "Défilé",
+        "Brocante",
+        "Marché",
+        "Marché artisanal",
+        "Fête de village",
+        "Carnaval",
+        "Marché de Noël"
+      ]
+    },
+
+    "Sport": {
+      "Aquatique": [
+        "Natation",
+        "Aquagym",
+        "Water-polo",
+        "Surf aquatique",
+        "Plongée",
+        "Paddle"
+      ],
+      "Terrestre": [
+        "Course à pied",
+        "Trail",
+        "Randonnée",
+        "Cyclisme",
+        "Fitness / Bootcamp",
+        "CrossFit",
+        "Football",
+        "Volleyball",
+        "Tennis"
+      ],
+      "Aériens": [
+        "Parapente",
+        "ULM",
+        "Montgolfière",
+        "Drone Racing",
+        "Planeur",
+        "Wing Suit"
+      ],
+      "Glisse": [
+        "Ski",
+        "Snowboard",
+        "Patinage",
+        "Luge",
+        "Trottinette freestyle",
+        "Longboard"
+      ],
+      "Conduite": [
+        "Karting",
+        "Rallye",
+        "Moto",
+        "Drift",
+        "Offroad / 4x4",
+        "Simulation Esport"
+      ]
+    },
+
+    "Festivals & Grandes Fêtes": [
+      "Festival musique",
+      "Festival food",
+      "Festival culturel",
+      "Festival cinéma",
+      "Open Air",
+      "Block Party",
+      "Street Parade",
+      "Pride",
+      "Grande foire",
+      "Salon",
+      "Rave géante",
+      "Nuit blanche"
+    ],
+
+    "Business & Communauté": [
+      "Networking",
+      "Salon professionnel",
+      "Séminaire",
+      "Masterclass",
+      "Lancement produit",
+      "Meetup tech",
+      "Esport LAN Party",
+      "Gaming event"
+    ]
+  }
+}

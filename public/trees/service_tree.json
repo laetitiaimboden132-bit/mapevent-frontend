@@ -1,0 +1,117 @@
+{
+  "mode": "SERVICES",
+  "version": "1.0",
+
+  "defaultMetadata": {
+    "verification": {
+      "emailSent": false,
+      "confirmed": false,
+      "confirmedAt": null,
+      "statusLabel": "non vérifié",
+      "color": "grey"
+    },
+    "visibility": {
+      "currentBid": 0,
+      "maxBid": 0,
+      "bidHistory": [],
+      "boostScore": 1.0,
+      "premiumLevel": "free",
+      "levels": {
+        "free":  { "weight": 1, "size": 1.0 },
+        "basic": { "weight": 2, "size": 1.2 },
+        "pro":   { "weight": 3, "size": 1.4 },
+        "ultra": { "weight": 5, "size": 1.7 },
+        "titan": { "weight": 8, "size": 2.0 }
+      },
+      "boostPerCHF": 0.20,
+      "maxBoost": 10,
+      "rank": "normal"
+    },
+    "addressHidden": true,
+    "showContactOnlyAfterPayment": true
+  },
+
+  "categories": {
+    "name": "Prestataires & Logistique",
+    "children": [
+      {
+        "name": "Technique",
+        "children": [
+          { "name": "Ingénieur Son", "image": "sound_engineer.png", "keywords": ["sound engineer", "audio engineer", "mix live"] },
+          { "name": "Ingénieur Lumière", "image": "light_engineer.png", "keywords": ["light engineer", "lighting tech"] },
+          { "name": "Technicien Plateau", "image": "plateau.png", "keywords": ["stage tech", "technicien plateau"] },
+          { "name": "Électricien Événementiel", "image": "electricien.png", "keywords": ["electricien", "event electrician"] },
+          { "name": "Backliner", "image": "backliner.png", "keywords": ["backline", "stage backline"] },
+          { "name": "DJ Booth Setup", "image": "dj_booth.png", "keywords": ["dj booth", "dj setup"] }
+        ]
+      },
+
+      {
+        "name": "Location Matériel",
+        "children": [
+          {
+            "name": "Son",
+            "children": [
+              { "name": "Caissons", "image": "caisson.png", "keywords": ["subwoofer", "bass"] },
+              { "name": "Tops", "image": "tops.png", "keywords": ["stage tops", "speakers"] },
+              { "name": "Subwoofers", "image": "subwoofer.png", "keywords": ["sub", "bass bins"] },
+              { "name": "Line Array", "image": "line_array.png", "keywords": ["line array"] }
+            ]
+          },
+
+          {
+            "name": "Lumière",
+            "children": [
+              { "name": "Lasers", "image": "laser.png", "keywords": ["laser", "beam"] },
+              { "name": "Stroboscopes", "image": "strobe.png", "keywords": ["strobe"] },
+              { "name": "PAR LED", "image": "par_led.png", "keywords": ["par led"] },
+              { "name": "Lyres", "image": "lyre.png", "keywords": ["moving head", "lyre"] }
+            ]
+          },
+
+          {
+            "name": "Vidéo",
+            "children": [
+              { "name": "Projecteur", "image": "projecteur.png", "keywords": ["projector"] },
+              { "name": "Écran LED", "image": "ecran_led.png", "keywords": ["led screen"] }
+            ]
+          },
+
+          {
+            "name": "Structures",
+            "children": [
+              { "name": "Scène", "image": "scene.png", "keywords": ["stage", "stage rental"] },
+              { "name": "Truss", "image": "truss.png", "keywords": ["truss"] },
+              { "name": "Barnum", "image": "barnum.png", "keywords": ["tent", "barnum"] }
+            ]
+          }
+        ]
+      },
+
+      {
+        "name": "Décoration / Art",
+        "children": [
+          { "name": "Décoration", "image": "deco_psy.png", "keywords": ["psy deco", "psytrance decor"] },
+          { "name": "UV Painting", "image": "uv_paint.png", "keywords": ["uv painting", "fluorescent"] },
+          { "name": "Sculptures 3D", "image": "sculpt_3d.png", "keywords": ["3d sculpture"] },
+          { "name": "Mandalas", "image": "mandala.png", "keywords": ["mandala"] },
+          { "name": "Mapping visuel", "image": "mapping.png", "keywords": ["visual mapping"] },
+          { "name": "Installations lumineuses", "image": "installation_lumiere.png", "keywords": ["light installation"] }
+        ]
+      },
+
+      {
+        "name": "Sécurité & Logistique",
+        "children": [
+          { "name": "Sécurité", "image": "security.png", "keywords": ["security", "agent sécurité"] },
+          { "name": "Secouristes", "image": "first_aid.png", "keywords": ["secouriste", "first aid"] },
+          { "name": "Staff accueil", "image": "accueil.png", "keywords": ["staff accueil"] },
+          { "name": "Billetterie", "image": "ticketing.png", "keywords": ["ticketing"] },
+          { "name": "Bar staff", "image": "barstaff.png", "keywords": ["bar staff"] },
+          { "name": "Transport", "image": "transport.png", "keywords": ["transport"] },
+          { "name": "Montage / Démontage", "image": "montage.png", "keywords": ["montage", "démontage"] }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nettoyage localStorage - MapEvent</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        h1 {
+            margin-top: 0;
+            text-align: center;
+        }
+        .status {
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            font-weight: 600;
+        }
+        .success {
+            background: rgba(34, 197, 94, 0.3);
+            border: 2px solid #22c55e;
+        }
+        .info {
+            background: rgba(59, 130, 246, 0.3);
+            border: 2px solid #3b82f6;
+        }
+        .error {
+            background: rgba(239, 68, 68, 0.3);
+            border: 2px solid #ef4444;
+        }
+        button {
+            width: 100%;
+            padding: 15px;
+            font-size: 16px;
+            font-weight: 600;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            margin: 10px 0;
+            transition: transform 0.2s;
+        }
+        button:hover {
+            transform: scale(1.02);
+        }
+        .btn-primary {
+            background: #22c55e;
+            color: white;
+        }
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+        .btn-secondary {
+            background: #64748b;
+            color: white;
+        }
+        .info-box {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            font-size: 14px;
+        }
+        code {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧹 Nettoyage localStorage</h1>
+        
+        <div id="status" class="status info">
+            ⏳ Analyse du localStorage en cours...
+        </div>
+        
+        <div class="info-box">
+            <strong>📊 État actuel :</strong>
+            <div id="storage-info"></div>
+        </div>
+        
+        <div class="info-box" style="background: rgba(34, 197, 94, 0.2); border: 2px solid #22c55e;">
+            <strong>✅ DONNÉES CONSERVÉES (essentielles) :</strong>
+            <ul style="margin: 10px 0; padding-left: 20px;">
+                <li><code>currentUser</code> - Votre profil utilisateur (nom, email, avatar, etc.)</li>
+                <li><code>cognito_tokens</code> - Tokens de connexion Google</li>
+            </ul>
+        </div>
+        
+        <div class="info-box" style="background: rgba(239, 68, 68, 0.2); border: 2px solid #ef4444;">
+            <strong>🗑️ DONNÉES SUPPRIMÉES (non essentielles) :</strong>
+            <ul style="margin: 10px 0; padding-left: 20px;">
+                <li><code>eventsData</code> - Liste des événements (rechargée automatiquement)</li>
+                <li><code>bookingsData</code> - Liste des bookings (rechargée automatiquement)</li>
+                <li><code>servicesData</code> - Liste des services (rechargée automatiquement)</li>
+                <li><code>discussion_*</code> - Discussions (peuvent être rechargées)</li>
+                <li><code>pendingReports</code> - Rapports en attente</li>
+                <li>Données volumineuses dans <code>currentUser</code> (history, photos, etc.)</li>
+            </ul>
+            <div style="margin-top: 10px; font-size: 13px; opacity: 0.9;">
+                ⚠️ Ces données peuvent être rechargées depuis le serveur si nécessaire.
+            </div>
+        </div>
+        
+        <button class="btn-primary" onclick="nettoyerSelectif()">
+            🧹 Nettoyer les données non essentielles (SÉCURISÉ)
+        </button>
+        
+        <button class="btn-danger" onclick="viderCompletement()">
+            🗑️ Vider complètement (vous serez déconnecté)
+        </button>
+        
+        <button class="btn-secondary" onclick="window.location.href='/'">
+            ← Retour au site
+        </button>
+    </div>
+
+    <script>
+        // Analyser le localStorage au chargement
+        function analyserStorage() {
+            const statusEl = document.getElementById('status');
+            const infoEl = document.getElementById('storage-info');
+            
+            try {
+                let total = 0;
+                const keys = [];
+                
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (key) {
+                        const value = localStorage.getItem(key);
+                        const size = (key.length + value.length) * 2; // UTF-16 = 2 bytes par caractère
+                        total += size;
+                        keys.push({ key, size });
+                    }
+                }
+                
+                const totalMB = (total / 1024 / 1024).toFixed(2);
+                const limitMB = 5; // Limite approximative du localStorage
+                
+                let html = `<div>Taille totale : <strong>${totalMB} MB</strong> / ~${limitMB} MB</div>`;
+                html += `<div style="margin-top: 10px;"><strong>Clés trouvées :</strong></div>`;
+                html += `<ul style="margin: 5px 0; padding-left: 20px;">`;
+                
+                keys.sort((a, b) => b.size - a.size).forEach(item => {
+                    const sizeKB = (item.size / 1024).toFixed(2);
+                    html += `<li><code>${item.key}</code> : ${sizeKB} KB</li>`;
+                });
+                html += `</ul>`;
+                
+                infoEl.innerHTML = html;
+                
+                if (totalMB > limitMB * 0.8) {
+                    statusEl.className = 'status error';
+                    statusEl.textContent = `⚠️ localStorage presque plein (${totalMB} MB) ! Nettoyage recommandé.`;
+                } else {
+                    statusEl.className = 'status success';
+                    statusEl.textContent = `✅ localStorage OK (${totalMB} MB utilisés)`;
+                }
+            } catch (e) {
+                statusEl.className = 'status error';
+                statusEl.textContent = `❌ Erreur : ${e.message}`;
+            }
+        }
+        
+        // Nettoyer sélectivement (garde currentUser et tokens)
+        function nettoyerSelectif() {
+            const statusEl = document.getElementById('status');
+            statusEl.className = 'status info';
+            statusEl.textContent = '⏳ Nettoyage en cours...';
+            
+            try {
+                // Sauvegarder les données essentielles AVANT tout nettoyage
+                const currentUser = localStorage.getItem('currentUser');
+                const tokens = localStorage.getItem('cognito_tokens');
+                
+                console.log('✅ Données essentielles sauvegardées :');
+                console.log('  - currentUser :', currentUser ? 'présent' : 'absent');
+                console.log('  - cognito_tokens :', tokens ? 'présent' : 'absent');
+                
+                // Supprimer UNIQUEMENT les données volumineuses non essentielles
+                localStorage.removeItem('eventsData');
+                localStorage.removeItem('bookingsData');
+                localStorage.removeItem('servicesData');
+                
+                // Supprimer toutes les discussions
+                const keysToRemove = [];
+                for (let i = 0; i < localStorage.length; i++) {
+                    const k = localStorage.key(i);
+                    if (k && (k.startsWith('discussion_') || k.startsWith('pendingReports'))) {
+                        keysToRemove.push(k);
+                    }
+                }
+                keysToRemove.forEach(k => localStorage.removeItem(k));
+                
+                // Réduire currentUser si nécessaire (mais garder les données importantes)
+                if (currentUser) {
+                    try {
+                        const userObj = JSON.parse(currentUser);
+                        
+                        // CONSERVER ces données importantes :
+                        // - id, email, username, name, firstName, lastName
+                        // - avatar, profilePhoto, avatarDescription
+                        // - isLoggedIn, profileComplete, subscription, role
+                        // - agenda, favorites (limités à 50 mais conservés)
+                        // - postalAddress
+                        
+                        // Supprimer UNIQUEMENT les données vraiment volumineuses :
+                        delete userObj.history; // Historique (peut être régénéré)
+                        delete userObj.photos; // Photos (peuvent être rechargées)
+                        delete userObj.profilePhotos; // Photos de profil (gardées dans profilePhoto)
+                        delete userObj.eventStatusHistory; // Historique des statuts
+                        
+                        // Limiter les tableaux volumineux mais les CONSERVER
+                        if (userObj.agenda && userObj.agenda.length > 50) {
+                            userObj.agenda = userObj.agenda.slice(-50); // Garder les 50 derniers
+                        }
+                        if (userObj.favorites && userObj.favorites.length > 50) {
+                            userObj.favorites = userObj.favorites.slice(-50); // Garder les 50 derniers
+                        }
+                        
+                        // S'assurer que les données importantes sont toujours là
+                        const importantData = {
+                            id: userObj.id,
+                            email: userObj.email,
+                            username: userObj.username,
+                            name: userObj.name,
+                            firstName: userObj.firstName,
+                            lastName: userObj.lastName,
+                            avatar: userObj.avatar,
+                            profilePhoto: userObj.profilePhoto,
+                            avatarDescription: userObj.avatarDescription,
+                            isLoggedIn: userObj.isLoggedIn,
+                            profileComplete: userObj.profileComplete,
+                            subscription: userObj.subscription,
+                            role: userObj.role,
+                            postalAddress: userObj.postalAddress
+                        };
+                        
+                        // Fusionner avec les données réduites
+                        const cleanedUser = { ...importantData, ...userObj };
+                        
+                        localStorage.setItem('currentUser', JSON.stringify(cleanedUser));
+                        console.log('✅ currentUser nettoyé mais données importantes conservées');
+                    } catch (e) {
+                        console.warn('⚠️ Erreur lors du nettoyage de currentUser, conservation de l\'original');
+                        // Si erreur, garder l'original intact
+                        if (currentUser) localStorage.setItem('currentUser', currentUser);
+                    }
+                }
+                
+                // Vérifier que les données essentielles sont toujours là
+                const checkUser = localStorage.getItem('currentUser');
+                const checkTokens = localStorage.getItem('cognito_tokens');
+                
+                if (!checkUser && currentUser) {
+                    // Restaurer si perdu
+                    localStorage.setItem('currentUser', currentUser);
+                    console.log('✅ currentUser restauré');
+                }
+                if (!checkTokens && tokens) {
+                    // Restaurer si perdu
+                    localStorage.setItem('cognito_tokens', tokens);
+                    console.log('✅ cognito_tokens restauré');
+                }
+                
+                statusEl.className = 'status success';
+                statusEl.textContent = '✅ Nettoyage réussi ! Vos données importantes sont conservées. Rechargez la page.';
+                
+                setTimeout(() => {
+                    analyserStorage();
+                }, 500);
+            } catch (e) {
+                statusEl.className = 'status error';
+                statusEl.textContent = `❌ Erreur : ${e.message}`;
+                console.error('Erreur nettoyage:', e);
+            }
+        }
+        
+        // Vider complètement
+        function viderCompletement() {
+            if (!confirm('⚠️ Êtes-vous sûr de vouloir vider complètement le localStorage ?\n\nVous serez déconnecté et devrez vous reconnecter.')) {
+                return;
+            }
+            
+            const statusEl = document.getElementById('status');
+            statusEl.className = 'status info';
+            statusEl.textContent = '⏳ Vidage en cours...';
+            
+            try {
+                localStorage.clear();
+                statusEl.className = 'status success';
+                statusEl.textContent = '✅ localStorage vidé ! Redirection dans 2 secondes...';
+                
+                setTimeout(() => {
+                    window.location.href = '/';
+                }, 2000);
+            } catch (e) {
+                statusEl.className = 'status error';
+                statusEl.textContent = `❌ Erreur : ${e.message}`;
+            }
+        }
+        
+        // Analyser au chargement
+        analyserStorage();
+    </script>
+</body>
+</html>
+

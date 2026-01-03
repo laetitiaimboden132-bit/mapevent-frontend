@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Event Source Checker - MapEvent</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            max-width: 600px;
+            width: 100%;
+        }
+
+        .card {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 30px;
+        }
+
+        h1 {
+            font-size: 28px;
+            font-weight: 700;
+            color: #1f2937;
+            margin-bottom: 24px;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 14px 18px;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        button {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .status-box {
+            margin-top: 24px;
+            padding: 20px;
+            border-radius: 12px;
+            background: #f9fafb;
+            border: 2px solid #e5e7eb;
+            display: none;
+        }
+
+        .status-box.show {
+            display: block;
+        }
+
+        .status-box.success {
+            background: #ecfdf5;
+            border-color: #10b981;
+        }
+
+        .status-box.error {
+            background: #fef2f2;
+            border-color: #ef4444;
+        }
+
+        .status-box.warning {
+            background: #fffbeb;
+            border-color: #f59e0b;
+        }
+
+        .status-item {
+            margin-bottom: 12px;
+        }
+
+        .status-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .status-label {
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 4px;
+        }
+
+        .status-value {
+            color: #6b7280;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            word-break: break-all;
+        }
+
+        .type-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .type-badge.json {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .type-badge.ics {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .type-badge.html {
+            background: #e0e7ff;
+            color: #3730a3;
+        }
+
+        .type-badge.unknown {
+            background: #f3f4f6;
+            color: #4b5563;
+        }
+
+        .preview {
+            margin-top: 16px;
+            padding: 12px;
+            background: white;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            color: #374151;
+        }
+
+        .preview-title {
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #1f2937;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <h1>🔍 Event Source Checker</h1>
+            
+            <div class="input-group">
+                <input 
+                    type="text" 
+                    id="urlInput" 
+                    placeholder="Entrez l'URL à tester..."
+                    value=""
+                />
+            </div>
+
+            <button id="testButton" onclick="testSource()">
+                <span id="buttonText">Tester la Source</span>
+                <span id="spinner" class="spinner" style="display: none;"></span>
+            </button>
+
+            <div id="statusBox" class="status-box">
+                <div class="status-item">
+                    <div class="status-label">Status HTTP:</div>
+                    <div class="status-value" id="statusCode">-</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-label">Type détecté:</div>
+                    <div class="status-value">
+                        <span id="typeBadge" class="type-badge">-</span>
+                    </div>
+                </div>
+                <div class="status-item" id="previewContainer" style="display: none;">
+                    <div class="preview-title">Aperçu (premiers 500 caractères):</div>
+                    <div class="preview" id="previewContent"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function testSource() {
+            const urlInput = document.getElementById('urlInput');
+            const testButton = document.getElementById('testButton');
+            const buttonText = document.getElementById('buttonText');
+            const spinner = document.getElementById('spinner');
+            const statusBox = document.getElementById('statusBox');
+            const statusCode = document.getElementById('statusCode');
+            const typeBadge = document.getElementById('typeBadge');
+            const previewContainer = document.getElementById('previewContainer');
+            const previewContent = document.getElementById('previewContent');
+
+            const url = urlInput.value.trim();
+
+            if (!url) {
+                alert('Veuillez entrer une URL');
+                return;
+            }
+
+            // Désactiver le bouton et afficher le spinner
+            testButton.disabled = true;
+            buttonText.textContent = 'Test en cours...';
+            spinner.style.display = 'block';
+            statusBox.classList.remove('show', 'success', 'error', 'warning');
+
+            try {
+                const response = await fetch(url, { 
+                    method: 'GET',
+                    headers: {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                    }
+                });
+
+                const text = await response.text();
+                
+                // Détecter le type
+                let type = 'unknown';
+                let typeClass = 'unknown';
+                
+                const trimmedText = text.trim();
+                if (trimmedText.startsWith('{') || trimmedText.startsWith('[')) {
+                    type = 'JSON';
+                    typeClass = 'json';
+                } else if (text.includes('BEGIN:VCALENDAR') || text.includes('BEGIN:VEVENT')) {
+                    type = 'ICS';
+                    typeClass = 'ics';
+                } else if (text.includes('<!DOCTYPE') || text.includes('<html')) {
+                    type = 'HTML';
+                    typeClass = 'html';
+                }
+
+                // Afficher les résultats
+                statusCode.textContent = response.status + ' ' + (response.statusText || '');
+                typeBadge.textContent = type;
+                typeBadge.className = 'type-badge ' + typeClass;
+
+                // Afficher un aperçu
+                if (text.length > 0) {
+                    previewContent.textContent = text.substring(0, 500) + (text.length > 500 ? '...' : '');
+                    previewContainer.style.display = 'block';
+                } else {
+                    previewContainer.style.display = 'none';
+                }
+
+                // Déterminer le style selon le status
+                if (response.status >= 200 && response.status < 300) {
+                    statusBox.classList.add('show', 'success');
+                } else if (response.status >= 400) {
+                    statusBox.classList.add('show', 'error');
+                } else {
+                    statusBox.classList.add('show', 'warning');
+                }
+
+            } catch (error) {
+                statusCode.textContent = 'Erreur: ' + error.message;
+                typeBadge.textContent = 'Inaccessible';
+                typeBadge.className = 'type-badge unknown';
+                statusBox.classList.add('show', 'error');
+                previewContainer.style.display = 'none';
+            } finally {
+                // Réactiver le bouton
+                testButton.disabled = false;
+                buttonText.textContent = 'Tester la Source';
+                spinner.style.display = 'none';
+            }
+        }
+
+        // Permettre d'appuyer sur Entrée pour tester
+        document.getElementById('urlInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                testSource();
+            }
+        });
+    </script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

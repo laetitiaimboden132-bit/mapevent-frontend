@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test APIs - Paiement & Create Tables</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: #fff;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .container {
+            background: rgba(15, 23, 42, 0.9);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 30px;
+            max-width: 600px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        }
+        h1 {
+            font-size: 24px;
+            margin-bottom: 8px;
+            text-align: center;
+        }
+        .subtitle {
+            text-align: center;
+            color: #94a3b8;
+            font-size: 14px;
+            margin-bottom: 30px;
+        }
+        .buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        button {
+            padding: 16px;
+            border-radius: 12px;
+            border: none;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: white;
+        }
+        button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+        }
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        #test-payment-btn {
+            background: linear-gradient(135deg, #22c55e, #4ade80);
+        }
+        #test-payment-btn:hover:not(:disabled) {
+            background: linear-gradient(135deg, #16a34a, #22c55e);
+        }
+        #test-tables-btn {
+            background: linear-gradient(135deg, #3b82f6, #60a5fa);
+        }
+        #test-tables-btn:hover:not(:disabled) {
+            background: linear-gradient(135deg, #2563eb, #3b82f6);
+        }
+        #result {
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 20px;
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            display: none;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        .success {
+            border-left: 4px solid #22c55e;
+            color: #22c55e;
+        }
+        .error {
+            border-left: 4px solid #ef4444;
+            color: #ef4444;
+        }
+        .info {
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 20px;
+            font-size: 12px;
+            color: #94a3b8;
+        }
+        .info code {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 11px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Test APIs</h1>
+        <p class="subtitle">Tester les routes API Paiement et Create Tables</p>
+        
+        <div class="info">
+            <strong>📍 URL actuelle:</strong> <span id="current-url"></span><br>
+            <strong>🔗 API Base:</strong> <code>https://j33osy4bvj.execute-api.eu-west-1.amazonaws.com</code>
+        </div>
+        
+        <div class="buttons">
+            <button id="test-payment-btn" onclick="testPayment()">
+                💳 Test Paiement
+            </button>
+            <button id="test-tables-btn" onclick="testCreateTables()">
+                🗄️ Test Create Tables
+            </button>
+        </div>
+        
+        <div id="result"></div>
+    </div>
+    
+    <script>
+        const API_BASE = 'https://j33osy4bvj.execute-api.eu-west-1.amazonaws.com';
+        const API_PAYMENT = `${API_BASE}/api/payments/create-checkout-session`;
+        const API_TABLES = `${API_BASE}/api/admin/create-tables`;
+        
+        document.getElementById('current-url').textContent = window.location.origin;
+        
+        async function testPayment() {
+            const btn = document.getElementById('test-payment-btn');
+            const result = document.getElementById('result');
+            
+            btn.disabled = true;
+            btn.textContent = '⏳ Test en cours...';
+            result.style.display = 'block';
+            result.className = '';
+            result.textContent = '⏳ Envoi de la requête de paiement...';
+            
+            const testData = {
+                userId: '1',
+                paymentType: 'contact',
+                itemType: 'booking',
+                itemId: 1,
+                amount: 1.00,
+                currency: 'CHF',
+                email: 'test@example.com'
+            };
+            
+            try {
+                const response = await fetch(API_PAYMENT, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Origin': window.location.origin
+                    },
+                    body: JSON.stringify(testData)
+                });
+                
+                const responseText = await response.text();
+                
+                if (response.ok) {
+                    try {
+                        const data = JSON.parse(responseText);
+                        result.className = 'success';
+                        result.textContent = `✅ SUCCÈS - Route Paiement fonctionne !\n\nStatus: ${response.status}\n\nRéponse:\n${JSON.stringify(data, null, 2)}`;
+                    } catch (e) {
+                        result.className = 'success';
+                        result.textContent = `✅ SUCCÈS - Route Paiement fonctionne !\n\nStatus: ${response.status}\n\nRéponse:\n${responseText}`;
+                    }
+                } else {
+                    result.className = 'error';
+                    let errorMsg = `❌ ERREUR ${response.status}\n\nRéponse:\n${responseText}`;
+                    
+                    if (response.status === 404) {
+                        errorMsg += '\n\n⚠️ Route 404 - La route n\'existe pas';
+                    } else if (response.status === 403) {
+                        errorMsg += '\n\n⚠️ Erreur CORS 403 - Activez CORS dans API Gateway';
+                    }
+                    
+                    result.textContent = errorMsg;
+                }
+            } catch (error) {
+                result.className = 'error';
+                let errorMsg = `❌ ERREUR\n\nType: ${error.name}\nMessage: ${error.message}`;
+                
+                if (error.message.includes('CORS') || error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+                    errorMsg += '\n\n⚠️ PROBLÈME CORS DÉTECTÉ\n';
+                    errorMsg += '→ Activez CORS sur /api/payments/create-checkout-session dans API Gateway\n';
+                    errorMsg += '→ N\'oubliez pas de DÉPLOYER l\'API après activation';
+                }
+                
+                result.textContent = errorMsg;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '💳 Test Paiement';
+            }
+        }
+        
+        async function testCreateTables() {
+            const btn = document.getElementById('test-tables-btn');
+            const result = document.getElementById('result');
+            
+            btn.disabled = true;
+            btn.textContent = '⏳ Test en cours...';
+            result.style.display = 'block';
+            result.className = '';
+            result.textContent = '⏳ Création des tables en cours...';
+            
+            try {
+                const response = await fetch(API_TABLES, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Origin': window.location.origin
+                    },
+                    body: JSON.stringify({})
+                });
+                
+                const responseText = await response.text();
+                
+                if (response.ok) {
+                    try {
+                        const data = JSON.parse(responseText);
+                        result.className = 'success';
+                        result.textContent = `✅ SUCCÈS - Tables créées !\n\nStatus: ${response.status}\n\nRéponse:\n${JSON.stringify(data, null, 2)}`;
+                    } catch (e) {
+                        result.className = 'success';
+                        result.textContent = `✅ SUCCÈS - Tables créées !\n\nStatus: ${response.status}\n\nRéponse:\n${responseText}`;
+                    }
+                } else {
+                    result.className = 'error';
+                    let errorMsg = `❌ ERREUR ${response.status}\n\nRéponse:\n${responseText}`;
+                    
+                    if (response.status === 404) {
+                        errorMsg += '\n\n⚠️ Route 404 - La route n\'existe pas';
+                    } else if (response.status === 403) {
+                        errorMsg += '\n\n⚠️ Erreur CORS 403 - Activez CORS dans API Gateway';
+                    } else if (response.status === 401) {
+                        errorMsg += '\n\n⚠️ Erreur 401 - Non autorisé (vérifiez les permissions admin)';
+                    }
+                    
+                    result.textContent = errorMsg;
+                }
+            } catch (error) {
+                result.className = 'error';
+                let errorMsg = `❌ ERREUR\n\nType: ${error.name}\nMessage: ${error.message}`;
+                
+                if (error.message.includes('CORS') || error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+                    errorMsg += '\n\n⚠️ PROBLÈME CORS DÉTECTÉ\n';
+                    errorMsg += '→ Activez CORS sur /api/admin/create-tables dans API Gateway\n';
+                    errorMsg += '→ N\'oubliez pas de DÉPLOYER l\'API après activation';
+                }
+                
+                result.textContent = errorMsg;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '🗄️ Test Create Tables';
+            }
+        }
+    </script>
+</body>
+</html>
+

@@ -1,0 +1,354 @@
+[
+  {
+    "Titre de l'événement": "Marathon de Paris",
+    "Adresse Complète (Lieu/Rue/CP/Ville)": "Départ Champs-Élysées / Arrivée Avenue Foch, 75008 / 75016 Paris",
+    "Date Début": "5 Avr. 2026",
+    "Heure Début": "08:30:00",
+    "Date Fin": "5 Avr. 2026",
+    "Heure Fin": "15:00:00",
+    "Catégorie": "Sport (Course)",
+    "Lien de la Publication d'Origine": "Marathon de Paris",
+    "Adresse Email Organisateur (Publique)": "Via formulaire (Non publiée)"
+  },
+  {
+    "Titre de l'événement": "Roland-Garros (Tennis)",
+    "Adresse Complète (Lieu/Rue/CP/Ville)": "Stade Roland-Garros, 2 avenue Gordon Bennett, 75016 Paris",
+    "Date Début": "24 Mai 2026",
+    "Heure Début": "10:00:00",
+    "Date Fin": "7 Juin 2026",
+    "Heure Fin": "21:00:00",
+    "Catégorie": "Sport (Tennis)",
+    "Lien de la Publication d'Origine": "Roland-Garros (Calendrier)",
+    "Adresse Email Organisateur (Publique)": "Via formulaire (Non publiée)"
+  },
+  {
+    "Titre de l'événement": "24 Heures du Mans (Auto)",
+    "Adresse Complète (Lieu/Rue/CP/Ville)": "Circuit des 24 Heures, 72000 Le Mans",
+    "Date Début": "13 Juin 2026",
+    "Heure Début": "16:00:00",
+    "Date Fin": "14 Juin 2026",
+    "Heure Fin": "16:00:00",
+    "Catégorie": "Sport (Course Endurance)",
+    "Lien de la Publication d'Origine": "24h du Mans - ACO",
+    "Adresse Email Organisateur (Publique)": "presse@lemans.org"
+  },
+  {
+    "Titre de l'événement": "Festival de Cannes",
+    "Adresse Complète (Lieu/Rue/CP/Ville)": "Palais des Festivals, 1 Boulevard de la Croisette, 06400 Cannes",
+    "Date Début": "13 Mai 2026",
+    "Heure Début": "18:00:00",
+    "Date Fin": "24 Mai 2026",
+    "Heure Fin": "23:00:00",
+    "Catégorie": "Arts (Cinéma)",
+    "Lien de la Publication d'Origine": "Festival de Cannes",
+    "Adresse Email Organisateur (Publique)": "contact@festival-cannes.fr"
+  },
+  {
+    "Titre de l'événement": "Mondial de l'Auto",
+    "Adresse Complète (Lieu/Rue/CP/Ville)": "Paris Expo Porte de Versailles, 1 place de la Porte de Versailles, 75015 Paris",
+    "Date Début": "16 Oct. 2026",
+    "Heure Début": "10:00:00",
+    "Date Fin": "26 Oct. 2026",
+    "Heure Fin": "20:00:00",
+    "Catégorie": "Salon (Auto)",
+    "Lien de la Publication d'Origine": "Mondial de l'Auto",
+    "Adresse Email Organisateur (Publique)": "Via formulaire (Non publiée)"
+  },
+  {
+    "Titre de l'événement": "Hellfest Summer Open Air",
+    "Adresse Complète (Lieu/Rue/CP/Ville)": "Site du Hellfest, Rue du Champ Louet, 44190 Clisson",
+    "Date Début": "18 Juin 2026",
+    "Heure Début": "10:00:00",
+    "Date Fin": "21 Juin 2026",
+    "Heure Fin": "02:00:00",
+    "Catégorie": "Musique (Festival)",
+    "Lien de la Publication d'Origine": "Hellfest Production",
+    "Adresse Email Organisateur (Publique)": "presse@hellfest.fr"
+  },
+  {
+    "Titre de l'événement": "Festival d'Avignon",
+    "Adresse Complète (Lieu/Rue/CP/Ville)": "Cour d'Honneur du Palais des Papes, Place du Palais, 84000 Avignon",
+    "Date Début": "3 Juil. 2026",
+    "Heure Début": "10:00:00",
+    "Date Fin": "25 Juil. 2026",
+    "Heure Fin": "22:30:00",
+    "Catégorie": "Arts (Théâtre)",
+    "Lien de la Publication d'Origine": "Festival d'Avignon",
+    "Adresse Email Organisateur (Publique)": "contact@festival-avignon.com"
+  },
+  {
+    "Titre de l'événement": "Fête des Lumières",
+    "Adresse Complète (Lieu/Rue/CP/Ville)": "Dans toute la Ville de Lyon, 69000 Lyon",
+    "Date Début": "8 Déc. 2026",
+    "Heure Début": "18:00:00",
+    "Date Fin": "11 Déc. 2026",
+    "Heure Fin": "22:00:00",
+    "Catégorie": "Culture & Lumière",
+    "Lien de la Publication d'Origine": "Fête des Lumières (Lyon)",
+    "Adresse Email Organisateur (Publique)": "Via Mairie de Lyon (Non publiée)"
+  },
+  {
+    "Titre de l'événement": "Les Francofolies",
+    "Adresse Complète (Lieu/Rue/CP/Ville)": "Esplanade Saint-Jean d'Acre, 17000 La Rochelle",
+    "Date Début": "10 Juil. 2026",
+    "Heure Début": "17:30:00",
+    "Date Fin": "14 Juil. 2026",
+    "Heure Fin": "00:30:00",
+    "Catégorie": "Musique (Festival)",
+    "Lien de la Publication d'Origine": "Les Francofolies",
+    "Adresse Email Organisateur (Publique)": "contact@francofolies.fr"
+  },
+  {
+    "Titre de l'événement": "Main Square Festival",
+    "Adresse Complète (Lieu/Rue/CP/Ville)": "Citadelle d'Arras, 50 Boulevard du Général de Gaulle, 62000 Arras",
+    "Date Début": "3 Juil. 2026",
+    "Heure Début": "17:00:00",
+    "Date Fin": "5 Juil. 2026",
+    "Heure Fin": "01:00:00",
+    "Catégorie": "Musique (Festival)",
+    "Lien de la Publication d'Origine": "Main Square Festival",
+    "Adresse Email Organisateur (Publique)": "Via formulaire (Non publiée)"
+  },
+  {
+    "Titre de l'événement": "Les Eurockéennes de Belfort",
+    "Adresse Complète (Lieu/Rue/CP/Ville)": "Presqu'île du Malsaucy, 90300 Sermamagny",
+    "Date Début": "3 Juil. 2026",
+    "Heure Début": "18:00:00",
+    "Date Fin": "5 Juil. 2026",
+    "Heure Fin": "02:00:00",
+    "Catégorie": "Musique (Festival)",
+    "Lien de la Publication d'Origine": "Les Eurockéennes",
+    "Adresse Email Organisateur (Publique)": "contact@eurockeennes.fr"
+  },
+  {
+    "Titre de l'événement": "Ironman France Nice",
+    "Adresse Complète (Lieu/Rue/CP/Ville)": "Promenade des Anglais, 06000 Nice",
+    "Date Début": "28 Juin 2026",
+    "Heure Début": "06:30:00",
+    "Date Fin": "28 Juin 2026",
+    "Heure Fin": "23:00:00",
+    "Catégorie": "Sport (Triathlon)",
+    "Lien de la Publication d'Origine": "Ironman Nice",
+    "Adresse Email Organisateur (Publique)": "nice@ironman.com"
+  },
+  {
+    "Titre de l'événement": "Festival de la BD",
+    "Adresse Complète (Lieu/Rue/CP/Ville)": "Centre de Congrès / Cité de la BD, 16000 Angoulême",
+    "Date Début": "29 Jan. 2026",
+    "Heure Début": "09:00:00",
+    "Date Fin": "1 Fév. 2026",
+    "Heure Fin": "19:00:00",
+    "Catégorie": "Culture (BD)",
+    "Lien de la Publication d'Origine": "Festival BD Angoulême",
+    "Adresse Email Organisateur (Publique)": "contact@bdangouleme.com"
+  },
+  {
+    "Titre de l'événement": "Les Voiles de Saint-Tropez",
+    "Adresse Complète (Lieu/Rue/CP/Ville)": "Port de Saint-Tropez, 83990 Saint-Tropez",
+    "Date Début": "26 Sept. 2026",
+    "Heure Début": "09:00:00",
+    "Date Fin": "4 Oct. 2026",
+    "Heure Fin": "18:00:00",
+    "Catégorie": "Sport (Nautisme)",
+    "Lien de la Publication d'Origine": "Les Voiles de Saint-Tropez",
+    "Adresse Email Organisateur (Publique)": "contact@snst.org"
+  },
+  {
+    "Titre de l'événement": "Jazz à Vienne",
+    "Adresse Complète (Lieu/Rue/CP/Ville)": "Théâtre Antique de Vienne, Jardin de Ville, 38200 Vienne",
+    "Date Début": "29 Juin 2026",
+    "Heure Début": "20:00:00",
+    "Date Fin": "13 Juil. 2026",
+    "Heure Fin": "23:30:00",
+    "Catégorie": "Musique (Jazz)",
+    "Lien de la Publication d'Origine": "Jazz à Vienne",
+    "Adresse Email Organisateur (Publique)": "contact@jazzavienne.com"
+  },
+  {
+    "Titre de l'événement": "Les Trans Musicales",
+    "Adresse Complète (Lieu/Rue/CP/Ville)": "Parc Expo Rennes Aéroport, La Haie Gautrais, 35172 Bruz",
+    "Date Début": "2 Déc. 2026",
+    "Heure Début": "18:00:00",
+    "Date Fin": "6 Déc. 2026",
+    "Heure Fin": "04:00:00",
+    "Catégorie": "Musique (Festival)",
+    "Lien de la Publication d'Origine": "Les Trans Musicales",
+    "Adresse Email Organisateur (Publique)": "contact@lestrans.com"
+  },
+  {
+    "Titre de l'événement": "Rock en Seine",
+    "Adresse Complète (Lieu/Rue/CP/Ville)": "Hippodrome de Longchamp, 75016 Paris",
+    "Date Début": "28 Août 2026",
+    "Heure Début": "16:00:00",
+    "Date Fin": "30 Août 2026",
+    "Heure Fin": "01:00:00",
+    "Catégorie": "Musique (Festival)",
+    "Lien de la Publication d'Origine": "Rock en Seine",
+    "Adresse Email Organisateur (Publique)": "contact@rockenseine.com"
+  },
+  {
+    "Titre de l'événement": "Grand Prix de Pau Historique",
+    "Adresse Complète (Lieu/Rue/CP/Ville)": "Circuit de Pau-Ville, Boulevard des Pyrénées, 64000 Pau",
+    "Date Début": "22 Mai 2026",
+    "Heure Début": "09:00:00",
+    "Date Fin": "24 Mai 2026",
+    "Heure Fin": "18:00:00",
+    "Catégorie": "Sport (Course Auto)",
+    "Lien de la Publication d'Origine": "Grand Prix de Pau",
+    "Adresse Email Organisateur (Publique)": "Via formulaire (Non publiée)"
+  },
+  {
+    "Titre de l'événement": "Salon International de l'Agriculture",
+    "Adresse Complète (Lieu/Rue/CP/Ville)": "Paris Expo Porte de Versailles, 1 place de la Porte de Versailles, 75015 Paris",
+    "Date Début": "22 Fév. 2026",
+    "Heure Début": "09:00:00",
+    "Date Fin": "1 Mar. 2026",
+    "Heure Fin": "19:00:00",
+    "Catégorie": "Salon (Agricole)",
+    "Lien de la Publication d'Origine": "Salon International de l'Agriculture",
+    "Adresse Email Organisateur (Publique)": "contact.sia@comexposium.com"
+  },
+  {
+    "Titre de l'événement": "FISE (Sports Extrêmes)",
+    "Adresse Complète (Lieu/Rue/CP/Ville)": "Rives du Lez, 34000 Montpellier",
+    "Date Début": "21 Mai 2026",
+    "Heure Début": "09:00:00",
+    "Date Fin": "24 Mai 2026",
+    "Heure Fin": "22:00:00",
+    "Catégorie": "Sport (Extrême)",
+    "Lien de la Publication d'Origine": "FISE World Series",
+    "Adresse Email Organisateur (Publique)": "contact@fise.fr"
+  },
+  {
+    "Titre de l'événement": "Paris Games Week",
+    "Adresse Complète (Lieu/Rue/CP/Ville)": "Paris Expo Porte de Versailles, 1 place de la Porte de Versailles, 75015 Paris",
+    "Date Début": "21 Oct. 2026",
+    "Heure Début": "09:30:00",
+    "Date Fin": "25 Oct. 2026",
+    "Heure Fin": "19:00:00",
+    "Catégorie": "Tech & Jeux Vidéo",
+    "Lien de la Publication d'Origine": "Paris Games Week",
+    "Adresse Email Organisateur (Publique)": "contact@parisgamesweek.com"
+  },
+  {
+    "Titre de l'événement": "Route du Rhum (Départ)",
+    "Adresse Complète (Lieu/Rue/CP/Ville)": "Quai Saint-Louis, 35400 Saint-Malo",
+    "Date Début": "25 Oct. 2026",
+    "Heure Début": "13:00:00",
+    "Date Fin": "25 Oct. 2026",
+    "Heure Fin": "18:00:00",
+    "Catégorie": "Sport (Nautisme)",
+    "Lien de la Publication d'Origine": "Route du Rhum",
+    "Adresse Email Organisateur (Publique)": "contact@routedurhum.com"
+  },
+  {
+    "Titre de l'événement": "Festival des Lanternes",
+    "Adresse Complète (Lieu/Rue/CP/Ville)": "Parc du Ritouret, 31700 Blagnac",
+    "Date Début": "1 Déc. 2026",
+    "Heure Début": "18:00:00",
+    "Date Fin": "15 Fév. 2027",
+    "Heure Fin": "22:00:00",
+    "Catégorie": "Culture & Lumière",
+    "Lien de la Publication d'Origine": "Festival des Lanternes (Blagnac)",
+    "Adresse Email Organisateur (Publique)": "Via Mairie de Blagnac (Non publiée)"
+  },
+  {
+    "Titre de l'événement": "Les Nuits de Fourvière",
+    "Adresse Complète (Lieu/Rue/CP/Ville)": "Théâtres Romains de Fourvière, 6 rue de l'Antiquaille, 69005 Lyon",
+    "Date Début": "2 Juin 2026",
+    "Heure Début": "20:30:00",
+    "Date Fin": "30 Juil. 2026",
+    "Heure Fin": "23:00:00",
+    "Catégorie": "Arts (Spectacle)",
+    "Lien de la Publication d'Origine": "Nuits de Fourvière",
+    "Adresse Email Organisateur (Publique)": "accueil@nuitsdefourviere.com"
+  },
+  {
+    "Titre de l'événement": "Foire Internationale de Bordeaux",
+    "Adresse Complète (Lieu/Rue/CP/Ville)": "Parc des Expositions, Cours Jules Ladoumegue, 33300 Bordeaux",
+    "Date Début": "16 Mai 2026",
+    "Heure Début": "10:00:00",
+    "Date Fin": "24 Mai 2026",
+    "Heure Fin": "20:00:00",
+    "Catégorie": "Salon (Général)",
+    "Lien de la Publication d'Origine": "Foire Internationale de Bordeaux",
+    "Adresse Email Organisateur (Publique)": "info@bordeaux-expo.com"
+  },
+  {
+    "Titre de l'événement": "Festival du Court Métrage",
+    "Adresse Complète (Lieu/Rue/CP/Ville)": "Maison de la Culture, 71 Boulevard François Mitterrand, 63000 Clermont-Ferrand",
+    "Date Début": "30 Jan. 2026",
+    "Heure Début": "09:00:00",
+    "Date Fin": "7 Fév. 2026",
+    "Heure Fin": "23:00:00",
+    "Catégorie": "Arts (Cinéma)",
+    "Lien de la Publication d'Origine": "Festival du Court Métrage",
+    "Adresse Email Organisateur (Publique)": "info@clermont-filmfest.org"
+  },
+  {
+    "Titre de l'événement": "Marathon de Toulouse",
+    "Adresse Complète (Lieu/Rue/CP/Ville)": "Place du Capitole, 31000 Toulouse",
+    "Date Début": "25 Oct. 2026",
+    "Heure Début": "08:30:00",
+    "Date Fin": "25 Oct. 2026",
+    "Heure Fin": "15:00:00",
+    "Catégorie": "Sport (Course)",
+    "Lien de la Publication d'Origine": "Marathon de Toulouse Métropole",
+    "Adresse Email Organisateur (Publique)": "contact@marathon-toulousemetropole.fr"
+  },
+  {
+    "Titre de l'événement": "Salon du Cheval de Paris",
+    "Adresse Complète (Lieu/Rue/CP/Ville)": "Paris Nord Villepinte, Hall 5a, 93420 Villepinte",
+    "Date Début": "29 Nov. 2026",
+    "Heure Début": "09:00:00",
+    "Date Fin": "7 Déc. 2026",
+    "Heure Fin": "19:00:00",
+    "Catégorie": "Salon (Équitation)",
+    "Lien de la Publication d'Origine": "Salon du Cheval de Paris",
+    "Adresse Email Organisateur (Publique)": "contact@salon-cheval.com"
+  },
+  {
+    "Titre de l'événement": "Course de Strasbourg (10km)",
+    "Adresse Complète (Lieu/Rue/CP/Ville)": "Place Kléber (Départ/Arrivée), 67000 Strasbourg",
+    "Date Début": "10 Mai 2026",
+    "Heure Début": "09:00:00",
+    "Date Fin": "10 Mai 2026",
+    "Heure Fin": "12:00:00",
+    "Catégorie": "Sport (Course)",
+    "Lien de la Publication d'Origine": "Courses de Strasbourg",
+    "Adresse Email Organisateur (Publique)": "contact@courses-strasbourg.eu"
+  },
+  {
+    "Titre de l'événement": "Dijon Motor Cup",
+    "Adresse Complète (Lieu/Rue/CP/Ville)": "Circuit Dijon-Prenois, 21380 Prenois",
+    "Date Début": "16 Mai 2026",
+    "Heure Début": "09:00:00",
+    "Date Fin": "17 Mai 2026",
+    "Heure Fin": "18:00:00",
+    "Catégorie": "Sport (Course Auto)",
+    "Lien de la Publication d'Origine": "Circuit Dijon-Prenois",
+    "Adresse Email Organisateur (Publique)": "info@dijon-prenois.com"
+  }
+]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

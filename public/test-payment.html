@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Route API Paiement</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: #fff;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 30px;
+            max-width: 600px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        }
+        
+        h1 {
+            font-size: 24px;
+            margin-bottom: 8px;
+            text-align: center;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #94a3b8;
+            font-size: 14px;
+            margin-bottom: 30px;
+        }
+        
+        .info-box {
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 20px;
+            font-size: 13px;
+        }
+        
+        .info-box code {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .form-group {
+            margin-bottom: 16px;
+        }
+        
+        label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: #cbd5e1;
+        }
+        
+        input {
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(15, 23, 42, 0.9);
+            color: #fff;
+            font-size: 14px;
+            font-family: inherit;
+        }
+        
+        input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        
+        button {
+            width: 100%;
+            padding: 14px;
+            border-radius: 8px;
+            border: none;
+            background: linear-gradient(135deg, #22c55e, #4ade80);
+            color: #022c22;
+            font-weight: 700;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(34, 197, 94, 0.3);
+        }
+        
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        .result {
+            margin-top: 20px;
+            padding: 16px;
+            border-radius: 12px;
+            font-size: 13px;
+            display: none;
+        }
+        
+        .result.success {
+            background: rgba(34, 197, 94, 0.1);
+            border: 1px solid rgba(34, 197, 94, 0.3);
+            color: #22c55e;
+            display: block;
+        }
+        
+        .result.error {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #ef4444;
+            display: block;
+        }
+        
+        .result pre {
+            margin-top: 12px;
+            padding: 12px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            overflow-x: auto;
+            font-size: 12px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        
+        .status {
+            font-weight: 700;
+            font-size: 16px;
+            margin-bottom: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Test Route API Paiement</h1>
+        <p class="subtitle">Tester la route /api/payments/create-checkout-session</p>
+        
+        <div class="info-box">
+            <strong>URL API:</strong><br>
+            <code id="api-url">https://j33osy4bvj.execute-api.eu-west-1.amazonaws.com/api/payments/create-checkout-session</code>
+        </div>
+        
+        <form id="test-form">
+            <div class="form-group">
+                <label for="user-id">User ID</label>
+                <input type="text" id="user-id" value="1" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="email">Email</label>
+                <input type="email" id="email" value="test@example.com" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="amount">Montant (CHF)</label>
+                <input type="number" id="amount" value="1.00" step="0.01" min="0.01" required>
+            </div>
+            
+            <button type="submit" id="test-btn">Tester la Route</button>
+        </form>
+        
+        <div id="result" class="result">
+            <div class="status" id="status"></div>
+            <pre id="result-content"></pre>
+        </div>
+    </div>
+    
+    <script>
+        const API_URL = 'https://j33osy4bvj.execute-api.eu-west-1.amazonaws.com/api/payments/create-checkout-session';
+        
+        document.getElementById('test-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const btn = document.getElementById('test-btn');
+            const result = document.getElementById('result');
+            const status = document.getElementById('status');
+            const content = document.getElementById('result-content');
+            
+            btn.disabled = true;
+            btn.textContent = '⏳ Test en cours...';
+            
+            result.className = 'result';
+            result.style.display = 'block';
+            status.textContent = '⏳ Envoi de la requête...';
+            content.textContent = '';
+            
+            const testData = {
+                userId: document.getElementById('user-id').value,
+                paymentType: 'contact',
+                itemType: 'booking',
+                itemId: 1,
+                amount: parseFloat(document.getElementById('amount').value),
+                currency: 'CHF',
+                email: document.getElementById('email').value
+            };
+            
+            const startTime = Date.now();
+            
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Origin': 'https://mapevent.world'
+                    },
+                    body: JSON.stringify(testData)
+                });
+                
+                const endTime = Date.now();
+                const duration = endTime - startTime;
+                
+                const responseText = await response.text();
+                
+                let resultData = {
+                    status: response.status,
+                    statusText: response.statusText,
+                    duration: duration + 'ms',
+                    headers: {
+                        'Access-Control-Allow-Origin': response.headers.get('Access-Control-Allow-Origin') || 'NON DÉFINI',
+                        'Access-Control-Allow-Methods': response.headers.get('Access-Control-Allow-Methods') || 'NON DÉFINI',
+                        'Access-Control-Allow-Headers': response.headers.get('Access-Control-Allow-Headers') || 'NON DÉFINI'
+                    },
+                    body: responseText
+                };
+                
+                if (response.ok) {
+                    try {
+                        resultData.body = JSON.parse(responseText);
+                        status.textContent = '✅ SUCCÈS';
+                        result.className = 'result success';
+                        content.textContent = JSON.stringify(resultData, null, 2);
+                    } catch (e) {
+                        status.textContent = '⚠️ RÉPONSE NON-JSON';
+                        result.className = 'result error';
+                        content.textContent = JSON.stringify(resultData, null, 2);
+                    }
+                } else {
+                    status.textContent = `❌ ERREUR ${response.status}`;
+                    result.className = 'result error';
+                    
+                    let errorMsg = JSON.stringify(resultData, null, 2);
+                    
+                    if (response.status === 404) {
+                        errorMsg += '\n\n⚠️ Route 404 !\n→ La route n\'existe pas dans API Gateway';
+                    } else if (response.status === 403) {
+                        errorMsg += '\n\n⚠️ Erreur CORS 403 !\n→ CORS n\'est pas configuré correctement\n→ Activez CORS dans API Gateway et déployez';
+                    }
+                    
+                    content.textContent = errorMsg;
+                }
+            } catch (error) {
+                const endTime = Date.now();
+                const duration = endTime - startTime;
+                
+                status.textContent = '❌ ERREUR';
+                result.className = 'result error';
+                
+                let errorMsg = `Type: ${error.name}\nMessage: ${error.message}\nDurée: ${duration}ms\n\n`;
+                
+                if (error.message.includes('CORS') || error.message.includes('Failed to fetch')) {
+                    errorMsg += '⚠️ Problème CORS détecté !\n→ Vérifiez que CORS est activé dans API Gateway\n→ Vérifiez que l\'API est déployée';
+                } else if (error.message.includes('404')) {
+                    errorMsg += '⚠️ Route 404 !\n→ La route n\'existe pas dans API Gateway';
+                }
+                
+                content.textContent = errorMsg;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Tester la Route';
+            }
+        });
+    </script>
+</body>
+</html>
+

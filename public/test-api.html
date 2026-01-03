@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test API Paiement</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #fff;
+        }
+        button {
+            background: #22c55e;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+        button:hover:not(:disabled) {
+            background: #16a34a;
+            transform: translateY(-2px);
+        }
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+        #test-tables-btn {
+            background: #3b82f6;
+        }
+        #test-tables-btn:hover:not(:disabled) {
+            background: #2563eb;
+        }
+        #result {
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 13px;
+            display: none;
+        }
+        .success {
+            border-left: 4px solid #22c55e;
+        }
+        .error {
+            border-left: 4px solid #ef4444;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Test API</h1>
+    <p style="font-size:12px;color:#888;margin-top:10px;">
+        URL actuelle: <span id="current-url"></span>
+    </p>
+    <p style="font-size:11px;color:#f59e0b;margin-top:10px;padding:10px;background:rgba(245,158,11,0.1);border-radius:8px;border-left:3px solid #f59e0b;">
+        ⚠️ Si vous testez depuis file://, utilisez un serveur local :<br>
+        <code style="background:rgba(0,0,0,0.3);padding:2px 6px;border-radius:4px;">python -m http.server 8000</code><br>
+        Puis ouvrez <code style="background:rgba(0,0,0,0.3);padding:2px 6px;border-radius:4px;">http://localhost:8000/test-api.html</code>
+    </p>
+    
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;">
+        <button id="test-btn" onclick="testAPI()">🧪 Test Paiement</button>
+        <button id="test-tables-btn" onclick="testCreateTables()" style="background:#3b82f6;">🗄️ Test Create Tables</button>
+    </div>
+    
+    <div id="result"></div>
+    
+    <script>
+        const API_URL = 'https://j33osy4bvj.execute-api.eu-west-1.amazonaws.com/api/payments/create-checkout-session';
+        
+        // Afficher l'URL actuelle
+        document.getElementById('current-url').textContent = window.location.origin;
+        
+        async function testAPI() {
+            const btn = document.getElementById('test-btn');
+            const result = document.getElementById('result');
+            
+            btn.disabled = true;
+            btn.textContent = '⏳ Test en cours...';
+            result.style.display = 'block';
+            result.className = '';
+            result.textContent = '⏳ Envoi de la requête...';
+            
+            const testData = {
+                userId: '1',
+                paymentType: 'contact',
+                itemType: 'booking',
+                itemId: 1,
+                amount: 1.00,
+                currency: 'CHF',
+                email: 'test@example.com'
+            };
+            
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Origin': 'https://mapevent.world'
+                    },
+                    body: JSON.stringify(testData)
+                });
+                
+                const responseText = await response.text();
+                
+                if (response.ok) {
+                    try {
+                        const data = JSON.parse(responseText);
+                        result.className = 'success';
+                        result.textContent = `✅ OK - Route fonctionne !\n\nStatus: ${response.status}\n\nRéponse:\n${JSON.stringify(data, null, 2)}`;
+                    } catch (e) {
+                        result.className = 'error';
+                        result.textContent = `⚠️ Réponse non-JSON\n\nStatus: ${response.status}\n\nRéponse:\n${responseText}`;
+                    }
+                } else {
+                    result.className = 'error';
+                    let errorMsg = `❌ ERREUR ${response.status}\n\nRéponse:\n${responseText}`;
+                    
+                    if (response.status === 404) {
+                        errorMsg += '\n\n⚠️ Route 404 - La route n\'existe pas';
+                    } else if (response.status === 403) {
+                        errorMsg += '\n\n⚠️ Erreur CORS 403 - Activez CORS dans API Gateway';
+                    }
+                    
+                    result.textContent = errorMsg;
+                }
+            } catch (error) {
+                result.className = 'error';
+                let errorMsg = `❌ ERREUR\n\nType: ${error.name}\nMessage: ${error.message}`;
+                
+                if (error.message.includes('CORS') || error.message.includes('Failed to fetch') || error.message.includes('NetworkError') || error.message.includes('Access-Control-Allow-Origin')) {
+                    errorMsg += '\n\n❌ ERREUR CORS 403 - Access-Control-Allow-Origin manquant\n';
+                    errorMsg += '\n→ L\'en-tête CORS est absent de la réponse\n';
+                    errorMsg += `\n📍 Origine actuelle: ${window.location.origin}\n`;
+                    errorMsg += `📍 URL API: ${API_URL}\n`;
+                    errorMsg += '\n🔍 DIAGNOSTIC:\n';
+                    errorMsg += '1. Ouvrez la console (F12) > Onglet "Network"\n';
+                    errorMsg += '2. Cherchez la requête OPTIONS (preflight)\n';
+                    errorMsg += '3. Vérifiez si elle retourne 200 ou 403\n';
+                    errorMsg += '4. Vérifiez les headers de réponse\n';
+                    errorMsg += '\n📋 SOLUTION ÉTAPE PAR ÉTAPE:\n';
+                    errorMsg += '1. API Gateway > Votre API\n';
+                    errorMsg += '2. Ressources > /api > /payments > /create-checkout-session\n';
+                    errorMsg += '3. Sélectionnez la MÉTHODE POST (pas OPTIONS)\n';
+                    errorMsg += '4. Cliquez "Actions" > "Activer CORS"\n';
+                    errorMsg += '5. Dans le formulaire CORS:\n';
+                    errorMsg += '   - Origines autorisées: * (ou votre domaine)\n';
+                    errorMsg += '   - Méthodes autorisées: POST, OPTIONS\n';
+                    errorMsg += '   - Headers autorisés: Content-Type, Origin\n';
+                    errorMsg += '6. Cliquez "Activer CORS et remplacer les valeurs CORS existantes"\n';
+                    errorMsg += '7. VÉRIFIEZ que la méthode OPTIONS a été créée automatiquement\n';
+                    errorMsg += '8. Actions > "Déployer l\'API"\n';
+                    errorMsg += '9. Stage: default > Déployer\n';
+                    errorMsg += '\n⚠️ POINTS CRITIQUES:\n';
+                    errorMsg += '✓ Activez CORS sur la méthode POST (pas OPTIONS)\n';
+                    errorMsg += '✓ API Gateway créera automatiquement OPTIONS\n';
+                    errorMsg += '✓ DÉPLOYEZ après chaque modification\n';
+                    errorMsg += '✓ Attendez 30 secondes après le déploiement\n';
+                    errorMsg += '✓ Vérifiez que OPTIONS existe dans les ressources';
+                }
+                
+                result.textContent = errorMsg;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Tester l\'API';
+            }
+        }
+        
+        async function testCreateTables() {
+            const btn = document.getElementById('test-tables-btn');
+            const result = document.getElementById('result');
+            
+            btn.disabled = true;
+            btn.textContent = '⏳ Test en cours...';
+            result.style.display = 'block';
+            result.className = '';
+            result.textContent = '⏳ Création des tables en cours...';
+            
+            const API_URL_TABLES = 'https://j33osy4bvj.execute-api.eu-west-1.amazonaws.com/api/admin/create-tables';
+            
+            try {
+                const response = await fetch(API_URL_TABLES, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Origin': window.location.origin
+                    },
+                    body: JSON.stringify({})
+                });
+                
+                const responseText = await response.text();
+                
+                if (response.ok) {
+                    try {
+                        const data = JSON.parse(responseText);
+                        result.className = 'success';
+                        result.textContent = `✅ OK - Tables créées !\n\nStatus: ${response.status}\n\nRéponse:\n${JSON.stringify(data, null, 2)}`;
+                    } catch (e) {
+                        result.className = 'success';
+                        result.textContent = `✅ OK - Tables créées !\n\nStatus: ${response.status}\n\nRéponse:\n${responseText}`;
+                    }
+                } else {
+                    result.className = 'error';
+                    let errorMsg = `❌ ERREUR ${response.status}\n\nRéponse:\n${responseText}`;
+                    
+                    if (response.status === 404) {
+                        errorMsg += '\n\n⚠️ Route 404 - La route n\'existe pas';
+                    } else if (response.status === 403) {
+                        errorMsg += '\n\n⚠️ Erreur CORS 403 - Activez CORS dans API Gateway';
+                    } else if (response.status === 401) {
+                        errorMsg += '\n\n⚠️ Erreur 401 - Non autorisé (vérifiez les permissions admin)';
+                    }
+                    
+                    result.textContent = errorMsg;
+                }
+            } catch (error) {
+                result.className = 'error';
+                let errorMsg = `❌ ERREUR\n\nType: ${error.name}\nMessage: ${error.message}`;
+                
+                if (error.message.includes('CORS') || error.message.includes('Failed to fetch') || error.message.includes('NetworkError') || error.message.includes('Access-Control-Allow-Origin')) {
+                    errorMsg += '\n\n❌ ERREUR CORS 403 - Access-Control-Allow-Origin manquant\n';
+                    errorMsg += '\n→ L\'en-tête CORS est absent de la réponse\n';
+                    errorMsg += `\n📍 Origine actuelle: ${window.location.origin}\n`;
+                    errorMsg += `📍 URL API: ${API_URL_TABLES}\n`;
+                    errorMsg += '\n📋 SOLUTION:\n';
+                    errorMsg += '1. API Gateway > Votre API\n';
+                    errorMsg += '2. Ressources > /api > /admin > /create-tables\n';
+                    errorMsg += '3. Sélectionnez la MÉTHODE POST\n';
+                    errorMsg += '4. Cliquez "Actions" > "Activer CORS"\n';
+                    errorMsg += '5. Origines: * | Méthodes: POST, OPTIONS | Headers: Content-Type, Origin\n';
+                    errorMsg += '6. DÉPLOYEZ l\'API sur le stage "default"\n';
+                }
+                
+                result.textContent = errorMsg;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '🗄️ Test Create Tables';
+            }
+        }
+    </script>
+</body>
+</html>
+

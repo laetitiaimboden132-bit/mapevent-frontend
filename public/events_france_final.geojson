@@ -1,0 +1,629 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          1.159989,
+          47.826053
+        ]
+      },
+      "properties": {
+        "Titre": "Marathon de Paris",
+        "Adresse": "Champs-Élysées, 75008 Paris",
+        "Date Début": "5 Avr. 2026",
+        "Heure Début": "08:30:00",
+        "Date Fin": "5 Avr. 2026",
+        "Heure Fin": "15:00:00",
+        "Catégorie": "Sport (Course)",
+        "Lien": "https://www.schneiderelectricmarathondeparis.com/",
+        "Email": "*Via formulaire*",
+        "city": "Paris",
+        "geo_score": 0.837,
+        "place_name": "Paris, 41100 Rocé, France"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          2.250901,
+          48.847432
+        ]
+      },
+      "properties": {
+        "Titre": "Roland-Garros",
+        "Adresse": "Stade Roland-Garros, 2 avenue Gordon Bennett, 75016 Paris",
+        "Date Début": "24 Mai 2026",
+        "Heure Début": "10:00:00",
+        "Date Fin": "7 Juin 2026",
+        "Heure Fin": "21:00:00",
+        "Catégorie": "Sport (Tennis)",
+        "Lien": "https://www.rolandgarros.com/",
+        "Email": "*Via formulaire*",
+        "city": "Paris",
+        "geo_score": 0.933,
+        "place_name": "2 Avenue Gordon-Bennett, 75016 Paris, France"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          7.017703,
+          43.550669
+        ]
+      },
+      "properties": {
+        "Titre": "Festival de Cannes",
+        "Adresse": "Palais des Festivals, 1 Boulevard de la Croisette, 06400 Cannes",
+        "Date Début": "13 Mai 2026",
+        "Heure Début": "18:00:00",
+        "Date Fin": "24 Mai 2026",
+        "Heure Fin": "23:00:00",
+        "Catégorie": "Arts (Cinéma)",
+        "Lien": "https://www.festival-cannes.com/",
+        "Email": "contact@festival-cannes.fr",
+        "city": "Cannes",
+        "geo_score": 1.0,
+        "place_name": "1 Boulevard De La Croisette, 06400 Cannes, France"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          2.287854,
+          48.832462
+        ]
+      },
+      "properties": {
+        "Titre": "Mondial de l'Auto",
+        "Adresse": "Paris Expo Porte de Versailles, 1 place de la Porte de Versailles, 75015 Paris",
+        "Date Début": "16 Oct. 2026",
+        "Heure Début": "10:00:00",
+        "Date Fin": "26 Oct. 2026",
+        "Heure Fin": "20:00:00",
+        "Catégorie": "Salon (Auto)",
+        "Lien": "https://www.mondial.paris/",
+        "Email": "*Via formulaire*",
+        "city": "Paris",
+        "geo_score": 1.0,
+        "place_name": "1 Place De La Porte De Versailles, 75015 Paris, France"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -1.268075,
+          47.095449
+        ]
+      },
+      "properties": {
+        "Titre": "Hellfest",
+        "Adresse": "Site du Hellfest, Rue du Champ Louet, 44190 Clisson",
+        "Date Début": "18 Juin 2026",
+        "Heure Début": "10:00:00",
+        "Date Fin": "21 Juin 2026",
+        "Heure Fin": "02:00:00",
+        "Catégorie": "Musique (Festival)",
+        "Lien": "https://www.hellfest.fr/",
+        "Email": "presse@hellfest.fr",
+        "city": "Clisson",
+        "geo_score": 1.0,
+        "place_name": "Rue Du Champ Louet, 44190 Clisson, France"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.806331,
+          43.951548
+        ]
+      },
+      "properties": {
+        "Titre": "Festival d'Avignon",
+        "Adresse": "Cour d'Honneur du Palais des Papes, Place du Palais, 84000 Avignon",
+        "Date Début": "3 Juil. 2026",
+        "Heure Début": "10:00:00",
+        "Date Fin": "25 Juil. 2026",
+        "Heure Fin": "22:30:00",
+        "Catégorie": "Arts (Théâtre)",
+        "Lien": "https://festival-avignon.com/",
+        "Email": "contact@festival-avignon.com",
+        "city": "Avignon",
+        "geo_score": 1.0,
+        "place_name": "Place Du Palais, 84000 Avignon, France"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.832273,
+          45.758452
+        ]
+      },
+      "properties": {
+        "Titre": "Fête des Lumières",
+        "Adresse": "Place Bellecour, 69000 Lyon",
+        "Date Début": "8 Déc. 2026",
+        "Heure Début": "18:00:00",
+        "Date Fin": "11 Déc. 2026",
+        "Heure Fin": "22:00:00",
+        "Catégorie": "Culture & Lumière",
+        "Lien": "https://www.fetedeslumieres.lyon.fr/",
+        "Email": "*Via Mairie*",
+        "city": "Lyon",
+        "geo_score": 0.885,
+        "place_name": "Place Bellecour, 69002 Lyon, France"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -1.157596,
+          46.155571
+        ]
+      },
+      "properties": {
+        "Titre": "Les Francofolies",
+        "Adresse": "Esplanade Saint-Jean d'Acre, 17000 La Rochelle",
+        "Date Début": "10 Juil. 2026",
+        "Heure Début": "17:30:00",
+        "Date Fin": "14 Juil. 2026",
+        "Heure Fin": "00:30:00",
+        "Catégorie": "Musique (Festival)",
+        "Lien": "https://www.francofolies.fr/",
+        "Email": "contact@francofolies.fr",
+        "city": "La Rochelle",
+        "geo_score": 0.92,
+        "place_name": "Esplanade Saint-Jean D'acre, 17000 La Rochelle, France"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          2.760365,
+          50.288466
+        ]
+      },
+      "properties": {
+        "Titre": "Main Square Festival",
+        "Adresse": "Citadelle d'Arras, 50 Boulevard du Général de Gaulle, 62000 Arras",
+        "Date Début": "3 Juil. 2026",
+        "Heure Début": "17:00:00",
+        "Date Fin": "5 Juil. 2026",
+        "Heure Fin": "01:00:00",
+        "Catégorie": "Musique (Festival)",
+        "Lien": "https://mainsquarefestival.fr/",
+        "Email": "*Via formulaire*",
+        "city": "Arras",
+        "geo_score": 1.0,
+        "place_name": "50 Boulevard Du Général De Gaulle, 62000 Arras, France"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          6.812737,
+          47.684267
+        ]
+      },
+      "properties": {
+        "Titre": "Eurockéennes",
+        "Adresse": "Presqu'île du Malsaucy, 90300 Sermamagny",
+        "Date Début": "3 Juil. 2026",
+        "Heure Début": "18:00:00",
+        "Date Fin": "5 Juil. 2026",
+        "Heure Fin": "02:00:00",
+        "Catégorie": "Musique (Festival)",
+        "Lien": "https://www.eurockeennes.fr/",
+        "Email": "contact@eurockeennes.fr",
+        "city": "Sermamagny",
+        "geo_score": 0.886,
+        "place_name": "Rue Du Malsaucy, 90300 Sermamagny, France"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          7.235527,
+          43.684503
+        ]
+      },
+      "properties": {
+        "Titre": "Ironman Nice",
+        "Adresse": "Promenade des Anglais, 06000 Nice",
+        "Date Début": "28 Juin 2026",
+        "Heure Début": "06:30:00",
+        "Date Fin": "28 Juin 2026",
+        "Heure Fin": "23:00:00",
+        "Catégorie": "Sport (Triathlon)",
+        "Lien": "https://www.ironman.com/im-france-nice",
+        "Email": "nice@ironman.com",
+        "city": "Nice",
+        "geo_score": 0.927,
+        "place_name": "Promenade Des Anglais, 06200 Nice, France"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          6.603976,
+          43.262357
+        ]
+      },
+      "properties": {
+        "Titre": "Voiles de Saint-Tropez",
+        "Adresse": "Port de Saint-Tropez, 83990 Saint-Tropez",
+        "Date Début": "26 Sept. 2026",
+        "Heure Début": "09:00:00",
+        "Date Fin": "4 Oct. 2026",
+        "Heure Fin": "18:00:00",
+        "Catégorie": "Sport (Nautisme)",
+        "Lien": "https://www.lesvoilesdesaint-tropez.fr/",
+        "Email": "contact@snst.org",
+        "city": "Saint-Tropez",
+        "geo_score": 0.812,
+        "place_name": "Route De Saint-Tropez, 83580 Gassin, France"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.678749,
+          49.377134
+        ]
+      },
+      "properties": {
+        "Titre": "Jazz à Vienne",
+        "Adresse": "Théâtre Antique, 38200 Vienne",
+        "Date Début": "29 Juin 2026",
+        "Heure Début": "20:00:00",
+        "Date Fin": "13 Juil. 2026",
+        "Heure Fin": "23:30:00",
+        "Catégorie": "Musique (Jazz)",
+        "Lien": "https://www.jazzavienne.com/",
+        "Email": "contact@jazzavienne.com",
+        "city": "Vienne",
+        "geo_score": 0.837,
+        "place_name": "Impasse De Vienne, 27350 Éturqueraye, France"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          2.439416,
+          48.94394
+        ]
+      },
+      "properties": {
+        "Titre": "Trans Musicales",
+        "Adresse": "Parc Expo Rennes Aéroport, 35172 Bruz",
+        "Date Début": "2 Déc. 2026",
+        "Heure Début": "18:00:00",
+        "Date Fin": "6 Déc. 2026",
+        "Heure Fin": "04:00:00",
+        "Catégorie": "Musique (Festival)",
+        "Lien": "https://www.lestrans.com/",
+        "Email": "contact@lestrans.com",
+        "city": "Bruz",
+        "geo_score": 0.8,
+        "place_name": "Rue France-Bloch-Sérazin, 93150 Le Blanc-Mesnil, France"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          1.159989,
+          47.826053
+        ]
+      },
+      "properties": {
+        "Titre": "Rock en Seine",
+        "Adresse": "Hippodrome de Longchamp, 75016 Paris",
+        "Date Début": "28 Août 2026",
+        "Heure Début": "16:00:00",
+        "Date Fin": "30 Août 2026",
+        "Heure Fin": "01:00:00",
+        "Catégorie": "Musique (Festival)",
+        "Lien": "https://www.rockenseine.com/",
+        "Email": "contact@rockenseine.com",
+        "city": "Paris",
+        "geo_score": 0.837,
+        "place_name": "Paris, 41100 Rocé, France"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -0.369065,
+          43.293321
+        ]
+      },
+      "properties": {
+        "Titre": "GP Pau",
+        "Adresse": "Circuit de Pau-Ville, Boulevard des Pyrénées, 64000 Pau",
+        "Date Début": "22 Mai 2026",
+        "Heure Début": "09:00:00",
+        "Date Fin": "24 Mai 2026",
+        "Heure Fin": "18:00:00",
+        "Catégorie": "Sport (Course Auto)",
+        "Lien": "https://www.grandprixdepau.fr/",
+        "Email": "*Via formulaire*",
+        "city": "Pau",
+        "geo_score": 1.0,
+        "place_name": "Boulevard Des Pyrénées, 64000 Pau, France"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          1.159989,
+          47.826053
+        ]
+      },
+      "properties": {
+        "Titre": "Salon Agriculture",
+        "Adresse": "Paris Expo Porte de Versailles, 75015 Paris",
+        "Date Début": "22 Fév. 2026",
+        "Heure Début": "09:00:00",
+        "Date Fin": "1 Mar. 2026",
+        "Heure Fin": "19:00:00",
+        "Catégorie": "Salon (Agricole)",
+        "Lien": "https://www.salon-agriculture.com/",
+        "Email": "contact.sia@comexposium.com",
+        "city": "Paris",
+        "geo_score": 0.867,
+        "place_name": "Paris, 41100 Rocé, France"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          1.394508,
+          43.853296
+        ]
+      },
+      "properties": {
+        "Titre": "FISE",
+        "Adresse": "Rives du Lez, 34000 Montpellier",
+        "Date Début": "21 Mai 2026",
+        "Heure Début": "09:00:00",
+        "Date Fin": "24 Mai 2026",
+        "Heure Fin": "22:00:00",
+        "Catégorie": "Sport (Extrême)",
+        "Lien": "https://www.fise.fr/",
+        "Email": "contact@fise.fr",
+        "city": "Montpellier",
+        "geo_score": 0.867,
+        "place_name": "Chemin De Montpellier, 31620 Fronton, France"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          1.159989,
+          47.826053
+        ]
+      },
+      "properties": {
+        "Titre": "Paris Games Week",
+        "Adresse": "Paris Expo Porte de Versailles, 75015 Paris",
+        "Date Début": "21 Oct. 2026",
+        "Heure Début": "09:30:00",
+        "Date Fin": "25 Oct. 2026",
+        "Heure Fin": "19:00:00",
+        "Catégorie": "Tech & Jeux Vidéo",
+        "Lien": "https://www.parisgamesweek.com/",
+        "Email": "contact@parisgamesweek.com",
+        "city": "Paris",
+        "geo_score": 0.867,
+        "place_name": "Paris, 41100 Rocé, France"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -2.023483,
+          48.647337
+        ]
+      },
+      "properties": {
+        "Titre": "Route du Rhum",
+        "Adresse": "Quai Saint-Louis, 35400 Saint-Malo",
+        "Date Début": "25 Oct. 2026",
+        "Heure Début": "13:00:00",
+        "Date Fin": "25 Oct. 2026",
+        "Heure Fin": "18:00:00",
+        "Catégorie": "Sport (Nautisme)",
+        "Lien": "https://www.routedurhum.com/",
+        "Email": "contact@routedurhum.com",
+        "city": "Saint-Malo",
+        "geo_score": 0.916,
+        "place_name": "Quai Saint-Louis, 35400 Saint-Malo, France"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.821107,
+          45.759028
+        ]
+      },
+      "properties": {
+        "Titre": "Nuits de Fourvière",
+        "Adresse": "Théâtres Romains de Fourvière, 6 rue de l'Antiquaille, 69005 Lyon",
+        "Date Début": "2 Juin 2026",
+        "Heure Début": "20:30:00",
+        "Date Fin": "30 Juil. 2026",
+        "Heure Fin": "23:00:00",
+        "Catégorie": "Arts (Spectacle)",
+        "Lien": "https://www.nuitsdefourviere.com/",
+        "Email": "accueil@nuitsdefourviere.com",
+        "city": "Lyon",
+        "geo_score": 0.933,
+        "place_name": "6 Rue De L'antiquaille, 69005 Lyon, France"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -0.571747,
+          44.897873
+        ]
+      },
+      "properties": {
+        "Titre": "Foire Bordeaux",
+        "Adresse": "Parc des Expositions, Cours Jules Ladoumegue, 33300 Bordeaux",
+        "Date Début": "16 Mai 2026",
+        "Heure Début": "10:00:00",
+        "Date Fin": "24 Mai 2026",
+        "Heure Fin": "20:00:00",
+        "Catégorie": "Salon (Général)",
+        "Lien": "https://www.foire-de-bordeaux.com/",
+        "Email": "info@bordeaux-expo.com",
+        "city": "Bordeaux",
+        "geo_score": 1.0,
+        "place_name": "Cours Jules Ladoumègue, 33300 Bordeaux, France"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          3.084244,
+          45.77096
+        ]
+      },
+      "properties": {
+        "Titre": "Festival Court Métrage",
+        "Adresse": "Maison de la Culture, 71 Boulevard François Mitterrand, 63000 Clermont-Ferrand",
+        "Date Début": "30 Jan. 2026",
+        "Heure Début": "09:00:00",
+        "Date Fin": "7 Fév. 2026",
+        "Heure Fin": "23:00:00",
+        "Catégorie": "Arts (Cinéma)",
+        "Lien": "https://www.clermont-filmfest.org/",
+        "Email": "info@clermont-filmfest.org",
+        "city": "Clermont-Ferrand",
+        "geo_score": 1.0,
+        "place_name": "71 Boulevard François Mitterrand, 63000 Clermont-Ferrand, France"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          1.442934,
+          43.603824
+        ]
+      },
+      "properties": {
+        "Titre": "Marathon Toulouse",
+        "Adresse": "Place du Capitole, 31000 Toulouse",
+        "Date Début": "25 Oct. 2026",
+        "Heure Début": "08:30:00",
+        "Date Fin": "25 Oct. 2026",
+        "Heure Fin": "15:00:00",
+        "Catégorie": "Sport (Course)",
+        "Lien": "https://www.marathon-toulousemetropole.fr/",
+        "Email": "contact@marathon-toulousemetropole.fr",
+        "city": "Toulouse",
+        "geo_score": 0.93,
+        "place_name": "Place Du Capitole, 31000 Toulouse, France"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          7.745693,
+          48.58299
+        ]
+      },
+      "properties": {
+        "Titre": "Course Strasbourg",
+        "Adresse": "Place Kléber, 67000 Strasbourg",
+        "Date Début": "10 Mai 2026",
+        "Heure Début": "09:00:00",
+        "Date Fin": "10 Mai 2026",
+        "Heure Fin": "12:00:00",
+        "Catégorie": "Sport (Course)",
+        "Lien": "https://www.courses-strasbourg.eu/",
+        "Email": "contact@courses-strasbourg.eu",
+        "city": "Strasbourg",
+        "geo_score": 0.926,
+        "place_name": "Place Kléber, 67000 Strasbourg, France"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -1.909548,
+          48.361819
+        ]
+      },
+      "properties": {
+        "Titre": "Dijon Motor Cup",
+        "Adresse": "Circuit Dijon-Prenois, 21380 Prenois",
+        "Date Début": "16 Mai 2026",
+        "Heure Début": "09:00:00",
+        "Date Fin": "17 Mai 2026",
+        "Heure Fin": "18:00:00",
+        "Catégorie": "Sport (Course Auto)",
+        "Lien": "https://www.dijon-prenois.com/",
+        "Email": "info@dijon-prenois.com",
+        "city": "Prenois",
+        "geo_score": 0.857,
+        "place_name": "Trenois, 35190 Trévérien, France"
+      }
+    }
+  ]
+}

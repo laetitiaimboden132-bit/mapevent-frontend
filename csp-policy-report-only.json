@@ -1,0 +1,14 @@
+  {
+  "Name": "CSP-Report-Only-MapEvent",
+  "Comment": "CSP Report-Only ultra permissive pour MapEvent - Ne bloque rien",
+  "SecurityHeadersConfig": {
+    "ContentSecurityPolicy": {
+      "ContentSecurityPolicy": "default-src * 'unsafe-inline' 'unsafe-eval' 'unsafe-hashes' data: blob: http: https: ws: wss:; script-src * 'unsafe-inline' 'unsafe-eval' 'unsafe-hashes' data: blob: http: https:; script-src-elem * 'unsafe-inline' 'unsafe-eval' 'unsafe-hashes' data: blob: http: https:; script-src-attr * 'unsafe-inline' 'unsafe-hashes'; style-src * 'unsafe-inline' 'unsafe-hashes' data: blob: http: https:; style-src-elem * 'unsafe-inline' 'unsafe-hashes' data: blob: http: https:; style-src-attr * 'unsafe-inline' 'unsafe-hashes'; img-src * data: blob: http: https:; font-src * data: blob: http: https:; connect-src * data: blob: wss: ws: http: https:; frame-src * data: blob: http: https:; object-src * data: blob:; base-uri *; form-action *; worker-src * blob: data: http: https:; media-src * data: blob: http: https:; manifest-src *;",
+      "Override": true,
+      "ContentSecurityPolicyReportOnly": true
+    }
+  }
+}
+
+
+
