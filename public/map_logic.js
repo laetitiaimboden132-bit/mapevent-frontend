@@ -6711,6 +6711,77 @@ function buildPublishFormHtml() {
           <input type="datetime-local" id="pub-end" required style="width:100%;padding:6px;border-radius:8px;border:1px solid var(--ui-card-border);background:transparent;color:var(--ui-text-main);">
         </div>
       </div>
+      
+      <!-- RÉPÉTITIONS D'ÉVÉNEMENTS -->
+      <div style="margin-bottom:12px;padding:10px;background:rgba(0,255,195,0.05);border:1px solid rgba(0,255,195,0.2);border-radius:10px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+          <input type="checkbox" id="pub-repeat-enabled" onchange="toggleRepeatOptions()" style="width:18px;height:18px;accent-color:#00ffc3;cursor:pointer;">
+          <label for="pub-repeat-enabled" style="font-size:12px;font-weight:600;color:#00ffc3;cursor:pointer;">🔄 Répéter cet événement</label>
+        </div>
+        
+        <div id="pub-repeat-options" style="display:none;margin-top:10px;">
+          <div style="margin-bottom:8px;">
+            <label style="font-size:11px;font-weight:600;color:var(--ui-text-muted);margin-bottom:4px;display:block;">Fréquence</label>
+            <select id="pub-repeat-frequency" onchange="updateRepeatPreview()" style="width:100%;padding:6px;border-radius:8px;border:1px solid var(--ui-card-border);background:rgba(15,23,42,0.9);color:var(--ui-text-main);font-size:12px;cursor:pointer;">
+              <option value="daily">Quotidien</option>
+              <option value="weekly" selected>Hebdomadaire</option>
+              <option value="biweekly">Bi-hebdomadaire</option>
+              <option value="monthly">Mensuel</option>
+              <option value="yearly">Annuel</option>
+              <option value="custom">Personnalisé</option>
+            </select>
+          </div>
+          
+          <div id="pub-repeat-weekdays" style="margin-bottom:8px;">
+            <label style="font-size:11px;font-weight:600;color:var(--ui-text-muted);margin-bottom:4px;display:block;">Jours de la semaine</label>
+            <div style="display:flex;gap:4px;flex-wrap:wrap;">
+              <label style="flex:1;min-width:40px;padding:6px;border-radius:6px;border:1px solid var(--ui-card-border);background:rgba(15,23,42,0.5);text-align:center;font-size:11px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='rgba(0,255,195,0.1)'" onmouseout="this.style.background='rgba(15,23,42,0.5)'">
+                <input type="checkbox" value="0" class="repeat-weekday" onchange="updateRepeatPreview()" style="display:none;">
+                <span>Lun</span>
+              </label>
+              <label style="flex:1;min-width:40px;padding:6px;border-radius:6px;border:1px solid var(--ui-card-border);background:rgba(15,23,42,0.5);text-align:center;font-size:11px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='rgba(0,255,195,0.1)'" onmouseout="this.style.background='rgba(15,23,42,0.5)'">
+                <input type="checkbox" value="1" class="repeat-weekday" onchange="updateRepeatPreview()" style="display:none;">
+                <span>Mar</span>
+              </label>
+              <label style="flex:1;min-width:40px;padding:6px;border-radius:6px;border:1px solid var(--ui-card-border);background:rgba(15,23,42,0.5);text-align:center;font-size:11px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='rgba(0,255,195,0.1)'" onmouseout="this.style.background='rgba(15,23,42,0.5)'">
+                <input type="checkbox" value="2" class="repeat-weekday" onchange="updateRepeatPreview()" style="display:none;">
+                <span>Mer</span>
+              </label>
+              <label style="flex:1;min-width:40px;padding:6px;border-radius:6px;border:1px solid var(--ui-card-border);background:rgba(15,23,42,0.5);text-align:center;font-size:11px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='rgba(0,255,195,0.1)'" onmouseout="this.style.background='rgba(15,23,42,0.5)'">
+                <input type="checkbox" value="3" class="repeat-weekday" onchange="updateRepeatPreview()" style="display:none;">
+                <span>Jeu</span>
+              </label>
+              <label style="flex:1;min-width:40px;padding:6px;border-radius:6px;border:1px solid var(--ui-card-border);background:rgba(15,23,42,0.5);text-align:center;font-size:11px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='rgba(0,255,195,0.1)'" onmouseout="this.style.background='rgba(15,23,42,0.5)'">
+                <input type="checkbox" value="4" class="repeat-weekday" onchange="updateRepeatPreview()" style="display:none;">
+                <span>Ven</span>
+              </label>
+              <label style="flex:1;min-width:40px;padding:6px;border-radius:6px;border:1px solid var(--ui-card-border);background:rgba(15,23,42,0.5);text-align:center;font-size:11px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='rgba(0,255,195,0.1)'" onmouseout="this.style.background='rgba(15,23,42,0.5)'">
+                <input type="checkbox" value="5" class="repeat-weekday" onchange="updateRepeatPreview()" style="display:none;">
+                <span>Sam</span>
+              </label>
+              <label style="flex:1;min-width:40px;padding:6px;border-radius:6px;border:1px solid var(--ui-card-border);background:rgba(15,23,42,0.5);text-align:center;font-size:11px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='rgba(0,255,195,0.1)'" onmouseout="this.style.background='rgba(15,23,42,0.5)'">
+                <input type="checkbox" value="6" class="repeat-weekday" onchange="updateRepeatPreview()" style="display:none;">
+                <span>Dim</span>
+              </label>
+            </div>
+          </div>
+          
+          <div style="display:flex;gap:8px;margin-bottom:8px;">
+            <div style="flex:1;">
+              <label style="font-size:11px;font-weight:600;color:var(--ui-text-muted);margin-bottom:4px;display:block;">Répéter jusqu'au</label>
+              <input type="date" id="pub-repeat-until" onchange="updateRepeatPreview()" style="width:100%;padding:6px;border-radius:8px;border:1px solid var(--ui-card-border);background:rgba(15,23,42,0.9);color:var(--ui-text-main);font-size:12px;">
+            </div>
+            <div style="flex:1;">
+              <label style="font-size:11px;font-weight:600;color:var(--ui-text-muted);margin-bottom:4px;display:block;">Ou nombre d'occurrences</label>
+              <input type="number" id="pub-repeat-count" min="1" max="365" placeholder="Ex: 10" onchange="updateRepeatPreview()" style="width:100%;padding:6px;border-radius:8px;border:1px solid var(--ui-card-border);background:rgba(15,23,42,0.9);color:var(--ui-text-main);font-size:12px;">
+            </div>
+          </div>
+          
+          <div id="pub-repeat-preview" style="padding:8px;background:rgba(0,255,195,0.1);border-radius:6px;font-size:11px;color:#00ffc3;min-height:20px;">
+            <span style="opacity:0.6;">Aperçu des répétitions...</span>
+          </div>
+        </div>
+      </div>
     `
     : "";
 
@@ -6867,6 +6938,120 @@ function openPublishModal() {
   const inner = document.getElementById("publish-modal-inner");
   inner.innerHTML = buildPublishFormHtml();
   backdrop.style.display = "flex";
+  
+  // Initialiser les gestionnaires d'événements pour les répétitions
+  if (currentMode === "event") {
+    setTimeout(() => {
+      initRepeatHandlers();
+      initMultipleImagesHandler();
+    }, 100);
+  }
+}
+
+// Fonction pour gérer les répétitions
+function toggleRepeatOptions() {
+  const checkbox = document.getElementById("pub-repeat-enabled");
+  const options = document.getElementById("pub-repeat-options");
+  if (checkbox && options) {
+    options.style.display = checkbox.checked ? "block" : "none";
+    if (checkbox.checked) {
+      updateRepeatPreview();
+    }
+  }
+}
+
+function updateRepeatPreview() {
+  const preview = document.getElementById("pub-repeat-preview");
+  if (!preview) return;
+  
+  const frequency = document.getElementById("pub-repeat-frequency")?.value || "weekly";
+  const until = document.getElementById("pub-repeat-until")?.value;
+  const count = document.getElementById("pub-repeat-count")?.value;
+  const weekdays = Array.from(document.querySelectorAll(".repeat-weekday:checked")).map(cb => parseInt(cb.value));
+  
+  let previewText = "";
+  
+  if (frequency === "weekly" && weekdays.length > 0) {
+    const dayNames = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
+    previewText = `Répétition hebdomadaire le${weekdays.length > 1 ? "s" : ""} ${weekdays.map(d => dayNames[d]).join(", ")}`;
+  } else {
+    const freqNames = {
+      daily: "Quotidien",
+      weekly: "Hebdomadaire",
+      biweekly: "Bi-hebdomadaire",
+      monthly: "Mensuel",
+      yearly: "Annuel",
+      custom: "Personnalisé"
+    };
+    previewText = `Répétition ${freqNames[frequency] || frequency}`;
+  }
+  
+  if (until) {
+    const untilDate = new Date(until);
+    previewText += ` jusqu'au ${untilDate.toLocaleDateString("fr-FR")}`;
+  } else if (count) {
+    previewText += ` (${count} occurrence${count > 1 ? "s" : ""})`;
+  }
+  
+  preview.innerHTML = `<span style="color:#00ffc3;">📅 ${previewText}</span>`;
+}
+
+function toggleAdvancedOptions() {
+  const checkbox = document.getElementById("pub-advanced-options");
+  const content = document.getElementById("pub-advanced-options-content");
+  if (checkbox && content) {
+    content.style.display = checkbox.checked ? "block" : "none";
+  }
+}
+
+function initRepeatHandlers() {
+  // Gérer les clics sur les jours de la semaine
+  const weekdayLabels = document.querySelectorAll("#pub-repeat-weekdays label");
+  weekdayLabels.forEach(label => {
+    label.addEventListener("click", function(e) {
+      const checkbox = this.querySelector("input[type='checkbox']");
+      if (checkbox) {
+        checkbox.checked = !checkbox.checked;
+        updateRepeatPreview();
+        // Mettre à jour le style visuel
+        if (checkbox.checked) {
+          this.style.background = "rgba(0,255,195,0.2)";
+          this.style.borderColor = "rgba(0,255,195,0.5)";
+        } else {
+          this.style.background = "rgba(15,23,42,0.5)";
+          this.style.borderColor = "var(--ui-card-border)";
+        }
+      }
+    });
+  });
+}
+
+function initMultipleImagesHandler() {
+  const input = document.getElementById("pub-images-multiple");
+  const preview = document.getElementById("pub-images-preview");
+  
+  if (input && preview) {
+    input.addEventListener("change", function(e) {
+      preview.innerHTML = "";
+      const files = Array.from(e.target.files);
+      files.forEach((file, index) => {
+        if (file.type.startsWith("image/")) {
+          const reader = new FileReader();
+          reader.onload = function(e) {
+            const img = document.createElement("img");
+            img.src = e.target.result;
+            img.style.width = "100%";
+            img.style.height = "80px";
+            img.style.objectFit = "cover";
+            img.style.borderRadius = "6px";
+            img.style.border = "1px solid var(--ui-card-border)";
+            preview.appendChild(img);
+          };
+          reader.readAsDataURL(file);
+        }
+      });
+    });
+  }
 }
 
 function closePublishModal(e) {
