@@ -42,6 +42,100 @@ function authClearTemp() {
   ["pkce_verifier", "oauth_state"].forEach((k) => sessionStorage.removeItem(k));
 }
 
+// ============================================
+// NETTOYAGE AUTOMATIQUE DU LOCALSTORAGE
+// ============================================
+// Fonction professionnelle pour nettoyer le localStorage de manière proactive
+function cleanupLocalStorage() {
+  try {
+    // Vérifier la taille actuelle
+    let totalSize = 0;
+    const keys = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key) {
+        const value = localStorage.getItem(key);
+        if (value) {
+          totalSize += value.length;
+          keys.push({ key, size: value.length });
+        }
+      }
+    }
+    
+    const sizeMB = totalSize / (1024 * 1024);
+    console.log(`📊 localStorage: ${keys.length} clés, ${sizeMB.toFixed(2)}MB`);
+    
+    // Si plus de 4MB, nettoyer les données non essentielles
+    if (sizeMB > 4) {
+      console.log('🧹 Nettoyage automatique du localStorage...');
+      
+      // Sauvegarder les données critiques
+      const criticalData = {
+        cognito_tokens: localStorage.getItem('cognito_tokens'),
+        currentUser: localStorage.getItem('currentUser')
+      };
+      
+      // Supprimer toutes les clés non essentielles
+      const essentialKeys = ['cognito_tokens', 'currentUser'];
+      keys.forEach(({ key }) => {
+        if (!essentialKeys.includes(key)) {
+          try {
+            localStorage.removeItem(key);
+            console.log(`🗑️ Supprimé: ${key}`);
+          } catch (e) {
+            // Ignorer les erreurs
+          }
+        }
+      });
+      
+      // Réduire currentUser à sa version minimale
+      if (criticalData.currentUser) {
+        try {
+          const userObj = JSON.parse(criticalData.currentUser);
+          const minimalUser = {
+            id: userObj.id || null,
+            email: userObj.email || '',
+            username: userObj.username || '',
+            name: userObj.name || '',
+            firstName: userObj.firstName || '',
+            lastName: userObj.lastName || '',
+            avatar: userObj.avatar || '👤',
+            profilePhoto: userObj.profilePhoto || null,
+            isLoggedIn: userObj.isLoggedIn || false,
+            profileComplete: userObj.profileComplete || false,
+            subscription: userObj.subscription || 'free',
+            role: userObj.role || 'user',
+            postalAddress: userObj.postalAddress || '',
+            provider: userObj.provider || null,
+            googleValidated: userObj.googleValidated || false
+          };
+          localStorage.setItem('currentUser', JSON.stringify(minimalUser));
+          console.log('✅ currentUser réduit à la version minimale');
+        } catch (e) {
+          console.warn('⚠️ Erreur réduction currentUser:', e);
+        }
+      }
+      
+      console.log('✅ Nettoyage terminé');
+    }
+  } catch (e) {
+    console.warn('⚠️ Erreur nettoyage localStorage:', e);
+  }
+}
+
+// Exécuter le nettoyage au chargement de la page
+if (typeof window !== 'undefined') {
+  // Attendre que le DOM soit prêt
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', cleanupLocalStorage);
+  } else {
+    cleanupLocalStorage();
+  }
+  
+  // Nettoyer aussi périodiquement (toutes les 5 minutes)
+  setInterval(cleanupLocalStorage, 5 * 60 * 1000);
+}
+
 // Fonction utilitaire pour sauvegarder avec gestion de quota localStorage
 function safeSetItem(key, value) {
   try {
@@ -445,8 +539,11 @@ async function handleCognitoCallbackIfPresent() {
           userObject: user
         });
         
-        // VÉRIFICATION CRITIQUE : Vérifier d'abord si le profil est déjà complet dans localStorage
-        // Si oui, NE JAMAIS afficher le formulaire même si le backend dit autre chose
+        // VÉRIFICATION PROFESSIONNELLE : Le BACKEND est la source de vérité principale
+        // Si le backend dit que le profil est complet, NE JAMAIS afficher le formulaire
+        // Même si localStorage est plein ou corrompu, on fait confiance au backend
+        
+        // Vérifier aussi localStorage comme fallback
         const savedUser = localStorage.getItem('currentUser');
         let savedUserObj = null;
         try {
@@ -457,32 +554,50 @@ async function handleCognitoCallbackIfPresent() {
           console.warn('⚠️ Impossible de parser currentUser depuis localStorage:', e);
         }
         
-        // Vérifier si le profil est déjà complet dans localStorage (source de vérité absolue)
-        const isProfileAlreadyComplete = (savedUserObj && savedUserObj.profileComplete === true) ||
-                                         (currentUser && currentUser.profileComplete === true);
+        // SOURCE DE VÉRITÉ #1 : Backend (priorité absolue)
+        // SOURCE DE VÉRITÉ #2 : localStorage (fallback si backend indisponible)
+        const isProfileCompleteFromBackend = profileComplete === true && hasUsername && hasPostalAddress && hasProfilePhoto;
+        const isProfileCompleteFromStorage = (savedUserObj && savedUserObj.profileComplete === true) ||
+                                             (currentUser && currentUser.profileComplete === true);
         
-        // SI LE PROFIL EST DÉJÀ COMPLET DANS LOCALSTORAGE, NE JAMAIS AFFICHER LE FORMULAIRE
+        const isProfileAlreadyComplete = isProfileCompleteFromBackend || isProfileCompleteFromStorage;
+        
+        // SI LE PROFIL EST COMPLET (backend OU localStorage), NE JAMAIS AFFICHER LE FORMULAIRE
         if (isProfileAlreadyComplete) {
-          console.log('✅ Profil déjà complet dans localStorage - Connexion directe (PAS de formulaire)', {
-            email: savedUserObj?.email || currentUser?.email,
-            username: savedUserObj?.username || currentUser?.username,
+          console.log('✅ Profil complet détecté - Connexion directe (PAS de formulaire)', {
+            source: isProfileCompleteFromBackend ? 'backend' : 'localStorage',
+            email: user.email || savedUserObj?.email || currentUser?.email,
+            username: user.username || savedUserObj?.username || currentUser?.username,
             profileComplete: true
           });
           
-          // Restaurer l'utilisateur depuis localStorage
-          if (savedUserObj) {
+          // Restaurer l'utilisateur depuis le backend (priorité) ou localStorage (fallback)
+          if (syncData.user) {
+            currentUser = {
+              ...currentUser,
+              ...syncData.user,
+              profilePhoto: syncData.user.profile_photo_url || syncData.user.avatar || syncData.user.profilePhoto || null,
+              avatar: syncData.user.avatar || syncData.user.profile_photo_url || syncData.user.profilePhoto || '👤',
+              isLoggedIn: true,
+              provider: 'google',
+              profileComplete: true, // GARANTIR que profileComplete est true
+              googleValidated: true,
+              username: syncData.user.username || currentUser.username,
+              postalAddress: syncData.user.postal_address || syncData.user.postalAddress || currentUser.postalAddress
+            };
+          } else if (savedUserObj) {
             currentUser = {
               ...currentUser,
               ...savedUserObj,
               isLoggedIn: true,
-              profileComplete: true // GARANTIR que profileComplete est true
+              profileComplete: true
             };
           } else {
             currentUser.isLoggedIn = true;
             currentUser.profileComplete = true;
           }
           
-          // Sauvegarder avec profileComplete: true
+          // Essayer de sauvegarder (peut échouer si localStorage plein, mais ce n'est pas grave)
           safeSetItem("currentUser", JSON.stringify(currentUser));
           updateAccountButton();
           updateUserUI();
