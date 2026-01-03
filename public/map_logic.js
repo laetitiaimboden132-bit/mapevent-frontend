@@ -445,11 +445,25 @@ async function handleCognitoCallbackIfPresent() {
           userObject: user
         });
         
+        // VÉRIFICATION CRITIQUE : Vérifier d'abord si le profil est déjà complet dans localStorage
+        // Si oui, NE JAMAIS afficher le formulaire même si le backend dit autre chose
+        const savedUser = localStorage.getItem('currentUser');
+        let savedUserObj = null;
+        try {
+          if (savedUser) {
+            savedUserObj = JSON.parse(savedUser);
+          }
+        } catch (e) {
+          console.warn('⚠️ Impossible de parser currentUser depuis localStorage:', e);
+        }
+        
+        const isProfileAlreadyComplete = (savedUserObj && savedUserObj.profileComplete === true) ||
+                                         (currentUser && currentUser.profileComplete === true);
+        
         // Afficher le formulaire si :
-        // - Nouvel utilisateur OU
-        // - Profil incomplet (selon backend) OU
-        // - Données essentielles manquantes (username, adresse, photo)
-        const shouldShowForm = isNewUser || !profileComplete || !hasUsername || !hasPostalAddress || !hasProfilePhoto;
+        // - Profil PAS déjà complet dans localStorage ET
+        // - (Nouvel utilisateur OU Profil incomplet selon backend OU Données essentielles manquantes)
+        const shouldShowForm = !isProfileAlreadyComplete && (isNewUser || !profileComplete || !hasUsername || !hasPostalAddress || !hasProfilePhoto);
         
         if (shouldShowForm) {
           // Afficher le formulaire IMMÉDIATEMENT
@@ -459,6 +473,7 @@ async function handleCognitoCallbackIfPresent() {
             hasUsername,
             hasPostalAddress,
             hasProfilePhoto,
+            isProfileAlreadyComplete,
             userEmail: user.email,
             reason: isNewUser ? 'nouvel utilisateur' : !profileComplete ? 'profil incomplet (backend)' : !hasUsername ? 'pas de username' : !hasPostalAddress ? 'pas d\'adresse' : 'pas de photo'
           });
@@ -485,7 +500,13 @@ async function handleCognitoCallbackIfPresent() {
         } else {
           // CAS 2: Utilisateur EXISTANT avec profil complet → Connexion directe à MapEvent
           // IMPORTANT: Ne JAMAIS afficher le formulaire si profileComplete === true
-          console.log('✅ Utilisateur existant avec profil complet - Connexion directe à MapEvent (PAS de formulaire)');
+          console.log('✅ Utilisateur existant avec profil complet - Connexion directe à MapEvent (PAS de formulaire)', {
+            profileComplete: profileComplete,
+            hasUsername: hasUsername,
+            hasPostalAddress: !!hasPostalAddress,
+            hasProfilePhoto: !!hasProfilePhoto,
+            userEmail: user.email
+          });
           
           if (syncData.user) {
             currentUser = {
@@ -497,12 +518,21 @@ async function handleCognitoCallbackIfPresent() {
               isLoggedIn: true,
               provider: 'google',
               profileComplete: true, // GARANTIR que profileComplete est true
-              googleValidated: true
+              googleValidated: true,
+              // Conserver les données essentielles
+              username: syncData.user.username || currentUser.username,
+              postalAddress: syncData.user.postal_address || syncData.user.postalAddress || currentUser.postalAddress
             };
             // Sauvegarder dans localStorage avec profileComplete: true
             safeSetItem("currentUser", JSON.stringify(currentUser));
             updateAccountButton();
             updateUserUI();
+            
+            console.log('✅ Profil utilisateur sauvegardé avec profileComplete: true', {
+              email: currentUser.email,
+              username: currentUser.username,
+              profileComplete: currentUser.profileComplete
+            });
           }
           
           showNotification(`✅ Connexion réussie ! Bienvenue ${currentUser.username || currentUser.name || currentUser.email}`, "success");
@@ -15000,10 +15030,15 @@ function loadSavedUser() {
         if (!hasValidTokens) {
           console.log('⚠️ Pas de tokens Cognito valides - Nettoyage de la session');
           currentUser.isLoggedIn = false;
-          // Forcer profileComplete à false pour forcer le formulaire
-          parsedUser.profileComplete = false;
+          // NE PAS forcer profileComplete à false si le profil est déjà complet
+          // On garde la valeur existante pour éviter de réafficher le formulaire
+          const existingProfileComplete = parsedUser.profileComplete === true;
           localStorage.removeItem('cognito_tokens');
-          localStorage.setItem('currentUser', JSON.stringify({ ...parsedUser, isLoggedIn: false, profileComplete: false }));
+          localStorage.setItem('currentUser', JSON.stringify({ 
+            ...parsedUser, 
+            isLoggedIn: false, 
+            profileComplete: existingProfileComplete // Conserver la valeur existante
+          }));
           updateAccountButton();
           return;
         }
@@ -15011,9 +15046,14 @@ function loadSavedUser() {
         // Même avec des tokens valides, on ne restaure PAS automatiquement la session
         // L'utilisateur doit cliquer sur "Compte" et se reconnecter
         // On charge juste les données de base pour référence
-        // FORCER profileComplete à false pour forcer le formulaire d'inscription
-        console.log('ℹ️ Données utilisateur trouvées mais session non restaurée automatiquement');
-        parsedUser.profileComplete = false; // FORCER à false pour forcer le formulaire
+        // IMPORTANT: Respecter profileComplete si le profil est déjà complet
+        console.log('ℹ️ Données utilisateur trouvées mais session non restaurée automatiquement', {
+          profileComplete: parsedUser.profileComplete,
+          email: parsedUser.email
+        });
+        
+        // CONSERVER profileComplete si le profil est déjà complet
+        const existingProfileComplete = parsedUser.profileComplete === true;
         
         // Fusionner avec les valeurs par défaut pour éviter les propriétés manquantes
         currentUser = {
@@ -15069,12 +15109,18 @@ function loadSavedUser() {
           ...parsedUser, // Écraser avec les valeurs sauvegardées
           lastSeen: new Date().toISOString(),
           isLoggedIn: false, // TOUJOURS false au chargement - l'utilisateur doit passer par la modal de connexion
-          profileComplete: false // FORCER à false pour forcer le formulaire d'inscription
+          profileComplete: existingProfileComplete // CONSERVER la valeur existante si le profil est complet
         };
-        console.log(`ℹ️ Données utilisateur chargées depuis localStorage mais session non restaurée (doit passer par modal de connexion)`);
-        // Sauvegarder avec profileComplete: false
+        console.log(`ℹ️ Données utilisateur chargées depuis localStorage mais session non restaurée (doit passer par modal de connexion)`, {
+          profileComplete: currentUser.profileComplete,
+          email: currentUser.email
+        });
+        // Sauvegarder en conservant profileComplete
         try {
-          localStorage.setItem('currentUser', JSON.stringify({ ...currentUser, profileComplete: false }));
+          localStorage.setItem('currentUser', JSON.stringify({ 
+            ...currentUser, 
+            profileComplete: existingProfileComplete // Conserver la valeur existante
+          }));
         } catch (e) {
           console.warn('⚠️ Impossible de sauvegarder currentUser:', e);
         }
