@@ -7091,6 +7091,27 @@ async function onSubmitPublishForm(e) {
   const startDate = document.getElementById("pub-start")?.value;
   const endDate = document.getElementById("pub-end")?.value;
   
+  // RÉPÉTITIONS (pour les events)
+  const repeatEnabled = document.getElementById("pub-repeat-enabled")?.checked || false;
+  const repeatFrequency = document.getElementById("pub-repeat-frequency")?.value || "weekly";
+  const repeatUntil = document.getElementById("pub-repeat-until")?.value || null;
+  const repeatCount = document.getElementById("pub-repeat-count")?.value || null;
+  const repeatWeekdays = Array.from(document.querySelectorAll(".repeat-weekday:checked")).map(cb => parseInt(cb.value));
+  
+  // OPTIONS AVANCÉES (pour les events)
+  const capacity = document.getElementById("pub-capacity")?.value || null;
+  const price = document.getElementById("pub-price")?.value || null;
+  const eventType = document.getElementById("pub-event-type")?.value || "public";
+  const wheelchair = document.getElementById("pub-wheelchair")?.checked || false;
+  const parking = document.getElementById("pub-parking")?.checked || false;
+  const transport = document.getElementById("pub-transport")?.checked || false;
+  const languages = Array.from(document.querySelectorAll(".pub-language:checked")).map(cb => cb.value);
+  const tags = document.getElementById("pub-tags")?.value?.split(",").map(t => t.trim()).filter(t => t) || [];
+  
+  // PHOTOS MULTIPLES
+  const mainImageFile = document.getElementById("pub-image")?.files[0];
+  const additionalImages = Array.from(document.getElementById("pub-images-multiple")?.files || []);
+  
   // Pour les bookings : audio et niveau
   const audioLinks = document.getElementById("pub-audio")?.value.trim();
   const level = document.getElementById("pub-level")?.value.trim();
@@ -7171,6 +7192,43 @@ async function onSubmitPublishForm(e) {
     newItem.ticketUrl = ticketUrl;
     newItem.participants = 0;
     newItem.status = "upcoming";
+    
+    // RÉPÉTITIONS
+    if (repeatEnabled) {
+      newItem.repeat = {
+        enabled: true,
+        frequency: repeatFrequency,
+        until: repeatUntil,
+        count: repeatCount ? parseInt(repeatCount) : null,
+        weekdays: repeatWeekdays.length > 0 ? repeatWeekdays : null
+      };
+    }
+    
+    // OPTIONS AVANCÉES
+    newItem.advancedOptions = {
+      capacity: capacity ? parseInt(capacity) : null,
+      price: price ? parseFloat(price) : null,
+      eventType: eventType,
+      accessibility: {
+        wheelchair: wheelchair,
+        parking: parking,
+        publicTransport: transport
+      },
+      languages: languages.length > 0 ? languages : ["fr"],
+      tags: tags.length > 0 ? tags : []
+    };
+    
+    // PHOTOS MULTIPLES
+    if (additionalImages.length > 0) {
+      newItem.additionalImages = additionalImages.map((file, index) => ({
+        index: index,
+        filename: file.name,
+        type: file.type,
+        size: file.size
+        // Note: Les fichiers seront uploadés séparément
+      }));
+    }
+    
     eventsData.push(newItem);
   } else if (currentMode === "booking") {
     newItem.audioLinks = audioLinks ? audioLinks.split('\n').filter(l => l.trim()) : [];
