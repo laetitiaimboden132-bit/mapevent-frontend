@@ -15625,78 +15625,53 @@ function toggleNotification(type) {
 }
 
 // Basculer une option de confidentialité
-// Modal Modifier le profil
+// Modal Modifier le profil - Affiche le formulaire d'inscription complet
 function openEditProfileModal() {
-  // Construire la valeur de l'adresse de manière sécurisée
-  let addressValue = '';
-  try {
-    if (currentUser.postalAddress) {
-      if (typeof currentUser.postalAddress === 'object' && currentUser.postalAddress !== null) {
-        const parts = [];
-        if (currentUser.postalAddress.address) parts.push(currentUser.postalAddress.address);
-        if (currentUser.postalAddress.city) parts.push(currentUser.postalAddress.city);
-        if (currentUser.postalAddress.zip) parts.push(currentUser.postalAddress.zip);
-        addressValue = parts.join(', ');
-      } else if (typeof currentUser.postalAddress === 'string') {
-        addressValue = currentUser.postalAddress;
-      }
-    }
-  } catch (e) {
-    console.warn('Erreur construction adresse:', e);
-    addressValue = '';
+  console.log('✏️ openEditProfileModal appelé - Affichage formulaire d\'inscription complet pour modification');
+  
+  // Pré-remplir registerData avec les données actuelles de l'utilisateur
+  const nameParts = (currentUser.name || '').split(' ');
+  const addressValue = currentUser.postalAddress && typeof currentUser.postalAddress === 'object' 
+    ? ((currentUser.postalAddress.address || '') + (currentUser.postalAddress.city ? ', ' + currentUser.postalAddress.city : '') + (currentUser.postalAddress.zip ? ' ' + currentUser.postalAddress.zip : '')).trim()
+    : (currentUser.postalAddress || '');
+  
+  registerData = {
+    email: currentUser.email || '',
+    username: currentUser.username || '',
+    password: '', // Ne pas pré-remplir le mot de passe pour la sécurité
+    passwordConfirm: '',
+    firstName: currentUser.firstName || nameParts[0] || '',
+    lastName: currentUser.lastName || nameParts.slice(1).join(' ') || '',
+    profilePhoto: currentUser.profilePhoto || (currentUser.avatar && currentUser.avatar.startsWith('http') ? currentUser.avatar : ''),
+    postalAddress: addressValue,
+    avatarId: currentUser.avatarId || 1,
+    avatarDescription: currentUser.avatarDescription || '',
+    addresses: currentUser.addresses || [],
+    emailVerificationCode: null,
+    emailVerified: true, // L'email est déjà vérifié
+    verificationAttempts: 0,
+    lastVerificationAttempt: null,
+    registrationAttempts: 0,
+    lastRegistrationAttempt: null,
+    captchaAnswer: null,
+    codeSentAt: null,
+    codeExpiresAt: null,
+    resendCountdown: 0,
+    lastResendAttempt: null
+  };
+  
+  // Marquer que c'est une modification (pas une nouvelle inscription)
+  window.isEditingProfile = true;
+  
+  // Afficher le formulaire d'inscription complet
+  if (typeof window.showProRegisterForm === 'function') {
+    window.showProRegisterForm();
+  } else if (typeof showProRegisterForm === 'function') {
+    showProRegisterForm();
+  } else {
+    console.error('❌ showProRegisterForm non disponible');
+    showNotification('⚠️ Erreur: formulaire non disponible', 'error');
   }
-  
-  const html = `
-    <div style="padding:24px;max-width:500px;margin:0 auto;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
-        <h2 style="margin:0;font-size:22px;font-weight:800;color:#fff;display:flex;align-items:center;gap:10px;">
-          <span>✏️</span> Modifier mon profil
-        </h2>
-        <button onclick="openAccountModal()" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--ui-text-muted);transition:color 0.2s;" onmouseover="this.style.color='#fff';" onmouseout="this.style.color='var(--ui-text-muted)';">✕</button>
-      </div>
-      
-      <!-- Photo de profil -->
-      <div style="margin-bottom:24px;text-align:center;">
-        <label style="display:block;font-size:13px;font-weight:600;color:var(--ui-text-main);margin-bottom:12px;">📸 Photo de profil</label>
-        <div style="position:relative;display:inline-block;">
-          <div id="edit-profile-photo-preview" style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,#00ffc3,#3b82f6);display:flex;align-items:center;justify-content:center;font-size:32px;border:3px solid rgba(255,255,255,0.2);overflow:hidden;margin:0 auto;">
-            ${currentUser.profilePhoto && (currentUser.profilePhoto.startsWith('http') || currentUser.profilePhoto.startsWith('data:image'))
-              ? `<img src="${escapeHtml(currentUser.profilePhoto)}" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentElement.innerHTML='${escapeHtml(currentUser.avatar || '👤')}';" />`
-              : escapeHtml(currentUser.avatar || '👤')}
-          </div>
-          <input type="file" id="edit-profile-photo-input" accept="image/*" style="display:none;" onchange="handleEditProfilePhoto(event)">
-          <button onclick="document.getElementById('edit-profile-photo-input').click()" style="margin-top:12px;padding:8px 16px;border-radius:8px;border:2px solid rgba(0,255,195,0.3);background:rgba(0,255,195,0.1);color:#00ffc3;font-weight:600;font-size:13px;cursor:pointer;transition:all 0.3s;" onmouseover="this.style.background='rgba(0,255,195,0.2)';this.style.borderColor='rgba(0,255,195,0.5)';" onmouseout="this.style.background='rgba(0,255,195,0.1)';this.style.borderColor='rgba(0,255,195,0.3)';">
-            📷 Changer la photo
-          </button>
-        </div>
-      </div>
-      
-      <!-- Nom d'utilisateur -->
-      <div style="margin-bottom:20px;">
-        <label style="display:block;font-size:13px;font-weight:600;color:var(--ui-text-main);margin-bottom:8px;">👤 Nom d'utilisateur</label>
-        <input type="text" id="edit-profile-username" value="${escapeHtml(currentUser.username || '')}" placeholder="Votre nom d'utilisateur" maxlength="20" style="width:100%;padding:12px 16px;border-radius:10px;border:2px solid rgba(255,255,255,0.1);background:rgba(15,23,42,0.5);color:var(--ui-text-main);font-size:14px;transition:all 0.3s;" onfocus="this.style.borderColor='rgba(0,255,195,0.5)';this.style.background='rgba(15,23,42,0.8)';" onblur="this.style.borderColor='rgba(255,255,255,0.1)';this.style.background='rgba(15,23,42,0.5)';">
-        <div style="font-size:11px;color:var(--ui-text-muted);margin-top:4px;">Ce nom sera visible par tous les utilisateurs</div>
-      </div>
-      
-      <!-- Adresse postale -->
-      <div style="margin-bottom:24px;">
-        <label style="display:block;font-size:13px;font-weight:600;color:var(--ui-text-main);margin-bottom:8px;">📍 Adresse postale</label>
-        <input type="text" id="edit-profile-address" value="${escapeHtml(addressValue)}" placeholder="Rue, Ville, Code postal" style="width:100%;padding:12px 16px;border-radius:10px;border:2px solid rgba(255,255,255,0.1);background:rgba(15,23,42,0.5);color:var(--ui-text-main);font-size:14px;transition:all 0.3s;" onfocus="this.style.borderColor='rgba(0,255,195,0.5)';this.style.background='rgba(15,23,42,0.8)';" onblur="this.style.borderColor='rgba(255,255,255,0.1)';this.style.background='rgba(15,23,42,0.5)';">
-      </div>
-      
-      <!-- Boutons -->
-      <div style="display:flex;gap:12px;">
-        <button onclick="saveProfileChanges()" style="flex:1;padding:14px;border-radius:12px;border:none;background:linear-gradient(135deg,#00ffc3,#3b82f6);color:#000;font-weight:700;font-size:15px;cursor:pointer;transition:all 0.3s;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 20px rgba(0,255,195,0.3)';" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='none';">
-          💾 Enregistrer
-        </button>
-        <button onclick="openAccountModal()" style="flex:1;padding:14px;border-radius:12px;border:2px solid rgba(255,255,255,0.1);background:transparent;color:var(--ui-text-muted);font-weight:600;font-size:15px;cursor:pointer;transition:all 0.3s;" onmouseover="this.style.borderColor='rgba(255,255,255,0.3)';this.style.color='var(--ui-text-main)';" onmouseout="this.style.borderColor='rgba(255,255,255,0.1)';this.style.color='var(--ui-text-muted)';">
-          Annuler
-        </button>
-      </div>
-    </div>
-  `;
-  
-  document.getElementById("publish-modal-inner").innerHTML = html;
 }
 
 // Gérer le changement de photo de profil
