@@ -554,58 +554,65 @@ async function handleCognitoCallbackIfPresent() {
           console.warn('⚠️ Impossible de parser currentUser depuis localStorage:', e);
         }
         
-        // SOURCE DE VÉRITÉ #1 : Backend (priorité absolue)
-        // SOURCE DE VÉRITÉ #2 : localStorage (fallback si backend indisponible)
+        // ============================================
+        // SOURCE DE VÉRITÉ ABSOLUE : LE BACKEND
+        // ============================================
+        // Le backend est la SEULE source de vérité pour profileComplete
+        // Si le backend dit que le profil est complet, on FAIT CONFIANCE au backend
+        // Même si localStorage est plein, corrompu ou vide, on suit le backend
+        
+        // Vérifier le backend EN PREMIER (source de vérité absolue)
         const isProfileCompleteFromBackend = profileComplete === true && hasUsername && hasPostalAddress && hasProfilePhoto;
-        const isProfileCompleteFromStorage = (savedUserObj && savedUserObj.profileComplete === true) ||
-                                             (currentUser && currentUser.profileComplete === true);
         
-        const isProfileAlreadyComplete = isProfileCompleteFromBackend || isProfileCompleteFromStorage;
-        
-        // SI LE PROFIL EST COMPLET (backend OU localStorage), NE JAMAIS AFFICHER LE FORMULAIRE
-        if (isProfileAlreadyComplete) {
-          console.log('✅ Profil complet détecté - Connexion directe (PAS de formulaire)', {
-            source: isProfileCompleteFromBackend ? 'backend' : 'localStorage',
-            email: user.email || savedUserObj?.email || currentUser?.email,
-            username: user.username || savedUserObj?.username || currentUser?.username,
-            profileComplete: true
+        // SI LE BACKEND DIT QUE LE PROFIL EST COMPLET, NE JAMAIS AFFICHER LE FORMULAIRE
+        if (isProfileCompleteFromBackend) {
+          console.log('✅ BACKEND confirme : Profil complet - Connexion directe (PAS de formulaire)', {
+            source: 'BACKEND (source de vérité absolue)',
+            email: user.email,
+            username: user.username,
+            userId: user.id,
+            profileComplete: profileComplete,
+            hasUsername: hasUsername,
+            hasPostalAddress: !!hasPostalAddress,
+            hasProfilePhoto: !!hasProfilePhoto
           });
           
-          // Restaurer l'utilisateur depuis le backend (priorité) ou localStorage (fallback)
+          // Restaurer l'utilisateur depuis le backend (source de vérité)
           if (syncData.user) {
-        currentUser = {
-          ...currentUser,
-          ...syncData.user,
-          // GARANTIR que l'ID est toujours défini
-          id: syncData.user.id || syncData.user.user_id || currentUser.id || currentUser.sub || null,
-          profilePhoto: syncData.user.profile_photo_url || syncData.user.avatar || syncData.user.profilePhoto || null,
-          avatar: syncData.user.avatar || syncData.user.profile_photo_url || syncData.user.profilePhoto || '👤',
-          isLoggedIn: true,
-          provider: 'google',
-          profileComplete: true, // GARANTIR que profileComplete est true
-          googleValidated: true,
-          username: syncData.user.username || currentUser.username,
-          postalAddress: syncData.user.postal_address || syncData.user.postalAddress || currentUser.postalAddress
-        };
-        
-        // Vérifier que l'ID est bien défini
-        if (!currentUser.id) {
-          console.warn('⚠️ currentUser.id est undefined après synchronisation backend');
-        }
-          } else if (savedUserObj) {
             currentUser = {
               ...currentUser,
-              ...savedUserObj,
+              ...syncData.user,
+              // GARANTIR que l'ID est toujours défini
+              id: syncData.user.id || syncData.user.user_id || currentUser.id || currentUser.sub || null,
+              profilePhoto: syncData.user.profile_photo_url || syncData.user.avatar || syncData.user.profilePhoto || null,
+              avatar: syncData.user.avatar || syncData.user.profile_photo_url || syncData.user.profilePhoto || '👤',
               isLoggedIn: true,
-              profileComplete: true
+              provider: 'google',
+              profileComplete: true, // GARANTIR que profileComplete est true (selon backend)
+              googleValidated: true,
+              username: syncData.user.username || currentUser.username,
+              postalAddress: syncData.user.postal_address || syncData.user.postalAddress || currentUser.postalAddress
             };
+            
+            // Vérifier que l'ID est bien défini
+            if (!currentUser.id) {
+              console.warn('⚠️ currentUser.id est undefined après synchronisation backend');
+            }
           } else {
+            // Fallback si pas de syncData.user
             currentUser.isLoggedIn = true;
             currentUser.profileComplete = true;
+            currentUser.id = user.id || currentUser.id || currentUser.sub || null;
           }
           
-          // Essayer de sauvegarder (peut échouer si localStorage plein, mais ce n'est pas grave)
-          safeSetItem("currentUser", JSON.stringify(currentUser));
+          // Essayer de sauvegarder dans localStorage (peut échouer si plein, mais ce n'est pas grave)
+          // Le backend reste la source de vérité même si localStorage échoue
+          try {
+            safeSetItem("currentUser", JSON.stringify(currentUser));
+          } catch (e) {
+            console.warn('⚠️ Impossible de sauvegarder dans localStorage (plein), mais le backend confirme que le profil est complet');
+            // Ce n'est pas grave, on continue quand même
+          }
           updateAccountButton();
           updateUserUI();
           
