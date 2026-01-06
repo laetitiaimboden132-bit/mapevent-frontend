@@ -42,100 +42,6 @@ function authClearTemp() {
   ["pkce_verifier", "oauth_state"].forEach((k) => sessionStorage.removeItem(k));
 }
 
-// ============================================
-// NETTOYAGE AUTOMATIQUE DU LOCALSTORAGE
-// ============================================
-// Fonction professionnelle pour nettoyer le localStorage de manière proactive
-function cleanupLocalStorage() {
-  try {
-    // Vérifier la taille actuelle
-    let totalSize = 0;
-    const keys = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key) {
-        const value = localStorage.getItem(key);
-        if (value) {
-          totalSize += value.length;
-          keys.push({ key, size: value.length });
-        }
-      }
-    }
-    
-    const sizeMB = totalSize / (1024 * 1024);
-    console.log(`📊 localStorage: ${keys.length} clés, ${sizeMB.toFixed(2)}MB`);
-    
-    // Si plus de 4MB, nettoyer les données non essentielles
-    if (sizeMB > 4) {
-      console.log('🧹 Nettoyage automatique du localStorage...');
-      
-      // Sauvegarder les données critiques
-      const criticalData = {
-        cognito_tokens: localStorage.getItem('cognito_tokens'),
-        currentUser: localStorage.getItem('currentUser')
-      };
-      
-      // Supprimer toutes les clés non essentielles
-      const essentialKeys = ['cognito_tokens', 'currentUser'];
-      keys.forEach(({ key }) => {
-        if (!essentialKeys.includes(key)) {
-          try {
-            localStorage.removeItem(key);
-            console.log(`🗑️ Supprimé: ${key}`);
-          } catch (e) {
-            // Ignorer les erreurs
-          }
-        }
-      });
-      
-      // Réduire currentUser à sa version minimale
-      if (criticalData.currentUser) {
-        try {
-          const userObj = JSON.parse(criticalData.currentUser);
-          const minimalUser = {
-            id: userObj.id || null,
-            email: userObj.email || '',
-            username: userObj.username || '',
-            name: userObj.name || '',
-            firstName: userObj.firstName || '',
-            lastName: userObj.lastName || '',
-            avatar: userObj.avatar || '👤',
-            profilePhoto: userObj.profilePhoto || null,
-            isLoggedIn: userObj.isLoggedIn || false,
-            profileComplete: userObj.profileComplete || false,
-            subscription: userObj.subscription || 'free',
-            role: userObj.role || 'user',
-            postalAddress: userObj.postalAddress || '',
-            provider: userObj.provider || null,
-            googleValidated: userObj.googleValidated || false
-          };
-          localStorage.setItem('currentUser', JSON.stringify(minimalUser));
-          console.log('✅ currentUser réduit à la version minimale');
-        } catch (e) {
-          console.warn('⚠️ Erreur réduction currentUser:', e);
-        }
-      }
-      
-      console.log('✅ Nettoyage terminé');
-    }
-  } catch (e) {
-    console.warn('⚠️ Erreur nettoyage localStorage:', e);
-  }
-}
-
-// Exécuter le nettoyage au chargement de la page
-if (typeof window !== 'undefined') {
-  // Attendre que le DOM soit prêt
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', cleanupLocalStorage);
-  } else {
-    cleanupLocalStorage();
-  }
-  
-  // Nettoyer aussi périodiquement (toutes les 5 minutes)
-  setInterval(cleanupLocalStorage, 5 * 60 * 1000);
-}
-
 // Fonction utilitaire pour sauvegarder avec gestion de quota localStorage
 function safeSetItem(key, value) {
   try {
@@ -539,126 +445,13 @@ async function handleCognitoCallbackIfPresent() {
           userObject: user
         });
         
-        // VÉRIFICATION PROFESSIONNELLE : Le BACKEND est la source de vérité principale
-        // Si le backend dit que le profil est complet, NE JAMAIS afficher le formulaire
-        // Même si localStorage est plein ou corrompu, on fait confiance au backend
-        
-        // Vérifier aussi localStorage comme fallback
-        const savedUser = localStorage.getItem('currentUser');
-        let savedUserObj = null;
-        try {
-          if (savedUser) {
-            savedUserObj = JSON.parse(savedUser);
-          }
-        } catch (e) {
-          console.warn('⚠️ Impossible de parser currentUser depuis localStorage:', e);
-        }
-        
-        // ============================================
-        // SOURCE DE VÉRITÉ ABSOLUE : LE BACKEND
-        // ============================================
-        // Le backend est la SEULE source de vérité pour profileComplete
-        // Si le backend dit que le profil est complet, on FAIT CONFIANCE au backend
-        // Même si localStorage est plein, corrompu ou vide, on suit le backend
-        
-        // Vérifier le backend EN PREMIER (source de vérité absolue)
-        const isProfileCompleteFromBackend = profileComplete === true && hasUsername && hasPostalAddress && hasProfilePhoto;
-        
-        // SI LE BACKEND DIT QUE LE PROFIL EST COMPLET, NE JAMAIS AFFICHER LE FORMULAIRE
-        if (isProfileCompleteFromBackend) {
-          console.log('✅ BACKEND confirme : Profil complet - Connexion directe (PAS de formulaire)', {
-            source: 'BACKEND (source de vérité absolue)',
-            email: user.email,
-            username: user.username,
-            userId: user.id,
-            profileComplete: profileComplete,
-            hasUsername: hasUsername,
-            hasPostalAddress: !!hasPostalAddress,
-            hasProfilePhoto: !!hasProfilePhoto
-          });
-          
-          // Restaurer l'utilisateur depuis le backend (source de vérité)
-          if (syncData.user) {
-            currentUser = {
-              ...currentUser,
-              ...syncData.user,
-              // GARANTIR que l'ID est toujours défini
-              id: syncData.user.id || syncData.user.user_id || currentUser.id || currentUser.sub || null,
-              profilePhoto: syncData.user.profile_photo_url || syncData.user.avatar || syncData.user.profilePhoto || null,
-              avatar: syncData.user.avatar || syncData.user.profile_photo_url || syncData.user.profilePhoto || '👤',
-              isLoggedIn: true,
-              provider: 'google',
-              profileComplete: true, // GARANTIR que profileComplete est true (selon backend)
-              googleValidated: true,
-              username: syncData.user.username || currentUser.username,
-              postalAddress: syncData.user.postal_address || syncData.user.postalAddress || currentUser.postalAddress
-            };
-            
-            // Vérifier que l'ID est bien défini
-            if (!currentUser.id) {
-              console.warn('⚠️ currentUser.id est undefined après synchronisation backend');
-            }
-          } else {
-            // Fallback si pas de syncData.user
-            currentUser.isLoggedIn = true;
-            currentUser.profileComplete = true;
-            currentUser.id = user.id || currentUser.id || currentUser.sub || null;
-          }
-          
-          // Essayer de sauvegarder dans localStorage (peut échouer si plein, mais ce n'est pas grave)
-          // Le backend reste la source de vérité même si localStorage échoue
-          try {
-            safeSetItem("currentUser", JSON.stringify(currentUser));
-          } catch (e) {
-            console.warn('⚠️ Impossible de sauvegarder dans localStorage (plein), mais le backend confirme que le profil est complet');
-            // Ce n'est pas grave, on continue quand même
-          }
-          updateAccountButton();
-          updateUserUI();
-          
-          showNotification(`✅ Connexion réussie ! Bienvenue ${currentUser.username || currentUser.name || currentUser.email}`, "success");
-          
-          // Nettoyer l'URL des paramètres OAuth
-          if (window.history && window.history.replaceState) {
-            window.history.replaceState({}, document.title, window.location.pathname);
-          }
-          
-          // FERMER le formulaire s'il était ouvert (sécurité supplémentaire)
-          closePublishModal();
-          return; // SORTIR ICI - NE JAMAIS AFFICHER LE FORMULAIRE
-        }
-        
-        // Afficher le formulaire UNIQUEMENT si le profil n'est PAS déjà complet dans localStorage
-        // ET si c'est un nouvel utilisateur OU profil incomplet selon backend OU données essentielles manquantes
+        // Afficher le formulaire si :
+        // - Nouvel utilisateur OU
+        // - Profil incomplet (selon backend) OU
+        // - Données essentielles manquantes (username, adresse, photo)
         const shouldShowForm = isNewUser || !profileComplete || !hasUsername || !hasPostalAddress || !hasProfilePhoto;
         
         if (shouldShowForm) {
-          // DOUBLE VÉRIFICATION : Si le profil est complet dans localStorage, NE JAMAIS afficher le formulaire
-          if (isProfileAlreadyComplete) {
-            console.log('⚠️ Tentative d\'affichage formulaire alors que profil déjà complet dans localStorage - Bloqué');
-            // Restaurer l'utilisateur depuis localStorage
-            if (savedUserObj) {
-              currentUser = {
-                ...currentUser,
-                ...savedUserObj,
-                isLoggedIn: true,
-                profileComplete: true
-              };
-            } else {
-              currentUser.isLoggedIn = true;
-              currentUser.profileComplete = true;
-            }
-            safeSetItem("currentUser", JSON.stringify(currentUser));
-            updateAccountButton();
-            updateUserUI();
-            showNotification(`✅ Connexion réussie ! Bienvenue ${currentUser.username || currentUser.name || currentUser.email}`, "success");
-            if (window.history && window.history.replaceState) {
-              window.history.replaceState({}, document.title, window.location.pathname);
-            }
-            closePublishModal();
-            return; // SORTIR ICI - NE JAMAIS AFFICHER LE FORMULAIRE
-          }
-          
           // Afficher le formulaire IMMÉDIATEMENT
           console.log('📝 Affichage formulaire d\'inscription', {
             isNewUser,
@@ -666,7 +459,6 @@ async function handleCognitoCallbackIfPresent() {
             hasUsername,
             hasPostalAddress,
             hasProfilePhoto,
-            isProfileAlreadyComplete,
             userEmail: user.email,
             reason: isNewUser ? 'nouvel utilisateur' : !profileComplete ? 'profil incomplet (backend)' : !hasUsername ? 'pas de username' : !hasPostalAddress ? 'pas d\'adresse' : 'pas de photo'
           });
@@ -693,13 +485,7 @@ async function handleCognitoCallbackIfPresent() {
         } else {
           // CAS 2: Utilisateur EXISTANT avec profil complet → Connexion directe à MapEvent
           // IMPORTANT: Ne JAMAIS afficher le formulaire si profileComplete === true
-          console.log('✅ Utilisateur existant avec profil complet - Connexion directe à MapEvent (PAS de formulaire)', {
-            profileComplete: profileComplete,
-            hasUsername: hasUsername,
-            hasPostalAddress: !!hasPostalAddress,
-            hasProfilePhoto: !!hasProfilePhoto,
-            userEmail: user.email
-          });
+          console.log('✅ Utilisateur existant avec profil complet - Connexion directe à MapEvent (PAS de formulaire)');
           
           if (syncData.user) {
             currentUser = {
@@ -711,21 +497,24 @@ async function handleCognitoCallbackIfPresent() {
               isLoggedIn: true,
               provider: 'google',
               profileComplete: true, // GARANTIR que profileComplete est true
-              googleValidated: true,
-              // Conserver les données essentielles
-              username: syncData.user.username || currentUser.username,
-              postalAddress: syncData.user.postal_address || syncData.user.postalAddress || currentUser.postalAddress
+              googleValidated: true
             };
+            // Debug: vérifier l'URL sauvegardée
+            console.log('🔍 Sauvegarde currentUser.profilePhoto:', currentUser.profilePhoto);
+            console.log('🔍 Sauvegarde currentUser.profile_photo_url:', currentUser.profile_photo_url);
             // Sauvegarder dans localStorage avec profileComplete: true
             safeSetItem("currentUser", JSON.stringify(currentUser));
+            // Forcer la mise à jour du bouton compte immédiatement et après un court délai
             updateAccountButton();
+            setTimeout(() => {
+              updateAccountButton();
+              console.log('🔄 Mise à jour forcée du bouton compte après connexion');
+            }, 100);
+            setTimeout(() => {
+              updateAccountButton();
+              console.log('🔄 Mise à jour forcée du bouton compte après 500ms');
+            }, 500);
             updateUserUI();
-            
-            console.log('✅ Profil utilisateur sauvegardé avec profileComplete: true', {
-              email: currentUser.email,
-              username: currentUser.username,
-              profileComplete: currentUser.profileComplete
-            });
           }
           
           showNotification(`✅ Connexion réussie ! Bienvenue ${currentUser.username || currentUser.name || currentUser.email}`, "success");
@@ -901,33 +690,19 @@ async function handleCognitoCallbackIfPresent() {
 
 // Fonction centralisée pour afficher le formulaire d'inscription après validation Google
 function displayRegistrationFormAfterGoogleAuth(backendUser) {
-  console.log('🎯 displayRegistrationFormAfterGoogleAuth appelé', { backendUser: !!backendUser, isEditingProfile: window.isEditingProfile });
+  console.log('🎯 displayRegistrationFormAfterGoogleAuth appelé', { backendUser: !!backendUser });
   
-  // EXCEPTION : Si c'est une modification de profil, permettre l'affichage même si profileComplete === true
-  if (window.isEditingProfile === true) {
-    console.log('✅ Mode modification détecté - Affichage du formulaire autorisé');
-    // Ne pas retourner, continuer pour afficher le formulaire
-  } else {
-    // VÉRIFICATION CRITIQUE : Ne JAMAIS afficher le formulaire si le profil est déjà complet
-    // Même si isLoggedIn est false, si profileComplete est true, c'est que l'utilisateur a déjà rempli le formulaire
-    if (currentUser && currentUser.profileComplete === true) {
-      console.log('⚠️ Tentative d\'affichage formulaire alors que profileComplete === true - Bloqué (profil déjà complet)');
-      return; // Ne JAMAIS afficher le formulaire si le profil est déjà complet
-    }
-    
-    // Vérifier aussi dans localStorage au cas où
-    const savedUser = localStorage.getItem('currentUser');
-    if (savedUser) {
-      try {
-        const savedUserObj = JSON.parse(savedUser);
-        if (savedUserObj && savedUserObj.profileComplete === true) {
-          console.log('⚠️ Tentative d\'affichage formulaire alors que profileComplete === true dans localStorage - Bloqué');
-          return; // Ne JAMAIS afficher le formulaire si le profil est déjà complet
-        }
-      } catch (e) {
-        console.warn('⚠️ Impossible de parser currentUser depuis localStorage:', e);
-      }
-    }
+  // VÉRIFICATION CRITIQUE : Ne JAMAIS afficher le formulaire si le profil est déjà complet ET l'utilisateur est connecté
+  // MAIS on force l'affichage si l'utilisateur vient de Google et n'est pas encore connecté
+  if (currentUser && currentUser.profileComplete === true && currentUser.isLoggedIn === true) {
+    console.log('⚠️ Tentative d\'affichage formulaire alors que profileComplete === true ET isLoggedIn === true - Bloqué');
+    return; // Ne pas afficher le formulaire
+  }
+  
+  // Si profileComplete est true mais isLoggedIn est false, on force l'affichage du formulaire
+  if (currentUser && currentUser.profileComplete === true && currentUser.isLoggedIn === false) {
+    console.log('⚠️ profileComplete === true mais isLoggedIn === false - FORCER profileComplete à false pour afficher le formulaire');
+    currentUser.profileComplete = false;
   }
   
   // Mettre à jour currentUser avec les données du backend ou Google
@@ -10126,17 +9901,12 @@ function showError(elementId, message) {
 async function handleProRegisterSubmit(event) {
   event.preventDefault();
   
-  // Si c'est une modification de profil (pas une nouvelle inscription), permettre la soumission
-  const isEditing = window.isEditingProfile === true;
-  
-  if (!isEditing) {
-    // VÉRIFICATION CRITIQUE : Si le profil est déjà complet ET ce n'est PAS une modification, ne pas permettre la soumission
-    if (currentUser && currentUser.profileComplete === true && currentUser.isLoggedIn === true) {
-      console.warn('⚠️ Tentative de soumission formulaire alors que le profil est déjà complet');
-      showNotification('✅ Votre compte est déjà créé et complet. Vous êtes connecté !', 'success');
-      closePublishModal();
-      return;
-    }
+  // VÉRIFICATION CRITIQUE : Si le profil est déjà complet, ne pas permettre la soumission
+  if (currentUser && currentUser.profileComplete === true && currentUser.isLoggedIn === true) {
+    console.warn('⚠️ Tentative de soumission formulaire alors que le profil est déjà complet');
+    showNotification('✅ Votre compte est déjà créé et complet. Vous êtes connecté !', 'success');
+    closePublishModal();
+    return;
   }
   
   // Récupérer toutes les valeurs
@@ -10231,42 +10001,23 @@ async function handleProRegisterSubmit(event) {
     if (response.ok) {
       const data = await response.json();
       
-      console.log('✅ Réponse backend après soumission formulaire:', {
-        hasUser: !!data.user,
-        profileComplete: data.profileComplete,
-        userProfileComplete: data.user?.profileComplete,
-        userId: data.user?.id,
-        username: data.user?.username
-      });
-      
       // Mettre à jour currentUser avec les données du backend
       if (data.user) {
         // Mapper les champs du backend vers le format frontend
         const profilePhoto = data.user.profile_photo_url || data.user.avatar || data.user.profilePhoto || registerData.profilePhoto || null;
         const avatar = data.user.avatar || data.user.profile_photo_url || data.user.profilePhoto || registerData.profilePhoto || '👤';
         
-        const isEditing = window.isEditingProfile === true;
-        
-        // IMPORTANT : Le backend renvoie profileComplete dans data.profileComplete OU data.user.profileComplete
-        // Le backend est la source de vérité absolue
-        // Après inscription/modification, le backend renvoie TOUJOURS profileComplete: true
-        const backendProfileComplete = data.profileComplete === true || data.user.profileComplete === true || true; // Toujours true après soumission réussie
-        
-        console.log('✅ Profil marqué comme complet par le backend:', backendProfileComplete);
-        
         currentUser = {
           ...currentUser,
           ...data.user,
-          // GARANTIR que l'ID est toujours défini
-          id: data.user.id || data.user.user_id || currentUser.id || currentUser.sub || Date.now(),
           // PRIORITÉ ABSOLUE : username du backend OU du formulaire (GARANTIR qu'il est présent)
           username: data.user.username || registerData.username || currentUser.username,
           // S'assurer que profilePhoto et avatar sont correctement mappés
           profilePhoto: profilePhoto,
           avatar: avatar,
           isLoggedIn: true,
-          profileComplete: true, // TOUJOURS true après soumission réussie (le backend confirme)
-          googleValidated: currentUser.googleValidated || false,
+          profileComplete: true, // Profil maintenant complet après inscription - IMPORTANT !
+          googleValidated: false, // Plus besoin du marqueur
           likes: currentUser.likes || [],
           favorites: currentUser.favorites || [],
           agenda: currentUser.agenda || [],
@@ -13551,6 +13302,16 @@ function updateAccountButton() {
   const avatarEl = document.getElementById("account-avatar");
   const nameEl = document.getElementById("account-name");
   
+  // Debug: vérifier si les éléments existent
+  if (!avatarEl) {
+    console.warn('⚠️ updateAccountButton: account-avatar non trouvé dans le DOM');
+    return;
+  }
+  if (!nameEl) {
+    console.warn('⚠️ updateAccountButton: account-name non trouvé dans le DOM');
+    return;
+  }
+  
   if (accountBtn && avatarEl && nameEl) {
     // Afficher le nom d'utilisateur si connecté, sinon "Compte"
     if (currentUser.isLoggedIn) {
@@ -13573,6 +13334,13 @@ function updateAccountButton() {
         avatarUrl = currentUser.avatar;
       }
       
+      // Debug: afficher l'URL trouvée
+      if (avatarUrl && (avatarUrl.startsWith('http') || avatarUrl.startsWith('data:image'))) {
+        console.log('🔍 updateAccountButton - Avatar URL trouvée:', avatarUrl);
+      } else {
+        console.log('⚠️ updateAccountButton - Pas d\'URL avatar. profilePhoto:', currentUser.profilePhoto, 'profile_photo_url:', currentUser.profile_photo_url, 'avatar:', currentUser.avatar);
+      }
+      
       // Réduire la taille de l'avatar pour correspondre aux blocs booking/service
       // Les blocs ont une hauteur d'image de 160px, mais l'avatar doit être plus petit
       avatarEl.style.width = '32px';
@@ -13587,34 +13355,54 @@ function updateAccountButton() {
       
       if (avatarUrl && (avatarUrl.startsWith('http') || avatarUrl.startsWith('data:image'))) {
         // C'est une URL d'image (http ou base64)
+        console.log('🔄 updateAccountButton: Tentative de chargement de l\'image:', avatarUrl);
         const existingImg = avatarEl.querySelector('img');
         if (!existingImg) {
+          console.log('🔄 updateAccountButton: Création d\'une nouvelle image');
           const img = document.createElement('img');
           img.src = avatarUrl;
+          img.crossOrigin = 'anonymous'; // Important pour CORS
           img.style.width = '100%';
           img.style.height = '100%';
           img.style.borderRadius = '50%';
           img.style.objectFit = 'cover';
-          img.onerror = function() {
+          img.style.display = 'block';
+          img.onerror = function(e) {
+            console.error('❌ Erreur chargement avatar header:', avatarUrl, e);
             // Si l'image ne charge pas, afficher l'emoji
-            avatarEl.innerHTML = currentUser.avatar || "👤";
+            avatarEl.innerHTML = '';
+            avatarEl.textContent = currentUser.avatar || "👤";
             avatarEl.style.fontSize = '16px';
+          };
+          img.onload = function() {
+            console.log('✅ Avatar header chargé avec succès:', avatarUrl);
           };
           avatarEl.innerHTML = '';
           avatarEl.appendChild(img);
+          console.log('🔄 updateAccountButton: Image ajoutée au DOM');
         } else {
           // Mettre à jour l'image existante seulement si l'URL a changé
-          if (existingImg.src !== avatarUrl) {
+          if (existingImg.src !== avatarUrl && existingImg.src !== (window.location.origin + avatarUrl)) {
+            console.log('🔄 updateAccountButton: Mise à jour de l\'image existante');
             existingImg.src = avatarUrl;
-            existingImg.onerror = function() {
+            existingImg.crossOrigin = 'anonymous'; // Important pour CORS
+            existingImg.onerror = function(e) {
+              console.error('❌ Erreur chargement avatar header (mise à jour):', avatarUrl, e);
               // Si l'image ne charge pas, afficher l'emoji
-              avatarEl.innerHTML = currentUser.avatar || "👤";
+              avatarEl.innerHTML = '';
+              avatarEl.textContent = currentUser.avatar || "👤";
               avatarEl.style.fontSize = '16px';
             };
+            existingImg.onload = function() {
+              console.log('✅ Avatar header chargé avec succès (mise à jour):', avatarUrl);
+            };
+          } else {
+            console.log('ℹ️ updateAccountButton: Image déjà chargée avec la même URL');
           }
         }
       } else {
         // C'est un emoji ou texte
+        console.log('🔄 updateAccountButton: Affichage emoji/texte:', avatarUrl || currentUser.avatar || "👤");
         avatarEl.innerHTML = '';
         avatarEl.textContent = avatarUrl || currentUser.avatar || "👤";
       }
@@ -15261,15 +15049,10 @@ function loadSavedUser() {
         if (!hasValidTokens) {
           console.log('⚠️ Pas de tokens Cognito valides - Nettoyage de la session');
           currentUser.isLoggedIn = false;
-          // NE PAS forcer profileComplete à false si le profil est déjà complet
-          // On garde la valeur existante pour éviter de réafficher le formulaire
-          const existingProfileComplete = parsedUser.profileComplete === true;
+          // Forcer profileComplete à false pour forcer le formulaire
+          parsedUser.profileComplete = false;
           localStorage.removeItem('cognito_tokens');
-          localStorage.setItem('currentUser', JSON.stringify({ 
-            ...parsedUser, 
-            isLoggedIn: false, 
-            profileComplete: existingProfileComplete // Conserver la valeur existante
-          }));
+          localStorage.setItem('currentUser', JSON.stringify({ ...parsedUser, isLoggedIn: false, profileComplete: false }));
           updateAccountButton();
           return;
         }
@@ -15277,14 +15060,9 @@ function loadSavedUser() {
         // Même avec des tokens valides, on ne restaure PAS automatiquement la session
         // L'utilisateur doit cliquer sur "Compte" et se reconnecter
         // On charge juste les données de base pour référence
-        // IMPORTANT: Respecter profileComplete si le profil est déjà complet
-        console.log('ℹ️ Données utilisateur trouvées mais session non restaurée automatiquement', {
-          profileComplete: parsedUser.profileComplete,
-          email: parsedUser.email
-        });
-        
-        // CONSERVER profileComplete si le profil est déjà complet
-        const existingProfileComplete = parsedUser.profileComplete === true;
+        // FORCER profileComplete à false pour forcer le formulaire d'inscription
+        console.log('ℹ️ Données utilisateur trouvées mais session non restaurée automatiquement');
+        parsedUser.profileComplete = false; // FORCER à false pour forcer le formulaire
         
         // Fusionner avec les valeurs par défaut pour éviter les propriétés manquantes
         currentUser = {
@@ -15340,18 +15118,12 @@ function loadSavedUser() {
           ...parsedUser, // Écraser avec les valeurs sauvegardées
           lastSeen: new Date().toISOString(),
           isLoggedIn: false, // TOUJOURS false au chargement - l'utilisateur doit passer par la modal de connexion
-          profileComplete: existingProfileComplete // CONSERVER la valeur existante si le profil est complet
+          profileComplete: false // FORCER à false pour forcer le formulaire d'inscription
         };
-        console.log(`ℹ️ Données utilisateur chargées depuis localStorage mais session non restaurée (doit passer par modal de connexion)`, {
-          profileComplete: currentUser.profileComplete,
-          email: currentUser.email
-        });
-        // Sauvegarder en conservant profileComplete
+        console.log(`ℹ️ Données utilisateur chargées depuis localStorage mais session non restaurée (doit passer par modal de connexion)`);
+        // Sauvegarder avec profileComplete: false
         try {
-          localStorage.setItem('currentUser', JSON.stringify({ 
-            ...currentUser, 
-            profileComplete: existingProfileComplete // Conserver la valeur existante
-          }));
+          localStorage.setItem('currentUser', JSON.stringify({ ...currentUser, profileComplete: false }));
         } catch (e) {
           console.warn('⚠️ Impossible de sauvegarder currentUser:', e);
         }
@@ -15467,9 +15239,18 @@ function showAccountModalTab(tab) {
   // Avatar à afficher (photo de profil ou emoji)
   // PRIORITÉ: profilePhoto > profile_photo_url > avatar (qui peut être une URL Google)
   const avatarUrl = currentUser.profilePhoto || currentUser.profile_photo_url || currentUser.avatar;
+  
+  // Debug: afficher l'URL dans la console
+  if (avatarUrl && (avatarUrl.startsWith('http') || avatarUrl.startsWith('data:image'))) {
+    console.log('🔍 Avatar URL trouvée:', avatarUrl);
+  } else {
+    console.log('⚠️ Pas d\'URL avatar trouvée. profilePhoto:', currentUser.profilePhoto, 'profile_photo_url:', currentUser.profile_photo_url, 'avatar:', currentUser.avatar);
+  }
+  
+  // Améliorer l'affichage avec gestion d'erreur et crossorigin pour CORS
   const avatarDisplay = (avatarUrl && (avatarUrl.startsWith('http') || avatarUrl.startsWith('data:image')))
-    ? `<img src="${avatarUrl}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" onerror="this.parentElement.innerHTML='${currentUser.avatar || '👤'}';" />`
-    : (avatarUrl || currentUser.avatar || "👤");
+    ? `<img src="${avatarUrl}" crossorigin="anonymous" style="width:100%;height:100%;border-radius:50%;object-fit:cover;display:block;background:transparent;" onerror="console.error('❌ Erreur chargement avatar:', '${avatarUrl}'); this.onerror=null; this.src=''; this.parentElement.innerHTML='<span style=\\'display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:24px;\\'>${escapeHtml(currentUser.avatar || '👤')}</span>';" onload="console.log('✅ Avatar chargé:', '${avatarUrl}');" />`
+    : `<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:24px;">${avatarUrl || currentUser.avatar || "👤"}</span>`;
   
   // Contenu des onglets
   let tabContent = '';
@@ -15619,19 +15400,19 @@ function showAccountModalTab(tab) {
       <!-- Header avec avatar et infos -->
       <div style="background:linear-gradient(135deg,#0f172a 0%,#1e293b 50%,#0f172a 100%);padding:20px;border-radius:16px 16px 0 0;position:relative;">
         <div style="display:flex;align-items:center;gap:16px;">
-          <div style="position:relative;">
-            <div style="width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#00ffc3,#3b82f6);display:flex;align-items:center;justify-content:center;font-size:24px;border:2px solid rgba(255,255,255,0.2);overflow:hidden;" data-account-avatar="true">
+          <div style="position:relative;flex-shrink:0;">
+            <div style="width:60px;height:60px;border-radius:50%;background:${avatarUrl && (avatarUrl.startsWith('http') || avatarUrl.startsWith('data:image')) ? 'transparent' : 'linear-gradient(135deg,#00ffc3,#3b82f6)'};display:flex;align-items:center;justify-content:center;font-size:24px;border:2px solid rgba(255,255,255,0.25);overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.2);" data-account-avatar="true">
               ${avatarDisplay}
             </div>
-            <div style="position:absolute;bottom:-2px;right:-2px;width:20px;height:20px;background:${levelColor};border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;border:2px solid #0f172a;">
+            <div style="position:absolute;bottom:0;right:0;width:18px;height:18px;background:${levelColor};border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;border:2px solid #0f172a;box-shadow:0 1px 4px rgba(0,0,0,0.3);">
               ${levelEmoji}
             </div>
           </div>
-          <div style="flex:1;">
-            <div style="font-size:18px;font-weight:800;color:#fff;margin-bottom:2px;">${currentUser.username || currentUser.name || 'Utilisateur'}</div>
-            <div style="font-size:11px;color:rgba(255,255,255,0.6);margin-bottom:4px;">${currentUser.email || ''}</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:18px;font-weight:700;color:#fff;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${currentUser.username || currentUser.name || 'Utilisateur'}</div>
+            <div style="font-size:11px;color:rgba(255,255,255,0.65);margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${currentUser.email || ''}</div>
             ${currentUser.postalAddress ? `
-              <div style="font-size:11px;color:rgba(255,255,255,0.5);display:flex;align-items:center;gap:4px;">
+              <div style="font-size:10px;color:rgba(255,255,255,0.55);display:flex;align-items:center;gap:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
                 <span>📍</span>
                 <span>${typeof currentUser.postalAddress === 'object' 
                   ? `${currentUser.postalAddress.address || ''}${currentUser.postalAddress.city ? ', ' + currentUser.postalAddress.city : ''}${currentUser.postalAddress.zip ? ' ' + currentUser.postalAddress.zip : ''}${currentUser.postalAddress.country ? ' (' + currentUser.postalAddress.country + ')' : ''}`.trim()
@@ -15644,7 +15425,7 @@ function showAccountModalTab(tab) {
       
       <!-- Onglets style Facebook -->
       <div style="display:flex;background:var(--ui-card-bg);border-top:1px solid var(--ui-card-border);border-bottom:1px solid var(--ui-card-border);">
-        <button onclick="showAccountModalTab('agenda')" style="flex:1;padding:14px;border:none;background:${tab === 'agenda' ? 'rgba(0,255,195,0.1)' : 'transparent'};color:${tab === 'agenda' ? '#00ffc3' : 'var(--ui-text-main)'};font-weight:${tab === 'agenda' ? '700' : '600'};font-size:13px;cursor:pointer;border-bottom:${tab === 'agenda' ? '3px solid #00ffc3' : 'none'};transition:all 0.2s;">
+        <button onclick="openAgendaWindow()" style="flex:1;padding:14px;border:none;background:transparent;color:var(--ui-text-main);font-weight:600;font-size:13px;cursor:pointer;border-bottom:none;transition:all 0.2s;" onmouseover="this.style.background='rgba(0,255,195,0.1)';this.style.color='#00ffc3';this.style.borderBottom='3px solid rgba(0,255,195,0.5)'" onmouseout="this.style.background='transparent';this.style.color='var(--ui-text-main)';this.style.borderBottom='none'">
           📅 Agenda
         </button>
         <button onclick="showAccountModalTab('groupes')" style="flex:1;padding:14px;border:none;background:${tab === 'groupes' ? 'rgba(0,255,195,0.1)' : 'transparent'};color:${tab === 'groupes' ? '#00ffc3' : 'var(--ui-text-main)'};font-weight:${tab === 'groupes' ? '700' : '600'};font-size:13px;cursor:pointer;border-bottom:${tab === 'groupes' ? '3px solid #00ffc3' : 'none'};transition:all 0.2s;">
@@ -15848,87 +15629,78 @@ function toggleNotification(type) {
 }
 
 // Basculer une option de confidentialité
-// Modal Modifier le profil - Affiche le formulaire d'inscription complet
+// Modal Modifier le profil
 function openEditProfileModal() {
-  console.log('✏️ openEditProfileModal appelé - Affichage formulaire d\'inscription complet pour modification');
-  
-  // Vérifier que l'utilisateur est connecté
-  if (!currentUser || !currentUser.isLoggedIn) {
-    showNotification('⚠️ Vous devez être connecté pour modifier votre profil', 'warning');
-    openLoginModal();
-    return;
+  // Construire la valeur de l'adresse de manière sécurisée
+  let addressValue = '';
+  try {
+    if (currentUser.postalAddress) {
+      if (typeof currentUser.postalAddress === 'object' && currentUser.postalAddress !== null) {
+        const parts = [];
+        if (currentUser.postalAddress.address) parts.push(currentUser.postalAddress.address);
+        if (currentUser.postalAddress.city) parts.push(currentUser.postalAddress.city);
+        if (currentUser.postalAddress.zip) parts.push(currentUser.postalAddress.zip);
+        addressValue = parts.join(', ');
+      } else if (typeof currentUser.postalAddress === 'string') {
+        addressValue = currentUser.postalAddress;
+      }
+    }
+  } catch (e) {
+    console.warn('Erreur construction adresse:', e);
+    addressValue = '';
   }
   
-  // Pré-remplir registerData avec les données actuelles de l'utilisateur
-  const nameParts = (currentUser.name || '').split(' ');
-  const addressValue = currentUser.postalAddress && typeof currentUser.postalAddress === 'object' 
-    ? ((currentUser.postalAddress.address || '') + (currentUser.postalAddress.city ? ', ' + currentUser.postalAddress.city : '') + (currentUser.postalAddress.zip ? ' ' + currentUser.postalAddress.zip : '')).trim()
-    : (currentUser.postalAddress || '');
+  const html = `
+    <div style="padding:24px;max-width:500px;margin:0 auto;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
+        <h2 style="margin:0;font-size:22px;font-weight:800;color:#fff;display:flex;align-items:center;gap:10px;">
+          <span>✏️</span> Modifier mon profil
+        </h2>
+        <button onclick="openAccountModal()" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--ui-text-muted);transition:color 0.2s;" onmouseover="this.style.color='#fff';" onmouseout="this.style.color='var(--ui-text-muted)';">✕</button>
+      </div>
+      
+      <!-- Photo de profil -->
+      <div style="margin-bottom:24px;text-align:center;">
+        <label style="display:block;font-size:13px;font-weight:600;color:var(--ui-text-main);margin-bottom:12px;">📸 Photo de profil</label>
+        <div style="position:relative;display:inline-block;">
+          <div id="edit-profile-photo-preview" style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,#00ffc3,#3b82f6);display:flex;align-items:center;justify-content:center;font-size:32px;border:3px solid rgba(255,255,255,0.2);overflow:hidden;margin:0 auto;">
+            ${currentUser.profilePhoto && (currentUser.profilePhoto.startsWith('http') || currentUser.profilePhoto.startsWith('data:image'))
+              ? `<img src="${escapeHtml(currentUser.profilePhoto)}" crossorigin="anonymous" style="width:100%;height:100%;object-fit:cover;" onerror="this.onerror=null; this.src=''; this.parentElement.innerHTML='${escapeHtml(currentUser.avatar || '👤')}';" />`
+              : escapeHtml(currentUser.avatar || '👤')}
+          </div>
+          <input type="file" id="edit-profile-photo-input" accept="image/*" style="display:none;" onchange="handleEditProfilePhoto(event)">
+          <button onclick="document.getElementById('edit-profile-photo-input').click()" style="margin-top:12px;padding:8px 16px;border-radius:8px;border:2px solid rgba(0,255,195,0.3);background:rgba(0,255,195,0.1);color:#00ffc3;font-weight:600;font-size:13px;cursor:pointer;transition:all 0.3s;" onmouseover="this.style.background='rgba(0,255,195,0.2)';this.style.borderColor='rgba(0,255,195,0.5)';" onmouseout="this.style.background='rgba(0,255,195,0.1)';this.style.borderColor='rgba(0,255,195,0.3)';">
+            📷 Changer la photo
+          </button>
+        </div>
+      </div>
+      
+      <!-- Nom d'utilisateur -->
+      <div style="margin-bottom:20px;">
+        <label style="display:block;font-size:13px;font-weight:600;color:var(--ui-text-main);margin-bottom:8px;">👤 Nom d'utilisateur</label>
+        <input type="text" id="edit-profile-username" value="${escapeHtml(currentUser.username || '')}" placeholder="Votre nom d'utilisateur" maxlength="20" style="width:100%;padding:12px 16px;border-radius:10px;border:2px solid rgba(255,255,255,0.1);background:rgba(15,23,42,0.5);color:var(--ui-text-main);font-size:14px;transition:all 0.3s;" onfocus="this.style.borderColor='rgba(0,255,195,0.5)';this.style.background='rgba(15,23,42,0.8)';" onblur="this.style.borderColor='rgba(255,255,255,0.1)';this.style.background='rgba(15,23,42,0.5)';">
+        <div style="font-size:11px;color:var(--ui-text-muted);margin-top:4px;">Ce nom sera visible par tous les utilisateurs</div>
+      </div>
+      
+      <!-- Adresse postale -->
+      <div style="margin-bottom:24px;">
+        <label style="display:block;font-size:13px;font-weight:600;color:var(--ui-text-main);margin-bottom:8px;">📍 Adresse postale</label>
+        <input type="text" id="edit-profile-address" value="${escapeHtml(addressValue)}" placeholder="Rue, Ville, Code postal" style="width:100%;padding:12px 16px;border-radius:10px;border:2px solid rgba(255,255,255,0.1);background:rgba(15,23,42,0.5);color:var(--ui-text-main);font-size:14px;transition:all 0.3s;" onfocus="this.style.borderColor='rgba(0,255,195,0.5)';this.style.background='rgba(15,23,42,0.8)';" onblur="this.style.borderColor='rgba(255,255,255,0.1)';this.style.background='rgba(15,23,42,0.5)';">
+      </div>
+      
+      <!-- Boutons -->
+      <div style="display:flex;gap:12px;">
+        <button onclick="saveProfileChanges()" style="flex:1;padding:14px;border-radius:12px;border:none;background:linear-gradient(135deg,#00ffc3,#3b82f6);color:#000;font-weight:700;font-size:15px;cursor:pointer;transition:all 0.3s;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 20px rgba(0,255,195,0.3)';" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='none';">
+          💾 Enregistrer
+        </button>
+        <button onclick="openAccountModal()" style="flex:1;padding:14px;border-radius:12px;border:2px solid rgba(255,255,255,0.1);background:transparent;color:var(--ui-text-muted);font-weight:600;font-size:15px;cursor:pointer;transition:all 0.3s;" onmouseover="this.style.borderColor='rgba(255,255,255,0.3)';this.style.color='var(--ui-text-main)';" onmouseout="this.style.borderColor='rgba(255,255,255,0.1)';this.style.color='var(--ui-text-muted)';">
+          Annuler
+        </button>
+      </div>
+    </div>
+  `;
   
-  registerData = {
-    email: currentUser.email || '',
-    username: currentUser.username || '',
-    password: '', // Ne pas pré-remplir le mot de passe pour la sécurité
-    passwordConfirm: '',
-    firstName: currentUser.firstName || nameParts[0] || '',
-    lastName: currentUser.lastName || nameParts.slice(1).join(' ') || '',
-    profilePhoto: currentUser.profilePhoto || (currentUser.avatar && currentUser.avatar.startsWith('http') ? currentUser.avatar : ''),
-    postalAddress: addressValue,
-    avatarId: currentUser.avatarId || 1,
-    avatarDescription: currentUser.avatarDescription || '',
-    addresses: currentUser.addresses || [],
-    emailVerificationCode: null,
-    emailVerified: true, // L'email est déjà vérifié
-    verificationAttempts: 0,
-    lastVerificationAttempt: null,
-    registrationAttempts: 0,
-    lastRegistrationAttempt: null,
-    captchaAnswer: null,
-    codeSentAt: null,
-    codeExpiresAt: null,
-    resendCountdown: 0,
-    lastResendAttempt: null
-  };
-  
-  // Marquer que c'est une modification (pas une nouvelle inscription)
-  // IMPORTANT: Forcer ce flag AVANT d'appeler showProRegisterForm
-  window.isEditingProfile = true;
-  
-  console.log('✅ Données pré-remplies pour modification:', {
-    email: registerData.email,
-    username: registerData.username,
-    firstName: registerData.firstName,
-    lastName: registerData.lastName,
-    hasPhoto: !!registerData.profilePhoto,
-    isEditingProfile: window.isEditingProfile
-  });
-  
-  // Afficher le formulaire d'inscription complet
-  // Vérifier plusieurs fois pour être sûr que la fonction est disponible
-  const showForm = () => {
-    if (typeof window.showProRegisterForm === 'function') {
-      console.log('✅ Appel de window.showProRegisterForm()');
-      window.showProRegisterForm();
-    } else if (typeof showProRegisterForm === 'function') {
-      console.log('✅ Appel de showProRegisterForm()');
-      showProRegisterForm();
-    } else {
-      console.error('❌ showProRegisterForm non disponible');
-      showNotification('⚠️ Erreur: formulaire non disponible. Rechargez la page.', 'error');
-    }
-  };
-  
-  // Essayer immédiatement
-  showForm();
-  
-  // Si ça ne fonctionne pas, réessayer après un court délai
-  setTimeout(() => {
-    const modal = document.getElementById('publish-modal-backdrop');
-    if (!modal || modal.style.display === 'none') {
-      console.warn('⚠️ Le formulaire ne s\'est pas affiché, nouvelle tentative...');
-      showForm();
-    }
-  }, 300);
+  document.getElementById("publish-modal-inner").innerHTML = html;
 }
 
 // Gérer le changement de photo de profil
