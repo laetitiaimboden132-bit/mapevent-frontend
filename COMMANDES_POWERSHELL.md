@@ -57,3 +57,10 @@ Après exécution, testez la connexion Google :
 Je peux créer un script qui exécute directement les commandes SQL via AWS CLI si vous préférez.
 
 
+
+
+
+
+
+
+

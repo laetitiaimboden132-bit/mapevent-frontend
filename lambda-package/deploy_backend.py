@@ -60,13 +60,38 @@ def install_dependencies():
         
         # Essayer d'abord sans --no-deps
         print("   Installation des dépendances principales...")
-        subprocess.run([
+        result = subprocess.run([
             sys.executable, "-m", "pip", "install",
             "-r", str(requirements_file),
             "-t", str(base_dir),
             "--upgrade",
             "--quiet"
-        ], check=False)  # Ne pas échouer si certaines dépendances échouent
+        ], check=False, capture_output=True, text=True)  # Ne pas échouer si certaines dépendances échouent
+        
+        # Vérifier que typing_extensions est bien installé (peut être un fichier .py ou un dossier)
+        typing_ext_path = base_dir / "typing_extensions"
+        typing_ext_py = base_dir / "typing_extensions.py"
+        if not typing_ext_path.exists() and not typing_ext_py.exists():
+            print("   [WARNING] typing_extensions non trouve apres installation, installation explicite...")
+            result = subprocess.run([
+                sys.executable, "-m", "pip", "install",
+                "typing-extensions>=4.14.1",
+                "-t", str(base_dir),
+                "--upgrade",
+                "--quiet"
+            ], check=False, capture_output=True, text=True)
+            if result.returncode != 0:
+                print(f"   [ERROR] Echec installation typing-extensions: {result.stderr}")
+            else:
+                print("   [OK] typing-extensions installe")
+        
+        # Vérifier à nouveau après installation
+        if typing_ext_path.exists():
+            print(f"   [OK] typing_extensions trouve (dossier): {typing_ext_path}")
+        elif typing_ext_py.exists():
+            print(f"   [OK] typing_extensions trouve (fichier): {typing_ext_py}")
+        else:
+            print("   [CRITICAL] typing_extensions toujours absent apres installation!")
         
     except Exception as e:
         print(f"   ATTENTION: Erreur lors de l'installation: {e}")
@@ -144,12 +169,23 @@ def create_zip_package():
                         zipf.write(file_path, relative_path)
                         files_added += 1
         
+        # Ajouter typing_extensions.py si c'est un fichier (package namespace)
+        typing_ext_py = base_dir / "typing_extensions.py"
+        if typing_ext_py.exists():
+            zipf.write(typing_ext_py, "typing_extensions.py")
+            files_added += 1
+            print(f"   + typing_extensions.py")
+        
         # Ajouter les dépendances Python installées
         for item in base_dir.iterdir():
             if item.is_dir() and item.name not in ['backend', 'layer', 'dependencies', '__pycache__', '.git']:
                 # Vérifier si c'est une dépendance Python (contient des fichiers .py ou des packages)
                 has_python_files = any(item.rglob("*.py")) or any(item.rglob("*.so"))
                 if has_python_files or item.name.endswith(('.dist-info', '.egg-info')):
+                    # IMPORTANT: S'assurer que typing_extensions est inclus
+                    if item.name == 'typing_extensions':
+                        print(f"   [OK] Ajout de typing_extensions (dossier) au package...")
+                    
                     for root, dirs, files in os.walk(item):
                         dirs[:] = [d for d in dirs if d not in ['__pycache__', 'tests', 'test']]
                         
@@ -163,6 +199,34 @@ def create_zip_package():
                             
                             zipf.write(file_path, relative_path)
                             files_added += 1
+        
+        # Ajouter les fichiers .py isolés qui sont des packages namespace
+        for py_file in base_dir.glob("*.py"):
+            if py_file.name not in ['handler.py', 'lambda_function.py', 'deploy_backend.py']:
+                # Vérifier si c'est déjà inclus (dans un dossier)
+                already_included = False
+                for name in zipf.namelist():
+                    if name == py_file.name:
+                        already_included = True
+                        break
+                if not already_included:
+                    zipf.write(py_file, py_file.name)
+                    files_added += 1
+                    print(f"   + {py_file.name}")
+    
+    # Vérifier que typing_extensions est dans le ZIP (après fermeture du ZIP)
+    try:
+        with zipfile.ZipFile(zip_path, 'r') as check_zip:
+            zip_names = check_zip.namelist()
+            typing_ext_in_zip = any('typing_extensions' in name for name in zip_names)
+            if typing_ext_in_zip:
+                print(f"   [OK] typing_extensions verifie dans le ZIP")
+            else:
+                print(f"   [WARNING] typing_extensions NON trouve dans le ZIP!")
+                print(f"   [INFO] Fichiers dans ZIP: {len(zip_names)} fichiers")
+                print(f"   [INFO] Exemples: {zip_names[:10]}")
+    except Exception as zip_check_err:
+        print(f"   [WARNING] Impossible de verifier le ZIP: {zip_check_err}")
     
     # Afficher la taille
     size_mb = zip_path.stat().st_size / (1024 * 1024)
@@ -256,4 +320,5 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 

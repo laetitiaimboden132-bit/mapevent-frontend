@@ -1,0 +1,17 @@
+CLIQUER SUR LA RÈGLE POUR VOIR LES DÉTAILS
+==========================================
+
+1. Cliquez sur "Règle entrante 2" (celle avec 81.13.194.194/32)
+
+2. Dites-moi ce que vous voyez :
+   - Type : ?
+   - Protocole : ?
+   - Plage de ports : ?
+   - Source : ?
+
+3. Si le Type n'est pas "PostgreSQL" ou si le Port n'est pas 5432 :
+   - Cliquez sur "Modifier les règles de trafic entrant"
+   - Modifiez la règle pour Type: PostgreSQL, Port: 5432
+   - Enregistrez
+
+

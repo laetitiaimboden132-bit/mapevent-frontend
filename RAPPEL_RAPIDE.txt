@@ -1,0 +1,18 @@
+RAPPEL RAPIDE - CE QUI RESTE À FAIRE
+====================================
+
+1. Attendre 5-10 minutes que "Accessible publiquement" = Oui
+
+2. Trouver votre IP : https://www.whatismyip.com/
+
+3. Dans AWS RDS > mapevent-db > Security Groups > default
+   Ajouter une règle : Type PostgreSQL, Source = votre IP/32
+
+4. Attendre 1-2 minutes
+
+5. Exécuter : python supprimer-comptes.py
+   (Tapez Entrée puis "OUI")
+
+C'est tout !
+
+

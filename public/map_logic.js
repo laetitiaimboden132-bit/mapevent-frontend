@@ -1,35 +1,94 @@
 // ===============================
+// BUILD ID - Vérification déploiement
+// ===============================
+console.log("BUILD_ID", "onboarding-v1", new Date().toISOString(), location.href);
+
+// ===============================
+// GESTION D'ERREURS GLOBALE - Protection contre écran noir
+// ===============================
+window.addEventListener('error', function(e) {
+  console.error('❌ ERREUR GLOBALE:', e.error, e.message, e.filename, e.lineno);
+  // Empêcher l'écran noir en affichant un message
+  if (!document.getElementById('error-overlay')) {
+    const overlay = document.createElement('div');
+    overlay.id = 'error-overlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.9);color:#fff;display:flex;align-items:center;justify-content:center;z-index:99999;padding:20px;font-family:monospace;';
+    overlay.innerHTML = `
+      <div style="text-align:center;max-width:600px;">
+        <h2 style="color:#ef4444;margin-bottom:16px;">⚠️ Erreur JavaScript détectée</h2>
+        <p style="margin-bottom:8px;"><strong>Fichier:</strong> ${e.filename || 'inconnu'}</p>
+        <p style="margin-bottom:8px;"><strong>Ligne:</strong> ${e.lineno || 'inconnue'}</p>
+        <p style="margin-bottom:16px;"><strong>Message:</strong> ${e.message || 'Erreur inconnue'}</p>
+        <button onclick="location.reload()" style="padding:12px 24px;background:#3b82f6;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;">Recharger la page</button>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+  }
+});
+
+window.addEventListener('unhandledrejection', function(e) {
+  console.error('❌ PROMISE REJECTION NON GÉRÉE:', e.reason);
+});
+
+// ===============================
+// CONFIGURATION API - Lambda Function URL
+// ===============================
+// NOTE: API_BASE_URL est déclarée dans auth.js et exposée via window.API_BASE_URL
+// Utiliser la variable globale si elle existe, sinon la définir
+if (typeof window.API_BASE_URL === 'undefined') {
+  window.API_BASE_URL = "https://ctp67u5hgni2rbfr3kp4p74kxa0gxycf.lambda-url.eu-west-1.on.aws/api";
+}
+// Ne pas créer de référence locale pour éviter conflit avec const dans auth.js
+// Toutes les références à API_BASE_URL dans ce fichier utilisent window.API_BASE_URL
+
+// ===============================
 // COGNITO AUTH (Google) - PKCE SPA
 // ===============================
-const COGNITO = {
-  domain: "https://eu-west-19o9j6xsdr.auth.eu-west-1.amazoncognito.com",
-  clientId: "63rm6h0m26q41lotbho6704dod",
-  redirectUri: "https://mapevent.world/",
-  scopes: ["openid", "email", "profile"],
-};
+// NOTE: COGNITO est déclaré dans auth.js et exposé via window.COGNITO
+// Vérifier qu'il existe, sinon le définir
+if (typeof window.COGNITO === 'undefined') {
+  window.COGNITO = {
+    domain: "https://eu-west-19o9j6xsdr.auth.eu-west-1.amazoncognito.com",
+    clientId: "63rm6h0m26q41lotbho6704dod",
+    redirectUri: "https://mapevent.world/",
+    scopes: ["openid", "email", "profile"],
+  };
+}
+// Toutes les références à COGNITO dans ce fichier utilisent window.COGNITO
 
-function base64UrlEncode(arrayBuffer) {
-  const bytes = new Uint8Array(arrayBuffer);
-  let binary = "";
-  bytes.forEach((b) => (binary += String.fromCharCode(b)));
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+// NOTE: Les fonctions base64UrlEncode, randomString, sha256, pkceChallengeFromVerifier
+// sont définies dans auth.js et sont accessibles globalement
+// Si elles ne sont pas disponibles, les définir ici comme fallback
+if (typeof base64UrlEncode === 'undefined') {
+  function base64UrlEncode(arrayBuffer) {
+    const bytes = new Uint8Array(arrayBuffer);
+    let binary = "";
+    bytes.forEach((b) => (binary += String.fromCharCode(b)));
+    return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+  }
 }
 
-function randomString(len = 64) {
-  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~";
-  const rnd = new Uint8Array(len);
-  crypto.getRandomValues(rnd);
-  return Array.from(rnd).map((x) => chars[x % chars.length]).join("");
+if (typeof randomString === 'undefined') {
+  function randomString(len = 64) {
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~";
+    const rnd = new Uint8Array(len);
+    crypto.getRandomValues(rnd);
+    return Array.from(rnd).map((val) => chars[val % chars.length]).join("");
+  }
 }
 
-async function sha256(str) {
-  const data = new TextEncoder().encode(str);
-  return crypto.subtle.digest("SHA-256", data);
+if (typeof sha256 === 'undefined') {
+  async function sha256(str) {
+    const data = new TextEncoder().encode(str);
+    return crypto.subtle.digest("SHA-256", data);
+  }
 }
 
-async function pkceChallengeFromVerifier(verifier) {
-  const digest = await sha256(verifier);
-  return base64UrlEncode(digest);
+if (typeof pkceChallengeFromVerifier === 'undefined') {
+  async function pkceChallengeFromVerifier(verifier) {
+    const digest = await sha256(verifier);
+    return base64UrlEncode(digest);
+  }
 }
 
 function authSave(key, val) {
@@ -43,21 +102,234 @@ function authClearTemp() {
 }
 
 // Fonction utilitaire pour sauvegarder avec gestion de quota localStorage
+// PRIORITY HOTFIX: Fonction pour sauvegarder uniquement les champs essentiels de l'utilisateur
+function saveUserSlim(userObj) {
+  if (!userObj) return null;
+  
+  // NE JAMAIS stocker l'objet user complet - seulement les champs essentiels
+  const slimUser = {
+    id: userObj.id || null,
+    email: userObj.email || '',
+    username: userObj.username || '',
+    profileComplete: userObj.profileComplete || false,
+    profile_photo_url: userObj.profile_photo_url || userObj.profilePhoto || null,
+    role: userObj.role || 'user',
+    subscription: userObj.subscription || 'free',
+    hasPassword: userObj.hasPassword || false,
+    hasPostalAddress: userObj.hasPostalAddress || false,
+    // Token si nécessaire (pour refresh)
+    accessToken: userObj.accessToken || null,
+    refreshToken: userObj.refreshToken || null
+  };
+  
+  // Taille estimée (approximative)
+  const slimSize = JSON.stringify(slimUser).length;
+  console.log(`[SAVE USER SLIM] Taille: ${(slimSize / 1024).toFixed(2)}KB (vs ${userObj ? JSON.stringify(userObj).length / 1024 : 0}KB original)`);
+  
+  return slimUser;
+}
+
+// Fonction pour mettre à jour l'UI "logged-in" (remplace le bloc "Connexion" par "Compte")
+function updateAuthUI(slimUser) {
+  if (!slimUser || !slimUser.id) {
+    console.warn('[UPDATE AUTH UI] slimUser invalide');
+    return;
+  }
+  
+  console.log('[UPDATE AUTH UI] Mise à jour UI avec slimUser:', { id: slimUser.id, email: slimUser.email, username: slimUser.username });
+  
+  // ⚠️⚠️⚠️ CRITIQUE : Préserver toutes les propriétés nécessaires de currentUser
+  // S'assurer que currentUser a toutes les propriétés nécessaires pour les popups
+  if (!currentUser || typeof currentUser !== 'object') {
+    // Si currentUser n'existe pas, utiliser getDefaultUser pour l'initialiser
+    if (typeof getDefaultUser === 'function') {
+      currentUser = getDefaultUser();
+    } else {
+      // Fallback : initialiser manuellement les propriétés nécessaires
+      currentUser = {
+        isLoggedIn: false,
+        favorites: [],
+        agenda: [],
+        likes: [],
+        participating: [],
+        subscription: 'free'
+      };
+    }
+  }
+  
+  // S'assurer que toutes les propriétés nécessaires existent
+  if (!Array.isArray(currentUser.favorites)) {
+    currentUser.favorites = [];
+  }
+  if (!Array.isArray(currentUser.agenda)) {
+    currentUser.agenda = [];
+  }
+  if (!Array.isArray(currentUser.likes)) {
+    currentUser.likes = [];
+  }
+  if (!Array.isArray(currentUser.participating)) {
+    currentUser.participating = [];
+  }
+  if (!currentUser.subscription) {
+    currentUser.subscription = 'free';
+  }
+  // ⚠️⚠️⚠️ CRITIQUE : S'assurer que reviews est un objet (pas undefined)
+  if (!currentUser.reviews || typeof currentUser.reviews !== 'object') {
+    currentUser.reviews = {};
+  }
+  
+  // Mettre à jour currentUser global en préservant toutes les propriétés existantes
+  currentUser = {
+    ...currentUser, // Préserver toutes les propriétés existantes (favorites, agenda, likes, etc.)
+    ...slimUser,    // Ajouter les nouvelles données slim
+    isLoggedIn: true
+  };
+  
+  // Exposer globalement pour fallback
+  window.currentUser = currentUser;
+  
+  // Mettre à jour les boutons auth
+  if (typeof updateAuthButtons === 'function') {
+    updateAuthButtons();
+  }
+  
+  // Mettre à jour le bloc compte
+  if (typeof updateAccountBlockLegitimately === 'function') {
+    updateAccountBlockLegitimately();
+  }
+  
+  console.log('[UPDATE AUTH UI] UI mise à jour - bouton "Connexion" → "Compte"');
+}
+
+// Fonction pour récupérer le token d'authentification
+// Vérifie localStorage si "Rester connecté" est coché, sinon sessionStorage
+// Cherche aussi dans cognito_tokens si le token direct n'existe pas
+function getAuthToken() {
+  // Vérifier si "Rester connecté" est activé
+  const rememberMe = localStorage.getItem('rememberMe') === 'true';
+  
+  // 1. Chercher directement dans localStorage/sessionStorage
+  let token = rememberMe 
+    ? localStorage.getItem('accessToken') 
+    : sessionStorage.getItem('accessToken');
+  
+  // 2. Si pas trouvé, chercher dans cognito_tokens
+  if (!token) {
+    try {
+      const cognitoTokens = localStorage.getItem('cognito_tokens');
+      if (cognitoTokens) {
+        const parsed = JSON.parse(cognitoTokens);
+        token = parsed.access_token || parsed.accessToken || null;
+      }
+    } catch (e) {
+      console.warn('[AUTH] Erreur parsing cognito_tokens:', e);
+    }
+  }
+  
+  // 3. Fallback sur currentUser
+  if (!token) {
+    token = currentUser?.accessToken || currentUser?.access_token || null;
+  }
+  
+  return token;
+}
+
+// Fonction pour récupérer le refresh token
+function getRefreshToken() {
+  const rememberMe = localStorage.getItem('rememberMe') === 'true';
+  
+  if (rememberMe) {
+    return localStorage.getItem('refreshToken') || currentUser?.refreshToken || null;
+  } else {
+    return sessionStorage.getItem('refreshToken') || currentUser?.refreshToken || null;
+  }
+}
+
+// Exposer les fonctions globalement
+window.getAuthToken = getAuthToken;
+window.getRefreshToken = getRefreshToken;
+
+// Helpers pour stockage avec fallback localStorage -> sessionStorage -> mémoire
+function safeSetJSON(key, value) {
+  const s = JSON.stringify(value);
+  try {
+    localStorage.setItem(key, s);
+    return "localStorage";
+  } catch (e) {
+    try {
+      sessionStorage.setItem(key, s);
+      return "sessionStorage";
+    } catch (e2) {
+      window.__MEMORY_STORE__ = window.__MEMORY_STORE__ || {};
+      window.__MEMORY_STORE__[key] = value;
+      return "memory";
+    }
+  }
+}
+
+function safeGetJSON(key) {
+  try {
+    const v = localStorage.getItem(key);
+    if (v) return JSON.parse(v);
+  } catch {}
+  try {
+    const v = sessionStorage.getItem(key);
+    if (v) return JSON.parse(v);
+  } catch {}
+  if (window.__MEMORY_STORE__ && window.__MEMORY_STORE__[key]) return window.__MEMORY_STORE__[key];
+  return null;
+}
+
+function clearAuthStorage() {
+  try { localStorage.removeItem("currentUser"); } catch {}
+  try { sessionStorage.removeItem("currentUser"); } catch {}
+  if (window.__MEMORY_STORE__) delete window.__MEMORY_STORE__["currentUser"];
+}
+
 function safeSetItem(key, value) {
   try {
     localStorage.setItem(key, value);
     return true;
   } catch (e) {
     if (e.name === 'QuotaExceededError' || e.message.includes('quota')) {
-      console.warn(`⚠️ localStorage plein, nettoyage ULTRA-AGRESSIF pour ${key}...`);
+      console.warn(`⚠️ localStorage plein (quota exceeded) pour ${key}...`);
       
-      // ÉTAPE 1: Sauvegarder les données critiques AVANT tout nettoyage
-      const criticalData = {
-        tokens: localStorage.getItem('cognito_tokens'),
-        existingUser: key === 'currentUser' ? null : localStorage.getItem('currentUser')
-      };
+      // PRIORITY HOTFIX: Si c'est currentUser, nettoyer la clé et continuer (ne pas freeze UI)
+      if (key === 'currentUser') {
+        try {
+          // Supprimer l'ancien currentUser pour libérer de l'espace
+          localStorage.removeItem('currentUser');
+          console.warn('⚠️ currentUser supprimé pour libérer de l\'espace');
+          
+          // Si value est un objet user, essayer de sauvegarder la version slim
+          try {
+            const userObj = typeof value === 'string' ? JSON.parse(value) : value;
+            const slimUser = saveUserSlim(userObj);
+            if (slimUser) {
+              // ⚠️ OPTIMISATION : Exclure photoData avant sauvegarde
+              const userForStorage = (typeof window.removePhotoDataForStorage === 'function') 
+                ? window.removePhotoDataForStorage(slimUser) 
+                : slimUser;
+              const slimJson = JSON.stringify(userForStorage);
+              localStorage.setItem('currentUser', slimJson);
+              console.log('✅ Version slim de currentUser sauvegardée (photoData exclu)');
+              return true;
+            }
+          } catch (parseError) {
+            console.warn('⚠️ Impossible de parser/sauvegarder version slim:', parseError);
+          }
+          
+          // Continuer le flow même si on ne peut pas sauvegarder
+          console.warn('⚠️ Continuation du flow sans sauvegarder currentUser (quota exceeded)');
+          return false; // Indiquer que la sauvegarde a échoué mais continuer
+        } catch (cleanError) {
+          console.error('❌ Erreur lors du nettoyage currentUser:', cleanError);
+          // Continuer quand même
+          return false;
+        }
+      }
       
-      // ÉTAPE 2: Nettoyage ULTRA-AGRESSIF - Supprimer TOUT sauf les données critiques
+      // Pour les autres clés, nettoyage ULTRA-AGRESSIF
       try {
         // Supprimer toutes les clés sauf celles qu'on veut garder
         const keysToKeep = ['cognito_tokens']; // On va tout supprimer sauf ça
@@ -193,7 +465,11 @@ function safeSetItem(key, value) {
                 postalAddress: existingUserObj.postalAddress || '',
                 provider: existingUserObj.provider || null
               };
-              localStorage.setItem('currentUser', JSON.stringify(minimalExistingUser));
+              // ⚠️ OPTIMISATION : Exclure photoData avant sauvegarde
+              const userForStorage = (typeof window.removePhotoDataForStorage === 'function') 
+                ? window.removePhotoDataForStorage(minimalExistingUser) 
+                : minimalExistingUser;
+              localStorage.setItem('currentUser', JSON.stringify(userForStorage));
             } catch (restoreError) {
               console.warn('⚠️ Impossible de restaurer currentUser:', restoreError);
             }
@@ -267,30 +543,55 @@ function decodeJwtPayload(token) {
 }
 
 // 1) Lance login Google (Hosted UI Cognito)
+// Verrou anti double-submit pour connexion Google
+// NOTE: isGoogleLoginInProgress est déclarée dans auth.js et exposée via window.isGoogleLoginInProgress
+
 async function startGoogleLogin() {
-  const verifier = randomString(80);
-  const challenge = await pkceChallengeFromVerifier(verifier);
-  const state = randomString(24);
+  // GUARD: Éviter double-clic et double flow concurrent
+  if (window.isGoogleLoginInProgress) {
+    console.warn('⚠️ Connexion Google déjà en cours - double clic ignoré');
+    return;
+  }
+  
+  window.isGoogleLoginInProgress = true;
+  
+  try {
+    const verifier = randomString(80);
+    const challenge = await pkceChallengeFromVerifier(verifier);
+    const state = randomString(24);
 
-  authSave("pkce_verifier", verifier);
-  authSave("oauth_state", state);
+    authSave("pkce_verifier", verifier);
+    authSave("oauth_state", state);
 
-  const authorizeUrl =
-    `${COGNITO.domain}/oauth2/authorize` +
-    `?client_id=${encodeURIComponent(COGNITO.clientId)}` +
-    `&response_type=code` +
-    `&scope=${encodeURIComponent(COGNITO.scopes.join(" "))}` +
-    `&redirect_uri=${encodeURIComponent(COGNITO.redirectUri)}` +
-    `&state=${encodeURIComponent(state)}` +
-    `&code_challenge=${encodeURIComponent(challenge)}` +
-    `&code_challenge_method=S256` +
-    `&identity_provider=Google`;
+    const authorizeUrl =
+      `${window.COGNITO.domain}/oauth2/authorize` +
+      `?client_id=${encodeURIComponent(window.COGNITO.clientId)}` +
+      `&response_type=code` +
+      `&scope=${encodeURIComponent(window.COGNITO.scopes.join(" "))}` +
+      `&redirect_uri=${encodeURIComponent(window.COGNITO.redirectUri)}` +
+      `&state=${encodeURIComponent(state)}` +
+      `&code_challenge=${encodeURIComponent(challenge)}` +
+      `&code_challenge_method=S256` +
+      `&identity_provider=Google`;
 
-  window.location.assign(authorizeUrl);
+    window.location.assign(authorizeUrl);
+    // Note: isGoogleLoginInProgress sera réinitialisé au retour du callback
+  } catch (error) {
+    console.error('❌ Erreur startGoogleLogin:', error);
+    window.isGoogleLoginInProgress = false;
+    showNotification('❌ Erreur lors de la connexion Google', 'error');
+  }
 }
 
 // 2) Traite le retour Cognito: https://mapevent.world/?code=...&state=...
 async function handleCognitoCallbackIfPresent() {
+  // GUARD: Éviter double traitement du callback
+  if (window.isGoogleLoginInProgress && window.location.search.includes('code=')) {
+    // Callback déjà en cours de traitement
+    console.warn('⚠️ Callback OAuth déjà en cours de traitement');
+    return;
+  }
+  
   console.log('🔍 handleCognitoCallbackIfPresent appelé', {
     url: window.location.href,
     hasCode: !!new URL(window.location.href).searchParams.get("code"),
@@ -308,10 +609,12 @@ async function handleCognitoCallbackIfPresent() {
   if (error) {
     console.error('❌ Erreur OAuth:', error);
     showNotification("❌ Erreur login: " + error, "error");
+    window.isGoogleLoginInProgress = false; // Réinitialiser le verrou
     return;
   }
   if (!code) {
     console.log('ℹ️ Pas de code OAuth dans l\'URL - pas un callback');
+    window.isGoogleLoginInProgress = false; // Réinitialiser le verrou
     return; // pas un callback
   }
   
@@ -331,13 +634,13 @@ async function handleCognitoCallbackIfPresent() {
 
   const body = new URLSearchParams({
     grant_type: "authorization_code",
-    client_id: COGNITO.clientId,
+    client_id: window.COGNITO.clientId,
     code,
-    redirect_uri: COGNITO.redirectUri,
+    redirect_uri: window.COGNITO.redirectUri,
     code_verifier: verifier,
   });
 
-  const tokenRes = await fetch(`${COGNITO.domain}/oauth2/token`, {
+  const tokenRes = await fetch(`${window.COGNITO.domain}/oauth2/token`, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: body.toString(),
@@ -364,6 +667,20 @@ async function handleCognitoCallbackIfPresent() {
   try {
     const payload = decodeJwtPayload(tokens.id_token);
     
+    // LOGS CRITIQUES pour déboguer la photo
+    console.log('[PHOTO] Payload JWT Cognito:', {
+      email: payload.email,
+      name: payload.name,
+      picture: payload.picture ? payload.picture.substring(0, 100) + '...' : 'ABSENTE',
+      sub: payload.sub,
+      allKeys: Object.keys(payload)
+    });
+    
+    if (!payload.picture) {
+      console.warn('[WARNING] payload.picture est ABSENT du token JWT Cognito!');
+      console.log('[INFO] Toutes les cles du payload:', Object.keys(payload));
+    }
+    
     // Initialiser currentUser avec toutes les propriétés nécessaires
     currentUser = {
       isLoggedIn: true,
@@ -383,149 +700,503 @@ async function handleCognitoCallbackIfPresent() {
       profileComplete: false, // Flag pour savoir si le profil est complet
       username: null,
       profilePhoto: payload.picture || null,
+      profile_photo_url: payload.picture || null, // Ajouter aussi profile_photo_url
       postalAddress: null,
       password: null
     };
     
-    localStorage.setItem("currentUser", JSON.stringify(currentUser));
-    updateUserUI();
-    updateAccountButton();
+    // PRIORITY HOTFIX: Ne jamais stocker l'objet user complet
+    const slimUser = saveUserSlim(currentUser);
+    if (slimUser) {
+      safeSetItem("currentUser", JSON.stringify(slimUser));
+    }
+    
+    // Mettre à jour le bloc compte temporairement avec la photo Google
+    setTimeout(() => {
+      if (typeof window.updateAccountBlock === 'function') {
+        window.updateAccountBlock();
+      }
+    }, 100);
     
     // Essayer de synchroniser avec le backend
-    console.log('🔐 Cognito callback - Synchronisation avec backend...', {
+    console.log('[OAUTH] Cognito callback - Synchronisation avec backend...', {
       email: currentUser.email,
       name: currentUser.name,
-      sub: currentUser.sub
+      sub: currentUser.sub,
+      picture: payload.picture ? payload.picture.substring(0, 50) + '...' : 'NULL'
     });
     
     try {
-      const API_BASE_URL = 'https://j33osy4bvj.execute-api.eu-west-1.amazonaws.com/default';
-      const syncResponse = await fetch(`${API_BASE_URL}/api/user/oauth/google`, {
+      // Utiliser window.API_BASE_URL (définie dans auth.js)
+      const requestBody = {
+        email: currentUser.email,
+        name: currentUser.name,
+        sub: currentUser.sub,
+        picture: payload.picture || null
+      };
+      
+      console.log('[OAUTH] Envoi requete OAuth Google au backend:', {
+        email: requestBody.email,
+        name: requestBody.name,
+        picture: requestBody.picture ? requestBody.picture.substring(0, 50) + '...' : 'NULL'
+      });
+      
+      // API_BASE_URL contient déjà '/api', donc pas besoin de l'ajouter à nouveau
+      const syncResponse = await fetch(`${window.API_BASE_URL}/user/oauth/google`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${tokens.id_token}`
         },
-        body: JSON.stringify({
-          email: currentUser.email,
-          name: currentUser.name,
-          sub: currentUser.sub,
-          picture: payload.picture || null
-        })
+        body: JSON.stringify(requestBody)
       });
       
       if (syncResponse.ok) {
         const syncData = await syncResponse.json();
-        console.log('✅ Synchronisation backend réussie:', syncData);
-        
-        // LOGIQUE PROFESSIONNELLE MAPEVENT :
-        // 1. Après validation Google → Vérifier si nouvel utilisateur OU profil incomplet
-        // 2. Si NOUVEL utilisateur OU profil incomplet → Afficher formulaire d'inscription MapEvent
-        // 3. Si utilisateur EXISTANT avec profil complet → Connexion directe, pas de formulaire
-        const isNewUser = syncData.isNewUser === true;
-        const profileComplete = syncData.profileComplete === true;
-        
-        // Vérifier les données utilisateur essentielles
-        const user = syncData.user || {};
-        const hasUsername = user.username && user.username.trim().length > 0;
-        const hasPostalAddress = user.postal_address || user.postalAddress;
-        const hasProfilePhoto = user.profile_photo_url || user.profilePhoto;
-        
-        // Le backend calcule déjà profileComplete en fonction de password_hash et username personnalisé
-        // MAIS on vérifie aussi les données essentielles côté frontend pour plus de sécurité
-        console.log('📊 État utilisateur après validation Google:', {
-          isNewUser: isNewUser,
-          profileComplete: profileComplete,
-          userEmail: user.email,
-          userId: user.id,
-          username: user.username,
-          hasUsername: hasUsername,
-          hasPostalAddress: !!hasPostalAddress,
-          hasProfilePhoto: !!hasProfilePhoto,
-          userObject: user
+        console.log('[OK] Synchronisation backend reussie:', {
+          ok: syncData.ok,
+          isNewUser: syncData.isNewUser,
+          profileComplete: syncData.profileComplete,
+          userProfilePhoto: syncData.user?.profile_photo_url ? syncData.user.profile_photo_url.substring(0, 50) + '...' : 'VIDE'
         });
         
-        // Afficher le formulaire si :
-        // - Nouvel utilisateur OU
-        // - Profil incomplet (selon backend) OU
-        // - Données essentielles manquantes (username, adresse, photo)
-        const shouldShowForm = isNewUser || !profileComplete || !hasUsername || !hasPostalAddress || !hasProfilePhoto;
-        
-        if (shouldShowForm) {
-          // Afficher le formulaire IMMÉDIATEMENT
-          console.log('📝 Affichage formulaire d\'inscription', {
-            isNewUser,
-            profileComplete,
-            hasUsername,
-            hasPostalAddress,
-            hasProfilePhoto,
-            userEmail: user.email,
-            reason: isNewUser ? 'nouvel utilisateur' : !profileComplete ? 'profil incomplet (backend)' : !hasUsername ? 'pas de username' : !hasPostalAddress ? 'pas d\'adresse' : 'pas de photo'
+        // FLOW INTELLIGENT : Gérer les différents cas selon les données
+        if (syncData.ok && syncData.user) {
+          const profileComplete = syncData.profileComplete === true;
+          const missingData = syncData.missingData || [];
+          const needsEmailVerification = syncData.needsEmailVerification === true;
+          const isNewUser = syncData.isNewUser === true;
+          
+          // LOGS POUR DÉBOGAGE
+          console.log('[OAUTH] Données reçues du backend:', {
+            profileComplete: profileComplete,
+            isNewUser: isNewUser,
+            missingData: missingData,
+            needsEmailVerification: needsEmailVerification,
+            user: {
+              id: syncData.user.id,
+              email: syncData.user.email,
+              username: syncData.user.username,
+              firstName: syncData.user.firstName || syncData.user.first_name,
+              lastName: syncData.user.lastName || syncData.user.last_name,
+              profile_photo_url: syncData.user.profile_photo_url ? syncData.user.profile_photo_url.substring(0, 50) + '...' : 'null'
+            }
           });
           
-          // FORCER isLoggedIn à false pour forcer l'affichage du formulaire
-          currentUser.isLoggedIn = false;
-          currentUser.profileComplete = false;
-          
-          // Appeler la fonction d'affichage du formulaire avec les données utilisateur
-          displayRegistrationFormAfterGoogleAuth(user);
-          
-          // Attendre un peu et vérifier que le formulaire s'est bien affiché
-          setTimeout(() => {
-            const modal = document.getElementById('publish-modal-backdrop');
-            if (!modal || modal.style.display === 'none') {
-              console.warn('⚠️ Le formulaire ne s\'est pas affiché, nouvelle tentative...');
-              displayRegistrationFormAfterGoogleAuth(syncData.user);
-            } else {
-              console.log('✅ Formulaire d\'inscription affiché avec succès');
+          // ========================================
+          // RÈGLE 1: NOUVEAU COMPTE → TOUJOURS FORMULAIRE COMPLET
+          // ========================================
+          if (isNewUser) {
+            console.log('[OAUTH] NOUVEAU COMPTE - Affichage formulaire complet (toujours demandé pour nouveau compte)');
+            showNotification('⚠️ Veuillez compléter votre profil pour continuer.', 'info');
+            // Afficher le formulaire d'inscription complet
+            if (typeof showProRegisterForm === 'function') {
+              showProRegisterForm();
+            } else if (typeof window.showProRegisterForm === 'function') {
+              window.showProRegisterForm();
             }
-          }, 500);
+            // Pré-remplir avec les données Google
+            if (syncData.user) {
+              window.registerData = {
+                email: syncData.user.email || currentUser.email || '',
+                username: syncData.user.username || currentUser.email?.split('@')[0]?.substring(0, 20) || '',
+                password: '',
+                passwordConfirm: '',
+                firstName: syncData.user.firstName || syncData.user.first_name || currentUser.name?.split(' ')[0] || '',
+                lastName: syncData.user.lastName || syncData.user.last_name || currentUser.name?.split(' ').slice(1).join(' ') || '',
+                profilePhoto: syncData.user.profile_photo_url || payload.picture || '',
+                postalAddress: '',
+                avatarId: 1,
+                avatarDescription: '',
+                addresses: [],
+                emailVerificationCode: null,
+                emailVerified: false,
+                verificationAttempts: 0,
+                lastVerificationAttempt: null,
+                registrationAttempts: 0,
+                lastRegistrationAttempt: null,
+                captchaAnswer: null,
+                codeSentAt: null,
+                codeExpiresAt: null,
+                resendCountdown: 0,
+                lastResendAttempt: null
+              };
+            }
+            window.isGoogleLoginInProgress = false;
+            return;
+          }
           
-          return; // Sortir ici pour éviter le code suivant
-        } else {
-          // CAS 2: Utilisateur EXISTANT avec profil complet → Connexion directe à MapEvent
-          // IMPORTANT: Ne JAMAIS afficher le formulaire si profileComplete === true
-          console.log('✅ Utilisateur existant avec profil complet - Connexion directe à MapEvent (PAS de formulaire)');
-          
-          if (syncData.user) {
-            currentUser = {
-              ...currentUser,
-              ...syncData.user,
-              // Mapper les champs du backend vers le format frontend
-              profilePhoto: syncData.user.profile_photo_url || syncData.user.avatar || syncData.user.profilePhoto || null,
-              avatar: syncData.user.avatar || syncData.user.profile_photo_url || syncData.user.profilePhoto || '👤',
-              isLoggedIn: true,
-              provider: 'google',
-              profileComplete: true, // GARANTIR que profileComplete est true
-              googleValidated: true
+          // ========================================
+          // RÈGLE 2: COMPTE EXISTANT → Demander SEULEMENT ce qui manque
+          // ========================================
+          // CAS 1: Profil complet → Connexion directe
+          if (profileComplete === true && missingData.length === 0 && !needsEmailVerification) {
+            console.log('[OAUTH] ➡️ CAS: COMPTE EXISTANT COMPLET (profileComplete=true, missingData=[], needsEmailVerification=false) - CONNEXION DIRECTE');
+            console.log('[OAUTH] syncData.user:', {
+              id: syncData.user.id,
+              email: syncData.user.email,
+              username: syncData.user.username,
+              firstName: syncData.user.firstName || syncData.user.first_name,
+              lastName: syncData.user.lastName || syncData.user.last_name,
+              profile_photo_url: syncData.user.profile_photo_url ? syncData.user.profile_photo_url.substring(0, 50) + '...' : 'null',
+              picture: payload.picture ? payload.picture.substring(0, 50) + '...' : 'null'
+            });
+            
+            // ⚠️⚠️⚠️ CRITIQUE : Récupérer le username depuis localStorage AVANT de créer slimUser
+            let savedUsernameFromForm = null;
+            let savedPhotoDataFromForm = null;
+            try {
+              const savedFromStorage = localStorage.getItem('pendingRegisterDataForGoogle');
+              if (savedFromStorage) {
+                const savedPendingData = JSON.parse(savedFromStorage);
+                savedUsernameFromForm = savedPendingData?.username || null;
+                savedPhotoDataFromForm = savedPendingData?.photoData || null;
+                console.log('[OAUTH] ✅✅✅ Données récupérées depuis localStorage:', {
+                  username: savedUsernameFromForm || 'MANQUANT',
+                  hasPhotoData: !!savedPhotoDataFromForm
+                });
+              } else {
+                console.log('[OAUTH] ⚠️ Aucune donnée dans localStorage (pendingRegisterDataForGoogle)');
+              }
+            } catch (e) {
+              console.error('[OAUTH] ❌ Erreur récupération depuis localStorage:', e);
+            }
+            
+            // ⚠️⚠️⚠️ VALIDATION STRICTE : Utiliser le username du formulaire s'il est valide
+            let finalUsername = savedUsernameFromForm || syncData.user.username || currentUser.email?.split('@')[0]?.substring(0, 20) || 'Utilisateur';
+            if (savedUsernameFromForm && savedUsernameFromForm !== 'null' && savedUsernameFromForm !== '' && !savedUsernameFromForm.includes('@')) {
+              finalUsername = savedUsernameFromForm;
+              console.log('[OAUTH] ✅✅✅✅✅ Username du FORMULAIRE utilisé:', finalUsername);
+            } else if (syncData.user.username && syncData.user.username !== 'null' && syncData.user.username !== '' && !syncData.user.username.includes('@')) {
+              finalUsername = syncData.user.username;
+              console.log('[OAUTH] ⚠️ Username du backend utilisé (formulaire invalide):', finalUsername);
+            } else {
+              finalUsername = currentUser.email?.split('@')[0]?.substring(0, 20) || 'Utilisateur';
+              console.log('[OAUTH] ❌ Aucun username valide, utilisation email part:', finalUsername);
+            }
+            
+            const slimUser = {
+              id: syncData.user.id || currentUser.id,
+              email: syncData.user.email || currentUser.email,
+              username: finalUsername, // ⚠️⚠️⚠️ PRIORITÉ ABSOLUE au username du formulaire
+              firstName: syncData.user.firstName || syncData.user.first_name || currentUser.name?.split(' ')[0] || '',
+              lastName: syncData.user.lastName || syncData.user.last_name || currentUser.name?.split(' ').slice(1).join(' ') || '',
+              role: syncData.user.role || 'user',
+              subscription: syncData.user.subscription || 'free',
+              profile_photo_url: syncData.user.profile_photo_url || payload.picture || null,
+              hasPassword: syncData.user.hasPassword || false,
+              hasPostalAddress: syncData.user.hasPostalAddress || false,
+              profileComplete: true,
+              isLoggedIn: true
             };
-            // Debug: vérifier l'URL sauvegardée
-            console.log('🔍 Sauvegarde currentUser.profilePhoto:', currentUser.profilePhoto);
-            console.log('🔍 Sauvegarde currentUser.profile_photo_url:', currentUser.profile_photo_url);
-            // Sauvegarder dans localStorage avec profileComplete: true
-            safeSetItem("currentUser", JSON.stringify(currentUser));
-            // Forcer la mise à jour du bouton compte immédiatement et après un court délai
-            updateAccountButton();
-            setTimeout(() => {
-              updateAccountButton();
-              console.log('🔄 Mise à jour forcée du bouton compte après connexion');
-            }, 100);
-            setTimeout(() => {
-              updateAccountButton();
-              console.log('🔄 Mise à jour forcée du bouton compte après 500ms');
-            }, 500);
-            updateUserUI();
+            
+            console.log('[OAUTH] slimUser créé:', {
+              id: slimUser.id,
+              firstName: slimUser.firstName,
+              lastName: slimUser.lastName,
+              username: slimUser.username,
+              profile_photo_url: slimUser.profile_photo_url ? slimUser.profile_photo_url.substring(0, 50) + '...' : 'null'
+            });
+            
+            // ⚠️⚠️⚠️ CRITIQUE : Utiliser connectUser comme "Continuer sans vérifier" pour éviter les erreurs de popup
+            // Forcer le username et photoData dans currentUser AVANT connectUser
+            if (typeof window !== 'undefined') {
+              if (window.currentUser === undefined) {
+                window.currentUser = {};
+              }
+              if (finalUsername && finalUsername !== 'Utilisateur' && !finalUsername.includes('@')) {
+                window.currentUser.username = finalUsername;
+                console.log('[OAUTH] ✅✅✅✅✅ Username FORCÉ dans window.currentUser:', finalUsername);
+              }
+              if (savedPhotoDataFromForm && savedPhotoDataFromForm !== 'null' && savedPhotoDataFromForm !== '') {
+                window.currentUser.photoData = savedPhotoDataFromForm;
+                console.log('[OAUTH] ✅✅✅✅✅ photoData FORCÉ dans window.currentUser');
+              }
+            }
+            
+            // ⚠️⚠️⚠️ CRITIQUE : Afficher la fenêtre d'attente EXACTEMENT comme "Continuer sans vérifier"
+            // Chercher le modal dans publish-modal-inner ou authModal (EXACTEMENT comme createAccountWithoutVerification)
+            let modal = document.getElementById('authModal');
+            if (!modal) {
+              modal = document.getElementById('publish-modal-inner');
+            }
+            
+            // S'assurer que le backdrop existe et est visible (CRÉER s'il n'existe pas)
+            let backdrop = document.getElementById('publish-modal-backdrop');
+            if (!backdrop) {
+              console.log('[OAUTH] 📦 Création backdrop (n\'existe pas)');
+              backdrop = document.createElement('div');
+              backdrop.id = 'publish-modal-backdrop';
+              backdrop.style.cssText = 'position:fixed!important;top:0!important;left:0!important;width:100%!important;height:100%!important;background:rgba(0,0,0,0.8)!important;z-index:99999!important;display:flex!important;align-items:center!important;justify-content:center!important;visibility:visible!important;opacity:1!important;';
+              document.body.appendChild(backdrop);
+            }
+            
+            // S'assurer que le modal inner existe (CRÉER s'il n'existe pas)
+            if (!modal) {
+              console.log('[OAUTH] 📦 Création modal inner (n\'existe pas)');
+              modal = document.createElement('div');
+              modal.id = 'publish-modal-inner';
+              modal.style.cssText = 'background:#1e293b!important;border-radius:20px!important;padding:0!important;max-width:600px!important;width:90%!important;max-height:90vh!important;overflow-y:auto!important;';
+              backdrop.appendChild(modal);
+            }
+            
+            // FORCER l'affichage du backdrop (EXACTEMENT comme createAccountWithoutVerification)
+            if (backdrop) {
+              backdrop.style.display = 'flex';
+              backdrop.style.visibility = 'visible';
+              backdrop.style.opacity = '1';
+              backdrop.style.zIndex = '99999';
+            }
+            
+            // FORCER l'affichage du modal inner
+            if (modal) {
+              modal.style.display = 'block';
+              modal.style.visibility = 'visible';
+              modal.style.opacity = '1';
+            }
+            
+            // Afficher la fenêtre "Connexion en cours..." EXACTEMENT comme "Continuer sans vérifier"
+            if (modal) {
+              modal.innerHTML = `
+                <div id="authModal" data-mode="connecting" style="padding:40px;max-width:500px;margin:0 auto;text-align:center;position:relative;">
+                  <div style="font-size:64px;margin-bottom:20px;">⏳</div>
+                  <h2 style="margin:0 0 8px;font-size:28px;font-weight:800;color:#fff;background:linear-gradient(135deg,#00ffc3,#3b82f6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">Connexion en cours...</h2>
+                  <p style="margin:0;font-size:14px;color:var(--ui-text-muted);">Veuillez patienter</p>
+                </div>
+              `;
+              console.log('[OAUTH] ✅✅✅ Fenêtre d\'attente affichée (comme "Continuer sans vérifier")');
+            } else {
+              console.error('[OAUTH] ❌ Modal non trouvé et impossible à créer pour afficher la fenêtre d\'attente');
+            }
+            
+            // ⚠️⚠️⚠️ CRITIQUE : Utiliser connectUser au lieu de updateAuthUI directement (comme "Continuer sans vérifier")
+            // Récupérer les tokens depuis localStorage
+            let accessToken = null;
+            let refreshToken = null;
+            try {
+              const cognitoTokens = localStorage.getItem('cognito_tokens');
+              if (cognitoTokens) {
+                const tokens = JSON.parse(cognitoTokens);
+                accessToken = tokens.access_token || tokens.accessToken;
+                refreshToken = tokens.refresh_token || tokens.refreshToken;
+              }
+            } catch (e) {
+              console.error('[OAUTH] ❌ Erreur récupération tokens:', e);
+            }
+            
+            if (accessToken && typeof window.connectUser === 'function') {
+              console.log('[OAUTH] ✅✅✅ Utilisation connectUser (comme "Continuer sans vérifier")');
+              const tokens = { access_token: accessToken, refresh_token: refreshToken };
+              // ⚠️⚠️⚠️ CRITIQUE : connectUser ferme déjà les modals automatiquement (comme "Continuer sans vérifier")
+              // Ne pas fermer les modals ici pour éviter les erreurs de popup
+              window.connectUser(slimUser, tokens, true); // true = rester connecté par défaut
+              // ⚠️⚠️⚠️ NOTE : connectUser affiche déjà une notification de succès, pas besoin d'en afficher une autre ici
+            } else {
+              // Fallback : utiliser updateAuthUI si connectUser n'est pas disponible
+              console.warn('[OAUTH] ⚠️ connectUser non disponible, utilisation updateAuthUI');
+              currentUser = { ...currentUser, ...slimUser, isLoggedIn: true };
+              if (finalUsername && finalUsername !== 'Utilisateur' && !finalUsername.includes('@')) {
+                currentUser.username = finalUsername;
+              }
+              if (savedPhotoDataFromForm && savedPhotoDataFromForm !== 'null' && savedPhotoDataFromForm !== '') {
+                currentUser.photoData = savedPhotoDataFromForm;
+              }
+              updateAuthUI(slimUser);
+              
+              try {
+                const userForStorage = (typeof window.removePhotoDataForStorage === 'function') 
+                  ? window.removePhotoDataForStorage(slimUser) 
+                  : slimUser;
+                const slimJson = JSON.stringify(userForStorage);
+                localStorage.setItem('currentUser', slimJson);
+              } catch (e) {
+                try { 
+                  const userForStorage = (typeof window.removePhotoDataForStorage === 'function') 
+                    ? window.removePhotoDataForStorage(slimUser) 
+                    : slimUser;
+                  sessionStorage.setItem('currentUser', JSON.stringify(userForStorage)); 
+                } catch (e2) {}
+              }
+              
+              setTimeout(() => {
+                closeAuthModal();
+                closePublishModal();
+              }, 500);
+              
+              const displayName = finalUsername || slimUser.username || slimUser.email?.split('@')[0] || 'Utilisateur';
+              showNotification(`✅ Bienvenue ${displayName} ! Vous êtes connecté.`, 'success');
+            }
+            
+            window.isGoogleLoginInProgress = false;
+            return;
           }
           
-          showNotification(`✅ Connexion réussie ! Bienvenue ${currentUser.username || currentUser.name || currentUser.email}`, "success");
-          
-          // Nettoyer l'URL des paramètres OAuth
-          if (window.history && window.history.replaceState) {
-            window.history.replaceState({}, document.title, window.location.pathname);
+          // CAS 2: Compte existant avec données manquantes → Demander SEULEMENT ce qui manque
+          if (missingData.length > 0) {
+            console.log('[OAUTH] Compte existant - Données manquantes:', missingData);
+            
+            // Si seulement la photo manque → Formulaire photo uniquement
+            if (missingData.length === 1 && missingData[0] === 'photo') {
+              console.log('[OAUTH] Photo manquante uniquement - Affichage formulaire photo');
+              showPhotoUploadForm(syncData.user);
+              window.isGoogleLoginInProgress = false;
+              return;
+            }
+            
+            // Si plusieurs données manquent ou autres données → Formulaire adapté
+            // Pour l'instant, afficher le formulaire complet pré-rempli
+            console.log('[OAUTH] Plusieurs données manquantes - Affichage formulaire complet pré-rempli');
+            showNotification(`⚠️ Veuillez compléter les informations manquantes: ${missingData.join(', ')}`, 'warning');
+            if (typeof showProRegisterForm === 'function') {
+              showProRegisterForm();
+            } else if (typeof window.showProRegisterForm === 'function') {
+              window.showProRegisterForm();
+            }
+            // Pré-remplir avec les données existantes
+            if (syncData.user) {
+              window.registerData = {
+                email: syncData.user.email || currentUser.email || '',
+                username: syncData.user.username || currentUser.email?.split('@')[0]?.substring(0, 20) || '',
+                password: '',
+                passwordConfirm: '',
+                firstName: syncData.user.firstName || syncData.user.first_name || currentUser.name?.split(' ')[0] || '',
+                lastName: syncData.user.lastName || syncData.user.last_name || currentUser.name?.split(' ').slice(1).join(' ') || '',
+                profilePhoto: syncData.user.profile_photo_url || payload.picture || '',
+                postalAddress: '',
+                avatarId: 1,
+                avatarDescription: '',
+                addresses: [],
+                emailVerificationCode: null,
+                emailVerified: false,
+                verificationAttempts: 0,
+                lastVerificationAttempt: null,
+                registrationAttempts: 0,
+                lastRegistrationAttempt: null,
+                captchaAnswer: null,
+                codeSentAt: null,
+                codeExpiresAt: null,
+                resendCountdown: 0,
+                lastResendAttempt: null
+              };
+            }
+            window.isGoogleLoginInProgress = false;
+            return;
           }
           
-          // FERMER le formulaire s'il était ouvert (sécurité supplémentaire)
+          // CAS 3: Compte existant, profil complet, besoin confirmation email → Modal confirmation email uniquement
+          if (needsEmailVerification && profileComplete) {
+            console.log('[OAUTH] Compte existant - Confirmation email requise - Modal confirmation email uniquement');
+            const slimUser = {
+              id: syncData.user.id || currentUser.id,
+              email: syncData.user.email || currentUser.email,
+              username: syncData.user.username || currentUser.email?.split('@')[0]?.substring(0, 20) || 'Utilisateur',
+              firstName: syncData.user.firstName || syncData.user.first_name || currentUser.name?.split(' ')[0] || '',
+              lastName: syncData.user.lastName || syncData.user.last_name || currentUser.name?.split(' ').slice(1).join(' ') || '',
+              role: syncData.user.role || 'user',
+              subscription: syncData.user.subscription || 'free',
+              profile_photo_url: syncData.user.profile_photo_url || payload.picture || null,
+              hasPassword: syncData.user.hasPassword || false,
+              hasPostalAddress: syncData.user.hasPostalAddress || false,
+              profileComplete: true,
+              isLoggedIn: true
+            };
+            
+            currentUser = { ...currentUser, ...slimUser, isLoggedIn: true };
+            updateAuthUI(slimUser);
+            
+            try {
+              // ⚠️ OPTIMISATION : Exclure photoData avant sauvegarde
+              const userForStorage = (typeof window.removePhotoDataForStorage === 'function') 
+                ? window.removePhotoDataForStorage(slimUser) 
+                : slimUser;
+              const slimJson = JSON.stringify(userForStorage);
+              localStorage.setItem('currentUser', slimJson);
+            } catch (e) {
+              try { 
+                const userForStorage = (typeof window.removePhotoDataForStorage === 'function') 
+                  ? window.removePhotoDataForStorage(slimUser) 
+                  : slimUser;
+                sessionStorage.setItem('currentUser', JSON.stringify(userForStorage)); 
+              } catch (e2) {}
+            }
+            
+            // Afficher modal confirmation email
+            showEmailVerificationModal(syncData.user.email, syncData.user.username || 'Utilisateur');
+            window.isGoogleLoginInProgress = false;
+            return;
+          }
+          
+          // CAS 4: Fallback → Connexion directe quand même
+          console.log('[OAUTH] Fallback - Connexion directe');
+          const slimUser = {
+            id: syncData.user.id || currentUser.id,
+            email: syncData.user.email || currentUser.email,
+            username: syncData.user.username || currentUser.email?.split('@')[0]?.substring(0, 20) || 'Utilisateur',
+            firstName: syncData.user.firstName || syncData.user.first_name || currentUser.name?.split(' ')[0] || '',
+            lastName: syncData.user.lastName || syncData.user.last_name || currentUser.name?.split(' ').slice(1).join(' ') || '',
+            role: syncData.user.role || 'user',
+            subscription: syncData.user.subscription || 'free',
+            profile_photo_url: syncData.user.profile_photo_url || payload.picture || null,
+            hasPassword: syncData.user.hasPassword || false,
+            hasPostalAddress: syncData.user.hasPostalAddress || false,
+            profileComplete: profileComplete,
+            isLoggedIn: true
+          };
+          
+          currentUser = { ...currentUser, ...slimUser, isLoggedIn: true };
+          updateAuthUI(slimUser);
+          
+          try {
+            const slimJson = JSON.stringify(slimUser);
+            localStorage.setItem('currentUser', slimJson);
+          } catch (e) {
+            try { sessionStorage.setItem('currentUser', slimJson); } catch (e2) {}
+          }
+          
+          closeAuthModal();
           closePublishModal();
+          const displayName = slimUser.username || slimUser.firstName || slimUser.email?.split('@')[0] || 'Utilisateur';
+          showNotification(`✅ Bienvenue ${displayName} !`, 'success');
+          window.isGoogleLoginInProgress = false;
+          return;
+        } else {
+          // Fallback si syncData.ok est false ou syncData.user est manquant
+          console.warn('⚠️ Réponse backend invalide, connexion avec données Google uniquement');
+          
+          // Se connecter quand même avec les données Google disponibles
+          const slimUser = {
+            id: currentUser.id || `user_${Date.now()}`,
+            email: currentUser.email,
+            username: currentUser.email?.split('@')[0]?.substring(0, 20) || 'Utilisateur',
+            firstName: currentUser.name?.split(' ')[0] || '',
+            lastName: currentUser.name?.split(' ').slice(1).join(' ') || '',
+            role: 'user',
+            subscription: 'free',
+            profile_photo_url: payload.picture || null,
+            hasPassword: false,
+            hasPostalAddress: false,
+            profileComplete: false,
+            isLoggedIn: true
+          };
+          
+          currentUser = { ...currentUser, ...slimUser, isLoggedIn: true };
+          updateAuthUI(slimUser);
+          
+          try {
+            const slimJson = JSON.stringify(slimUser);
+            localStorage.setItem('currentUser', slimJson);
+          } catch (e) {
+            try {
+              sessionStorage.setItem('currentUser', slimJson);
+            } catch (e2) {
+              console.warn('⚠️ Impossible de sauvegarder user');
+            }
+          }
+          
+          closeAuthModal();
+          closePublishModal();
+          showNotification('✅ Connexion Google réussie !', 'success');
+          window.isGoogleLoginInProgress = false;
         }
       } else {
         throw new Error(`Backend sync failed: ${syncResponse.status}`);
@@ -563,9 +1234,12 @@ async function handleCognitoCallbackIfPresent() {
           currentUser.profileComplete = true;
           currentUser.isLoggedIn = true;
         }
-        safeSetItem("currentUser", JSON.stringify(currentUser));
-        updateAccountButton();
-        updateUserUI();
+        // PRIORITY HOTFIX: Ne jamais stocker l'objet user complet
+        const slimUser = saveUserSlim(currentUser);
+        if (slimUser) {
+          safeSetItem("currentUser", JSON.stringify(slimUser));
+        }
+        // INTERDICTION : Ne pas modifier le bloc compte - fonctions supprimées
         showNotification(`✅ Connexion réussie ! Bienvenue ${currentUser.name || currentUser.email}`, "success");
         
         // Nettoyer l'URL des paramètres OAuth
@@ -578,109 +1252,43 @@ async function handleCognitoCallbackIfPresent() {
         return; // Ne JAMAIS afficher le formulaire si le profil est complet
       }
       
-      console.log('🔄 Erreur API détectée - Affichage formulaire d\'inscription (fallback)');
+      // FLOW SIMPLIFIÉ : Se connecter quand même avec les données Google disponibles
+      // Comme les leaders mondiaux, on se connecte même si le backend échoue
+      console.log('✅ Connexion avec données Google uniquement (backend indisponible)');
       
-      // En cas d'erreur (CORS ou réseau), on assume que c'est un nouvel utilisateur
-      // et on affiche le formulaire pour qu'il puisse compléter son profil
-      
-      // Sauvegarder les données Google dans currentUser (pas encore connecté à MapEvent)
-      currentUser = {
-        ...currentUser,
-        isLoggedIn: false, // Pas encore connecté à MapEvent
-        provider: 'google',
+      const slimUser = {
+        id: currentUser.id || `user_${Date.now()}`,
+        email: currentUser.email,
+        username: currentUser.email?.split('@')[0]?.substring(0, 20) || 'Utilisateur',
+        firstName: currentUser.name?.split(' ')[0] || '',
+        lastName: currentUser.name?.split(' ').slice(1).join(' ') || '',
+        role: 'user',
+        subscription: 'free',
+        profile_photo_url: payload.picture || null,
+        hasPassword: false,
+        hasPostalAddress: false,
         profileComplete: false,
-        googleValidated: true, // Google validé mais pas encore inscrit à MapEvent
-        likes: currentUser.likes || [],
-        agenda: currentUser.agenda || [],
-        participating: currentUser.participating || [],
-        favorites: currentUser.favorites || [],
-        friendRequests: currentUser.friendRequests || [],
-        eventStatusHistory: currentUser.eventStatusHistory || {}
-      };
-      localStorage.setItem("currentUser", JSON.stringify(currentUser));
-      
-      // Pré-remplir registerData avec les données Google disponibles
-      const nameParts = (currentUser.name || '').split(' ');
-      registerData = {
-        email: currentUser.email || '',
-        username: '',
-        password: '',
-        passwordConfirm: '',
-        firstName: nameParts[0] || '',
-        lastName: nameParts.slice(1).join(' ') || '',
-        profilePhoto: (currentUser.avatar && currentUser.avatar.startsWith('http')) ? currentUser.avatar : (currentUser.profilePhoto || ''),
-        postalAddress: '',
-        avatarId: 1,
-        avatarDescription: '',
-        addresses: [],
-        emailVerificationCode: null,
-        emailVerified: true, // Google email déjà vérifié
-        verificationAttempts: 0,
-        lastVerificationAttempt: null,
-        registrationAttempts: 0,
-        lastRegistrationAttempt: null,
-        captchaAnswer: null,
-        codeSentAt: null,
-        codeExpiresAt: null,
-        resendCountdown: 0,
-        lastResendAttempt: null
+        isLoggedIn: true
       };
       
-      // Nettoyer l'URL des paramètres OAuth AVANT d'afficher le formulaire
-      if (window.history && window.history.replaceState) {
-        window.history.replaceState({}, document.title, window.location.pathname);
+      currentUser = { ...currentUser, ...slimUser, isLoggedIn: true };
+      updateAuthUI(slimUser);
+      
+      try {
+        const slimJson = JSON.stringify(slimUser);
+        localStorage.setItem('currentUser', slimJson);
+      } catch (e) {
+        try {
+          sessionStorage.setItem('currentUser', slimJson);
+        } catch (e2) {
+          console.warn('⚠️ Impossible de sauvegarder user');
+        }
       }
       
-      // Afficher le formulaire avec plusieurs tentatives
-      const showFormWithRetry = (attempt = 1, maxAttempts = 5) => {
-        console.log(`🔍 Tentative ${attempt}/${maxAttempts} d'affichage du formulaire (fallback erreur API)...`);
-        
-        if (typeof window.showProRegisterForm === 'function') {
-          console.log('✅ Affichage formulaire d\'inscription MapEvent (fallback)');
-          try {
-            window.showProRegisterForm();
-            return;
-          } catch (e) {
-            console.error('❌ Erreur lors de l\'appel showProRegisterForm:', e);
-          }
-        } else if (typeof showProRegisterForm === 'function') {
-          console.log('✅ Affichage formulaire d\'inscription MapEvent (fallback)');
-          try {
-            showProRegisterForm();
-            return;
-          } catch (e) {
-            console.error('❌ Erreur lors de l\'appel showProRegisterForm:', e);
-          }
-        }
-        
-        if (attempt < maxAttempts) {
-          console.log(`⏳ Réessai dans ${attempt * 200}ms...`);
-          setTimeout(() => showFormWithRetry(attempt + 1, maxAttempts), attempt * 200);
-        } else {
-          console.error('❌ showProRegisterForm toujours non disponible après ' + maxAttempts + ' tentatives');
-          // Dernière tentative : afficher le modal manuellement
-          const backdrop = document.getElementById('publish-modal-backdrop');
-          const modal = document.getElementById('publish-modal-inner');
-          if (backdrop && modal) {
-            console.log('🔄 Affichage modal manuel...');
-            backdrop.style.display = 'flex';
-            backdrop.style.visibility = 'visible';
-            backdrop.style.opacity = '1';
-            backdrop.style.zIndex = '99999';
-            // Appeler showProRegisterForm une dernière fois
-            setTimeout(() => {
-              if (typeof window.showProRegisterForm === 'function') {
-                window.showProRegisterForm();
-              } else if (typeof showProRegisterForm === 'function') {
-                showProRegisterForm();
-              }
-            }, 100);
-          }
-        }
-      };
-      
-      // Démarrer les tentatives après un court délai
-      setTimeout(() => showFormWithRetry(), 300);
+      closeAuthModal();
+      closePublishModal();
+      showNotification('✅ Connexion Google réussie !', 'success');
+      window.isGoogleLoginInProgress = false;
     }
   } catch (e) {
     console.warn(e);
@@ -690,244 +1298,49 @@ async function handleCognitoCallbackIfPresent() {
 
 // Fonction centralisée pour afficher le formulaire d'inscription après validation Google
 function displayRegistrationFormAfterGoogleAuth(backendUser) {
-  console.log('🎯 displayRegistrationFormAfterGoogleAuth appelé', { backendUser: !!backendUser });
+  // FONCTION DÉSACTIVÉE : Plus jamais de formulaire après OAuth Google
+  // Comme les leaders mondiaux, on se connecte directement
+  console.log('⚠️ displayRegistrationFormAfterGoogleAuth appelé mais DÉSACTIVÉ - Connexion directe Google');
   
-  // VÉRIFICATION CRITIQUE : Ne JAMAIS afficher le formulaire si le profil est déjà complet ET l'utilisateur est connecté
-  // MAIS on force l'affichage si l'utilisateur vient de Google et n'est pas encore connecté
-  if (currentUser && currentUser.profileComplete === true && currentUser.isLoggedIn === true) {
-    console.log('⚠️ Tentative d\'affichage formulaire alors que profileComplete === true ET isLoggedIn === true - Bloqué');
-    return; // Ne pas afficher le formulaire
+  // Ne jamais afficher de formulaire après OAuth Google - connexion directe
+  if (currentUser && currentUser.isLoggedIn) {
+    console.log('✅ Utilisateur déjà connecté - pas de formulaire nécessaire');
+    return;
   }
   
-  // Si profileComplete est true mais isLoggedIn est false, on force l'affichage du formulaire
-  if (currentUser && currentUser.profileComplete === true && currentUser.isLoggedIn === false) {
-    console.log('⚠️ profileComplete === true mais isLoggedIn === false - FORCER profileComplete à false pour afficher le formulaire');
-    currentUser.profileComplete = false;
-  }
+  // Si l'utilisateur n'est pas connecté, se connecter directement avec les données Google
+  const slimUser = {
+    id: backendUser?.id || currentUser.id || `user_${Date.now()}`,
+    email: backendUser?.email || currentUser.email,
+    username: backendUser?.username || currentUser.email?.split('@')[0]?.substring(0, 20) || 'Utilisateur',
+    firstName: backendUser?.firstName || backendUser?.first_name || currentUser.name?.split(' ')[0] || '',
+    lastName: backendUser?.lastName || backendUser?.last_name || currentUser.name?.split(' ').slice(1).join(' ') || '',
+    role: backendUser?.role || 'user',
+    subscription: backendUser?.subscription || 'free',
+    profile_photo_url: backendUser?.profile_photo_url || payload?.picture || currentUser.avatar || null,
+    hasPassword: backendUser?.hasPassword || false,
+    hasPostalAddress: backendUser?.hasPostalAddress || false,
+    profileComplete: true, // OAuth Google = toujours complet
+    isLoggedIn: true
+  };
   
-  // Mettre à jour currentUser avec les données du backend ou Google
-  if (backendUser) {
-    const googleAvatar = backendUser.profile_photo_url || backendUser.avatar || backendUser.profilePhoto || null;
-    currentUser = {
-      ...currentUser,
-      ...backendUser,
-      profilePhoto: googleAvatar,
-      avatar: googleAvatar || backendUser.avatar || '👤',
-      isLoggedIn: false,
-      provider: 'google',
-      profileComplete: false, // Pas encore complet, formulaire nécessaire
-      googleValidated: true
-    };
-  } else {
-    // Pas de données backend, utiliser les données Google du token
-    currentUser = {
-      ...currentUser,
-      isLoggedIn: false,
-      provider: 'google',
-      profileComplete: false,
-      googleValidated: true
-    };
-  }
+  currentUser = { ...currentUser, ...slimUser, isLoggedIn: true };
+  updateAuthUI(slimUser);
   
-  // NE PAS SAUVEGARDER DANS localStorage SI PLEIN - CONTINUER DIRECTEMENT
-  // Les données seront sauvegardées sur le serveur après l'inscription
   try {
-    // Essayer une seule fois, si ça échoue, on continue quand même
-    localStorage.setItem("currentUser", JSON.stringify(currentUser));
+    const slimJson = JSON.stringify(slimUser);
+    localStorage.setItem('currentUser', slimJson);
   } catch (e) {
-    if (e.name === 'QuotaExceededError' || e.message.includes('quota')) {
-      console.warn('⚠️ localStorage plein - CONTINUATION SANS SAUVEGARDE');
-      // VIDER COMPLÈTEMENT localStorage et réessayer UNE SEULE FOIS
-      try {
-        const tokens = localStorage.getItem('cognito_tokens');
-        localStorage.clear();
-        if (tokens) {
-          localStorage.setItem('cognito_tokens', tokens);
-        }
-        // Réessayer avec version minimale
-        const minimalUser = {
-          id: currentUser.id || null,
-          email: currentUser.email || '',
-          username: currentUser.username || '',
-          name: currentUser.name || '',
-          firstName: currentUser.firstName || '',
-          lastName: currentUser.lastName || '',
-          avatar: currentUser.avatar || '👤',
-          profilePhoto: currentUser.profilePhoto || null,
-          isLoggedIn: false,
-          provider: 'google',
-          profileComplete: false,
-          googleValidated: true
-        };
-        localStorage.setItem("currentUser", JSON.stringify(minimalUser));
-      } catch (e2) {
-        console.warn('⚠️ localStorage toujours plein après nettoyage - CONTINUATION SANS SAUVEGARDE');
-        // CONTINUER QUAND MÊME - Le formulaire doit s'afficher
-      }
-    }
-  }
-  
-  // Pré-remplir registerData avec les données Google
-  const nameParts = (currentUser.name || '').split(' ');
-  registerData = {
-    email: currentUser.email || '',
-    username: currentUser.username || '',
-    password: '',
-    passwordConfirm: '',
-    firstName: nameParts[0] || currentUser.firstName || '',
-    lastName: nameParts.slice(1).join(' ') || currentUser.lastName || '',
-    profilePhoto: (currentUser.avatar && currentUser.avatar.startsWith('http')) ? currentUser.avatar : (currentUser.profilePhoto || ''),
-    postalAddress: '',
-    avatarId: 1,
-    avatarDescription: currentUser.avatarDescription || '',
-    addresses: [],
-    emailVerificationCode: null,
-    emailVerified: true,
-    verificationAttempts: 0,
-    lastVerificationAttempt: null,
-    registrationAttempts: 0,
-    lastRegistrationAttempt: null,
-    captchaAnswer: null,
-    codeSentAt: null,
-    codeExpiresAt: null,
-    resendCountdown: 0,
-    lastResendAttempt: null
-  };
-  
-  // Nettoyer l'URL des paramètres OAuth
-  if (window.history && window.history.replaceState) {
-    window.history.replaceState({}, document.title, window.location.pathname);
-  }
-  
-  // Afficher un message de succès
-  showNotification('✅ Connexion Google validée ! Veuillez compléter votre profil.', 'success');
-  
-  // FORCER l'affichage du formulaire - SOLUTION ULTIME ABSOLUE
-  console.log('🚀 DÉMARRAGE FORÇAGE FORMULAIRE...');
-  
-  // APPEL DIRECT IMMÉDIAT de showProRegisterForm
-  if (typeof window.showProRegisterForm === 'function') {
-    console.log('✅ APPEL DIRECT showProRegisterForm');
     try {
-      window.showProRegisterForm();
-    } catch (e) {
-      console.error('❌ Erreur appel direct showProRegisterForm:', e);
+      sessionStorage.setItem('currentUser', slimJson);
+    } catch (e2) {
+      console.warn('⚠️ Impossible de sauvegarder user');
     }
-  } else if (typeof showProRegisterForm === 'function') {
-    console.log('✅ APPEL DIRECT showProRegisterForm (sans window)');
-    try {
-      showProRegisterForm();
-    } catch (e) {
-      console.error('❌ Erreur appel direct showProRegisterForm:', e);
-    }
-  } else {
-    console.warn('⚠️ showProRegisterForm non disponible immédiatement, utilisation du mécanisme de retry...');
   }
   
-  const forceShowForm = (attempt = 1) => {
-    console.log(`🔄 Tentative ${attempt} d'affichage du formulaire...`);
-    
-    let backdrop = document.getElementById('publish-modal-backdrop');
-    let modal = document.getElementById('publish-modal-inner');
-    
-    // Créer les éléments s'ils n'existent pas
-    if (!backdrop) {
-      console.log('📦 Création backdrop...');
-      backdrop = document.createElement('div');
-      backdrop.id = 'publish-modal-backdrop';
-      backdrop.style.cssText = 'position:fixed!important;top:0!important;left:0!important;width:100%!important;height:100%!important;background:rgba(0,0,0,0.8)!important;z-index:99999!important;display:flex!important;align-items:center!important;justify-content:center!important;visibility:visible!important;opacity:1!important;';
-      document.body.appendChild(backdrop);
-    }
-    
-    if (!modal) {
-      console.log('📦 Création modal...');
-      modal = document.createElement('div');
-      modal.id = 'publish-modal-inner';
-      modal.style.cssText = 'background:#1e293b!important;border-radius:20px!important;padding:0!important;max-width:600px!important;width:90%!important;max-height:90vh!important;overflow-y:auto!important;';
-      backdrop.appendChild(modal);
-    }
-    
-    // FORCER l'affichage avec tous les styles nécessaires
-    backdrop.style.display = 'flex';
-    backdrop.style.visibility = 'visible';
-    backdrop.style.opacity = '1';
-    backdrop.style.zIndex = '99999';
-    backdrop.style.position = 'fixed';
-    backdrop.style.top = '0';
-    backdrop.style.left = '0';
-    backdrop.style.width = '100%';
-    backdrop.style.height = '100%';
-    backdrop.style.background = 'rgba(0,0,0,0.8)';
-    
-    // Essayer d'appeler showProRegisterForm
-    if (typeof window.showProRegisterForm === 'function') {
-      console.log('✅ Appel showProRegisterForm via window');
-      try {
-        window.showProRegisterForm();
-        console.log('✅ showProRegisterForm appelé avec succès');
-        return true;
-      } catch (e) {
-        console.error('❌ Erreur showProRegisterForm:', e);
-      }
-    } else if (typeof showProRegisterForm === 'function') {
-      console.log('✅ Appel showProRegisterForm direct');
-      try {
-        showProRegisterForm();
-        console.log('✅ showProRegisterForm appelé avec succès');
-        return true;
-      } catch (e) {
-        console.error('❌ Erreur showProRegisterForm:', e);
-      }
-    } else {
-      console.warn('⚠️ showProRegisterForm non disponible, recherche dans le DOM...');
-      // Chercher la fonction dans le scope global
-      const func = eval('showProRegisterForm');
-      if (typeof func === 'function') {
-        try {
-          func();
-          return true;
-        } catch (e) {
-          console.error('❌ Erreur showProRegisterForm via eval:', e);
-        }
-      }
-    }
-    
-    // Si showProRegisterForm n'est toujours pas disponible, créer le HTML directement
-    if (attempt >= 3) {
-      console.log('🔄 Création HTML directe du formulaire...');
-      const formHTML = `
-        <div style="padding:40px;color:#fff;">
-          <h2 style="color:#fff;margin-bottom:20px;">Inscription MapEvent</h2>
-          <p style="color:#94a3b8;">Le formulaire d'inscription se charge...</p>
-          <p style="color:#94a3b8;font-size:14px;margin-top:20px;">Si le formulaire complet ne s'affiche pas dans quelques secondes, rechargez la page.</p>
-        </div>
-      `;
-      modal.innerHTML = formHTML;
-      
-      // Réessayer après 1 seconde
-      setTimeout(() => {
-        if (typeof window.showProRegisterForm === 'function') {
-          window.showProRegisterForm();
-        }
-      }, 1000);
-    }
-    
-    return false;
-  };
-  
-  // Essayer IMMÉDIATEMENT et plusieurs fois
-  let success = false;
-  success = forceShowForm(1) || success;
-  setTimeout(() => { success = forceShowForm(2) || success; }, 100);
-  setTimeout(() => { success = forceShowForm(3) || success; }, 300);
-  setTimeout(() => { success = forceShowForm(4) || success; }, 600);
-  setTimeout(() => { success = forceShowForm(5) || success; }, 1000);
-  setTimeout(() => { success = forceShowForm(6) || success; }, 2000);
-  
-  if (!success) {
-    console.error('❌ Impossible d\'afficher le formulaire après toutes les tentatives');
-    showNotification('⚠️ Erreur d\'affichage. Rechargez la page et réessayez.', 'error');
-  }
+  closeAuthModal();
+  closePublishModal();
+  showNotification('✅ Connexion Google réussie !', 'success');
 }
 
 // 3) Logout (Hosted UI)
@@ -935,9 +1348,9 @@ function startCognitoLogout() {
   clearSession();
   localStorage.removeItem("currentUser");
   const logoutUrl =
-    `${COGNITO.domain}/logout` +
-    `?client_id=${encodeURIComponent(COGNITO.clientId)}` +
-    `&logout_uri=${encodeURIComponent(COGNITO.redirectUri)}`;
+    `${window.COGNITO.domain}/logout` +
+    `?client_id=${encodeURIComponent(window.COGNITO.clientId)}` +
+    `&logout_uri=${encodeURIComponent(window.COGNITO.redirectUri)}`;
   window.location.assign(logoutUrl);
 }
 
@@ -1510,69 +1923,94 @@ const AVAILABLE_AVATARS = [
 ];
 
 // --- DONNÉES UTILISATEUR ---
-let currentUser = {
-  id: null,
-  name: "",
-  email: "",
-  avatar: "👤",
-  avatarId: null,
-  avatarDescription: "", // Description optionnelle de l'avatar
-  bio: "", // Bio de l'utilisateur
-  isLoggedIn: false, // Par défaut non connecté
-  favorites: [],      // IDs des favoris
-  agenda: [],         // IDs dans l'agenda (permanent si payé)
-  likes: [],          // IDs likés
-  participating: [],  // IDs événements participation
-  alerts: [],         // Alertes personnalisées
-  statusAlerts: [],   // Alertes de statut (GRATUITES et ILLIMITÉES)
-  pendingStatusNotifications: [], // Notifications de changement de statut à afficher au login
-  proximityAlerts: [], // Alertes de proximité (items likés dans un rayon de 70km)
-  eventAlarms: [],    // Alarmes pour les événements dans l'agenda [{eventId, type, value, time, triggered}]
-  reviews: {},        // Reviews par item
-  subscription: "free",
-  agendaLimit: 20,
-  alertLimit: 0,
-  eventStatusHistory: {},
-  addresses: [],
-  smsNotifications: 0,
-  smsLimit: 0,
-  emailNotifications: 0,
-  notificationPreferences: {
-    email: true,
-    sms: false
-  },
-  // ============================================
-  // OPTIONS DE CONFIDENTIALITÉ - Choisir ce qui est public
-  // ============================================
-  privacySettings: {
-    showName: true,        // Toujours visible (minimum requis)
-    showAvatar: true,      // Toujours visible (minimum requis)
-    showBio: true,         // Visible par défaut, peut être masqué
-    showEmail: false,      // Masqué par défaut
-    showAddresses: false,  // Masqué par défaut
-    showFavorites: true,   // Visible par défaut
-    showAgenda: true,      // Visible par défaut
-    showParticipating: true, // Visible par défaut
-    showFriends: true,     // Visible par défaut
-    showActivity: true     // Statistiques visibles par défaut
-  },
-  // --- NOUVELLES FONCTIONNALITÉS SOCIALES ---
-  friends: [],           // Liste des IDs d'amis
-  friendRequests: [],    // Demandes d'amis reçues: [{fromUserId, fromUserName, fromUserAvatar, date}]
-  sentRequests: [],      // Demandes d'amis envoyées
-  blockedUsers: [],      // Utilisateurs bloqués
-  conversations: [],     // IDs des conversations
-  groups: [],            // Groupes créés/rejoints: [{id, name, type, category, country, members: [], messages: []}]
-  socialAlerts: [],      // Alertes sociales: [{type, fromUserId, message, date, read}]
-  registeredCountry: 'CH', // Pays d'enregistrement (détecté depuis l'adresse)
-  lastSeen: null,        // Dernière connexion
-  profileLinks: [],      // Liens vers réseaux sociaux: [{platform, url}]
-  profilePhotos: [],     // Photos du profil (URLs)
-  profileVideos: [],     // Vidéos du profil (URLs)
-  bio: '',               // Description du profil
-  createdAt: null,       // Date de création du compte
-  lastLoginAt: null      // Dernière connexion
-};
+
+// Fonction pour obtenir un utilisateur par défaut (jamais null)
+function getDefaultUser() {
+  return {
+    id: null,
+    name: "",
+    email: "",
+    avatar: "👤",
+    avatarId: null,
+    avatarDescription: "", // Description optionnelle de l'avatar
+    bio: "", // Bio de l'utilisateur
+    isLoggedIn: false, // Par défaut non connecté
+    favorites: [],      // IDs des favoris
+    agenda: [],         // IDs dans l'agenda (permanent si payé)
+    likes: [],          // IDs likés
+    participating: [],  // IDs événements participation
+    alerts: [],         // Alertes personnalisées
+    statusAlerts: [],   // Alertes de statut (GRATUITES et ILLIMITÉES)
+    pendingStatusNotifications: [], // Notifications de changement de statut à afficher au login
+    proximityAlerts: [], // Alertes de proximité (items likés dans un rayon de 70km)
+    eventAlarms: [],    // Alarmes pour les événements dans l'agenda [{eventId, type, value, time, triggered}]
+    reviews: {},        // Reviews par item
+    subscription: "free",
+    agendaLimit: 20,
+    alertLimit: 0,
+    eventStatusHistory: {},
+    addresses: [],
+    smsNotifications: 0,
+    smsLimit: 0,
+    emailNotifications: 0,
+    notificationPreferences: {
+      email: true,
+      sms: false
+    },
+    // ============================================
+    // OPTIONS DE CONFIDENTIALITÉ - RGPD FRIENDLY (PRIVÉ PAR DÉFAUT)
+    // ============================================
+    profile_public: false,           // Profil privé par défaut
+    show_name: false,                // Nom masqué par défaut
+    show_photo: false,               // Photo masquée par défaut
+    show_city_country_only: false,  // Ville/pays masqués par défaut
+    privacySettings: {
+      showName: false,        // Masqué par défaut (RGPD)
+      showAvatar: false,      // Masqué par défaut (RGPD)
+      showBio: false,         // Masqué par défaut (RGPD)
+      showEmail: false,       // Toujours masqué (jamais public)
+      showAddresses: false,   // Toujours masqué (jamais public)
+      showFavorites: false,   // Masqué par défaut (RGPD)
+      showAgenda: false,      // Masqué par défaut (RGPD)
+      showParticipating: false, // Masqué par défaut (RGPD)
+      showFriends: false,     // Masqué par défaut (RGPD)
+      showActivity: false      // Masqué par défaut (RGPD)
+    },
+    // Champs onboarding
+    profile_photo_url: null,
+    address_verified: false,
+    address_lat: null,
+    address_lng: null,
+    address_label: null,
+    address_country_code: null,
+    address_city: null,
+    address_postcode: null,
+    address_street: null,
+    // --- NOUVELLES FONCTIONNALITÉS SOCIALES ---
+    friends: [],           // Liste des IDs d'amis
+    friendRequests: [],    // Demandes d'amis reçues: [{fromUserId, fromUserName, fromUserAvatar, date}]
+    sentRequests: [],      // Demandes d'amis envoyées
+    blockedUsers: [],      // Utilisateurs bloqués
+    conversations: [],     // IDs des conversations
+    groups: [],            // Groupes créés/rejoints: [{id, name, type, category, country, members: [], messages: []}]
+    socialAlerts: [],      // Alertes sociales: [{type, fromUserId, message, date, read}]
+    registeredCountry: 'CH', // Pays d'enregistrement (détecté depuis l'adresse)
+    lastSeen: null,        // Dernière connexion
+    profileLinks: [],      // Liens vers réseaux sociaux: [{platform, url}]
+    profilePhotos: [],     // Photos du profil (URLs)
+    profileVideos: [],     // Vidéos du profil (URLs)
+    createdAt: null,       // Date de création du compte
+    lastLoginAt: null      // Dernière connexion
+  };
+}
+
+// Helper pour vérifier si l'utilisateur est connecté (null-safe)
+function isLoggedIn() {
+  return currentUser && currentUser.isLoggedIn === true;
+}
+
+// Initialiser currentUser avec getDefaultUser() (jamais null)
+let currentUser = getDefaultUser();
 
 // Contacts payés (permanent, ne disparaît jamais)
 let paidContacts = [];
@@ -1929,7 +2367,7 @@ async function handleStripeReturn() {
   if (paymentStatus === 'success' && sessionId) {
     try {
       // Vérifier le statut du paiement
-      const response = await fetch(`${API_BASE_URL}/payments/verify-session?session_id=${sessionId}`);
+      const response = await fetch(`${window.API_BASE_URL}/payments/verify-session?session_id=${sessionId}`);
       const data = await response.json();
       
       if (data.success) {
@@ -1978,10 +2416,10 @@ async function handleStripeReturn() {
 
 // Charger le statut de l'abonnement depuis le backend
 async function loadUserSubscription() {
-  if (!currentUser.isLoggedIn) return;
+  if (!currentUser || !currentUser.isLoggedIn) return;
   
   try {
-    const response = await fetch(`${API_BASE_URL}/payments/subscription-status?userId=${currentUser.id}`);
+    const response = await fetch(`${window.API_BASE_URL}/payments/subscription-status?userId=${currentUser.id}`);
     if (response.ok) {
       const data = await response.json();
       if (data.subscription) {
@@ -2228,9 +2666,44 @@ function openPopupModal(content, item) {
   }, 100);
 }
 
+// Fonction pour mettre à jour l'affichage des boutons auth
+// Définie avant DOMContentLoaded pour être accessible dès l'initialisation
+function updateAuthButtons() {
+  const authButtons = document.getElementById("auth-buttons");
+  const accountBtn = document.getElementById("account-topbar-btn");
+  
+  if (!authButtons || !accountBtn) return;
+  
+  const isLoggedIn = currentUser && currentUser.isLoggedIn;
+  
+  if (isLoggedIn) {
+    // Utilisateur connecté : masquer les boutons auth, afficher le bouton compte
+    authButtons.style.display = 'none';
+    accountBtn.style.display = 'flex';
+  } else {
+    // Utilisateur non connecté : afficher les boutons auth, masquer le bouton compte
+    authButtons.style.display = 'flex';
+    accountBtn.style.display = 'none';
+  }
+}
+
+// Exposer globalement
+window.updateAuthButtons = updateAuthButtons;
+
 document.addEventListener("DOMContentLoaded", () => {
   console.log('🏗️ DOM Content Loaded - REGISTER MODAL FIX VERSION - TEST DEPLOYMENT');
   console.log('🚀 REGISTER MODAL FIX DEPLOYED SUCCESSFULLY - VERSION 2024-12-31');
+  
+  // Initialisation UI auth: vérifier si currentUser existe et afficher "Compte" ou "Connexion"
+  const u = safeGetJSON("currentUser");
+  if (u?.id) {
+    window.currentUser = u;
+    updateAuthButtons();
+    console.log('[INIT] Utilisateur connecté détecté:', u.id);
+  } else {
+    updateAuthButtons();
+    console.log('[INIT] Aucun utilisateur connecté');
+  }
 
   // Afficher le message de test du site
   setTimeout(() => {
@@ -2298,15 +2771,709 @@ document.addEventListener("DOMContentLoaded", () => {
   loadSavedUser();
   
   // Attacher l'event listener au bouton compte
+  // LISTENER EN CAPTURE pour debug le clic sur bloc compte
+  document.addEventListener('click', (e) => {
+    const el = e.target.closest('#account-topbar-btn, #account-block, .account-block, [data-account-block], #account-avatar, #account-name');
+    if (el) {
+      console.log('[ACCOUNT CLICK CAPTURE]', {
+        target: e.target,
+        el: el,
+        id: el.id,
+        classList: el.classList.toString(),
+        currentUser: currentUser ? { isLoggedIn: currentUser.isLoggedIn, email: currentUser.email } : null
+      });
+    }
+  }, true);
+  
   const accountBtn = document.getElementById("account-topbar-btn");
   if (accountBtn) {
-    accountBtn.addEventListener('click', openAccountModal);
+    accountBtn.addEventListener('click', (e) => {
+      console.log('[ACCOUNT CLICK] fired', e);
+      e.preventDefault();
+      e.stopPropagation();
+      
+      // Vérifier si une connexion Google est en cours
+      const isGoogleLoginInProgress = window.isGoogleLoginInProgress === true || (typeof window !== 'undefined' && window.isGoogleLoginInProgress === true);
+      if (isGoogleLoginInProgress) {
+        console.log('[ACCOUNT CLICK] Guard: Connexion Google en cours - click bloqué');
+        if (typeof showNotification === 'function') {
+          showNotification('⏳ Connexion en cours... Veuillez patienter', 'info');
+        }
+        return;
+      }
+      
+      // Vérifier qu'aucun modal n'est ouvert qui pourrait bloquer
+      const authModal = document.getElementById('authModal');
+      const onboardingModal = document.getElementById('onboardingModal');
+      if ((authModal && authModal.style.display !== 'none') || (onboardingModal && onboardingModal.style.display !== 'none')) {
+        console.log('[ACCOUNT CLICK] Guard: Auth/Onboarding modal visible - click bloqué');
+        return;
+      }
+      
+      if (currentUser && currentUser.isLoggedIn) {
+        // Utilisateur connecté : ouvrir le modal compte
+        console.log('[ACCOUNT CLICK] Ouverture modale compte');
+        if (typeof window.openAccountModal === 'function') {
+          window.openAccountModal();
+        } else {
+          console.error('[ACCOUNT CLICK] openAccountModal n\'est pas une fonction');
+        }
+      } else {
+        // Utilisateur non connecté : vérifier si "rester connecté" était activé
+        const rememberMe = localStorage.getItem('rememberMe') === 'true';
+        const savedUser = localStorage.getItem('currentUser');
+        const tokens = localStorage.getItem('cognito_tokens') || sessionStorage.getItem('cognito_tokens');
+        
+        if (rememberMe && savedUser && tokens) {
+          console.log('[ACCOUNT CLICK] "Rester connecté" activé - Tentative reconnexion automatique');
+          try {
+            const user = JSON.parse(savedUser);
+            const parsedTokens = JSON.parse(tokens);
+            
+            // Vérifier que les tokens sont valides
+            if (parsedTokens && parsedTokens.access_token) {
+              // Reconnecter automatiquement
+              if (typeof window.connectUser === 'function') {
+                window.connectUser(user, parsedTokens, true);
+                console.log('[ACCOUNT CLICK] Reconnexion automatique réussie');
+                return;
+              }
+            }
+          } catch (e) {
+            console.warn('[ACCOUNT CLICK] Erreur reconnexion automatique:', e);
+          }
+        }
+        
+        // Sinon, ouvrir le modal de connexion
+        console.log('[ACCOUNT CLICK] Ouverture modale login');
+        openAuthModal('login');
+      }
+    });
+    
+    // S'assurer que le bouton est cliquable
+    accountBtn.style.cursor = 'pointer';
+    accountBtn.style.pointerEvents = 'auto';
+    accountBtn.style.zIndex = '1000';
   }
   
-  // Mettre à jour le bouton compte après chargement
+  // Fonction de nettoyage agressive pour supprimer "om/ε" et autres caractères indésirables
+  const cleanAccountText = (text) => {
+    if (!text || typeof text !== 'string') return text;
+    let cleaned = text;
+    // Supprimer "om/" au début ou dans le texte
+    cleaned = cleaned.replace(/^om\/[^\s]*\s*/gi, '');
+    cleaned = cleaned.replace(/om\/[^\s]*/gi, '');
+    // Supprimer les patterns "xxx/xxx"
+    cleaned = cleaned.replace(/^[a-z]+\/[^\s]*\s*/gi, '');
+    cleaned = cleaned.replace(/^[A-Z]+\/[^\s]*\s*/g, '');
+    // Supprimer les caractères grecs comme epsilon (ε)
+    cleaned = cleaned.replace(/[αβεγδεζηθικλμνξοπρστυφχψω]/gi, '');
+    // Supprimer les caractères spéciaux indésirables mais garder les accents français
+    cleaned = cleaned.replace(/[^\w\s\u00C0-\u017F\u00E0-\u00FF\u00E9\u00E8\u00EA\u00EB\u00E0\u00E2\u00E7\u00F9\u00FB\u00FC]/g, '');
+    // Supprimer les slashes multiples
+    cleaned = cleaned.replace(/\/+/g, '');
+    // Normaliser les espaces
+    cleaned = cleaned.replace(/\s+/g, ' ');
+    cleaned = cleaned.trim();
+    return cleaned;
+  };
+  
+  // Fonction pour obtenir l'avatar/photo de l'utilisateur
+  // Fonction pour normaliser une URL (ajouter https:// si manquant)
+  // Fonction pour normaliser une URL d'image (réparer les URLs tronquées ou malformées)
+  const normalizeImageUrl = (raw) => {
+    if (!raw || typeof raw !== 'string') return null;
+    
+    // 1. Trim la string
+    let url = raw.trim();
+    if (!url) return null;
+    
+    // 2. Accepter http://, https://, data:image (retourner tel quel)
+    if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:image')) {
+      return url;
+    }
+    
+    // 3. Si commence par // → prefixer https:
+    if (url.startsWith('//')) {
+      return 'https:' + url;
+    }
+    
+    // 4. Gérer les URLs tronquées comme "om/..." (probablement ".com/..." tronqué)
+    // Si commence par "om/" ou contient "om/" au début, c'est probablement ".com/" tronqué
+    if (url.startsWith('om/') || url.match(/^[a-z]{1,3}\//)) {
+      // Essayer de reconstruire l'URL avec des domaines communs
+      const commonDomains = ['googleusercontent.com', 'amazonaws.com', 'cloudfront.net', 's3.amazonaws.com'];
+      for (const domain of commonDomains) {
+        // Si l'URL commence par quelque chose qui ressemble à une fin de domaine
+        if (url.includes('/')) {
+          const reconstructed = `https://${domain}/${url}`;
+          // Vérifier que ça ressemble à une URL valide
+          if (reconstructed.match(/\.(jpg|jpeg|png|gif|webp)/i)) {
+            return reconstructed;
+          }
+        }
+      }
+      // Si on ne peut pas reconstruire, retourner null
+      return null;
+    }
+    
+    // 5. Si ne commence pas par http mais contient un domaine → prefixer https://
+    // Détecter les patterns de domaine
+    const domainPatterns = [
+      /\.com\//,
+      /\.net\//,
+      /\.org\//,
+      /\.io\//,
+      /\.aws/,
+      /cloudfront\.net/,
+      /googleusercontent\.com/,
+      /amazonaws\.com/,
+      /s3\./,
+      /\.jpg/,
+      /\.jpeg/,
+      /\.png/,
+      /\.gif/,
+      /\.webp/
+    ];
+    
+    const hasDomain = domainPatterns.some(pattern => pattern.test(url));
+    
+    if (hasDomain) {
+      // Enlever les slashes en début si présents
+      const cleaned = url.replace(/^\/+/, '');
+      return 'https://' + cleaned;
+    }
+    
+    // 6. Sinon retourner null (pas une URL valide)
+    return null;
+  };
+  
+  const getUserAvatar = () => {
+    // Permettre l'affichage de la photo même pendant le formulaire d'inscription (googleValidated)
+    if (!currentUser || (!currentUser.isLoggedIn && !currentUser.googleValidated)) {
+      console.log('[AVATAR UI] getUserAvatar: utilisateur non connecté, retour emoji');
+      return "👤";
+    }
+    
+    // PRIORITÉ PROFESSIONNELLE (comme les leaders mondiaux):
+    // 1. photoData (photo uploadée lors création - base64 ou URL)
+    // 2. profile_photo_url S3 (URL S3, pas Google)
+    // 3. profilePhoto (si pas Google)
+    // 4. avatarUrl (si pas Google)
+    // 5. avatar/Google en dernier recours
+    
+    let rawAvatar = null;
+    
+    // 1. photoData (photo uploadée lors de la création du profil)
+    // Normaliser photoData AVANT vérification : convertir "null" en null réel
+    let photoData = currentUser.photoData;
+    
+    // ⚠️⚠️⚠️ CRITIQUE : Normaliser IMMÉDIATEMENT si c'est la chaîne "null"
+    if (photoData === 'null' || photoData === 'undefined' || photoData === '') {
+      photoData = null;
+      // Corriger currentUser.photoData immédiatement pour éviter les problèmes futurs
+      currentUser.photoData = null;
+      console.log('[AVATAR UI] ⚠️⚠️⚠️ photoData normalisé de "null" vers null');
+    }
+    
+    // ⚠️⚠️⚠️ CRITIQUE : Vérifier aussi dans pendingRegisterData si photoData n'existe pas dans currentUser
+    if (!photoData && window.pendingRegisterData?.photoData) {
+      const pendingPhoto = window.pendingRegisterData.photoData;
+      // Normaliser aussi pendingPhoto
+      if (pendingPhoto !== 'null' && pendingPhoto !== 'undefined' && pendingPhoto !== '' && pendingPhoto.length > 100) {
+        photoData = pendingPhoto;
+        console.log('[AVATAR UI] ⚠️⚠️⚠️ photoData récupéré depuis pendingRegisterData (longueur:', photoData.length, ')');
+        // Mettre à jour currentUser immédiatement
+        currentUser.photoData = photoData;
+      }
+    }
+    
+    // ⚠️⚠️⚠️ CRITIQUE : Vérifier aussi dans localStorage (pendingRegisterDataForGoogle) - pour Google OAuth
+    if (!photoData) {
+      try {
+        const savedPendingData = localStorage.getItem('pendingRegisterDataForGoogle');
+        if (savedPendingData) {
+          const parsedPendingData = JSON.parse(savedPendingData);
+          if (parsedPendingData.photoData && parsedPendingData.photoData !== 'null' && parsedPendingData.photoData !== 'undefined' && parsedPendingData.photoData.length > 100) {
+            photoData = parsedPendingData.photoData;
+            console.log('[AVATAR UI] ✅✅✅ photoData récupéré depuis localStorage (pendingRegisterDataForGoogle) - longueur:', photoData.length);
+            // Mettre à jour currentUser immédiatement
+            currentUser.photoData = photoData;
+            // Restaurer aussi dans window.pendingRegisterData pour utilisation ultérieure
+            if (!window.pendingRegisterData) {
+              window.pendingRegisterData = parsedPendingData;
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('[AVATAR UI] Erreur lecture pendingRegisterDataForGoogle:', e);
+      }
+    }
+    
+    // ⚠️⚠️⚠️ CRITIQUE : Vérifier aussi dans localStorage (registerFormDraft)
+    if (!photoData) {
+      try {
+        const draft = localStorage.getItem('registerFormDraft');
+        if (draft) {
+          const parsedDraft = JSON.parse(draft);
+          if (parsedDraft.photoData && parsedDraft.photoData !== 'null' && parsedDraft.photoData !== 'undefined' && parsedDraft.photoData.length > 100) {
+            photoData = parsedDraft.photoData;
+            console.log('[AVATAR UI] ⚠️⚠️⚠️ photoData récupéré depuis registerFormDraft (longueur:', photoData.length, ')');
+            currentUser.photoData = photoData;
+          }
+        }
+      } catch (e) {
+        console.warn('[AVATAR UI] Erreur lecture registerFormDraft:', e);
+      }
+    }
+    
+    // ⚠️⚠️⚠️ CRITIQUE : Vérifier aussi dans window.registerData
+    if (!photoData && window.registerData?.photoData) {
+      const registerPhoto = window.registerData.photoData;
+      if (registerPhoto !== 'null' && registerPhoto !== 'undefined' && registerPhoto !== '' && registerPhoto.length > 100) {
+        photoData = registerPhoto;
+        console.log('[AVATAR UI] ⚠️⚠️⚠️ photoData récupéré depuis window.registerData (longueur:', photoData.length, ')');
+        currentUser.photoData = photoData;
+      }
+    }
+    
+    // Vérifier si photoData existe et n'est pas null/undefined
+    if (photoData && 
+        photoData !== null && 
+        photoData !== undefined &&
+        typeof photoData === 'string' &&
+        photoData.trim() !== '' &&
+        photoData.length > 100) { // S'assurer que c'est une vraie photo (base64 ou URL)
+      if (photoData.startsWith('data:image') || photoData.startsWith('http')) {
+        rawAvatar = photoData;
+        console.log('[AVATAR UI] ✅✅✅ Utilisation photoData (photo uploadée) - PRIORITÉ ABSOLUE');
+      }
+    }
+    
+    // 2. profile_photo_url S3 (pas Google)
+    if (!rawAvatar && currentUser.profile_photo_url && 
+        currentUser.profile_photo_url !== 'null' && 
+        !currentUser.profile_photo_url.includes('googleusercontent.com') &&
+        (currentUser.profile_photo_url.includes('amazonaws.com') || currentUser.profile_photo_url.startsWith('http'))) {
+      rawAvatar = currentUser.profile_photo_url;
+      console.log('[AVATAR UI] ✅ Utilisation profile_photo_url (S3)');
+    }
+    
+    // 3. profilePhoto (si pas Google)
+    if (!rawAvatar && currentUser.profilePhoto && 
+        currentUser.profilePhoto !== 'null' &&
+        !currentUser.profilePhoto.includes('googleusercontent.com') &&
+        (currentUser.profilePhoto.startsWith('http') || currentUser.profilePhoto.startsWith('data:image'))) {
+      rawAvatar = currentUser.profilePhoto;
+      console.log('[AVATAR UI] ✅ Utilisation profilePhoto');
+    }
+    
+    // 4. avatarUrl (si pas Google)
+    if (!rawAvatar && currentUser.avatarUrl && 
+        currentUser.avatarUrl !== 'null' &&
+        !currentUser.avatarUrl.includes('googleusercontent.com') &&
+        (currentUser.avatarUrl.startsWith('http') || currentUser.avatarUrl.startsWith('data:image'))) {
+      rawAvatar = currentUser.avatarUrl;
+      console.log('[AVATAR UI] ✅ Utilisation avatarUrl');
+    }
+    
+    // 5. avatar/Google en dernier recours
+    if (!rawAvatar && currentUser.avatar && 
+        currentUser.avatar !== 'null' &&
+        (currentUser.avatar.startsWith('http') || currentUser.avatar.startsWith('data:image'))) {
+      rawAvatar = currentUser.avatar;
+      console.log('[AVATAR UI] ⚠️ Utilisation avatar (Google) - dernière option');
+    }
+    
+    // Fallback: profile_photo_url même si Google (mieux que rien)
+    if (!rawAvatar && currentUser.profile_photo_url && 
+        currentUser.profile_photo_url !== 'null' &&
+        currentUser.profile_photo_url.startsWith('http')) {
+      rawAvatar = currentUser.profile_photo_url;
+      console.log('[AVATAR UI] ⚠️ Utilisation profile_photo_url (Google) - fallback');
+    }
+    
+    // Normaliser photoData pour le log
+    const photoDataForLog = currentUser.photoData === 'null' || currentUser.photoData === 'undefined' || !currentUser.photoData ? null : currentUser.photoData;
+    
+    console.log('[AVATAR UI] getUserAvatar - Analyse complète:', {
+      photoData: photoDataForLog ? (photoDataForLog.startsWith('data:') ? 'data:image...' : photoDataForLog.substring(0, 50) + '...') : 'null',
+      photoDataType: typeof photoDataForLog,
+      profile_photo_url: currentUser.profile_photo_url ? currentUser.profile_photo_url.substring(0, 50) + '...' : 'null',
+      profile_photo_url_isS3: currentUser.profile_photo_url ? currentUser.profile_photo_url.includes('amazonaws.com') : false,
+      profile_photo_url_isGoogle: currentUser.profile_photo_url ? currentUser.profile_photo_url.includes('googleusercontent.com') : false,
+      profilePhoto: currentUser.profilePhoto ? currentUser.profilePhoto.substring(0, 50) + '...' : 'null',
+      avatarUrl: currentUser.avatarUrl ? currentUser.avatarUrl.substring(0, 50) + '...' : 'null',
+      avatar: currentUser.avatar ? currentUser.avatar.substring(0, 50) + '...' : 'null',
+      resolved: rawAvatar ? (rawAvatar.startsWith('data:') ? 'data:image...' : rawAvatar.substring(0, 50) + '...') : 'null'
+    });
+    
+    // Si pas de source, retourner emoji
+    if (!rawAvatar || rawAvatar === "👤") {
+      console.log('[AVATAR UI] getUserAvatar: pas de source valide, retour emoji');
+      return "👤";
+    }
+    
+    // Normaliser l'URL avec normalizeImageUrl
+    const normalizedUrl = normalizeImageUrl(rawAvatar);
+    
+    // Si normalizeImageUrl retourne une URL valide, la retourner
+    if (normalizedUrl) {
+      console.log('[AVATAR UI] getUserAvatar retourne URL normalisee:', normalizedUrl.substring(0, 50) + '...');
+      return normalizedUrl;
+    }
+    
+    // Si ce n'est pas une URL valide (normalizeImageUrl a retourné null), retourner l'emoji
+    // RÈGLE STRICTE : jamais de texte brut, seulement URL valide ou emoji
+    console.warn('[AVATAR UI] getUserAvatar: valeur non-URL detectee, utilisation emoji:', rawAvatar.substring(0, 50));
+    return "👤";
+  };
+  
+  // Exposer getUserAvatar globalement pour openAccountModal
+  window.getUserAvatar = getUserAvatar;
+  
+  // Fonction pour obtenir le nom de l'utilisateur nettoyé
+  // IMPORTANT: Ne JAMAIS afficher l'email dans le header public
+  const getUserDisplayName = () => {
+    // Permettre l'affichage du nom même pendant le formulaire d'inscription (googleValidated)
+    if (!currentUser || (!currentUser.isLoggedIn && !currentUser.googleValidated)) return "Compte";
+    
+    // RÈGLE STRICTE : UNIQUEMENT le nom d'utilisateur (username)
+    // Le username est obligatoire et c'est le seul choix
+    // EMAIL JAMAIS AFFICHÉ dans le header (confidentialité)
+    
+    let rawName = "Compte";
+    
+    // UNIQUEMENT username (seulement si ce n'est PAS un email)
+    if (currentUser.username && 
+        currentUser.username !== 'null' && 
+        currentUser.username !== null &&
+        !currentUser.username.includes('@') &&
+        currentUser.username !== currentUser.email) {
+      rawName = currentUser.username;
+    }
+    
+    // FORCER : Si c'est l'email ou contient @, utiliser "Compte"
+    if (rawName === currentUser.email || rawName.includes('@')) {
+      rawName = "Compte";
+    }
+    
+    // Nettoyer le nom
+    if (typeof cleanAccountText === 'function') {
+      const cleanedName = cleanAccountText(rawName);
+      return cleanedName || "Compte";
+    } else {
+      // Fallback : nettoyer manuellement
+      return rawName.replace(/[<>]/g, '').trim() || "Compte";
+    }
+  };
+  
+  // Exposer getUserDisplayName globalement pour openAccountModal
+  window.getUserDisplayName = getUserDisplayName;
+  
+  // PROTECTION INTELLIGENTE : MutationObserver pour afficher l'avatar/photo et le nom nettoyé
+  // mais bloquer les caractères indésirables comme "om/ε"
+  const protectAccountBlock = () => {
+    const accountAvatar = document.getElementById("account-avatar");
+    const accountName = document.getElementById("account-name");
+    const accountBtn = document.getElementById("account-topbar-btn");
+    
+    if (accountAvatar && accountName && accountBtn) {
+      // Permettre au bloc de s'agrandir si nécessaire
+      accountBtn.style.minWidth = 'auto';
+      accountBtn.style.maxWidth = 'none';
+      accountBtn.style.width = 'auto';
+      accountBtn.style.flexShrink = '0';
+      
+      // Obtenir les valeurs légitimes (avatar/photo et nom nettoyé)
+      const validAvatar = getUserAvatar();
+      const validName = getUserDisplayName();
+      
+      // Vérifier et nettoyer l'avatar
+      const currentAvatarContent = accountAvatar.textContent || accountAvatar.innerHTML || '';
+      const hasImage = accountAvatar.querySelector('img');
+      
+      if (hasImage) {
+        // Si c'est une image, vérifier que l'URL est valide
+        const imgSrc = hasImage.src || '';
+        if (!imgSrc || imgSrc === '') {
+          // Pas d'image valide, afficher l'emoji
+          accountAvatar.innerHTML = '';
+          accountAvatar.textContent = "👤"; // Toujours utiliser l'emoji, jamais de texte brut
+        } else if (validAvatar.startsWith('http') || validAvatar.startsWith('data:image')) {
+          // Mettre à jour l'image si nécessaire
+          if (imgSrc !== validAvatar) {
+            hasImage.src = validAvatar;
+            hasImage.onerror = function() {
+              accountAvatar.innerHTML = '';
+              accountAvatar.textContent = "👤";
+            };
+          }
+        }
+      } else {
+        // Pas d'image, vérifier le contenu texte
+        if (validAvatar.startsWith('http') || validAvatar.startsWith('data:image')) {
+          // C'est une URL d'image, créer l'élément img
+          accountAvatar.innerHTML = '';
+          accountAvatar.style.background = 'transparent'; // Enlever le fond pour la photo
+          accountAvatar.style.border = 'none'; // Enlever la bordure pour la photo
+          const img = document.createElement('img');
+          img.src = validAvatar;
+          img.style.width = '100%';
+          img.style.height = '100%';
+          img.style.borderRadius = '50%';
+          img.style.objectFit = 'cover';
+          img.style.display = 'block';
+          img.onerror = function() {
+            accountAvatar.innerHTML = '';
+            accountAvatar.textContent = "👤";
+            accountAvatar.style.background = 'rgba(0, 255, 195, 0.1)';
+            accountAvatar.style.border = '1px solid rgba(0, 255, 195, 0.2)';
+          };
+          accountAvatar.appendChild(img);
+        } else {
+          // C'est un emoji (pas une URL) - NE JAMAIS afficher de texte brut
+          if (validAvatar === "👤" || validAvatar.length <= 2) {
+            // C'est un emoji valide
+            accountAvatar.innerHTML = '';
+            accountAvatar.textContent = validAvatar;
+            accountAvatar.style.background = 'rgba(0, 255, 195, 0.1)';
+            accountAvatar.style.border = '1px solid rgba(0, 255, 195, 0.2)';
+          } else {
+            // Ce n'est pas un emoji valide, forcer l'emoji par défaut
+            console.warn('[AVATAR] Valeur non-emoji detectee dans protectAccountBlock, utilisation emoji par defaut:', validAvatar.substring(0, 50));
+            accountAvatar.innerHTML = '';
+            accountAvatar.textContent = "👤";
+            accountAvatar.style.background = 'rgba(0, 255, 195, 0.1)';
+            accountAvatar.style.border = '1px solid rgba(0, 255, 195, 0.2)';
+          }
+        }
+      }
+      
+      // Vérifier et nettoyer le nom
+      const currentNameContent = accountName.textContent || accountName.innerHTML || '';
+      const cleanedName = cleanAccountText(currentNameContent);
+      
+      // Si le nom contient "om/" ou "ε" ou ne correspond pas au nom valide, le corriger
+      if (currentNameContent.includes('om/') || currentNameContent.includes('ε') || 
+          cleanedName !== currentNameContent || currentNameContent !== validName) {
+        accountName.textContent = validName;
+        accountName.innerHTML = validName;
+      }
+      
+      // Observer pour empêcher les modifications avec caractères indésirables
+      // MAIS permettre l'affichage de la photo
+      const accountObserver = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+          if (mutation.type === 'childList' || mutation.type === 'characterData') {
+            const newAvatarContent = accountAvatar.textContent || '';
+            const newNameContent = accountName.textContent || accountName.innerHTML || '';
+            const hasImage = accountAvatar.querySelector('img');
+            
+            // Vérifier l'avatar - seulement si ce n'est PAS une image valide
+            if (!hasImage && (newAvatarContent.includes('om/') || newAvatarContent.includes('ε'))) {
+              const validAvatar = getUserAvatar();
+              if (validAvatar.startsWith('http') || validAvatar.startsWith('data:image')) {
+                // C'est une URL d'image valide, forcer l'affichage
+                updateAccountBlockLegitimately();
+              } else {
+                // C'est un emoji, afficher seulement l'emoji (jamais de texte brut)
+                accountAvatar.innerHTML = '';
+                accountAvatar.textContent = (validAvatar === "👤" || validAvatar.length <= 2) ? validAvatar : "👤";
+              }
+            }
+            
+            // Vérifier le nom
+            if (newNameContent.includes('om/') || newNameContent.includes('ε') || cleanAccountText(newNameContent) !== newNameContent) {
+              accountName.textContent = getUserDisplayName();
+              accountName.innerHTML = getUserDisplayName();
+            }
+          }
+        });
+      });
+      
+      // Observer les deux éléments
+      accountObserver.observe(accountAvatar, { childList: true, characterData: true, subtree: true });
+      accountObserver.observe(accountName, { childList: true, characterData: true, subtree: true });
+    }
+  };
+  
+  // Fonction pour mettre à jour le bloc compte avec les valeurs légitimes
+  // NOTE: updateAuthButtons est définie en haut du fichier (avant DOMContentLoaded)
+  
+  // Cache pour éviter les appels inutiles
+  let lastAccountState = {
+    avatar: null,
+    name: null
+  };
+  
+  const updateAccountBlockLegitimately = () => {
+    const accountAvatar = document.getElementById("account-avatar");
+    const accountName = document.getElementById("account-name");
+    
+    if (!accountAvatar || !accountName) {
+      console.warn('⚠️ account-avatar ou account-name non trouvé');
+      return;
+    }
+    
+    // Mettre à jour les boutons auth
+    updateAuthButtons();
+    
+    const validAvatar = getUserAvatar();
+    const validName = getUserDisplayName();
+    
+    // Vérifier si quelque chose a changé
+    if (lastAccountState.avatar === validAvatar && lastAccountState.name === validName) {
+      // Rien n'a changé, ne pas mettre à jour
+      return;
+    }
+    
+    // Mettre à jour le cache
+    lastAccountState.avatar = validAvatar;
+    lastAccountState.name = validName;
+    
+    console.log('[AVATAR UI] updateAccountBlockLegitimately appelé (changement detecte):', {
+      validAvatar: validAvatar.substring(0, 50),
+      validName: validName,
+      isImage: validAvatar.startsWith('http') || validAvatar.startsWith('data:image')
+    });
+    
+    // Mettre à jour l'avatar
+    if (validAvatar.startsWith('http') || validAvatar.startsWith('data:image')) {
+      // C'est une URL d'image - FORCER l'affichage avec <img>
+      // IMPORTANT: Log non ambigu AVANT d'assigner img.src pour vérifier l'URL complète
+      console.log('[AVATAR] using src length=', validAvatar.length, 'src=', validAvatar);
+      console.log('[AVATAR] URL contient .amazonaws.com/avatars/:', validAvatar.includes('.amazonaws.com/avatars/'));
+      
+      const existingImg = accountAvatar.querySelector('img');
+      if (!existingImg) {
+        console.log('[AVATAR UI] Creation element img avec URL (log tronque):', validAvatar.substring(0, 50) + '...');
+        accountAvatar.innerHTML = '';
+        accountAvatar.style.background = 'transparent';
+        accountAvatar.style.border = 'none';
+        const img = document.createElement('img');
+        // IMPORTANT: Utiliser l'URL complète, JAMAIS tronquée
+        img.src = validAvatar;
+        img.style.width = '100%';
+        img.style.height = '100%';
+        img.style.borderRadius = '50%';
+        img.style.objectFit = 'cover';
+        img.style.display = 'block';
+        img.onerror = function() {
+          console.error('[AVATAR UI] ❌ Erreur chargement image (URL complète):', validAvatar);
+          console.error('[AVATAR UI] Network error - vérifier CORS/CSP/403 dans DevTools > Network');
+          accountAvatar.innerHTML = '';
+          accountAvatar.textContent = "👤";
+          accountAvatar.style.background = 'rgba(0, 255, 195, 0.1)';
+          accountAvatar.style.border = '1px solid rgba(0, 255, 195, 0.2)';
+        };
+        img.onload = function() {
+          console.log('[AVATAR UI] ✅ Image chargée avec succès (URL complète):', validAvatar);
+        };
+        accountAvatar.appendChild(img);
+        console.log('[AVATAR UI] appliedToElement:', accountAvatar);
+      } else if (existingImg.src !== validAvatar) {
+        console.log('[AVATAR UI] Mise a jour image existante (URL complète):', validAvatar);
+        // IMPORTANT: Utiliser l'URL complète, JAMAIS tronquée
+        existingImg.src = validAvatar;
+        accountAvatar.style.background = 'transparent';
+        accountAvatar.style.border = 'none';
+        existingImg.onerror = function() {
+          console.error('[AVATAR UI] ❌ Erreur chargement image mise à jour (URL complète):', validAvatar);
+          accountAvatar.innerHTML = '';
+          accountAvatar.textContent = "👤";
+          accountAvatar.style.background = 'rgba(0, 255, 195, 0.1)';
+          accountAvatar.style.border = '1px solid rgba(0, 255, 195, 0.2)';
+        };
+        existingImg.onload = function() {
+          console.log('[AVATAR UI] ✅ Image mise à jour chargée avec succès (URL complète):', validAvatar);
+        };
+      } else {
+        // Image déjà présente et correcte, s'assurer que les styles sont bons
+        accountAvatar.style.background = 'transparent';
+        accountAvatar.style.border = 'none';
+        // S'assurer qu'il n'y a pas de texte en plus de l'image
+        if (accountAvatar.textContent && accountAvatar.textContent.trim() !== '') {
+          accountAvatar.textContent = '';
+        }
+        console.log('[AVATAR UI] ✅ Image déjà présente et correcte');
+      }
+      } else {
+        // C'est un emoji (pas une URL) - NE JAMAIS afficher de texte brut
+        if (validAvatar === "👤" || validAvatar.length <= 2) {
+          // C'est un emoji valide
+          console.log('[INFO] Affichage emoji:', validAvatar);
+          accountAvatar.innerHTML = '';
+          accountAvatar.textContent = validAvatar;
+          accountAvatar.style.background = 'rgba(0, 255, 195, 0.1)';
+          accountAvatar.style.border = '1px solid rgba(0, 255, 195, 0.2)';
+        } else {
+          // Ce n'est pas un emoji valide, forcer l'emoji par défaut
+          console.warn('[AVATAR] Valeur non-emoji detectee dans updateAccountBlockLegitimately, utilisation emoji par defaut:', validAvatar.substring(0, 50));
+          accountAvatar.innerHTML = '';
+          accountAvatar.textContent = "👤";
+          accountAvatar.style.background = 'rgba(0, 255, 195, 0.1)';
+          accountAvatar.style.border = '1px solid rgba(0, 255, 195, 0.2)';
+        }
+      }
+    
+    // Mettre à jour le nom
+    accountName.textContent = validName;
+    accountName.innerHTML = validName;
+  };
+  
+  // Protéger immédiatement et périodiquement
+  protectAccountBlock();
+  updateAccountBlockLegitimately();
+  updateAuthButtons(); // Mettre à jour les boutons auth au chargement
   setTimeout(() => {
-    updateAccountButton();
+    protectAccountBlock();
+    updateAccountBlockLegitimately();
+    updateAuthButtons();
   }, 100);
+  setTimeout(() => {
+    protectAccountBlock();
+    updateAccountBlockLegitimately();
+    updateAuthButtons();
+  }, 500);
+  // Réduire la fréquence de vérification : toutes les 5 secondes au lieu de 1 seconde
+  // updateAccountBlockLegitimately vérifie maintenant si quelque chose a changé avant de mettre à jour
+  setInterval(() => {
+    protectAccountBlock();
+    updateAccountBlockLegitimately(); // Ne mettra à jour que si quelque chose a changé
+    updateAuthButtons();
+  }, 5000); // 5 secondes au lieu de 1 seconde
+  
+  // Mettre à jour le bloc compte quand l'utilisateur se connecte
+  const originalSetItem = localStorage.setItem;
+  localStorage.setItem = function(key, value) {
+    originalSetItem.apply(this, arguments);
+    if (key === 'currentUser') {
+      try {
+        const user = JSON.parse(value);
+        if (user && user.isLoggedIn) {
+          // Mettre à jour immédiatement et plusieurs fois pour être sûr
+          setTimeout(() => {
+            updateAccountBlockLegitimately();
+            protectAccountBlock();
+          }, 50);
+          setTimeout(() => {
+            updateAccountBlockLegitimately();
+            protectAccountBlock();
+          }, 200);
+          setTimeout(() => {
+            updateAccountBlockLegitimately();
+            protectAccountBlock();
+          }, 500);
+        }
+      } catch (e) {
+        // Ignorer les erreurs de parsing
+      }
+    }
+  };
+  
+  // Exposer la fonction globalement pour debug
+  window.updateAccountBlock = updateAccountBlockLegitimately;
   
   // Détecter les paramètres URL pour mettre à jour les métadonnées Open Graph IMMÉDIATEMENT
   // Cela doit être fait AVANT que les scrapers des réseaux sociaux ne lisent la page
@@ -2345,7 +3512,7 @@ document.addEventListener("DOMContentLoaded", () => {
   applyMapTheme(0);
   
   // Initialiser les alertes de proximité
-  if (currentUser.isLoggedIn) {
+  if (currentUser && currentUser.isLoggedIn) {
     checkProximityAlerts();
     updateProximityAlertsBadge();
     // Vérifier les alertes toutes les 30 secondes
@@ -2764,7 +3931,7 @@ function refreshMarkers() {
   }
   
   // Vérifier les alertes de proximité après le rafraîchissement des marqueurs
-  if (currentUser.isLoggedIn) {
+  if (currentUser && currentUser.isLoggedIn) {
     checkProximityAlerts();
   }
   
@@ -3865,6 +5032,47 @@ function buildEventPopup(ev) {
     }
   });
   
+  // ⚠️⚠️⚠️ CRITIQUE : S'assurer que currentLanguage est défini
+  if (typeof currentLanguage === 'undefined' || !currentLanguage) {
+    currentLanguage = 'fr';
+  }
+  
+  // ⚠️⚠️⚠️ CRITIQUE : S'assurer que currentUser est défini et a les propriétés nécessaires
+  if (typeof currentUser === 'undefined' || !currentUser) {
+    currentUser = {
+      isLoggedIn: false,
+      favorites: [],
+      agenda: [],
+      participating: [],
+      subscription: 'free'
+    };
+  }
+  
+  // S'assurer que les propriétés nécessaires existent
+  if (!Array.isArray(currentUser.favorites)) {
+    currentUser.favorites = [];
+  }
+  if (!Array.isArray(currentUser.agenda)) {
+    currentUser.agenda = [];
+  }
+  if (!Array.isArray(currentUser.participating)) {
+    currentUser.participating = [];
+  }
+  if (!Array.isArray(currentUser.likes)) {
+    currentUser.likes = [];
+  }
+  if (!currentUser.subscription) {
+    currentUser.subscription = 'free';
+  }
+  // ⚠️⚠️⚠️ CRITIQUE : S'assurer que reviews est un objet (pas undefined)
+  if (!currentUser.reviews || typeof currentUser.reviews !== 'object') {
+    currentUser.reviews = {};
+  }
+  // ⚠️⚠️⚠️ CRITIQUE : S'assurer que reviews est un objet (pas undefined)
+  if (!currentUser.reviews || typeof currentUser.reviews !== 'object') {
+    currentUser.reviews = {};
+  }
+  
   // NE PAS redéfinir window.t ici pour éviter les erreurs TDZ
   // Utiliser directement du texte en dur au lieu d'appeler window.t()
   
@@ -4070,6 +5278,10 @@ function buildEventPopup(ev) {
 
   // Reviews compactes
   const reviewsSection = (() => {
+    // ⚠️⚠️⚠️ CRITIQUE : S'assurer que currentUser.reviews existe
+    if (!currentUser.reviews || typeof currentUser.reviews !== 'object') {
+      currentUser.reviews = {};
+    }
     const key = `event:${ev.id}`;
     const reviews = currentUser.reviews[key] || [];
     if (reviews.length === 0 && !ev.rating) return '';
@@ -4184,6 +5396,38 @@ function buildBookingPopup(b) {
   if (!window.translations || typeof window.translations !== 'object') {
     window.translations = window.translations || { fr: {}, en: {}, es: {}, zh: {}, hi: {} };
   }
+  
+  // ⚠️⚠️⚠️ CRITIQUE : S'assurer que currentUser est défini et a les propriétés nécessaires
+  if (typeof currentUser === 'undefined' || !currentUser) {
+    currentUser = {
+      isLoggedIn: false,
+      favorites: [],
+      agenda: [],
+      participating: [],
+      subscription: 'free'
+    };
+  }
+  
+  // S'assurer que les propriétés nécessaires existent
+  if (!Array.isArray(currentUser.favorites)) {
+    currentUser.favorites = [];
+  }
+  if (!Array.isArray(currentUser.agenda)) {
+    currentUser.agenda = [];
+  }
+  if (!currentUser.subscription) {
+    currentUser.subscription = 'free';
+  }
+  // ⚠️⚠️⚠️ CRITIQUE : S'assurer que reviews est un objet (pas undefined)
+  if (!currentUser.reviews || typeof currentUser.reviews !== 'object') {
+    currentUser.reviews = {};
+  }
+  
+  // ⚠️⚠️⚠️ CRITIQUE : S'assurer que paidContacts est défini
+  if (typeof paidContacts === 'undefined' || !Array.isArray(paidContacts)) {
+    paidContacts = [];
+  }
+  
   const borderColor = getBoostColor(b.boost);
   const imgTag = buildMainImageTag(b, b.name || "");
   const cats = (b.categories || []).join(" • ");
@@ -4366,6 +5610,32 @@ function buildServicePopup(s) {
   if (!window.translations || typeof window.translations !== 'object') {
     window.translations = window.translations || { fr: {}, en: {}, es: {}, zh: {}, hi: {} };
   }
+  
+  // ⚠️⚠️⚠️ CRITIQUE : S'assurer que currentUser est défini et a les propriétés nécessaires
+  if (typeof currentUser === 'undefined' || !currentUser) {
+    currentUser = {
+      isLoggedIn: false,
+      favorites: [],
+      agenda: [],
+      participating: [],
+      subscription: 'free'
+    };
+  }
+  
+  // S'assurer que les propriétés nécessaires existent
+  if (!currentUser.subscription) {
+    currentUser.subscription = 'free';
+  }
+  // ⚠️⚠️⚠️ CRITIQUE : S'assurer que reviews est un objet (pas undefined)
+  if (!currentUser.reviews || typeof currentUser.reviews !== 'object') {
+    currentUser.reviews = {};
+  }
+  
+  // ⚠️⚠️⚠️ CRITIQUE : S'assurer que paidContacts est défini
+  if (typeof paidContacts === 'undefined' || !Array.isArray(paidContacts)) {
+    paidContacts = [];
+  }
+  
   const borderColor = getBoostColor(s.boost);
   const imgTag = buildMainImageTag(s, s.name || "");
   const cats = (s.categories || []).join(" • ");
@@ -5128,7 +6398,7 @@ function refreshListView() {
   });
   
   // Vérifier les alertes de proximité après le rafraîchissement de la liste
-  if (currentUser.isLoggedIn) {
+  if (currentUser && currentUser.isLoggedIn) {
     checkProximityAlerts();
   }
   
@@ -6134,6 +7404,14 @@ function toggleCategory(cat) {
     selectedCategories = selectedCategories.filter(c => c !== cat);
   } else {
     selectedCategories.push(cat);
+    
+    // ⚠️⚠️⚠️ NOUVEAU : Si le modal Publier est ouvert, remplir le champ catégorie avec la première sélection
+    const publishModal = document.getElementById("publish-modal-backdrop");
+    const categoryInput = document.getElementById("pub-main-category");
+    if (publishModal && publishModal.style.display === "flex" && categoryInput && !categoryInput.value.trim()) {
+      categoryInput.value = cat;
+      console.log('[PUBLISH] ✅ Catégorie sélectionnée depuis le filtre:', cat);
+    }
   }
   renderSelectedTags();
   applyExplorerFilter();
@@ -6705,9 +7983,13 @@ function buildPublishFormHtml() {
 
   const categoriesBlock = `
     <div style="margin-bottom:10px;">
-      <label style="font-size:12px;font-weight:600;">${window.t("main_category")} *</label>
-      <input id="pub-main-category" placeholder="${window.t("choose_category")}"
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+        <label style="font-size:12px;font-weight:600;">${window.t("main_category")} *</label>
+        <button type="button" id="pub-open-filter-btn" onclick="openFilterForPublish()" style="padding:4px 10px;border-radius:6px;border:1px solid rgba(0,255,195,0.5);background:rgba(0,255,195,0.1);color:#00ffc3;font-size:11px;cursor:pointer;font-weight:600;transition:all 0.2s;" onmouseover="this.style.background='rgba(0,255,195,0.2)';this.style.borderColor='rgba(0,255,195,0.8)'" onmouseout="this.style.background='rgba(0,255,195,0.1)';this.style.borderColor='rgba(0,255,195,0.5)'">🔍 Ouvrir filtre</button>
+      </div>
+      <input id="pub-main-category" placeholder="${window.t("choose_category")} (commencez à taper pour rechercher)"
                style="width:100%;padding:6px;border-radius:8px;border:1px solid var(--ui-card-border);background:transparent;color:var(--ui-text-main);font-size:13px;">
+      <div id="pub-category-suggestions" style="display:none;margin-top:4px;max-height:150px;overflow-y:auto;border:1px solid var(--ui-card-border);border-radius:8px;background:var(--ui-card-bg);padding:4px;"></div>
     </div>
   `;
 
@@ -6842,7 +8124,10 @@ function buildPublishFormHtml() {
 
   return `
     <form onsubmit="return onSubmitPublishForm(event)">
-      <h2 style="margin:0 0 10px;font-size:16px;">${window.t("publish_mode")} ${modeLabel}</h2>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <h2 style="margin:0;font-size:16px;">${window.t("publish_mode")} ${modeLabel}</h2>
+        <button type="button" onclick="closePublishModal(event)" style="background:none;border:none;color:var(--ui-text-muted);font-size:24px;cursor:pointer;padding:4px 8px;border-radius:6px;transition:all 0.15s;line-height:1;width:32px;height:32px;display:flex;align-items:center;justify-content:center;" onmouseover="this.style.background='rgba(255,255,255,0.1)';this.style.color='#fff'" onmouseout="this.style.background='none';this.style.color='var(--ui-text-muted)'" title="Fermer">✕</button>
+      </div>
 
       <div style="margin-bottom:10px;">
         <label style="font-size:12px;font-weight:600;">${window.t("title_name")} *</label>
@@ -6951,12 +8236,159 @@ function openPublishModal() {
   inner.innerHTML = buildPublishFormHtml();
   backdrop.style.display = "flex";
   
+  // ⚠️⚠️⚠️ NOUVEAU : Ouvrir automatiquement le filtre de catégories
+  if (!explorerOpen) {
+    explorerOpen = true;
+    const panel = document.getElementById("left-panel");
+    if (panel) {
+      panel.style.display = "block";
+      loadExplorerTree();
+    }
+  }
+  
   // Initialiser les gestionnaires d'événements pour les répétitions
   if (currentMode === "event") {
     setTimeout(() => {
       initRepeatHandlers();
       initMultipleImagesHandler();
     }, 100);
+  }
+  
+  // ⚠️⚠️⚠️ NOUVEAU : Configurer le champ catégorie avec autocomplétion
+  setTimeout(() => {
+    setupCategoryInputWithFilter();
+  }, 200);
+}
+
+// ⚠️⚠️⚠️ NOUVEAU : Fonction pour ouvrir le filtre depuis le bouton Publier
+function openFilterForPublish() {
+  if (!explorerOpen) {
+    explorerOpen = true;
+    const panel = document.getElementById("left-panel");
+    if (panel) {
+      panel.style.display = "block";
+      loadExplorerTree();
+    }
+  }
+}
+
+// ⚠️⚠️⚠️ NOUVEAU : Configuration du champ catégorie avec autocomplétion et recherche
+function setupCategoryInputWithFilter() {
+  const categoryInput = document.getElementById("pub-main-category");
+  const suggestionsDiv = document.getElementById("pub-category-suggestions");
+  
+  if (!categoryInput || !suggestionsDiv) return;
+  
+  // Fonction pour obtenir toutes les catégories de l'arbre
+  function getAllCategories(tree, prefix = "") {
+    const categories = [];
+    if (!tree) return categories;
+    
+    if (Array.isArray(tree)) {
+      // Feuilles
+      tree.forEach(cat => {
+        categories.push(prefix ? `${prefix} > ${cat}` : cat);
+      });
+    } else {
+      // Dossiers
+      for (const key in tree) {
+        const fullPath = prefix ? `${prefix} > ${key}` : key;
+        categories.push(fullPath);
+        
+        if (tree[key] && !Array.isArray(tree[key])) {
+          // Sous-catégories
+          categories.push(...getAllCategories(tree[key], fullPath));
+        } else if (Array.isArray(tree[key])) {
+          // Feuilles dans ce dossier
+          tree[key].forEach(cat => {
+            categories.push(`${fullPath} > ${cat}`);
+          });
+        }
+      }
+    }
+    return categories;
+  }
+  
+  // Fonction pour filtrer les catégories selon la recherche
+  function filterCategories(query) {
+    if (!query || query.length < 2) return [];
+    
+    const allCats = getAllCategories(explorerTree || EVENTS_TREE || BOOKING_TREE || SERVICE_TREE);
+    const lowerQuery = query.toLowerCase();
+    
+    return allCats.filter(cat => 
+      cat.toLowerCase().includes(lowerQuery)
+    ).slice(0, 10); // Limiter à 10 résultats
+  }
+  
+  // Fonction pour afficher les suggestions
+  function showSuggestions(matches) {
+    if (!matches || matches.length === 0) {
+      suggestionsDiv.style.display = "none";
+      return;
+    }
+    
+    suggestionsDiv.innerHTML = matches.map(cat => {
+      const safe = escapeHtml(cat);
+      return `
+        <div onclick="selectCategoryForPublish('${safe}')" 
+             style="padding:8px;cursor:pointer;border-radius:4px;transition:background 0.15s;font-size:12px;"
+             onmouseover="this.style.background='rgba(0,255,195,0.15)'"
+             onmouseout="this.style.background='transparent'">
+          ${safe}
+        </div>
+      `;
+    }).join("");
+    suggestionsDiv.style.display = "block";
+  }
+  
+  // Event listener sur l'input
+  categoryInput.addEventListener("input", function(e) {
+    const query = e.target.value.trim();
+    
+    if (query.length >= 2) {
+      // Ouvrir le filtre si pas déjà ouvert
+      if (!explorerOpen) {
+        openFilterForPublish();
+      }
+      
+      // Filtrer et afficher les suggestions
+      const matches = filterCategories(query);
+      showSuggestions(matches);
+    } else {
+      suggestionsDiv.style.display = "none";
+    }
+  });
+  
+  // Fermer les suggestions quand on clique ailleurs
+  document.addEventListener("click", function(e) {
+    if (!categoryInput.contains(e.target) && !suggestionsDiv.contains(e.target)) {
+      suggestionsDiv.style.display = "none";
+    }
+  });
+  
+  // Focus sur le champ catégorie
+  categoryInput.focus();
+}
+
+// ⚠️⚠️⚠️ NOUVEAU : Sélectionner une catégorie depuis les suggestions
+function selectCategoryForPublish(category) {
+  const categoryInput = document.getElementById("pub-main-category");
+  const suggestionsDiv = document.getElementById("pub-category-suggestions");
+  
+  if (categoryInput) {
+    // Extraire juste le nom de la catégorie finale (après le dernier >)
+    const finalCategory = category.split(">").pop().trim();
+    categoryInput.value = finalCategory;
+    
+    // Cocher la catégorie dans le filtre si elle existe
+    if (!selectedCategories.includes(finalCategory)) {
+      toggleCategory(finalCategory);
+    }
+  }
+  
+  if (suggestionsDiv) {
+    suggestionsDiv.style.display = "none";
   }
 }
 
@@ -7066,23 +8498,205 @@ function initMultipleImagesHandler() {
   }
 }
 
+// closeAuthModal() est maintenant dans auth.js et exposé via window.closeAuthModal
+
+// Fonction GLOBALE ultra-simple pour le bouton Annuler (accessible depuis onclick inline)
+window.fermerModalAuth = function() {
+  console.log('[FERMER] fermerModalAuth appelé');
+  if (typeof closeAuthModal === 'function') {
+    closeAuthModal();
+  } else {
+    const b = document.getElementById('publish-modal-backdrop');
+    const m = document.getElementById('publish-modal-inner');
+    const a = document.getElementById('authModal');
+    if (b) {
+      b.style.display = 'none';
+      b.style.visibility = 'hidden';
+      b.style.opacity = '0';
+    }
+    if (m) {
+      m.innerHTML = '';
+      m.style.display = 'none';
+    }
+    if (a) {
+      a.remove();
+    }
+    console.log('[FERMER] Modal fermé directement');
+  }
+};
+
 function closePublishModal(e) {
   console.log('🚪 closePublishModal called', e?.type || 'direct call', e?.target?.id || 'no target');
+  
+  // ⚠️⚠️⚠️ NOUVEAU : Si c'est un clic sur le bouton de fermeture (croix), fermer directement
+  if (e && e.target && (e.target.textContent === '✕' || e.target.onclick || e.target.closest('button[onclick*="closePublishModal"]'))) {
+    e.stopPropagation();
+    const backdrop = document.getElementById("publish-modal-backdrop");
+    if (backdrop) {
+      backdrop.style.display = "none";
+      console.log('🚪 Modal fermé via bouton croix');
+      return;
+    }
+  }
+  
+  // GUARD: Ne jamais fermer le modal d'auth (register/login) SAUF si c'est explicitement demandé
+  // Permettre la fermeture si on clique sur le backdrop ou sur les boutons de fermeture
+  const authModal = document.getElementById("authModal");
+  const backdrop = document.getElementById("publish-modal-backdrop");
+  const modalInner = document.getElementById("publish-modal-inner");
+  
+  // Vérifier si le modal d'auth est visible (backdrop visible OU modalInner contient du contenu auth)
+  const isAuthModalVisible = (backdrop && backdrop.offsetParent !== null && backdrop.style.display !== 'none') ||
+                             (modalInner && modalInner.innerHTML.includes('auth-cancel-btn')) ||
+                             (authModal && authModal.offsetParent !== null);
+  
+  if (isAuthModalVisible) {
+    // Si c'est un clic sur le backdrop (l'élément backdrop lui-même, pas ses enfants)
+    if (e && (e.target?.id === 'publish-modal-backdrop' || e.target === backdrop)) {
+      console.log('🚪 [AUTH] Fermeture autorisee via backdrop');
+      closeAuthModal();
+      return;
+    }
+    
+    // ⚠️⚠️⚠️ IMPORTANT : Ne PAS fermer si on clique sur des éléments du formulaire
+    if (e && e.target) {
+      const target = e.target;
+      
+      // Ignorer les clics sur les éléments de photo
+      const isPhotoElement = target.closest('.pro-register-photo-upload') ||
+                            target.closest('#pro-photo-input') ||
+                            target.closest('#pro-photo-preview') ||
+                            target.closest('.pro-register-photo-placeholder') ||
+                            target.id === 'pro-photo-input' ||
+                            target.id === 'pro-photo-preview' ||
+                            target.classList?.contains('pro-register-photo-upload') ||
+                            target.classList?.contains('pro-register-photo-input');
+      
+      if (isPhotoElement) {
+        console.log('🚪 [GUARD] Clic sur élément de photo - IGNORÉ (pas de fermeture)');
+        return;
+      }
+      
+      // ⚠️⚠️⚠️ IMPORTANT : Ignorer TOUS les éléments du formulaire d'inscription
+      // Vérifier si on clique sur n'importe quel élément du formulaire
+      const isFormElement = target.closest('.pro-register-container') ||
+                           target.closest('.pro-register-form') ||
+                           target.closest('#publish-modal-inner') ||
+                           target.closest('#authModal') ||
+                           target.closest('form') ||
+                           target.closest('.pro-register-field') ||
+                           target.closest('.pro-register-input') ||
+                           target.closest('.pro-register-photo-upload') ||
+                           target.closest('.pro-register-password-container') ||
+                           target.closest('.pro-register-password-toggle') ||
+                           target.closest('.pro-register-label') ||
+                           target.id === 'pro-photo-input' ||
+                           target.id === 'pro-photo-preview' ||
+                           target.classList?.contains('pro-register-photo-upload') ||
+                           target.classList?.contains('pro-register-photo-input') ||
+                           target.classList?.contains('pro-register-password-toggle') ||
+                           target.classList?.contains('pro-register-password-container') ||
+                           target.classList?.contains('pro-register-field') ||
+                           target.classList?.contains('pro-register-input') ||
+                           target.classList?.contains('pro-register-form') ||
+                           (target.tagName === 'INPUT' && target.closest('.pro-register-form')) ||
+                           (target.tagName === 'BUTTON' && target.closest('.pro-register-form')) ||
+                           (target.tagName === 'LABEL' && target.closest('.pro-register-form'));
+      
+      if (isFormElement) {
+        console.log('🚪 [GUARD] Clic sur élément du formulaire - IGNORÉ (pas de fermeture)', target.id || target.className || target.tagName);
+        return;
+      }
+      
+      // Ignorer les boutons d'affichage/masquage du mot de passe (double vérification)
+      const isPasswordToggle = target.classList?.contains('pro-register-password-toggle') ||
+                              target.closest('.pro-register-password-toggle') ||
+                              target.closest('.pro-register-password-container') ||
+                              (target.tagName === 'BUTTON' && target.onclick && target.onclick.toString().includes('toggleProPasswordVisibility'));
+      
+      if (isPasswordToggle) {
+        console.log('🚪 [GUARD] Clic sur bouton toggle mot de passe - IGNORÉ (pas de fermeture)');
+        return;
+      }
+      
+      // Ignorer le bouton de soumission du formulaire d'inscription
+      const isSubmitButton = target.id === 'pro-submit-btn' ||
+                            target.closest('#pro-submit-btn') ||
+                            (target.tagName === 'BUTTON' && target.type === 'submit' && target.closest('.pro-register-form')) ||
+                            (target.tagName === 'BUTTON' && target.form && target.form.classList.contains('pro-register-form'));
+      
+      if (isSubmitButton) {
+        console.log('🚪 [AUTH] Bouton de soumission detecte - laisser passer');
+        // Ne pas bloquer, laisser le formulaire se soumettre normalement
+        return;
+      }
+    }
+    
+      // Si c'est un bouton de fermeture (X, Annuler, etc.), permettre la fermeture
+      // Vérifier par ID, par onclick, ou par classe
+      if (e && e.target) {
+        const target = e.target;
+        const isCancelButton = target.id === 'auth-cancel-btn' ||
+                              target.id === 'auth-cancel-btn-pro' ||
+                              target.closest('#auth-cancel-btn') ||
+                              target.closest('#auth-cancel-btn-pro') ||
+                              (target.tagName === 'BUTTON' && target.textContent.trim() === 'Annuler') ||
+                              target.closest('button[onclick*="closeAuthModal"]') ||
+                              target.closest('button[onclick*="fermerModalAuth"]') ||
+                              target.closest('button[onclick*="closePublishModal"]') ||
+                              target.closest('button[aria-label*="fermer" i]') ||
+                              target.closest('button[aria-label*="close" i]') ||
+                              target.closest('button[title*="Fermer" i]') ||
+                              target.closest('button[title*="Close" i]');
+      
+      if (isCancelButton) {
+        console.log('🚪 [AUTH] Fermeture autorisee via bouton Annuler/fermeture - ID:', target.id || 'pas d\'ID', 'text:', target.textContent?.trim() || 'pas de texte');
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        closeAuthModal();
+        return false;
+      }
+    }
+    
+    // Si c'est un appel direct à closeAuthModal (sans event), permettre
+    if (!e) {
+      console.log('🚪 [AUTH] Fermeture autorisee via appel direct closeAuthModal');
+      closeAuthModal();
+      return;
+    }
+    
+    // Sinon, bloquer la fermeture automatique
+    console.log('🚪 [GUARD] Auth modal visible - closePublishModal bloque');
+    return;
+  }
+  
+  // Vérifier aussi si le modal d'onboarding est visible
+  const onboardingModal = document.getElementById("onboardingModal");
+  if (onboardingModal && onboardingModal.offsetParent !== null) {
+    console.log('🚪 [GUARD] Onboarding modal visible - closePublishModal bloque');
+    return;
+  }
+  
   if (e && e.target && e.target.id !== "publish-modal-backdrop") {
     const modal = document.getElementById("publish-modal");
     const modalInner = document.getElementById("publish-modal-inner");
     // Ne ferme pas si on clique sur un élément dans la modal ou le modal inner
     if ((modal && modal.contains(e.target)) || (modalInner && modalInner.contains(e.target))) return;
   }
-  document.getElementById("publish-modal-backdrop").style.display = "none";
-  console.log('🚪 Modal closed - backdrop display set to none');
+  
+  // Réutiliser la variable backdrop déjà déclarée plus haut
+  if (backdrop) {
+    backdrop.style.display = "none";
+    console.log('🚪 Modal closed - backdrop display set to none');
+  }
 }
 
 async function onSubmitPublishForm(e) {
   e.preventDefault();
   
   // Vérifier que l'utilisateur est connecté
-  if (!currentUser.isLoggedIn) {
+  if (!currentUser || !currentUser.isLoggedIn) {
     showNotification("⚠️ Vous devez être connecté pour publier", "warning");
     openLoginModal();
     return false;
@@ -7254,7 +8868,7 @@ async function onSubmitPublishForm(e) {
   
   // Sauvegarder dans le backend
   try {
-    await fetch(`${API_BASE_URL}/${currentMode}s`, {
+    await fetch(`${window.API_BASE_URL}/${currentMode}s`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -7929,7 +9543,7 @@ window.updateBackendData = function (mode, data) {
 // ACTIONS UTILISATEUR - LIKE / PARTAGER / AGENDA
 // ============================================
 function onBuyContact(type, id) {
-  if (!currentUser.isLoggedIn) {
+  if (!currentUser || !currentUser.isLoggedIn) {
     openLoginModal();
     return;
   }
@@ -7984,7 +9598,7 @@ async function toggleLike(type, id) {
   
   // Appeler le backend
   try {
-    const response = await fetch(`${API_BASE_URL}/user/likes`, {
+    const response = await fetch(`${window.API_BASE_URL}/user/likes`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -8067,7 +9681,7 @@ async function toggleFavorite(type, id) {
   
   // Appeler le backend
   try {
-    const response = await fetch(`${API_BASE_URL}/user/favorites`, {
+    const response = await fetch(`${window.API_BASE_URL}/user/favorites`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -8163,7 +9777,7 @@ async function toggleFavorite(type, id) {
 // Toggle Participation
 function toggleParticipation(type, id) {
   // Vérifier si l'utilisateur est connecté
-  if (!currentUser.isLoggedIn) {
+  if (!currentUser || !currentUser.isLoggedIn) {
     openLoginModal();
     return;
   }
@@ -8235,7 +9849,7 @@ function toggleParticipation(type, id) {
 // Toggle Agenda avec limite selon abonnement
 function toggleAgenda(type, id) {
   // Vérifier si l'utilisateur est connecté
-  if (!currentUser.isLoggedIn) {
+  if (!currentUser || !currentUser.isLoggedIn) {
     openLoginModal();
     return;
   }
@@ -8368,6 +9982,8 @@ function canSendSMS() {
 // Vérifier les changements d'événements et envoyer des alertes
 // ⚠️ LES ALERTES DE STATUT (annulé, complet, reporté) SONT TOUJOURS GRATUITES ET ILLIMITÉES
 function checkEventChanges() {
+  if (!isLoggedIn()) return;
+  
   // Les alertes de statut sont GRATUITES pour TOUS - pas de limite !
   // C'est vital pour l'utilisateur de savoir si un event est annulé/complet/reporté
   
@@ -8419,7 +10035,7 @@ function checkEventChanges() {
         }
         
         // Afficher une notification immédiate si l'utilisateur est connecté
-        if (currentUser.isLoggedIn) {
+        if (currentUser && currentUser.isLoggedIn) {
           showNotification(`🔔 Changement d'événement : "${event.title}" a été ${statusText}`, "warning");
         }
         
@@ -8470,7 +10086,7 @@ function getItemById(type, id) {
 
 // Inviter des amis à un événement/booking/service
 function inviteFriendsToEvent(type, id) {
-  if (!currentUser.isLoggedIn) {
+  if (!currentUser || !currentUser.isLoggedIn) {
     openLoginModal();
     return;
   }
@@ -8627,8 +10243,14 @@ function openUserProfile(userId = null) {
     <div style="padding:20px;max-width:700px;margin:0 auto;max-height:85vh;overflow-y:auto;">
       <!-- Header du profil -->
       <div style="text-align:center;margin-bottom:24px;padding-bottom:20px;border-bottom:1px solid var(--ui-card-border);">
-        <div style="width:120px;height:120px;border-radius:50%;background:linear-gradient(135deg,#00ffc3,#3b82f6);display:flex;align-items:center;justify-content:center;font-size:60px;margin:0 auto 16px;border:4px solid rgba(0,255,195,0.3);">
-          ${targetUser.avatar}
+        <div style="width:120px;height:120px;border-radius:50%;background:linear-gradient(135deg,#00ffc3,#3b82f6);display:flex;align-items:center;justify-content:center;font-size:60px;margin:0 auto 16px;border:4px solid rgba(0,255,195,0.3);overflow:hidden;position:relative;">
+          ${(() => {
+            const avatarUrl = targetUser.profile_photo_url || targetUser.profilePhoto || targetUser.avatarUrl || targetUser.avatar;
+            if (avatarUrl && (avatarUrl.startsWith('http') || avatarUrl.startsWith('data:image'))) {
+              return `<img src="${avatarUrl}" style="width:100%;height:100%;object-fit:cover;position:absolute;top:0;left:0;" onerror="this.style.display='none';this.parentElement.innerHTML='${targetUser.avatar || '👤'}';this.parentElement.style.fontSize='60px';" />`;
+            }
+            return targetUser.avatar || '👤';
+          })()}
         </div>
         <h2 style="margin:0 0 8px;font-size:28px;font-weight:700;color:#fff;">${escapeHtml(targetUser.name)}</h2>
         ${targetUser.firstName && targetUser.lastName ? `
@@ -8746,20 +10368,225 @@ function editProfile() {
   document.getElementById("publish-modal-inner").innerHTML = html;
 }
 
+// Gérer l'upload de photo dans le formulaire de modification
+window.handleEditProfilePhotoUpload = function(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  
+  if (file.size > 5 * 1024 * 1024) {
+    showNotification('⚠️ La photo doit faire moins de 5MB', 'warning');
+    return;
+  }
+  
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const previewContainer = document.getElementById('edit-profile-photo-preview-container');
+    const previewImg = document.getElementById('edit-profile-photo-preview');
+    
+    if (previewImg) {
+      previewImg.src = e.target.result;
+    }
+    if (previewContainer) {
+      previewContainer.style.display = 'block';
+    }
+    
+    // Stocker temporairement la photo pour l'upload
+    window.editProfilePhotoFile = file;
+  };
+  reader.readAsDataURL(file);
+};
+
+// Configurer l'autocomplete d'adresse pour le formulaire de modification
+function setupEditProfileAddressAutocomplete(inputElement) {
+  let timeout;
+  const suggestionsContainer = document.getElementById('edit-profile-address-suggestions');
+  const selectedDisplay = document.getElementById('edit-profile-selected-address-display');
+  const selectedLabel = document.getElementById('edit-profile-selected-address-label');
+  const selectedDetails = document.getElementById('edit-profile-selected-address-details');
+  
+  inputElement.addEventListener('input', function(e) {
+    const query = e.target.value.trim();
+    
+    clearTimeout(timeout);
+    
+    if (query.length < 3) {
+      if (suggestionsContainer) {
+        suggestionsContainer.style.display = 'none';
+      }
+      return;
+    }
+    
+    timeout = setTimeout(async () => {
+      try {
+        // ⚠️⚠️⚠️ RECHERCHE MONDIALE - Pas de restriction de pays, support multilingue
+        const langCode = (navigator.language || 'fr').split('-')[0];
+        const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=10&addressdetails=1&accept-language=${langCode},en&dedupe=1`, {
+          headers: {
+            'User-Agent': 'MapEventAI/1.0',
+            'Accept-Language': `${langCode},en,fr`
+          }
+        });
+        
+        if (!response.ok) {
+          if (suggestionsContainer) {
+            suggestionsContainer.style.display = 'none';
+          }
+          return;
+        }
+        
+        const text = await response.text();
+        let results;
+        try {
+          results = JSON.parse(text);
+        } catch (parseError) {
+          if (suggestionsContainer) {
+            suggestionsContainer.style.display = 'none';
+          }
+          return;
+        }
+        
+        if (suggestionsContainer && results.length > 0) {
+          const sortedResults = results.sort((a, b) => {
+            const aHasFullAddress = a.address?.road && (a.address?.house_number || a.address?.house);
+            const bHasFullAddress = b.address?.road && (b.address?.house_number || b.address?.house);
+            if (aHasFullAddress && !bHasFullAddress) return -1;
+            if (!aHasFullAddress && bHasFullAddress) return 1;
+            return 0;
+          });
+          
+          suggestionsContainer.innerHTML = sortedResults.map(result => {
+            const hasFullAddress = result.address?.road && (result.address?.house_number || result.address?.house);
+            const addressQuality = hasFullAddress ? '✅' : '📍';
+            return `
+            <div class="edit-profile-address-suggestion" style="padding:12px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.1);transition:background 0.2s;" 
+                 onmouseover="this.style.background='rgba(0,255,195,0.1)'" 
+                 onmouseout="this.style.background='transparent'"
+                 data-lat="${result.lat}" 
+                 data-lng="${result.lon}"
+                 data-label="${result.display_name}"
+                 data-country="${result.address?.country_code?.toUpperCase() || ''}"
+                 data-city="${result.address?.city || result.address?.town || result.address?.village || ''}"
+                 data-postcode="${result.address?.postcode || ''}"
+                 data-street="${result.address?.road || ''}">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                <span style="font-size:14px;">${addressQuality}</span>
+                <div style="font-weight:600;color:var(--ui-text-main);font-size:13px;flex:1;">${result.display_name}</div>
+              </div>
+              <div style="font-size:11px;color:var(--ui-text-muted);padding-left:22px;">${result.address?.country || ''}${result.address?.postcode ? ' • ' + result.address.postcode : ''}</div>
+            </div>
+          `;
+          }).join('');
+          
+          suggestionsContainer.style.display = 'block';
+          
+          suggestionsContainer.querySelectorAll('.edit-profile-address-suggestion').forEach(suggestion => {
+            suggestion.addEventListener('click', function() {
+              const addressData = {
+                lat: parseFloat(this.dataset.lat),
+                lng: parseFloat(this.dataset.lng),
+                label: this.dataset.label,
+                country_code: this.dataset.country,
+                city: this.dataset.city,
+                postcode: this.dataset.postcode,
+                street: this.dataset.street
+              };
+              
+              window.editProfileSelectedAddress = addressData;
+              
+              if (inputElement) {
+                inputElement.value = addressData.label;
+              }
+              if (suggestionsContainer) {
+                suggestionsContainer.style.display = 'none';
+              }
+              if (selectedDisplay) {
+                selectedDisplay.style.display = 'block';
+              }
+              if (selectedLabel) {
+                selectedLabel.textContent = addressData.label;
+              }
+              if (selectedDetails) {
+                selectedDetails.textContent = `${addressData.city || ''} ${addressData.postcode || ''} ${addressData.country_code || ''}`.trim();
+              }
+            });
+          });
+        } else if (suggestionsContainer) {
+          suggestionsContainer.style.display = 'none';
+        }
+      } catch (error) {
+        console.error('[EDIT PROFILE] Erreur autocomplete adresse:', error);
+      }
+    }, 300);
+  });
+}
+
 // Sauvegarder le profil
-function saveProfile() {
+async function saveProfile() {
+  const username = document.getElementById("edit-profile-username")?.value.trim() || '';
   const bio = document.getElementById("edit-profile-bio")?.value.trim() || '';
   const photosText = document.getElementById("edit-profile-photos")?.value.trim() || '';
-  const photos = photosText.split('\\n').filter(url => url.trim() && url.startsWith('http'));
+  const photos = photosText.split('\n').filter(url => url.trim() && url.startsWith('http'));
+  
+  // Upload de la nouvelle photo si présente
+  if (window.editProfilePhotoFile) {
+    try {
+      await uploadProfilePhoto(window.editProfilePhotoFile);
+      showNotification("✅ Photo de profil mise à jour !", "success");
+    } catch (error) {
+      console.error('[EDIT PROFILE] Erreur upload photo:', error);
+      showNotification("⚠️ Erreur lors de l'upload de la photo", "error");
+    }
+  }
+  
+  // Sauvegarder l'adresse si modifiée
+  if (window.editProfileSelectedAddress) {
+    try {
+      await saveUserAddress(window.editProfileSelectedAddress);
+    } catch (error) {
+      console.error('[EDIT PROFILE] Erreur sauvegarde adresse:', error);
+      showNotification("⚠️ Erreur lors de la sauvegarde de l'adresse", "error");
+    }
+  }
+  
+  // Mettre à jour le nom d'utilisateur si modifié
+  if (username && username !== currentUser.username) {
+    try {
+      const response = await fetch(`${window.API_BASE_URL}/user/profile-settings`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${getAuthToken()}`
+        },
+        body: JSON.stringify({ username })
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.user) {
+          currentUser.username = data.user.username;
+        }
+      } else {
+        const errorData = await response.json();
+        if (errorData.error && errorData.error.includes('déjà pris')) {
+          showNotification("⚠️ Ce nom d'utilisateur est déjà pris", "error");
+          return;
+        }
+      }
+    } catch (error) {
+      console.error('[EDIT PROFILE] Erreur mise à jour username:', error);
+    }
+  }
   
   // Vérifier l'âge des photos (simulation - en production, utiliser une API de modération)
   const photosFiltered = photos.filter(photo => {
-    // TODO: Vérifier avec une API de modération d'images
     return true; // Pour l'instant, on accepte tout
   });
   
   currentUser.bio = bio;
   currentUser.profilePhotos = photosFiltered;
+  
+  // Recharger les données utilisateur depuis l'API
+  await loadCurrentUserFromAPI();
   
   saveUserData();
   showNotification("✅ Profil mis à jour !", "success");
@@ -9177,7 +11004,7 @@ window.sharePopup = function(type, id) {
 // ============================================
 // NOTIFICATIONS
 // ============================================
-function showNotification(message, type = "info") {
+function showNotification(message, type = "info", options = {}) {
   const existing = document.getElementById("notification-toast");
   if (existing) existing.remove();
 
@@ -9188,9 +11015,35 @@ function showNotification(message, type = "info") {
     warning: "#f59e0b"
   };
 
+  const duration = options.duration || 3000;
+  const actionLabel = options.actionLabel || null;
+  const onAction = options.onAction || null;
+  const autoClose = options.autoClose !== false;
+
   const toast = document.createElement("div");
   toast.id = "notification-toast";
-  toast.innerHTML = message;
+  
+  // Construire le contenu avec action si fournie
+  let content = `<div style="display:flex;align-items:center;gap:12px;">`;
+  content += `<span style="flex:1;">${message}</span>`;
+  if (actionLabel && onAction) {
+    const actionId = `toast-action-${Date.now()}`;
+    content += `<button id="${actionId}" style="background:rgba(255,255,255,0.2);border:none;color:white;padding:6px 12px;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;white-space:nowrap;transition:background 0.2s;">${actionLabel}</button>`;
+    setTimeout(() => {
+      const btn = document.getElementById(actionId);
+      if (btn) {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          onAction();
+          toast.remove();
+        });
+        btn.style.pointerEvents = 'auto';
+      }
+    }, 10);
+  }
+  content += `</div>`;
+  
+  toast.innerHTML = content;
   toast.style.cssText = `
     position: fixed;
     bottom: 20px;
@@ -9205,213 +11058,1140 @@ function showNotification(message, type = "info") {
     z-index: 100000;
     box-shadow: 0 8px 24px rgba(0,0,0,0.3);
     animation: slideUp 0.3s ease;
-    pointer-events: none;
+    pointer-events: ${actionLabel ? 'auto' : 'none'};
+    max-width: 90%;
+    min-width: 300px;
   `;
 
   document.body.appendChild(toast);
 
-  setTimeout(() => {
-    toast.style.animation = "slideDown 0.3s ease";
-    setTimeout(() => toast.remove(), 300);
-  }, 3000);
+  if (autoClose) {
+    setTimeout(() => {
+      toast.style.animation = "slideDown 0.3s ease";
+      setTimeout(() => toast.remove(), 300);
+    }, duration);
+  }
+  
+  return toast;
+}
+
+/**
+ * Affiche un message d'erreur contextuel avec des suggestions d'action
+ * @param {string} errorCode - Code d'erreur pour identifier le type
+ * @param {string} message - Message principal
+ * @param {Object} context - Contexte supplémentaire (field, value, etc.)
+ */
+function showContextualError(errorCode, message, context = {}) {
+  const errorMessages = {
+    'EMAIL_NOT_VERIFIED': {
+      message: '📧 Email non vérifié',
+      details: 'Veuillez vérifier votre email avant de créer le compte.',
+      action: {
+        label: 'Vérifier maintenant',
+        callback: () => {
+          if (typeof showRegisterStep2_5 === 'function') {
+            showRegisterStep2_5();
+          }
+        }
+      }
+    },
+    'EMAIL_ALREADY_EXISTS': {
+      message: '⚠️ Email déjà utilisé',
+      details: `L'email "${context.email || ''}" est déjà associé à un compte.`,
+      action: {
+        label: 'Se connecter',
+        callback: () => {
+          if (typeof window.openAuthModal === 'function') {
+            window.openAuthModal('login');
+          }
+        }
+      }
+    },
+    'USERNAME_ALREADY_EXISTS': {
+      message: '⚠️ Nom d\'utilisateur indisponible',
+      details: `Le nom "${context.username || ''}" est déjà pris. Choisissez-en un autre.`,
+      action: {
+        label: 'Modifier',
+        callback: () => {
+          if (typeof showRegisterStep2 === 'function') {
+            showRegisterStep2();
+            // Focus sur le champ username
+            setTimeout(() => {
+              const usernameInput = document.getElementById('register-username');
+              if (usernameInput) {
+                usernameInput.focus();
+                usernameInput.select();
+              }
+            }, 100);
+          }
+        }
+      }
+    },
+    'PASSWORD_TOO_WEAK': {
+      message: '🔒 Mot de passe trop faible',
+      details: context.details || 'Votre mot de passe ne respecte pas les critères de sécurité.',
+      action: {
+        label: 'Voir les critères',
+        callback: () => {
+          // Scroll vers l'indicateur de force du mot de passe
+          const passwordInput = document.getElementById('register-password');
+          if (passwordInput) {
+            passwordInput.focus();
+            passwordInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }
+      }
+    },
+    'RATE_LIMITED': {
+      message: '⏱️ Trop de tentatives',
+      details: `Veuillez patienter ${context.retryAfter || 0} secondes avant de réessayer.`,
+      action: null // Pas d'action pour rate limiting
+    },
+    'NETWORK_ERROR': {
+      message: '🌐 Erreur de connexion',
+      details: 'Impossible de se connecter au serveur. Vérifiez votre connexion internet.',
+      action: {
+        label: 'Réessayer',
+        callback: context.retryCallback || (() => window.location.reload())
+      }
+    },
+    'VALIDATION_ERROR': {
+      message: '✏️ Informations manquantes',
+      details: context.details || 'Veuillez compléter tous les champs requis.',
+      action: {
+        label: 'Voir le champ',
+        callback: () => {
+          if (context.fieldId) {
+            const field = document.getElementById(context.fieldId);
+            if (field) {
+              field.focus();
+              field.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              // Ajouter une classe pour highlight
+              field.style.borderColor = '#ef4444';
+              field.style.boxShadow = '0 0 0 3px rgba(239, 68, 68, 0.1)';
+              setTimeout(() => {
+                field.style.borderColor = '';
+                field.style.boxShadow = '';
+              }, 3000);
+            }
+          }
+        }
+      }
+    }
+  };
+
+  const errorConfig = errorMessages[errorCode] || {
+    message: '❌ Erreur',
+    details: message,
+    action: null
+  };
+
+  const fullMessage = `${errorConfig.message}\n${errorConfig.details}`;
+  
+  showNotification(fullMessage, 'error', {
+    duration: errorCode === 'RATE_LIMITED' ? 5000 : 4000,
+    actionLabel: errorConfig.action?.label || null,
+    onAction: errorConfig.action?.callback || null,
+    autoClose: true
+  });
 }
 
 // ============================================
+// openAuthModal() est maintenant dans auth.js et exposé via window.openAuthModal
 // MODALS - LOGIN / REVIEW / DISCUSSION / REPORT
 // ============================================
-function openLoginModal() {
-  const backdrop = document.getElementById('publish-modal-backdrop');
-  const modal = document.getElementById('publish-modal-inner');
+// Modal d'authentification unifié (register/login)
+// REMOVED: function openAuthModal() - voir auth.js (lignes 10344-11112 supprimées)
+// Le corps de la fonction a été supprimé - elle est maintenant dans auth.js et exposée via window.openAuthModal
+// [Code supprimé : lignes 10346-11111 - fonction openAuthModal complète]
 
-  if (!backdrop || !modal) {
-    console.error('Modal elements not found');
+// ============================================
+// SYSTÈME D'ONBOARDING COMPLET
+// ============================================
+// Vérifie si le profil est complet et lance l'onboarding si nécessaire
+
+/**
+ * Vérifie si le profil utilisateur est complet
+ * @returns {Object} { isComplete: boolean, missingSteps: string[] }
+ */
+function checkProfileCompleteness(user) {
+  const missingSteps = [];
+  
+  // Vérifier la photo de profil
+  if (!user.profile_photo_url || user.profile_photo_url === '' || user.profile_photo_url === '👤') {
+    missingSteps.push('photo');
+  }
+  
+  // Vérifier l'adresse postale (doit être vérifiée)
+  if (!user.address_verified || !user.address_lat || !user.address_lng) {
+    missingSteps.push('address');
+  }
+  
+  return {
+    isComplete: missingSteps.length === 0,
+    missingSteps: missingSteps
+  };
+}
+
+/**
+ * Démarre l'onboarding si le profil est incomplet
+ * @param {Object} user - L'utilisateur connecté
+ * @param {boolean} force - Forcer l'onboarding même si le profil est complet
+ */
+function startOnboardingIfNeeded(user, force = false) {
+  if (!user || !user.isLoggedIn) {
     return;
   }
+  
+  const profileCheck = checkProfileCompleteness(user);
+  
+  if (force || !profileCheck.isComplete) {
+    console.log('[ONBOARDING] Profil incomplet, demarrage onboarding. Etapes manquantes:', profileCheck.missingSteps);
+    openOnboardingModal(profileCheck.missingSteps);
+  } else {
+    console.log('[ONBOARDING] Profil complet, pas d\'onboarding necessaire');
+  }
+}
 
+/**
+ * Ouvre le modal d'onboarding avec les étapes manquantes
+ * @param {string[]} missingSteps - Liste des étapes manquantes ['photo', 'address']
+ */
+function openOnboardingModal(missingSteps = []) {
+  console.log('[ONBOARDING] Ouverture modal onboarding, etapes:', missingSteps);
+  console.log('[ONBOARDING] missingSteps.length:', missingSteps.length);
+  
+  let backdrop = document.getElementById('publish-modal-backdrop');
+  let modal = document.getElementById('publish-modal-inner');
+  
+  if (!backdrop || !modal) {
+    console.warn('[ONBOARDING] Modal elements not found - creation...');
+    // Créer les éléments si ils n'existent pas
+    if (!backdrop) {
+      backdrop = document.createElement('div');
+      backdrop.id = 'publish-modal-backdrop';
+      backdrop.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.8);backdrop-filter:blur(8px);z-index:99998;display:flex;align-items:center;justify-content:center;';
+      backdrop.onclick = function(e) {
+        if (e.target === backdrop) closePublishModal();
+      };
+      document.body.appendChild(backdrop);
+      console.log('[ONBOARDING] Backdrop cree');
+    }
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'publish-modal-inner';
+      modal.style.cssText = 'position:relative;max-width:90vw;max-height:90vh;overflow-y:auto;';
+      if (backdrop) backdrop.appendChild(modal);
+      console.log('[ONBOARDING] Modal inner cree');
+    }
+  }
+  
+  if (!backdrop || !modal) {
+    console.error('[ONBOARDING] ERREUR: Impossible de creer les elements modal');
+    return;
+  }
+  
+  // Déterminer l'étape actuelle
+  let currentStep = 0;
+  if (missingSteps.includes('photo')) {
+    currentStep = 1; // Étape photo
+  } else if (missingSteps.includes('address')) {
+    currentStep = 2; // Étape adresse
+  }
+  
+  // Générer le HTML pour l'étape actuelle
+  let stepHTML = '';
+  let stepTitle = '';
+  let stepSubtitle = '';
+  
+  if (currentStep === 1) {
+    // Étape photo
+    stepTitle = '📸 Ajoutez votre photo de profil';
+    stepSubtitle = 'Votre photo vous aidera à être reconnu(e) par la communauté MapEvent';
+    stepHTML = renderOnboardingPhotoStep();
+  } else if (currentStep === 2) {
+    // Étape adresse
+    stepTitle = '📍 Vérifiez votre adresse postale';
+    stepSubtitle = 'Votre adresse nous permet de vous envoyer des alertes personnalisées pour les événements près de chez vous';
+    stepHTML = renderOnboardingAddressStep();
+  } else {
+    // Toutes les étapes sont complètes
+    stepTitle = '✅ Profil complété !';
+    stepSubtitle = 'Votre profil est maintenant complet. Vous pouvez accéder à toutes les fonctionnalités.';
+    stepHTML = renderOnboardingCompleteStep();
+  }
+  
   const html = `
-    <div style="padding:40px;max-width:450px;margin:0 auto;text-align:center;">
-      <!-- Logo et titre -->
+    <div id="onboardingModal" class="onboarding-modal" data-onboarding="true" data-step="${currentStep}" data-onboarding-active="true" style="padding:40px;max-width:500px;margin:0 auto;text-align:center;">
+      <!-- Indicateur de progression -->
       <div style="margin-bottom:32px;">
-        <div style="font-size:64px;margin-bottom:16px;">🌍</div>
-        <h2 style="margin:0 0 8px;font-size:28px;font-weight:800;color:#fff;background:linear-gradient(135deg,#00ffc3,#3b82f6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">MAP EVENT</h2>
-        <p style="margin:0;font-size:14px;color:var(--ui-text-muted);">Connectez-vous pour accéder à toutes les fonctionnalités</p>
+        <div style="display:flex;justify-content:center;gap:8px;margin-bottom:16px;">
+          <div style="width:40px;height:4px;background:${currentStep >= 1 ? '#00ffc3' : 'rgba(255,255,255,0.2)'};border-radius:2px;"></div>
+          <div style="width:40px;height:4px;background:${currentStep >= 2 ? '#00ffc3' : 'rgba(255,255,255,0.2)'};border-radius:2px;"></div>
+        </div>
+        <h2 style="margin:0 0 8px;font-size:24px;font-weight:800;color:#fff;">${stepTitle}</h2>
+        <p style="margin:0;font-size:14px;color:var(--ui-text-muted);">${stepSubtitle}</p>
       </div>
       
-      <!-- Boutons de connexion sociale - DESIGN PROFESSIONNEL -->
-      <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:24px;">
-        <button onclick="startGoogleLogin()" style="width:100%;padding:14px 20px;border-radius:12px;border:2px solid rgba(255,255,255,0.1);background:linear-gradient(135deg,rgba(255,255,255,0.1),rgba(255,255,255,0.05));color:#fff;display:flex;align-items:center;justify-content:center;gap:12px;font-weight:600;font-size:15px;cursor:pointer;transition:all 0.3s;backdrop-filter:blur(10px);" onmouseover="this.style.borderColor='rgba(0,255,195,0.5)';this.style.background='linear-gradient(135deg,rgba(0,255,195,0.2),rgba(59,130,246,0.2))';" onmouseout="this.style.borderColor='rgba(255,255,255,0.1)';this.style.background='linear-gradient(135deg,rgba(255,255,255,0.1),rgba(255,255,255,0.05))';">
-          <svg width="20" height="20" viewBox="0 0 24 24" style="fill:currentColor;">
-            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-          </svg>
-          <span>Connexion avec Google</span>
-        </button>
-        
-        <button disabled style="width:100%;padding:14px 20px;border-radius:12px;border:2px solid rgba(255,255,255,0.05);background:rgba(255,255,255,0.03);color:rgba(255,255,255,0.4);display:flex;align-items:center;justify-content:center;gap:12px;font-weight:600;font-size:15px;cursor:not-allowed;opacity:0.5;">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-          </svg>
-          <span>Connexion avec Facebook</span>
-          <span style="font-size:11px;margin-left:auto;">(Bientôt)</span>
-        </button>
-      </div>
-      
-      <div style="display:flex;align-items:center;gap:12px;margin:24px 0;">
-        <div style="flex:1;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.1),transparent);"></div>
-        <span style="font-size:12px;color:var(--ui-text-muted);font-weight:500;">ou</span>
-        <div style="flex:1;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.1),transparent);"></div>
-      </div>
-      
-      <!-- Connexion par email -->
-      <div style="margin-bottom:16px;text-align:left;">
-        <label style="display:block;font-size:13px;font-weight:600;color:var(--ui-text-main);margin-bottom:8px;">📧 Email</label>
-        <input type="email" id="login-email" placeholder="votre@email.com" style="width:100%;padding:12px 16px;border-radius:10px;border:2px solid rgba(255,255,255,0.1);background:rgba(15,23,42,0.5);color:var(--ui-text-main);font-size:14px;transition:all 0.3s;" onfocus="this.style.borderColor='rgba(0,255,195,0.5)';this.style.background='rgba(15,23,42,0.8)';" onblur="this.style.borderColor='rgba(255,255,255,0.1)';this.style.background='rgba(15,23,42,0.5)';">
-      </div>
-      <div style="margin-bottom:24px;text-align:left;">
-        <label style="display:block;font-size:13px;font-weight:600;color:var(--ui-text-main);margin-bottom:8px;">🔒 Mot de passe</label>
-        <input type="password" id="login-password" placeholder="Votre mot de passe" 
-               onkeypress="if(event.key==='Enter')performLogin()" style="width:100%;padding:12px 16px;border-radius:10px;border:2px solid rgba(255,255,255,0.1);background:rgba(15,23,42,0.5);color:var(--ui-text-main);font-size:14px;transition:all 0.3s;" onfocus="this.style.borderColor='rgba(0,255,195,0.5)';this.style.background='rgba(15,23,42,0.8)';" onblur="this.style.borderColor='rgba(255,255,255,0.1)';this.style.background='rgba(15,23,42,0.5)';">
-      </div>
-      
-      <button onclick="performLogin()" style="width:100%;padding:14px;border-radius:12px;border:none;background:linear-gradient(135deg,#00ffc3,#3b82f6);color:#000;font-weight:700;font-size:15px;cursor:pointer;margin-bottom:12px;transition:all 0.3s;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 20px rgba(0,255,195,0.3)';" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='none';">
-        Se connecter
-      </button>
-      
-      <button onclick="closePublishModal()" style="width:100%;padding:12px;border-radius:10px;border:2px solid rgba(255,255,255,0.1);background:transparent;color:var(--ui-text-muted);font-weight:600;font-size:14px;cursor:pointer;transition:all 0.3s;" onmouseover="this.style.borderColor='rgba(255,255,255,0.3)';this.style.color='var(--ui-text-main)';" onmouseout="this.style.borderColor='rgba(255,255,255,0.1)';this.style.color='var(--ui-text-muted)';">
-        Annuler
-      </button>
+      ${stepHTML}
     </div>
   `;
   
-  document.getElementById("publish-modal-inner").innerHTML = html;
-  document.getElementById("publish-modal-backdrop").style.display = "flex";
+  modal.innerHTML = html;
+  backdrop.style.display = "flex";
   
-  // Focus sur l'email
-  setTimeout(() => {
-    const emailInput = document.getElementById("login-email");
-    if (emailInput) emailInput.focus();
-  }, 100);
+  // Attacher les event listeners après injection
+  attachOnboardingEventListeners(currentStep);
 }
 
-async function performLogin() {
-  const email = document.getElementById("login-email")?.value.trim();
-  const password = document.getElementById("login-password")?.value;
+/**
+ * Génère le HTML pour l'étape photo
+ */
+function renderOnboardingPhotoStep() {
+  return `
+    <div style="text-align:left;">
+      <!-- Zone d'upload -->
+      <div id="photo-upload-zone" style="border:2px dashed rgba(0,255,195,0.5);border-radius:12px;padding:40px;text-align:center;background:rgba(0,255,195,0.05);margin-bottom:20px;cursor:pointer;transition:all 0.3s;" onmouseover="this.style.borderColor='rgba(0,255,195,0.8)';this.style.background='rgba(0,255,195,0.1)';" onmouseout="this.style.borderColor='rgba(0,255,195,0.5)';this.style.background='rgba(0,255,195,0.05)';">
+        <div style="font-size:48px;margin-bottom:12px;">📷</div>
+        <div style="color:var(--ui-text-main);margin-bottom:8px;font-weight:600;">Cliquez pour sélectionner une photo</div>
+        <div style="color:var(--ui-text-muted);font-size:12px;">JPG, PNG ou GIF (max 5MB)</div>
+        <input type="file" id="onboarding-photo-input" accept="image/*" style="display:none;" onchange="handleOnboardingPhotoUpload(event)">
+      </div>
+      
+      <!-- Preview de la photo -->
+      <div id="photo-preview-container" style="display:none;margin-bottom:20px;">
+        <img id="photo-preview" src="" style="width:150px;height:150px;border-radius:50%;object-fit:cover;border:3px solid #00ffc3;margin:0 auto;display:block;">
+      </div>
+      
+      <!-- Option "Plus tard" -->
+      <div style="margin-bottom:20px;">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;color:var(--ui-text-muted);font-size:13px;">
+          <input type="checkbox" id="photo-later-checkbox" style="cursor:pointer;">
+          <span>Ajouter ma photo plus tard</span>
+        </label>
+      </div>
+      
+      <!-- Boutons -->
+      <div style="display:flex;gap:12px;">
+        <button id="onboarding-skip-photo" style="flex:1;padding:12px;border-radius:12px;border:1px solid rgba(255,255,255,0.2);background:transparent;color:var(--ui-text-muted);font-weight:600;cursor:pointer;">Passer</button>
+        <button id="onboarding-continue-photo" style="flex:1;padding:12px;border-radius:12px;border:none;background:linear-gradient(135deg,#00ffc3,#3b82f6);color:#000;font-weight:700;cursor:pointer;display:none;">Continuer</button>
+      </div>
+    </div>
+  `;
+}
+
+/**
+ * Génère le HTML pour l'étape adresse
+ */
+function renderOnboardingAddressStep() {
+  return `
+    <div style="text-align:left;">
+      <!-- Champ adresse avec autocomplete -->
+      <div style="margin-bottom:16px;">
+        <label style="display:block;font-size:13px;font-weight:600;color:var(--ui-text-main);margin-bottom:8px;">📍 Adresse postale</label>
+        <input type="text" id="onboarding-address-input" placeholder="Commencez à taper votre adresse..." style="width:100%;padding:12px 16px;border-radius:10px;border:2px solid rgba(255,255,255,0.1);background:rgba(15,23,42,0.5);color:var(--ui-text-main);font-size:14px;">
+        <div id="address-suggestions" style="margin-top:8px;display:none;max-height:200px;overflow-y:auto;background:rgba(15,23,42,0.9);border-radius:8px;border:1px solid rgba(255,255,255,0.1);"></div>
+      </div>
+      
+      <!-- Adresse sélectionnée (affichée après sélection) -->
+      <div id="selected-address-display" style="display:none;padding:12px;background:rgba(0,255,195,0.1);border:1px solid rgba(0,255,195,0.3);border-radius:10px;margin-bottom:16px;">
+        <div style="display:flex;align-items:start;gap:8px;">
+          <span style="font-size:20px;">✅</span>
+          <div style="flex:1;">
+            <div style="font-weight:600;color:#00ffc3;margin-bottom:4px;" id="selected-address-label"></div>
+            <div style="font-size:12px;color:var(--ui-text-muted);" id="selected-address-details"></div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Option "Plus tard" -->
+      <div style="margin-bottom:20px;">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;color:var(--ui-text-muted);font-size:13px;">
+          <input type="checkbox" id="address-later-checkbox" style="cursor:pointer;">
+          <span>Vérifier mon adresse plus tard</span>
+        </label>
+      </div>
+      
+      <!-- Boutons -->
+      <div style="display:flex;gap:12px;">
+        <button id="onboarding-skip-address" style="flex:1;padding:12px;border-radius:12px;border:1px solid rgba(255,255,255,0.2);background:transparent;color:var(--ui-text-muted);font-weight:600;cursor:pointer;">Passer</button>
+        <button id="onboarding-continue-address" style="flex:1;padding:12px;border-radius:12px;border:none;background:linear-gradient(135deg,#00ffc3,#3b82f6);color:#000;font-weight:700;cursor:pointer;display:none;">Continuer</button>
+      </div>
+    </div>
+  `;
+}
+
+/**
+ * Génère le HTML pour l'étape complétée
+ */
+function renderOnboardingCompleteStep() {
+  return `
+    <div style="text-align:center;">
+      <div style="font-size:64px;margin-bottom:16px;">🎉</div>
+      <p style="color:var(--ui-text-main);margin-bottom:24px;">Votre profil est maintenant complet !</p>
+      <button id="onboarding-finish" style="width:100%;padding:14px;border-radius:12px;border:none;background:linear-gradient(135deg,#00ffc3,#3b82f6);color:#000;font-weight:700;cursor:pointer;">Commencer à explorer</button>
+    </div>
+  `;
+}
+
+/**
+ * Attache les event listeners pour l'onboarding
+ */
+function attachOnboardingEventListeners(step) {
+  if (step === 1) {
+    // Étape photo
+    const uploadZone = document.getElementById('photo-upload-zone');
+    const photoInput = document.getElementById('onboarding-photo-input');
+    const skipBtn = document.getElementById('onboarding-skip-photo');
+    const continueBtn = document.getElementById('onboarding-continue-photo');
+    const laterCheckbox = document.getElementById('photo-later-checkbox');
+    
+    if (uploadZone && photoInput) {
+      uploadZone.addEventListener('click', () => photoInput.click());
+    }
+    
+    if (skipBtn) {
+      skipBtn.addEventListener('click', () => {
+        skipOnboardingStep('photo');
+      });
+    }
+    
+    if (continueBtn) {
+      continueBtn.addEventListener('click', () => {
+        continueOnboardingStep('photo');
+      });
+    }
+    
+    if (laterCheckbox) {
+      laterCheckbox.addEventListener('change', (e) => {
+        if (e.target.checked) {
+          skipOnboardingStep('photo');
+        }
+      });
+    }
+  } else if (step === 2) {
+    // Étape adresse
+    const addressInput = document.getElementById('onboarding-address-input');
+    const skipBtn = document.getElementById('onboarding-skip-address');
+    const continueBtn = document.getElementById('onboarding-continue-address');
+    const laterCheckbox = document.getElementById('address-later-checkbox');
+    
+    if (addressInput) {
+      // Intégrer l'autocomplete d'adresse (OpenStreetMap/Nominatim)
+      setupAddressAutocomplete(addressInput);
+    }
+    
+    if (skipBtn) {
+      skipBtn.addEventListener('click', () => {
+        skipOnboardingStep('address');
+      });
+    }
+    
+    if (continueBtn) {
+      continueBtn.addEventListener('click', () => {
+        continueOnboardingStep('address');
+      });
+    }
+    
+    if (laterCheckbox) {
+      laterCheckbox.addEventListener('change', (e) => {
+        if (e.target.checked) {
+          skipOnboardingStep('address');
+        }
+      });
+    }
+  } else {
+    // Étape complétée
+    const finishBtn = document.getElementById('onboarding-finish');
+    if (finishBtn) {
+      finishBtn.addEventListener('click', () => {
+        closePublishModal();
+        showNotification('🎉 Bienvenue sur MapEvent !', 'success');
+      });
+    }
+  }
+}
+
+/**
+ * Gère l'upload de photo dans l'onboarding
+ */
+window.handleOnboardingPhotoUpload = function(event) {
+  const file = event.target.files[0];
+  if (!file) return;
   
-  if (!email || !password) {
-    showNotification("⚠️ Veuillez remplir tous les champs", "warning");
+  if (file.size > 5 * 1024 * 1024) {
+    showNotification('⚠️ La photo doit faire moins de 5MB', 'warning');
     return;
   }
   
-  // Tenter de récupérer l'utilisateur depuis localStorage (pour la démo)
-  try {
-    const savedUser = localStorage.getItem('currentUser');
-    if (savedUser) {
-      const parsedUser = JSON.parse(savedUser);
-      if (parsedUser.email === email) {
-        // Connexion réussie depuis localStorage
-        currentUser = {
-          ...parsedUser,
-          isLoggedIn: true,
-          lastLoginAt: new Date().toISOString()
-        };
-        safeSetItem('currentUser', JSON.stringify(currentUser));
-        showNotification(`✅ Bienvenue ${currentUser.name} !`, "success");
-        closePublishModal();
-        updateUserUI();
-        updateAccountButton();
-        await loadUserDataOnLogin();
-        // Afficher les notifications de changement de statut si l'utilisateur a participé à des événements
-        showStatusChangeNotifications();
-        return;
-      }
-    }
-  } catch (e) {
-    console.error('Erreur lecture localStorage:', e);
-  }
-  
-  // Tenter connexion via le backend
-  try {
-    const response = await fetch(`${API_BASE_URL}/user/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password })
-    });
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const previewContainer = document.getElementById('photo-preview-container');
+    const previewImg = document.getElementById('photo-preview');
+    const continueBtn = document.getElementById('onboarding-continue-photo');
     
-    if (response.ok) {
-      const data = await response.json();
-      if (data.user) {
-        currentUser = {
-          ...data.user,
-          isLoggedIn: true,
-          lastLoginAt: new Date().toISOString()
-        };
-        // Initialiser pendingStatusNotifications si nécessaire
-        if (!currentUser.pendingStatusNotifications) {
-          currentUser.pendingStatusNotifications = [];
-        }
-        safeSetItem('currentUser', JSON.stringify(currentUser));
-        showNotification(`✅ Bienvenue ${currentUser.name} !`, "success");
-        closePublishModal();
-        updateUserUI();
-        updateAccountButton();
-        await loadUserDataOnLogin();
-        // Afficher les notifications de changement de statut si l'utilisateur a participé à des événements
-        setTimeout(() => {
-          showStatusChangeNotifications();
-        }, 500);
-        return;
-      }
+    if (previewImg) {
+      previewImg.src = e.target.result;
     }
-  } catch (error) {
-    console.error('Erreur connexion backend:', error);
+    if (previewContainer) {
+      previewContainer.style.display = 'block';
+    }
+    if (continueBtn) {
+      continueBtn.style.display = 'block';
+    }
+    
+    // Stocker temporairement la photo pour l'upload
+    window.onboardingPhotoData = e.target.result;
+    window.onboardingPhotoFile = file;
+  };
+  reader.readAsDataURL(file);
+};
+
+/**
+ * Passe à l'étape suivante de l'onboarding
+ */
+function continueOnboardingStep(step) {
+  if (step === 'photo') {
+    // Uploader la photo
+    if (window.onboardingPhotoData && window.onboardingPhotoFile) {
+      uploadProfilePhoto(window.onboardingPhotoFile).then(() => {
+        // Passer à l'étape suivante
+        const missingSteps = checkProfileCompleteness(currentUser).missingSteps;
+        if (missingSteps.includes('address')) {
+          openOnboardingModal(['address']);
+        } else {
+          openOnboardingModal([]); // Afficher l'étape complétée
+        }
+      }).catch(error => {
+        console.error('[ONBOARDING] Erreur upload photo:', error);
+        showNotification('⚠️ Erreur lors de l\'upload de la photo', 'error');
+      });
+    }
+  } else if (step === 'address') {
+    // Sauvegarder l'adresse
+    const selectedAddress = window.onboardingSelectedAddress;
+    if (selectedAddress) {
+      saveUserAddress(selectedAddress).then(() => {
+        // Afficher l'étape complétée
+        openOnboardingModal([]);
+      }).catch(error => {
+        console.error('[ONBOARDING] Erreur sauvegarde adresse:', error);
+        showNotification('⚠️ Erreur lors de la sauvegarde de l\'adresse', 'error');
+      });
+    }
+  }
+}
+
+/**
+ * Passe l'étape de l'onboarding
+ */
+function skipOnboardingStep(step) {
+  if (step === 'photo') {
+    // Marquer comme "plus tard"
+    const missingSteps = checkProfileCompleteness(currentUser).missingSteps.filter(s => s !== 'photo');
+    if (missingSteps.length > 0) {
+      openOnboardingModal(missingSteps);
+    } else {
+      openOnboardingModal([]); // Afficher l'étape complétée
+    }
+  } else if (step === 'address') {
+    // Marquer comme "plus tard" (address_verified = false)
+    const missingSteps = checkProfileCompleteness(currentUser).missingSteps.filter(s => s !== 'address');
+    if (missingSteps.length > 0) {
+      openOnboardingModal(missingSteps);
+    } else {
+      openOnboardingModal([]); // Afficher l'étape complétée
+    }
+  }
+}
+
+/**
+ * Upload la photo de profil vers S3
+ */
+async function uploadProfilePhoto(file) {
+  console.log('[ONBOARDING] Upload photo vers S3...');
+  
+  const accessToken = getAuthToken();
+  if (!accessToken) {
+    throw new Error('Non authentifié');
   }
   
-  // Fallback: créer un compte temporaire pour la démo
-  showNotification("ℹ️ Compte non trouvé. Créez un nouveau compte.", "info");
-  openRegisterModal();
+  // Convertir le fichier en base64
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = async function(e) {
+      const base64Data = e.target.result;
+      
+      try {
+        const response = await fetch(`${window.API_BASE_URL}/user/upload-photo`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${accessToken}`
+          },
+          body: JSON.stringify({
+            photo: base64Data
+          })
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ error: 'Erreur inconnue' }));
+          throw new Error(errorData.error || 'Erreur upload photo');
+        }
+        
+        const data = await response.json();
+        const photoUrl = data.photo_url || data.user?.profile_photo_url;
+        
+        if (!photoUrl) {
+          throw new Error('URL photo non retournée par le serveur');
+        }
+        
+        // Mettre à jour currentUser
+        currentUser.profile_photo_url = photoUrl;
+        safeSetItem('currentUser', JSON.stringify(currentUser));
+        
+        console.log('[ONBOARDING] Photo uploadée avec succès:', photoUrl);
+        resolve(photoUrl);
+      } catch (error) {
+        console.error('[ONBOARDING] Erreur upload photo:', error);
+        reject(error);
+      }
+    };
+    reader.onerror = function(error) {
+      reject(new Error('Erreur lecture fichier'));
+    };
+    reader.readAsDataURL(file);
+  });
 }
+
+/**
+ * Sauvegarde l'adresse de l'utilisateur
+ */
+async function saveUserAddress(addressData) {
+  const accessToken = getAuthToken();
+  if (!accessToken) {
+    throw new Error('Non authentifié');
+  }
+  
+  const response = await fetch(`${window.API_BASE_URL}/user/address`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${accessToken}`
+    },
+    body: JSON.stringify({
+      address_label: addressData.label,
+      address_lat: addressData.lat,
+      address_lng: addressData.lng,
+      address_country_code: addressData.country_code,
+      address_city: addressData.city,
+      address_postcode: addressData.postcode,
+      address_street: addressData.street,
+      address_verified: true
+    })
+  });
+  
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ error: 'Erreur inconnue' }));
+    throw new Error(errorData.error || 'Erreur sauvegarde adresse');
+  }
+  
+  const data = await response.json();
+  // Mettre à jour currentUser avec les données retournées
+  if (data.user) {
+    Object.assign(currentUser, data.user);
+    safeSetItem('currentUser', JSON.stringify(currentUser));
+  }
+  
+  console.log('[ONBOARDING] Adresse sauvegardée avec succès');
+}
+
+/**
+ * Configure l'autocomplete d'adresse avec OpenStreetMap/Nominatim
+ */
+function setupAddressAutocomplete(inputElement) {
+  let timeout;
+  const suggestionsContainer = document.getElementById('address-suggestions');
+  
+  inputElement.addEventListener('input', function(e) {
+    const query = e.target.value.trim();
+    
+    clearTimeout(timeout);
+    
+    if (query.length < 3) {
+      if (suggestionsContainer) {
+        suggestionsContainer.style.display = 'none';
+      }
+      return;
+    }
+    
+    // OPTIMISATION: Debounce réduit à 300ms pour réactivité améliorée
+    timeout = setTimeout(async () => {
+      try {
+        // VALIDATION STRICTE + PERFORMANCE: Paramètres optimisés pour recherche rapide et exacte
+        // addressdetails=1 pour validation complète, limit=5 pour rapidité, language=fr pour pertinence, dedupe=1 pour éviter doublons
+        // ⚠️⚠️⚠️ RECHERCHE MONDIALE - Pas de restriction de pays, support multilingue
+        const langCode = (navigator.language || 'fr').split('-')[0];
+        const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=10&addressdetails=1&accept-language=${langCode},en&dedupe=1`, {
+          headers: {
+            'User-Agent': 'MapEventAI/1.0',
+            'Accept-Language': `${langCode},en,fr`
+          }
+        });
+        
+        // Gestion d'erreur pour Nominatim (503, timeout, etc.)
+        if (!response.ok) {
+          console.warn('[ONBOARDING] Nominatim erreur HTTP:', response.status, response.statusText);
+          if (suggestionsContainer) {
+            suggestionsContainer.style.display = 'none';
+          }
+          return;
+        }
+        
+        const text = await response.text();
+        let results;
+        try {
+          results = JSON.parse(text);
+        } catch (parseError) {
+          console.error('[ONBOARDING] Erreur parsing JSON Nominatim:', parseError, 'Response:', text.substring(0, 100));
+          if (suggestionsContainer) {
+            suggestionsContainer.style.display = 'none';
+          }
+          return;
+        }
+        
+        if (suggestionsContainer && results.length > 0) {
+          // TRI INTELLIGENT: Prioriser les résultats avec adresse complète (road + house_number)
+          const sortedResults = results.sort((a, b) => {
+            const aHasFullAddress = a.address?.road && (a.address?.house_number || a.address?.house);
+            const bHasFullAddress = b.address?.road && (b.address?.house_number || b.address?.house);
+            if (aHasFullAddress && !bHasFullAddress) return -1;
+            if (!aHasFullAddress && bHasFullAddress) return 1;
+            return 0;
+          });
+          
+          suggestionsContainer.innerHTML = sortedResults.map(result => {
+            const hasFullAddress = result.address?.road && (result.address?.house_number || result.address?.house);
+            const addressQuality = hasFullAddress ? '✅' : '📍';
+            return `
+            <div class="address-suggestion" style="padding:12px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.1);transition:background 0.2s;"
+                 onmouseover="this.style.background='rgba(0,255,195,0.1)'" 
+                 onmouseout="this.style.background='transparent'"
+                 data-lat="${result.lat}" 
+                 data-lng="${result.lon}"
+                 data-label="${result.display_name}"
+                 data-country="${result.address?.country_code?.toUpperCase() || ''}"
+                 data-city="${result.address?.city || result.address?.town || result.address?.village || ''}"
+                 data-postcode="${result.address?.postcode || ''}"
+                 data-street="${result.address?.road || ''}">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                <span style="font-size:14px;">${addressQuality}</span>
+                <div style="font-weight:600;color:var(--ui-text-main);flex:1;">${result.display_name}</div>
+              </div>
+              <div style="font-size:11px;color:var(--ui-text-muted);padding-left:22px;">${result.address?.country || ''}${result.address?.postcode ? ' • ' + result.address.postcode : ''}</div>
+            </div>
+          `;
+          }).join('');
+          
+          suggestionsContainer.style.display = 'block';
+          
+          // Attacher les event listeners aux suggestions
+          suggestionsContainer.querySelectorAll('.address-suggestion').forEach(suggestion => {
+            suggestion.addEventListener('click', function() {
+              selectAddressSuggestion({
+                lat: parseFloat(this.dataset.lat),
+                lng: parseFloat(this.dataset.lng),
+                label: this.dataset.label,
+                country_code: this.dataset.country,
+                city: this.dataset.city,
+                postcode: this.dataset.postcode,
+                street: this.dataset.street
+              });
+            });
+          });
+        } else if (suggestionsContainer) {
+          suggestionsContainer.style.display = 'none';
+        }
+      } catch (error) {
+        console.error('[ONBOARDING] Erreur autocomplete adresse:', error);
+      }
+    }, 300);
+  });
+}
+
+/**
+ * Sélectionne une adresse depuis les suggestions
+ */
+function selectAddressSuggestion(addressData) {
+  window.onboardingSelectedAddress = addressData;
+  
+  const input = document.getElementById('onboarding-address-input');
+  const suggestionsContainer = document.getElementById('address-suggestions');
+  const selectedDisplay = document.getElementById('selected-address-display');
+  const selectedLabel = document.getElementById('selected-address-label');
+  const selectedDetails = document.getElementById('selected-address-details');
+  const continueBtn = document.getElementById('onboarding-continue-address');
+  
+  if (input) {
+    input.value = addressData.label;
+  }
+  if (suggestionsContainer) {
+    suggestionsContainer.style.display = 'none';
+  }
+  if (selectedDisplay) {
+    selectedDisplay.style.display = 'block';
+  }
+  if (selectedLabel) {
+    selectedLabel.textContent = addressData.label;
+  }
+  if (selectedDetails) {
+    selectedDetails.textContent = `${addressData.city || ''} ${addressData.postcode || ''} - ${addressData.country_code || ''}`;
+  }
+  if (continueBtn) {
+    continueBtn.style.display = 'block';
+  }
+}
+
+// Exposer les fonctions globalement
+window.handleOnboardingPhotoUpload = handleOnboardingPhotoUpload;
+window.startOnboardingIfNeeded = startOnboardingIfNeeded;
+window.startOnboarding = startOnboardingIfNeeded; // Alias
+window.openOnboardingModal = openOnboardingModal;
+window.checkProfileCompleteness = checkProfileCompleteness;
+
+// Hook de test pour ouvrir l'onboarding directement (sans login)
+// Usage: window.testOnboarding() ou window.testOnboarding(['photo']) ou window.testOnboarding(['address'])
+window.testOnboarding = function(missingSteps = ['photo', 'address']) {
+  console.log('[ONBOARDING] Hook de test: testOnboarding() appelé avec missingSteps:', missingSteps);
+  if (typeof openOnboardingModal === 'function') {
+    return openOnboardingModal(missingSteps);
+  } else {
+    console.error('[ONBOARDING] openOnboardingModal n\'est pas disponible');
+  }
+};
+
+// Exposer les fonctions globalement IMMÉDIATEMENT après leur définition
+// REMOVED: openAuthModal est maintenant dans auth.js et exposé via window.openAuthModal
+
+// Wrappers pour compatibilité - utilisent les fonctions de auth.js
+function openLoginModal() {
+  console.log('[AUTH] openLoginModal (wrapper) called');
+  if (typeof window.openAuthModal === 'function') {
+    return window.openAuthModal('login');
+  } else if (typeof window.openLoginModal === 'function') {
+    // Fallback : utiliser directement window.openLoginModal si disponible
+    return window.openLoginModal();
+  } else {
+    console.error('[AUTH] ERREUR: window.openAuthModal non disponible (auth.js non chargé ?)');
+    // Dernier recours : essayer d'ouvrir le modal manuellement
+    const backdrop = document.getElementById('publish-modal-backdrop');
+    const modal = document.getElementById('publish-modal-inner');
+    if (backdrop && modal) {
+      console.log('[AUTH] Tentative d\'ouverture manuelle du modal');
+      backdrop.style.display = 'flex';
+      modal.style.display = 'block';
+    }
+  }
+}
+
+function openRegisterModal() {
+  console.log('[AUTH] openRegisterModal (wrapper) called');
+  if (typeof window.openAuthModal === 'function') {
+    return window.openAuthModal('register');
+  } else if (typeof window.openRegisterModal === 'function') {
+    // Fallback : utiliser directement window.openRegisterModal si disponible
+    return window.openRegisterModal();
+  } else {
+    console.error('[AUTH] ERREUR: window.openAuthModal non disponible (auth.js non chargé ?)');
+  }
+}
+
+// ⚠️⚠️⚠️ CRITIQUE : Exposer globalement pour que le HTML puisse les appeler
+window.openLoginModal = openLoginModal;
+window.openRegisterModal = openRegisterModal;
+
+// REMOVED: Les wrappers openLoginModal et openRegisterModal ne doivent PAS être exposés ici
+// car ces fonctions sont déjà dans auth.js et exposées globalement
+// Ces wrappers locaux sont conservés pour compatibilité mais ne doivent pas écraser ceux de auth.js
+
+// Fonction pour créer un compte depuis le modal auth
+// Gère l'upload de photo dans le formulaire d'inscription
+window.handleRegisterPhotoUpload = function(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  
+  if (file.size > 5 * 1024 * 1024) {
+    showNotification('⚠️ La photo doit faire moins de 5MB', 'warning');
+    return;
+  }
+  
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const previewContainer = document.getElementById('register-photo-preview-container');
+    const previewImg = document.getElementById('register-photo-preview');
+    
+    if (previewImg) {
+      previewImg.src = e.target.result;
+    }
+    if (previewContainer) {
+      previewContainer.style.display = 'block';
+    }
+    
+    // Stocker temporairement la photo pour l'envoi
+    window.registerPhotoData = e.target.result;
+    window.registerPhotoFile = file;
+  };
+  reader.readAsDataURL(file);
+};
+
+// Configure l'autocomplete d'adresse pour le formulaire d'inscription
+function setupRegisterAddressAutocomplete(inputElement) {
+  let timeout;
+  const suggestionsContainer = document.getElementById('register-address-suggestions');
+  
+  inputElement.addEventListener('input', function(e) {
+    const query = e.target.value.trim();
+    
+    clearTimeout(timeout);
+    
+    if (query.length < 3) {
+      if (suggestionsContainer) {
+        suggestionsContainer.style.display = 'none';
+      }
+      return;
+    }
+    
+    // OPTIMISATION: Debounce plus court (300ms) pour réactivité, mais validation stricte maintenue
+    timeout = setTimeout(async () => {
+      try {
+        // VALIDATION STRICTE + PERFORMANCE: Paramètres optimisés pour recherche rapide et exacte
+        // addressdetails=1 pour validation complète, limit=5 pour rapidité, language=fr pour pertinence
+        // ⚠️⚠️⚠️ RECHERCHE MONDIALE - Pas de restriction de pays, support multilingue
+        const langCode = (navigator.language || 'fr').split('-')[0];
+        const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=10&addressdetails=1&accept-language=${langCode},en&dedupe=1`, {
+          headers: {
+            'User-Agent': 'MapEventAI/1.0',
+            'Accept-Language': `${langCode},en,fr`
+          }
+        });
+        
+        // Gestion d'erreur pour Nominatim (503, timeout, etc.)
+        if (!response.ok) {
+          console.warn('[REGISTER] Nominatim erreur HTTP:', response.status, response.statusText);
+          if (suggestionsContainer) {
+            suggestionsContainer.style.display = 'none';
+          }
+          return;
+        }
+        
+        const text = await response.text();
+        let results;
+        try {
+          results = JSON.parse(text);
+        } catch (parseError) {
+          console.error('[REGISTER] Erreur parsing JSON Nominatim:', parseError, 'Response:', text.substring(0, 100));
+          if (suggestionsContainer) {
+            suggestionsContainer.style.display = 'none';
+          }
+          return;
+        }
+        
+        if (suggestionsContainer && results.length > 0) {
+          // TRI INTELLIGENT: Prioriser les résultats avec adresse complète (road + house_number)
+          const sortedResults = results.sort((a, b) => {
+            const aHasFullAddress = a.address?.road && (a.address?.house_number || a.address?.house);
+            const bHasFullAddress = b.address?.road && (b.address?.house_number || b.address?.house);
+            if (aHasFullAddress && !bHasFullAddress) return -1;
+            if (!aHasFullAddress && bHasFullAddress) return 1;
+            return 0;
+          });
+          
+          suggestionsContainer.innerHTML = sortedResults.map(result => {
+            const hasFullAddress = result.address?.road && (result.address?.house_number || result.address?.house);
+            const addressQuality = hasFullAddress ? '✅' : '📍';
+            return `
+            <div class="register-address-suggestion" style="padding:12px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.1);transition:background 0.2s;" 
+                 onmouseover="this.style.background='rgba(0,255,195,0.1)'" 
+                 onmouseout="this.style.background='transparent'"
+                 data-lat="${result.lat}" 
+                 data-lng="${result.lon}"
+                 data-label="${result.display_name}"
+                 data-country="${result.address?.country_code?.toUpperCase() || ''}"
+                 data-city="${result.address?.city || result.address?.town || result.address?.village || ''}"
+                 data-postcode="${result.address?.postcode || ''}"
+                 data-street="${result.address?.road || ''}">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                <span style="font-size:14px;">${addressQuality}</span>
+                <div style="font-weight:600;color:var(--ui-text-main);font-size:13px;flex:1;">${result.display_name}</div>
+              </div>
+              <div style="font-size:11px;color:var(--ui-text-muted);padding-left:22px;">${result.address?.country || ''}${result.address?.postcode ? ' • ' + result.address.postcode : ''}</div>
+            </div>
+          `;
+          }).join('');
+          
+          suggestionsContainer.style.display = 'block';
+          
+          // Attacher les event listeners aux suggestions
+          suggestionsContainer.querySelectorAll('.register-address-suggestion').forEach(suggestion => {
+            suggestion.addEventListener('click', function() {
+              selectRegisterAddressSuggestion({
+                lat: parseFloat(this.dataset.lat),
+                lng: parseFloat(this.dataset.lng),
+                label: this.dataset.label,
+                country_code: this.dataset.country,
+                city: this.dataset.city,
+                postcode: this.dataset.postcode,
+                street: this.dataset.street
+              });
+            });
+          });
+        } else if (suggestionsContainer) {
+          suggestionsContainer.style.display = 'none';
+        }
+      } catch (error) {
+        console.error('[REGISTER] Erreur autocomplete adresse:', error);
+      }
+    }, 300);
+  });
+}
+
+// Sélectionne une adresse depuis les suggestions dans le formulaire d'inscription
+function selectRegisterAddressSuggestion(addressData) {
+  window.registerSelectedAddress = addressData;
+  
+  const input = document.getElementById('register-address-input');
+  const suggestionsContainer = document.getElementById('register-address-suggestions');
+  const selectedDisplay = document.getElementById('register-selected-address-display');
+  const selectedLabel = document.getElementById('register-selected-address-label');
+  const selectedDetails = document.getElementById('register-selected-address-details');
+  
+  if (input) {
+    input.value = addressData.label;
+  }
+  if (suggestionsContainer) {
+    suggestionsContainer.style.display = 'none';
+  }
+  if (selectedDisplay) {
+    selectedDisplay.style.display = 'block';
+  }
+  if (selectedLabel) {
+    selectedLabel.textContent = addressData.label;
+  }
+  if (selectedDetails) {
+    selectedDetails.textContent = `${addressData.city || ''} ${addressData.postcode || ''} - ${addressData.country_code || ''}`;
+  }
+}
+
+// Fonction pour afficher l'erreur de timeout d'inscription
+function showRegisterTimeoutError(email, username) {
+  const authModal = document.getElementById('authModal');
+  if (!authModal) return;
+  
+  const html = `
+    <div style="text-align:center;padding:40px 20px;position:relative;">
+      <!-- Bouton X (croix) pour fermer -->
+      <button onclick="closeAuthModal()" style="position:absolute;top:16px;right:16px;background:none;border:none;color:var(--ui-text-muted);font-size:24px;cursor:pointer;padding:8px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:all 0.2s;z-index:10;" onmouseover="this.style.background='rgba(239,68,68,0.2)';this.style.color='#ef4444';this.style.transform='scale(1.1)';" onmouseout="this.style.background='none';this.style.color='var(--ui-text-muted)';this.style.transform='scale(1)';" title="Fermer">✕</button>
+      
+      <div style="font-size:64px;margin-bottom:20px;">⏱️</div>
+      <h2 style="margin:0 0 12px;font-size:24px;font-weight:700;color:#fff;">Quelque chose cloche...</h2>
+      <p style="margin:0 0 24px;font-size:14px;color:var(--ui-text-muted);line-height:1.6;">
+        L'inscription prend trop de temps (cold start probable).<br>
+        Veuillez réessayer ou vous connecter si vous avez déjà un compte.
+      </p>
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <button onclick="closeAuthModal(); setTimeout(() => { openAuthModal('register'); const el = document.getElementById('register-email'); if (el && '${email}') el.value = '${email}'; const el2 = document.getElementById('register-username'); if (el2 && '${username}') el2.value = '${username}'; }, 200);" style="width:100%;padding:14px;border-radius:12px;border:none;background:linear-gradient(135deg,#00ffc3,#3b82f6);color:#000;font-weight:700;font-size:15px;cursor:pointer;">
+          🔄 Réessayer
+        </button>
+        <button onclick="closeAuthModal(); setTimeout(() => openAuthModal('login'), 200);" style="width:100%;padding:14px;border-radius:12px;border:2px solid rgba(255,255,255,0.2);background:transparent;color:#fff;font-weight:600;font-size:15px;cursor:pointer;">
+          🔐 Se connecter
+        </button>
+        <button onclick="closeAuthModal()" style="width:100%;padding:12px;border-radius:10px;border:2px solid rgba(255,255,255,0.1);background:transparent;color:var(--ui-text-muted);font-weight:600;font-size:14px;cursor:pointer;transition:all 0.3s;" onmouseover="this.style.borderColor='rgba(255,255,255,0.3)';this.style.color='var(--ui-text-main)';" onmouseout="this.style.borderColor='rgba(255,255,255,0.1)';this.style.color='var(--ui-text-muted)';">
+          Annuler
+        </button>
+      </div>
+    </div>
+  `;
+  
+  authModal.innerHTML = html;
+}
+
+// Fonction pour afficher l'erreur de conflit (409)
+function showRegisterConflictError(errorData, email) {
+  const authModal = document.getElementById('authModal');
+  if (!authModal) return;
+  
+  // Message clair selon le champ en conflit
+  let errorMsg = 'Un compte existe déjà avec cet email.';
+  let isEmailConflict = false;
+  
+  if (errorData.code === 'USERNAME_ALREADY_EXISTS') {
+    errorMsg = 'Ce nom d\'utilisateur est déjà pris.';
+  } else if (errorData.code === 'EMAIL_ALREADY_EXISTS' || errorData.field === 'email') {
+    errorMsg = 'Un compte existe déjà avec cet email.';
+    isEmailConflict = true;
+  } else if (errorData.error) {
+    errorMsg = errorData.error;
+  }
+  
+  const html = `
+    <div style="text-align:center;padding:40px 20px;position:relative;">
+      <!-- Bouton X (croix) pour fermer -->
+      <button onclick="closeAuthModal()" style="position:absolute;top:16px;right:16px;background:none;border:none;color:var(--ui-text-muted);font-size:24px;cursor:pointer;padding:8px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:all 0.2s;z-index:10;" onmouseover="this.style.background='rgba(239,68,68,0.2)';this.style.color='#ef4444';this.style.transform='scale(1.1)';" onmouseout="this.style.background='none';this.style.color='var(--ui-text-muted)';this.style.transform='scale(1)';" title="Fermer">✕</button>
+      
+      <div style="font-size:64px;margin-bottom:20px;">⚠️</div>
+      <h2 style="margin:0 0 12px;font-size:24px;font-weight:700;color:#fff;">Compte déjà existant</h2>
+      <p style="margin:0 0 24px;font-size:14px;color:var(--ui-text-muted);line-height:1.6;">
+        ${errorMsg}<br>
+        ${isEmailConflict ? 'Connecte-toi avec ton compte existant.' : 'Veuillez choisir un autre nom d\'utilisateur.'}
+      </p>
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        ${isEmailConflict ? `
+          <button onclick="closeAuthModal(); setTimeout(() => { openAuthModal('login'); setTimeout(() => { const el = document.getElementById('login-email'); if (el && '${email}') el.value = '${email}'; }, 300); }, 200);" style="width:100%;padding:14px;border-radius:12px;border:none;background:linear-gradient(135deg,#00ffc3,#3b82f6);color:#000;font-weight:700;font-size:15px;cursor:pointer;">
+            🔐 Se connecter
+          </button>
+          <button onclick="showNotification('Fonctionnalité à venir', 'info')" style="width:100%;padding:12px;border-radius:12px;border:none;background:transparent;color:var(--ui-text-muted);font-weight:500;font-size:14px;cursor:pointer;">
+            🔑 Mot de passe oublié
+          </button>
+        ` : `
+          <button onclick="closeAuthModal(); setTimeout(() => openAuthModal('register'), 200);" style="width:100%;padding:14px;border-radius:12px;border:none;background:linear-gradient(135deg,#00ffc3,#3b82f6);color:#000;font-weight:700;font-size:15px;cursor:pointer;">
+            🔄 Réessayer avec un autre nom
+          </button>
+        `}
+        <button onclick="closeAuthModal()" style="width:100%;padding:12px;border-radius:10px;border:2px solid rgba(255,255,255,0.1);background:transparent;color:var(--ui-text-muted);font-weight:600;font-size:14px;cursor:pointer;transition:all 0.3s;" onmouseover="this.style.borderColor='rgba(255,255,255,0.3)';this.style.color='var(--ui-text-main)';" onmouseout="this.style.borderColor='rgba(255,255,255,0.1)';this.style.color='var(--ui-text-muted)';">
+          Annuler
+        </button>
+      </div>
+    </div>
+  `;
+  
+  authModal.innerHTML = html;
+}
+
+// REMOVED: performRegister() est maintenant dans auth.js et exposé via window.performRegister
+// La fonction complète (~335 lignes) a été supprimée
+
+// REMOVED: performLogin() est maintenant dans auth.js et exposé via window.performLogin
 
 // Ancien alias pour compatibilité
 async function simulateLogin() {
-  await performLogin();
+  if (typeof window.performLogin === 'function') {
+    await window.performLogin();
+  }
 }
 
 // ============================================
 // FORMULAIRE D'INSCRIPTION 3 ÉTAPES
 // ============================================
-
-let registerStep = 1;
-let registerData = {
-  email: '',
-  username: '',
-  password: '',
-  avatarId: 1,
-  avatarDescription: '',
-  addresses: [],
-  emailVerificationCode: null,
-  emailVerified: false,
-  verificationAttempts: 0,
-  lastVerificationAttempt: null,
-  registrationAttempts: 0,
-  lastRegistrationAttempt: null
-};
-
-function openRegisterModal() {
-  console.log('🎯 openRegisterModal called - Ouverture fenêtre de connexion');
-  
-  // Réinitialiser les données d'inscription
-  registerStep = 1;
-  registerData = {
+// NOTE: registerStep et registerData sont déclarées dans auth.js et exposées via window.registerStep et window.registerData
+// Vérifier que les variables globales existent
+if (typeof window.registerStep === 'undefined') {
+  window.registerStep = 1;
+}
+if (typeof window.registerData === 'undefined') {
+  window.registerData = {
     email: '',
     username: '',
     password: '',
-    passwordConfirm: '',
-    firstName: '',
-    lastName: '',
-    profilePhoto: '',
-    postalAddress: '',
     avatarId: 1,
     avatarDescription: '',
     addresses: [],
@@ -9420,17 +12200,13 @@ function openRegisterModal() {
     verificationAttempts: 0,
     lastVerificationAttempt: null,
     registrationAttempts: 0,
-    lastRegistrationAttempt: null,
-    captchaAnswer: null,
-    codeSentAt: null,
-    codeExpiresAt: null,
-    resendCountdown: 0,
-    lastResendAttempt: null
+    lastRegistrationAttempt: null
   };
-  
-  // Ouvrir la fenêtre de connexion (pas le formulaire d'inscription directement)
-  openLoginModal();
 }
+
+// NOTE: openRegisterModal() est déjà définie plus haut (ligne 9881)
+// Cette fonction est supprimée pour éviter les conflits
+// Utiliser openAuthModal('register') directement
 
 // Formulaire professionnel style Facebook
 function showProRegisterForm() {
@@ -9456,6 +12232,31 @@ function showProRegisterForm() {
   
   console.log('✅ Modal elements found, displaying form...');
   
+  // S'assurer que registerData est initialisé
+  if (!window.registerData) {
+    window.registerData = {
+      email: '',
+      username: '',
+      password: '',
+      passwordConfirm: '',
+      firstName: '', // Optionnel - pas utilisé dans le formulaire pro
+      lastName: '', // Optionnel - pas utilisé dans le formulaire pro
+      profilePhoto: '',
+      photoData: '', // Initialiser photoData aussi
+      postalAddress: '',
+      avatarId: 1
+    };
+    console.log('[REGISTER] registerData initialisé dans showProRegisterForm');
+  } else {
+    // S'assurer que photoData existe même si registerData existe déjà
+    // CORRECTION: Vérifier aussi si photoData est une chaîne vide
+    if ((!window.registerData.photoData || window.registerData.photoData.length === 0) && 
+        window.registerData.profilePhoto && window.registerData.profilePhoto.length > 0) {
+      window.registerData.photoData = window.registerData.profilePhoto;
+      console.log('[REGISTER] ✅ photoData copié depuis profilePhoto dans showProRegisterForm');
+    }
+  }
+  
   // Forcer l'affichage du modal
   backdrop.style.display = 'flex';
   backdrop.style.visibility = 'visible';
@@ -9466,48 +12267,93 @@ function showProRegisterForm() {
   modal.style.opacity = '1';
 
   const html = `
-    <div class="pro-register-container">
+    <style>
+      @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+      }
+      @keyframes slideUp {
+        from { opacity: 0; transform: translateY(-5px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      @keyframes slideDown {
+        from { opacity: 1; transform: translateY(0); }
+        to { opacity: 0; transform: translateY(-5px); }
+      }
+      .pro-register-error {
+        color: #ef4444;
+        font-size: 12px;
+        margin-top: 4px;
+        display: none;
+        animation: slideUp 0.3s ease;
+      }
+      .pro-register-success {
+        color: #22c55e;
+        font-size: 12px;
+        margin-top: 4px;
+        display: none;
+        animation: slideUp 0.3s ease;
+      }
+      .pro-register-input.field-error {
+        border-color: #ef4444 !important;
+        box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1) !important;
+      }
+      .pro-register-input.field-success {
+        border-color: #22c55e !important;
+        box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1) !important;
+      }
+      .pro-register-password-strength-fill {
+        height: 4px;
+        border-radius: 2px;
+        transition: all 0.3s ease;
+      }
+      .pro-register-password-strength-fill.weak {
+        background-color: #ef4444;
+      }
+      .pro-register-password-strength-fill.medium {
+        background-color: #f59e0b;
+      }
+      .pro-register-password-strength-fill.strong {
+        background-color: #22c55e;
+      }
+    </style>
+    <div class="pro-register-container" style="position:relative;">
+      <!-- Bouton X (croix) pour fermer -->
+      <button onclick="closeAuthModal()" style="position:absolute;top:16px;right:16px;background:none;border:none;color:var(--ui-text-muted);font-size:24px;cursor:pointer;padding:8px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:all 0.2s;z-index:10;" onmouseover="this.style.background='rgba(239,68,68,0.2)';this.style.color='#ef4444';this.style.transform='scale(1.1)';" onmouseout="this.style.background='none';this.style.color='var(--ui-text-muted)';this.style.transform='scale(1)';" title="Fermer">✕</button>
+      
       <div class="pro-register-header">
         <div class="pro-register-logo">🌍</div>
         <h1 class="pro-register-title">Créer un compte</h1>
         <p class="pro-register-subtitle">Rejoignez MapEvent et découvrez les événements près de chez vous</p>
       </div>
+      
+      <!-- Progress Indicator -->
+      <div class="registration-progress" style="display:flex;justify-content:space-between;margin-bottom:24px;padding:0 8px;">
+        <div class="progress-step" data-step="1" style="flex:1;text-align:center;padding:8px;border-radius:8px;background:rgba(34,197,94,0.2);color:#22c55e;font-weight:600;font-size:12px;transition:all 0.3s;">
+          <div style="width:32px;height:32px;border-radius:50%;background:#22c55e;color:#fff;display:flex;align-items:center;justify-content:center;margin:0 auto 4px;font-weight:bold;">1</div>
+          Informations
+        </div>
+        <div class="progress-step" data-step="2" style="flex:1;text-align:center;padding:8px;border-radius:8px;background:rgba(255,255,255,0.05);color:var(--ui-text-muted);font-size:12px;margin:0 8px;transition:all 0.3s;">
+          <div style="width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.1);color:var(--ui-text-muted);display:flex;align-items:center;justify-content:center;margin:0 auto 4px;font-weight:bold;">2</div>
+          Vérification
+        </div>
+        <div class="progress-step" data-step="3" style="flex:1;text-align:center;padding:8px;border-radius:8px;background:rgba(255,255,255,0.05);color:var(--ui-text-muted);font-size:12px;transition:all 0.3s;">
+          <div style="width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.1);color:var(--ui-text-muted);display:flex;align-items:center;justify-content:center;margin:0 auto 4px;font-weight:bold;">3</div>
+          Confirmation
+        </div>
+      </div>
 
       <form class="pro-register-form" onsubmit="handleProRegisterSubmit(event)">
-        <!-- Prénom et Nom -->
-        <div class="pro-register-row">
-          <div class="pro-register-field">
-            <label class="pro-register-label">
-              Prénom <span class="required">*</span>
-            </label>
-            <input 
-              type="text" 
-              id="pro-firstname" 
-              class="pro-register-input" 
-              placeholder="Prénom"
-              required
-              value="${registerData.firstName || ''}"
-              oninput="registerData.firstName = this.value; validateProField('firstname', this.value)"
-            >
-            <div id="pro-firstname-error" class="pro-register-error"></div>
-          </div>
-          <div class="pro-register-field">
-            <label class="pro-register-label">
-              Nom <span class="required">*</span>
-            </label>
-            <input 
-              type="text" 
-              id="pro-lastname" 
-              class="pro-register-input" 
-              placeholder="Nom"
-              required
-              value="${registerData.lastName || ''}"
-              oninput="registerData.lastName = this.value; validateProField('lastname', this.value)"
-            >
-            <div id="pro-lastname-error" class="pro-register-error"></div>
-          </div>
-        </div>
-
+        <!-- HONEYPOT FIELD (Anti-Bot) - Invisible pour les humains -->
+        <input 
+          type="text" 
+          name="website" 
+          id="pro-website-honeypot"
+          style="position:absolute;left:-9999px;opacity:0;pointer-events:none;tabindex:-1;"
+          autocomplete="off"
+          aria-hidden="true"
+        >
+        
         <!-- Email -->
         <div class="pro-register-field">
           <label class="pro-register-label">
@@ -9519,8 +12365,8 @@ function showProRegisterForm() {
             class="pro-register-input" 
             placeholder="votre@email.com"
             required
-            value="${registerData.email || ''}"
-            oninput="registerData.email = this.value; validateProField('email', this.value)"
+            value="${window.registerData.email || ''}"
+            oninput="if(window.registerData) window.registerData.email = this.value; if(typeof window.validateProField === 'function') window.validateProField('email', this.value)"
           >
           <div id="pro-email-error" class="pro-register-error"></div>
           <div id="pro-email-success" class="pro-register-success"></div>
@@ -9537,8 +12383,8 @@ function showProRegisterForm() {
             class="pro-register-input" 
             placeholder="Votre pseudo (3-20 caractères)"
             required
-            value="${registerData.username || ''}"
-            oninput="registerData.username = this.value; validateProField('username', this.value)"
+            value="${window.registerData.username || ''}"
+            oninput="if(window.registerData) window.registerData.username = this.value; if(typeof window.validateProField === 'function') window.validateProField('username', this.value); if(typeof autoSaveRegistrationForm === 'function') autoSaveRegistrationForm();"
           >
           <div id="pro-username-error" class="pro-register-error"></div>
           <div id="pro-username-success" class="pro-register-success"></div>
@@ -9549,20 +12395,20 @@ function showProRegisterForm() {
           <label class="pro-register-label">
             Photo de profil <span class="required">*</span>
           </label>
-          <div class="pro-register-photo-upload" onclick="document.getElementById('pro-photo-input').click()">
-            <img id="pro-photo-preview" class="pro-register-photo-preview" src="${registerData.profilePhoto || ''}" alt="Preview">
-            <div class="pro-register-photo-placeholder" id="pro-photo-placeholder" style="${registerData.profilePhoto ? 'display:none' : 'display:flex'}">
+          <div class="pro-register-photo-upload" onclick="event.stopPropagation();event.stopImmediatePropagation();const input = document.getElementById('pro-photo-input'); if(input) input.click(); return false;">
+            <img id="pro-photo-preview" class="pro-register-photo-preview" src="${window.registerData.profilePhoto || ''}" alt="Preview">
+            <div class="pro-register-photo-placeholder" id="pro-photo-placeholder" style="${window.registerData.profilePhoto ? 'display:none' : 'display:flex'}">
               📷
             </div>
             <div class="pro-register-photo-text">
-              ${registerData.profilePhoto ? 'Cliquez pour changer la photo' : 'Cliquez pour ajouter une photo'}
+              ${window.registerData.profilePhoto ? 'Cliquez pour changer la photo' : 'Cliquez pour ajouter une photo'}
             </div>
             <input 
               type="file" 
               id="pro-photo-input" 
               class="pro-register-photo-input" 
               accept="image/*"
-              onchange="handleProPhotoUpload(event)"
+              onchange="event.preventDefault();event.stopPropagation();event.stopImmediatePropagation();handleProPhotoUpload(event);return false;"
             >
           </div>
           <div id="pro-photo-error" class="pro-register-error"></div>
@@ -9580,10 +12426,10 @@ function showProRegisterForm() {
               class="pro-register-input" 
               placeholder="Minimum 8 caractères"
               required
-              value="${registerData.password || ''}"
-              oninput="registerData.password = this.value; validateProPassword(this.value)"
+            value="${window.registerData.password || ''}"
+            oninput="if(window.registerData) window.registerData.password = this.value; if(typeof validateProPassword === 'function') validateProPassword(this.value)"
             >
-            <button type="button" class="pro-register-password-toggle" onclick="toggleProPasswordVisibility('pro-password')">👁️</button>
+            <button type="button" class="pro-register-password-toggle" onclick="event.preventDefault();event.stopPropagation();toggleProPasswordVisibility('pro-password', event);return false;">👁️</button>
           </div>
           <div class="pro-register-password-strength">
             <div id="pro-password-strength-fill" class="pro-register-password-strength-fill"></div>
@@ -9603,31 +12449,79 @@ function showProRegisterForm() {
               class="pro-register-input" 
               placeholder="Répétez le mot de passe"
               required
-              value="${registerData.passwordConfirm || ''}"
-              oninput="registerData.passwordConfirm = this.value; validateProPasswordMatch()"
+              value="${window.window.window.registerData.passwordConfirm || ''}"
+              oninput="window.window.registerData.passwordConfirm = this.value; validateProPasswordMatch()"
             >
-            <button type="button" class="pro-register-password-toggle" onclick="toggleProPasswordVisibility('pro-password-confirm')">👁️</button>
+            <button type="button" class="pro-register-password-toggle" onclick="event.preventDefault();event.stopPropagation();toggleProPasswordVisibility('pro-password-confirm', event);return false;">👁️</button>
           </div>
           <div id="pro-password-confirm-error" class="pro-register-error"></div>
           <div id="pro-password-confirm-success" class="pro-register-success"></div>
         </div>
 
-        <!-- Adresse postale pour les alertes -->
-        <div class="pro-register-field">
+        <!-- Adresse postale pour les alertes (avec autocomplete OpenStreetMap) -->
+        <div class="pro-register-field" style="margin-bottom: 20px;">
           <label class="pro-register-label">
-            Adresse postale <span class="required">*</span>
+            Adresse postale
             <span style="font-weight: normal; color: var(--ui-text-muted); font-size: 12px;">(pour recevoir les alertes)</span>
           </label>
-          <input 
-            type="text" 
-            id="pro-postal-address" 
-            class="pro-register-input" 
-            placeholder="Rue, Code postal, Ville"
-            required
-            value="${registerData.postalAddress || ''}"
-            oninput="registerData.postalAddress = this.value; validateProField('postalAddress', this.value)"
-          >
+          <div style="position: relative; z-index: 1;">
+            <input 
+              type="text" 
+              id="pro-postal-address" 
+              class="pro-register-input" 
+              placeholder="Commencez à taper votre adresse..."
+              value="${window.window.registerData.postalAddress || ''}"
+              autocomplete="off"
+              oninput="if(typeof autoSaveRegistrationForm === 'function') autoSaveRegistrationForm();"
+            >
+            <div id="pro-address-suggestions-wrapper" style="position:absolute;top:100%;left:0;right:0;z-index:10001;margin-top:4px;display:none;">
+              <div id="pro-address-suggestions" class="address-suggestions" style="display:none;position:relative;width:100%;background:#050810;background-color:#050810;border:2px solid rgba(255,255,255,0.7);border-radius:8px;max-height:120px;overflow-y:auto;opacity:1;backdrop-filter:none;isolation:isolate;mix-blend-mode:normal;box-shadow:0 8px 40px rgba(0,0,0,1), inset 0 0 0 2px rgba(0,0,0,0.5);"></div>
+            </div>
+            <input type="hidden" id="pro-address-lat" value="${window.registerData.addressLat || ''}">
+            <input type="hidden" id="pro-address-lng" value="${window.registerData.addressLng || ''}">
+            <input type="hidden" id="pro-address-country" value="${window.registerData.addressCountry || ''}">
+            <input type="hidden" id="pro-address-label" value="${window.registerData.addressLabel || ''}">
+          </div>
           <div id="pro-postal-address-error" class="pro-register-error"></div>
+          <div id="pro-address-status" style="font-size: 12px; color: var(--ui-text-muted); margin-top: 4px;"></div>
+          <label style="display: flex; align-items: center; gap: 8px; margin-top: 8px; cursor: pointer; font-size: 13px; color: var(--ui-text-muted);">
+            <input 
+              type="checkbox" 
+              id="pro-skip-address" 
+              onchange="updatePostalAddressRequired()"
+              style="cursor: pointer;"
+            >
+            <span>Pas pour l'instant, je vérifierai mon adresse plus tard</span>
+          </label>
+        </div>
+
+        <!-- Consentement RGPD -->
+        <div class="pro-register-field" style="margin-top: 51px; position: relative; z-index: 10002;">
+          <label style="display: flex; align-items: flex-start; gap: 8px; cursor: pointer; font-size: 13px; color: var(--ui-text-main);">
+            <input 
+              type="checkbox" 
+              id="pro-consent-terms" 
+              required
+              style="cursor: pointer; margin-top: 2px; flex-shrink: 0;"
+            >
+            <span>
+              J'accepte les <a href="#" onclick="event.preventDefault();event.stopPropagation();if(typeof window.showTermsModal==='function'){window.showTermsModal();}else if(typeof showTermsModal==='function'){showTermsModal();}return false;" style="color: #3b82f6; text-decoration: underline; cursor: pointer;">Conditions d'utilisation</a> <span style="color: #ef4444;">*</span>
+            </span>
+          </label>
+        </div>
+        
+        <div class="pro-register-field" style="margin-top: 8px;">
+          <label style="display: flex; align-items: flex-start; gap: 8px; cursor: pointer; font-size: 13px; color: var(--ui-text-main);">
+            <input 
+              type="checkbox" 
+              id="pro-consent-privacy" 
+              required
+              style="cursor: pointer; margin-top: 2px; flex-shrink: 0;"
+            >
+            <span>
+              J'accepte la <a href="#" onclick="event.preventDefault();event.stopPropagation();if(typeof window.showPrivacyModal==='function'){window.showPrivacyModal();}else if(typeof showPrivacyModal==='function'){showPrivacyModal();}return false;" style="color: #3b82f6; text-decoration: underline; cursor: pointer;">Politique de confidentialité</a> <span style="color: #ef4444;">*</span>
+            </span>
+          </label>
         </div>
 
         <!-- Bouton de soumission -->
@@ -9635,18 +12529,10 @@ function showProRegisterForm() {
           <button type="submit" class="pro-register-btn-primary" id="pro-submit-btn">
             Créer le compte
           </button>
-          <button type="button" class="pro-register-btn-secondary" onclick="closePublishModal()">
+          <button type="button" id="auth-cancel-btn-pro" class="pro-register-btn-secondary" onclick="console.log('[ANNULER PRO] Click detecte');const e=event||window.event;if(e){e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();}if(typeof window.fermerModalAuth==='function'){window.fermerModalAuth();}else if(typeof closeAuthModal==='function'){closeAuthModal();}else{const b=document.getElementById('publish-modal-backdrop');const m=document.getElementById('publish-modal-inner');if(b){b.style.display='none';b.style.visibility='hidden';b.style.opacity='0';}if(m){m.innerHTML='';m.style.display='none';}}return false;" style="cursor:pointer;pointer-events:auto;z-index:10001;position:relative;">
             Annuler
           </button>
         </div>
-
-        <!-- Mentions légales -->
-        <p class="pro-register-legal">
-          En créant un compte, vous acceptez nos 
-          <a href="#" onclick="showTermsModal(); return false;">Conditions d'utilisation</a> 
-          et notre 
-          <a href="#" onclick="showPrivacyModal(); return false;">Politique de confidentialité</a>.
-        </p>
       </form>
     </div>
   `;
@@ -9679,77 +12565,909 @@ function showProRegisterForm() {
   console.log('✅ Modal inner HTML length:', modal.innerHTML.length);
   console.log('✅ Modal inner first 200 chars:', modal.innerHTML.substring(0, 200));
 
-  // Focus sur le premier champ
+  // SOLUTION ULTRA-ROBUSTE : Utiliser la même fonction nommée que dans openAuthModal
+  // Supprimer l'ancien event listener si il existe déjà (de openAuthModal)
+  if (window._authModalCancelHandler) {
+    backdrop.removeEventListener('click', window._authModalCancelHandler, true);
+  }
+  
+  // La fonction _authModalCancelHandler est déjà définie dans openAuthModal
+  // Si elle n'existe pas encore, la créer
+  if (!window._authModalCancelHandler) {
+    window._authModalCancelHandler = function(e) {
+      const target = e.target;
+      
+      // DEBUG : Logger tous les clics sur les boutons
+      if (target.tagName === 'BUTTON' || target.closest('button')) {
+        const btn = target.tagName === 'BUTTON' ? target : target.closest('button');
+        console.log('[PRO REGISTER] 🖱️ CLIC DETECTE sur bouton:', {
+          id: btn.id,
+          text: btn.textContent?.trim(),
+          onclick: btn.hasAttribute('onclick'),
+          isCancelBtn: btn.id === 'auth-cancel-btn' || btn.id === 'auth-cancel-btn-pro'
+        });
+      }
+      
+      const isCancelButton = target.id === 'auth-cancel-btn' || 
+                            target.id === 'auth-cancel-btn-pro' ||
+                            target.closest('#auth-cancel-btn') ||
+                            target.closest('#auth-cancel-btn-pro') ||
+                            (target.tagName === 'BUTTON' && target.textContent?.trim() === 'Annuler') ||
+                            (target.closest('button') && target.closest('button').textContent?.trim() === 'Annuler');
+      
+      if (isCancelButton) {
+        console.log('[PRO REGISTER] 🔥🔥🔥 BOUTON ANNULER CLIQUE (via event delegation) - FERMETURE IMMEDIATE');
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        e.cancelBubble = true;
+        
+        const b = document.getElementById('publish-modal-backdrop');
+        const m = document.getElementById('publish-modal-inner');
+        const a = document.getElementById('authModal');
+        const o = document.getElementById('onboardingModal');
+        
+        if (b) {
+          b.style.display = 'none';
+          b.style.visibility = 'hidden';
+          b.style.opacity = '0';
+          b.style.zIndex = '-1';
+          b.setAttribute('style', 'display:none!important;visibility:hidden!important;opacity:0!important;z-index:-1!important;');
+        }
+        if (m) {
+          m.innerHTML = '';
+          m.style.display = 'none';
+          m.setAttribute('style', 'display:none!important;');
+        }
+        if (a) {
+          a.remove();
+        }
+        if (o) {
+          o.remove();
+        }
+        
+        window.pendingRegisterPhoto = null;
+        window.registerSelectedAddress = null;
+        window.registerPhotoData = null;
+        window.registerPhotoFile = null;
+        window.isGoogleLoginInProgress = false;
+        
+        console.log('[PRO REGISTER] ✅ Modal ferme COMPLETEMENT (via event delegation)');
+        return false;
+      }
+      
+      // Si on clique directement sur le backdrop (pas sur ses enfants), fermer le modal
+      // ⚠️⚠️⚠️ IMPORTANT : Ignorer TOUS les éléments du formulaire d'inscription
+      const isClickOnChild = target.closest('button') || 
+                            target.closest('input') || 
+                            target.closest('a') || 
+                            target.closest('.pro-register-container') ||
+                            target.closest('#publish-modal-inner') ||
+                            target.closest('#authModal') ||
+                            target.closest('.pro-register-photo-upload') ||
+                            target.closest('#pro-photo-input') ||
+                            target.closest('#pro-photo-preview') ||
+                            target.closest('.pro-register-photo-placeholder') ||
+                            target.closest('.pro-register-field') ||
+                            target.closest('.pro-register-input') ||
+                            target.closest('.pro-register-password-container') ||
+                            target.closest('.pro-register-password-toggle') ||
+                            target.closest('form') ||
+                            target.id === 'pro-photo-input' ||
+                            target.id === 'pro-photo-preview' ||
+                            target.classList?.contains('pro-register-photo-upload') ||
+                            target.classList?.contains('pro-register-photo-input') ||
+                            target.classList?.contains('pro-register-password-toggle') ||
+                            target.classList?.contains('pro-register-password-container');
+      
+      if (target === backdrop && !isClickOnChild) {
+        console.log('[PRO REGISTER] Backdrop click detecte - Fermeture via closeAuthModal');
+        closeAuthModal();
+      } else if (isClickOnChild) {
+        console.log('[PRO REGISTER] Clic sur élément du formulaire - IGNORÉ (pas de fermeture)');
+      }
+    };
+  }
+  
+  // Attacher l'event listener avec useCapture=true pour s'exécuter AVANT tout le monde
+  backdrop.addEventListener('click', window._authModalCancelHandler, true);
+  console.log('[PRO REGISTER] ✅ Event delegation attachee avec useCapture=true');
+  
+  // VERIFIER et corriger le bouton Annuler dans showProRegisterForm
+  // AUGMENTER le délai pour s'assurer que le HTML est complètement injecté
+  console.log('[PRO REGISTER] ⏰ setTimeout PROGRAMMÉ pour 200ms...');
   setTimeout(() => {
-    const firstInput = document.getElementById("pro-firstname");
-    if (firstInput) {
-      firstInput.focus();
-      console.log('✅ Focus sur le premier champ');
+    console.log('[PRO REGISTER] 🔍🔍🔍 setTimeout EXÉCUTÉ (200ms), recherche des éléments...');
+    const modalInner = document.getElementById('publish-modal-inner');
+    console.log('[PRO REGISTER] Modal inner existe:', !!modalInner);
+    console.log('[PRO REGISTER] Modal inner HTML length:', modalInner?.innerHTML?.length || 0);
+    console.log('[PRO REGISTER] Modal inner contient "pro-photo-input":', modalInner?.innerHTML?.includes('pro-photo-input') || false);
+    const cancelBtnPro = document.getElementById('auth-cancel-btn-pro');
+    if (cancelBtnPro) {
+      console.log('[PRO REGISTER] ✅ Bouton Annuler trouve (auth-cancel-btn-pro)');
+      cancelBtnPro.style.pointerEvents = 'auto';
+      cancelBtnPro.style.cursor = 'pointer';
+      cancelBtnPro.style.zIndex = '10001';
+      
+      // Ajouter un onclick direct aussi
+      cancelBtnPro.onclick = function(e) {
+        e = e || window.event;
+        if (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
+        }
+        console.log('[PRO REGISTER] 🔥 ONCLICK DIRECT EXECUTE - FERMETURE');
+        const b = document.getElementById('publish-modal-backdrop');
+        const m = document.getElementById('publish-modal-inner');
+        if (b) {
+          b.style.display = 'none';
+          b.style.visibility = 'hidden';
+          b.style.opacity = '0';
+        }
+        if (m) {
+          m.innerHTML = '';
+          m.style.display = 'none';
+        }
+        if (typeof closeAuthModal === 'function') {
+          closeAuthModal();
+        }
+        return false;
+      };
+      console.log('[PRO REGISTER] ✅ ONCLICK DIRECT attache au bouton Annuler');
     } else {
-      console.warn('⚠️ Premier champ non trouvé');
+      console.warn('[PRO REGISTER] ⚠️ Bouton Annuler non trouve');
+    }
+    
+    // CORRECTION: Attacher aussi un event listener programmatique pour l'input photo
+    try {
+      console.log('[PRO REGISTER] 🔥🔥🔥 AVANT recherche pro-photo-input - Code toujours actif');
+      console.log('[PRO REGISTER] 🔍 Recherche de pro-photo-input...');
+    console.log('[PRO REGISTER] document.getElementById existe:', typeof document.getElementById);
+    const photoInput = document.getElementById('pro-photo-input');
+    console.log('[PRO REGISTER] Résultat getElementById:', photoInput);
+    if (photoInput) {
+      console.log('[PRO REGISTER] ✅✅✅ Input photo TROUVÉ!', photoInput);
+      console.log('[PRO REGISTER] Type:', photoInput.type, 'ID:', photoInput.id);
+      console.log('[PRO REGISTER] Parent:', photoInput.parentElement?.id || 'pas de parent');
+      console.log('[PRO REGISTER] Visible:', photoInput.offsetParent !== null);
+      
+      // Vérifier si handleProPhotoUpload existe
+      console.log('[PRO REGISTER] handleProPhotoUpload existe:', typeof handleProPhotoUpload);
+      console.log('[PRO REGISTER] window.handleProPhotoUpload existe:', typeof window.handleProPhotoUpload);
+      
+      // Supprimer l'ancien listener s'il existe
+      photoInput.removeEventListener('change', handleProPhotoUpload);
+      
+      // Créer une fonction wrapper pour capturer l'événement
+      const photoChangeHandler = function(e) {
+        console.log('[PRO REGISTER] 🔥🔥🔥🔥🔥 EVENT CHANGE DÉTECTÉ sur pro-photo-input!', e);
+        console.log('[PRO REGISTER] Fichiers sélectionnés:', e.target.files ? e.target.files.length : 0);
+        e.stopPropagation(); // Empêcher la propagation vers closePublishModal
+        
+        // Appeler handleProPhotoUpload directement (elle doit être définie globalement)
+        if (typeof window.handleProPhotoUpload === 'function') {
+          console.log('[PRO REGISTER] ✅ Appel de window.handleProPhotoUpload...');
+          window.handleProPhotoUpload(e);
+        } else {
+          console.error('[PRO REGISTER] ❌❌❌ window.handleProPhotoUpload n\'est PAS une fonction!', typeof window.handleProPhotoUpload);
+          // Définir inline si elle n'existe pas encore
+          window.handleProPhotoUpload = function(event) {
+            console.log('[PHOTO] 🔥🔥🔥 handleProPhotoUpload INLINE APPELÉE!', event);
+            const file = event.target.files[0];
+            if (!file) return;
+            if (file.size > 5 * 1024 * 1024) {
+              showError('pro-photo-error', 'La photo est trop grande (max 5MB)');
+              return;
+            }
+            if (!file.type.startsWith('image/')) {
+              showError('pro-photo-error', 'Veuillez sélectionner une image');
+              return;
+            }
+            const reader = new FileReader();
+            reader.onload = function(e) {
+              const base64 = e.target.result;
+              if (!window.registerData) window.registerData = {};
+              window.registerData.profilePhoto = base64;
+              window.registerData.photoData = base64;
+              console.log('[PHOTO] ✅✅✅ Photo sauvegardée (INLINE) - photoData:', base64.length, 'chars');
+              const preview = document.getElementById('pro-photo-preview');
+              const placeholder = document.getElementById('pro-photo-placeholder');
+              if (preview) {
+                preview.src = base64;
+                preview.style.display = 'block';
+                preview.classList.add('show');
+              }
+              if (placeholder) placeholder.style.display = 'none';
+              showError('pro-photo-error', '');
+            };
+            reader.readAsDataURL(file);
+          };
+          console.log('[PRO REGISTER] ✅ handleProPhotoUpload définie inline, appel...');
+          window.handleProPhotoUpload(e);
+        }
+      };
+      
+      // Ajouter le nouveau listener avec capture pour s'assurer qu'il est appelé AVANT closePublishModal
+      photoInput.addEventListener('change', photoChangeHandler, true); // useCapture=true
+      photoInput.addEventListener('input', photoChangeHandler, true); // Aussi sur 'input' au cas où
+      console.log('[PRO REGISTER] ✅✅✅✅✅ Event listeners change ET input attachés a pro-photo-input avec useCapture=true');
+      
+      // Vérifier aussi l'attribut onchange
+      if (photoInput.getAttribute('onchange')) {
+        console.log('[PRO REGISTER] ✅ Attribut onchange présent:', photoInput.getAttribute('onchange'));
+      } else {
+        console.warn('[PRO REGISTER] ⚠️ Attribut onchange manquant, ajout programmatique');
+        photoInput.setAttribute('onchange', 'handleProPhotoUpload(event)');
+      }
+      
+      // Empêcher le clic sur l'input de déclencher closePublishModal
+      photoInput.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        if (e.cancelBubble !== undefined) {
+          e.cancelBubble = true;
+        }
+        console.log('[PRO REGISTER] 🔥 Clic sur input photo, propagation stoppée');
+        return false;
+      }, true);
+    } else {
+      console.error('[PRO REGISTER] ❌❌❌ Input photo NON TROUVÉ!');
+      console.error('[PRO REGISTER] Tous les éléments avec "photo" dans l\'ID:');
+      const allElements = document.querySelectorAll('[id*="photo"]');
+      allElements.forEach(el => console.log('[PRO REGISTER]   -', el.id, el.tagName));
+      
+      // Réessayer plusieurs fois avec des délais croissants
+      [300, 500, 1000].forEach((delay, index) => {
+        setTimeout(() => {
+          console.log(`[PRO REGISTER] 🔄 Retry ${index + 1} après ${delay}ms...`);
+          const retryInput = document.getElementById('pro-photo-input');
+          if (retryInput) {
+            console.log(`[PRO REGISTER] ✅✅✅ Input photo trouvé au retry ${index + 1}!`);
+            const photoChangeHandler = function(e) {
+              console.log('[PRO REGISTER] 🔥 EVENT CHANGE (retry)', e);
+              e.stopPropagation();
+              if (typeof handleProPhotoUpload === 'function') {
+                handleProPhotoUpload(e);
+              } else if (typeof window.handleProPhotoUpload === 'function') {
+                window.handleProPhotoUpload(e);
+              }
+            };
+            retryInput.addEventListener('change', photoChangeHandler, true);
+            retryInput.addEventListener('click', function(e) {
+              e.stopPropagation();
+              console.log('[PRO REGISTER] 🔥 Clic sur input photo (retry), propagation stoppée');
+            }, true);
+            console.log(`[PRO REGISTER] ✅ Event listeners attachés au retry ${index + 1}`);
+          } else {
+            console.warn(`[PRO REGISTER] ⚠️ Input photo toujours non trouvé au retry ${index + 1}`);
+          }
+        }, delay);
+      });
+    }
+    } catch (error) {
+      console.error('[PRO REGISTER] ❌❌❌ ERREUR lors de l\'attachement de l\'event listener photo:', error);
+      console.error('[PRO REGISTER] Stack trace:', error.stack);
+    }
+  }, 200); // Augmenté à 200ms pour laisser plus de temps au DOM
+
+  // ⚠️⚠️⚠️ NOUVEAU : Attacher un event listener sur la zone de photo pour ouvrir le sélecteur
+  setTimeout(() => {
+    const photoUploadArea = document.querySelector('.pro-register-photo-upload');
+    const photoInput = document.getElementById('pro-photo-input');
+    
+    if (photoUploadArea && photoInput) {
+      // Supprimer l'ancien listener s'il existe
+      photoUploadArea.removeEventListener('click', window._photoUploadClickHandler);
+      
+      // Créer un nouveau handler qui ouvre le sélecteur sans fermer le formulaire
+      window._photoUploadClickHandler = function(e) {
+        console.log('[PHOTO] Clic sur zone de photo détecté');
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        if (e.cancelBubble !== undefined) {
+          e.cancelBubble = true;
+        }
+        
+        // Ouvrir le sélecteur de fichiers
+        if (photoInput) {
+          photoInput.click();
+        }
+        
+        return false;
+      };
+      
+      // Attacher le listener avec useCapture pour intercepter avant les autres
+      photoUploadArea.addEventListener('click', window._photoUploadClickHandler, true);
+      console.log('[PHOTO] ✅ Event listener attaché sur zone de photo');
+    }
+  }, 300);
+  
+  // Initialiser l'autocomplete d'adresse pour le formulaire pro
+  setTimeout(() => {
+    const addressInput = document.getElementById('pro-postal-address');
+    if (addressInput) {
+      setupProAddressAutocomplete(addressInput);
+    } else {
+      console.warn('[PRO REGISTER] ⚠️ Champ pro-postal-address non trouvé');
     }
   }, 100);
+
+  // Restaurer le formulaire depuis localStorage si un draft existe
+  setTimeout(() => {
+    if (typeof restoreRegistrationForm === 'function') {
+      const restored = restoreRegistrationForm();
+      if (restored) {
+        console.log('[PRO REGISTER] ✅ Formulaire restauré depuis localStorage');
+      }
+    }
+  }, 200);
+  
+  // Focus sur le premier champ (email au lieu de firstname car firstname n'existe peut-être pas)
+  // Utiliser requestAnimationFrame pour s'assurer que le DOM est prêt
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      // Chercher dans l'ordre : email, username, password
+      const firstInput = document.getElementById("pro-email") || 
+                        document.getElementById("pro-username") || 
+                        document.getElementById("pro-password");
+      if (firstInput) {
+        firstInput.focus();
+        console.log('✅ Focus sur le premier champ:', firstInput.id);
+      } else {
+        console.warn('⚠️ Premier champ non trouvé (pro-email, pro-username, pro-password)');
+        // Lister tous les inputs pour debug
+        const modalInner = document.getElementById('publish-modal-inner');
+        if (modalInner) {
+          const allInputs = document.querySelectorAll('#publish-modal-inner input:not([type="hidden"]):not([id*="honeypot"])');
+          console.log('[PRO REGISTER] Tous les inputs trouvés:', Array.from(allInputs).map(i => ({id: i.id, type: i.type, visible: i.offsetParent !== null})));
+          // Essayer de focuser le premier input trouvé
+          if (allInputs.length > 0) {
+            const firstFound = allInputs[0];
+            firstFound.focus();
+            console.log('✅ Focus sur le premier input trouvé:', firstFound.id);
+          }
+        }
+      }
+    });
+  });
+  
+  // CORRECTION: Attacher l'event listener pour l'input photo IMMÉDIATEMENT après l'injection HTML
+  // Ne pas attendre le setTimeout, mais utiliser requestAnimationFrame pour s'assurer que le DOM est prêt
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      console.log('[PRO REGISTER] 🔍🔍🔍 Recherche IMMÉDIATE de pro-photo-input (via requestAnimationFrame)');
+      const photoInput = document.getElementById('pro-photo-input');
+      if (photoInput) {
+        console.log('[PRO REGISTER] ✅✅✅ Input photo TROUVÉ IMMÉDIATEMENT!');
+        const photoChangeHandler = function(e) {
+          console.log('[PRO REGISTER] 🔥🔥🔥 EVENT CHANGE DÉTECTÉ sur pro-photo-input!');
+          e.stopPropagation();
+          if (typeof handleProPhotoUpload === 'function') {
+            handleProPhotoUpload(e);
+          } else if (typeof window.handleProPhotoUpload === 'function') {
+            window.handleProPhotoUpload(e);
+          }
+        };
+        photoInput.addEventListener('change', photoChangeHandler, true);
+        photoInput.addEventListener('click', function(e) {
+          e.stopPropagation();
+          console.log('[PRO REGISTER] 🔥 Clic sur input photo, propagation stoppée');
+        }, true);
+        console.log('[PRO REGISTER] ✅✅✅ Event listeners attachés IMMÉDIATEMENT');
+      } else {
+        console.warn('[PRO REGISTER] ⚠️ Input photo non trouvé immédiatement, retry dans setTimeout');
+      }
+    });
+  });
 }
 
-// Gestion de l'upload de photo
+// Fonction d'autocomplete d'adresse pour le formulaire pro (Nominatim)
+function setupProAddressAutocomplete(input) {
+  if (!input) {
+    console.error('[PRO ADDRESS] ❌ Input non fourni à setupProAddressAutocomplete');
+    return;
+  }
+  
+  console.log('[PRO ADDRESS] ✅ Initialisation autocomplete pour:', input.id);
+  
+  let searchTimeout = null;
+  const suggestionsWrapper = document.getElementById('pro-address-suggestions-wrapper');
+  const suggestionsDiv = document.getElementById('pro-address-suggestions');
+  
+  if (!suggestionsDiv || !suggestionsWrapper) {
+    console.error('[PRO ADDRESS] ❌ Div suggestions ou wrapper non trouvé');
+    return;
+  }
+  
+  // Gérer la saisie
+  input.addEventListener('input', function(e) {
+    const query = e.target.value.trim();
+    
+    // Effacer le timeout précédent
+    if (searchTimeout) {
+      clearTimeout(searchTimeout);
+    }
+    
+    // Masquer les suggestions si vide
+    if (!query || query.length < 3) {
+      suggestionsWrapper.style.display = 'none';
+      suggestionsDiv.style.display = 'none';
+      // Supprimer l'overlay
+      const overlay = document.getElementById('pro-address-suggestions-overlay');
+      if (overlay) overlay.remove();
+      // Réinitialiser les champs cachés
+      const latInput = document.getElementById('pro-address-lat');
+      const lngInput = document.getElementById('pro-address-lng');
+      const countryInput = document.getElementById('pro-address-country');
+      const labelInput = document.getElementById('pro-address-label');
+      if (latInput) latInput.setAttribute('value', '');
+      if (lngInput) lngInput.setAttribute('value', '');
+      if (countryInput) countryInput.setAttribute('value', '');
+      if (labelInput) labelInput.setAttribute('value', '');
+      return;
+    }
+    
+    // Rechercher après 500ms de pause
+    searchTimeout = setTimeout(() => {
+      searchAddressNominatim(query);
+    }, 500);
+  });
+  
+  // Fonction de recherche Nominatim
+  async function searchAddressNominatim(query) {
+    try {
+      console.log('[PRO ADDRESS] 🔍 Recherche Nominatim pour:', query);
+      
+      // ⚠️⚠️⚠️ CRITIQUE : Recherche MONDIALE - pas de restriction de pays
+      // Nominatim supporte toutes les adresses du monde (Afrique, Asie, Amériques, Océanie, etc.)
+      // Détection automatique de la langue depuis le navigateur pour traduction Google
+      const userLanguage = navigator.language || navigator.userLanguage || 'fr';
+      const langCode = userLanguage.split('-')[0]; // 'fr', 'en', 'ar', 'sw', 'zh', etc.
+      
+      console.log('[PRO ADDRESS] 🌍 Langue détectée:', langCode, '- Recherche MONDIALE activée');
+      
+      // ⚠️⚠️⚠️ RECHERCHE MONDIALE - Pas de restriction de pays
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=10&addressdetails=1&accept-language=${langCode},en`,
+        {
+          headers: {
+            'Accept-Language': `${langCode},en,fr`,
+            'User-Agent': 'MapEvent/1.0'
+          }
+        }
+      );
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      
+      const results = await response.json();
+      console.log('[PRO ADDRESS] ✅ Résultats Nominatim:', results.length, 'résultats');
+      
+      if (results.length === 0) {
+        // Afficher le wrapper et les suggestions avec fond opaque (hauteur de ~2 adresses)
+        suggestionsWrapper.style.display = 'block';
+        // ⚠️⚠️⚠️ Message clair : adresse non trouvée (peut être une adresse très reculée)
+        const langCode = (navigator.language || navigator.userLanguage || 'fr').split('-')[0];
+        const messages = {
+          'fr': 'Aucune adresse trouvée. Essayez avec un nom de ville ou un point de repère proche.',
+          'en': 'No address found. Try with a city name or nearby landmark.',
+          'ar': 'لم يتم العثور على عنوان. جرب اسم المدينة أو معلم قريب.',
+          'sw': 'Hakuna anwani iliyopatikana. Jaribu jina la jiji au alama ya karibu.',
+          'es': 'No se encontró ninguna dirección. Pruebe con un nombre de ciudad o un punto de referencia cercano.',
+          'pt': 'Nenhum endereço encontrado. Tente com um nome de cidade ou um ponto de referência próximo.',
+          'zh': '未找到地址。请尝试使用城市名称或附近的地标。'
+        };
+        const message = messages[langCode] || messages['en'];
+        suggestionsDiv.innerHTML = `<div class="address-suggestion" style="padding:12px;color:#a0a0a0;background:#050810;background-color:#050810;opacity:1;mix-blend-mode:normal;">${message}</div>`;
+        suggestionsDiv.style.cssText = 'display:block;position:relative;width:100%;background:#050810;background-color:#050810;border:2px solid rgba(255,255,255,0.7);border-radius:8px;max-height:120px;overflow-y:auto;opacity:1;backdrop-filter:none;isolation:isolate;mix-blend-mode:normal;box-shadow:0 8px 40px rgba(0,0,0,1), inset 0 0 0 2px rgba(0,0,0,0.5);';
+        return;
+      }
+      
+      // Afficher le wrapper avec fond opaque
+      suggestionsWrapper.style.display = 'block';
+      
+      // Afficher les suggestions avec fond opaque
+      suggestionsDiv.innerHTML = results.map((result, index) => {
+        const displayName = result.display_name || '';
+        const lat = parseFloat(result.lat);
+        const lng = parseFloat(result.lon);
+        const country = result.address?.country_code?.toUpperCase() || ''; // Pas de pays par défaut - mondial
+        const city = result.address?.city || result.address?.town || result.address?.village || '';
+        const postcode = result.address?.postcode || '';
+        const street = result.address?.road || result.address?.street || '';
+        
+        return `
+          <div class="address-suggestion" data-index="${index}" style="padding:12px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.2);transition:background 0.2s;background:#050810;background-color:#050810;opacity:1;backdrop-filter:none;isolation:isolate;mix-blend-mode:normal;" 
+               onmouseover="this.style.background='rgba(0,255,195,0.3)';this.style.backgroundColor='rgba(0,255,195,0.3)';" 
+               onmouseout="this.style.background='#050810';this.style.backgroundColor='#050810';"
+               onclick="selectProAddress(${index}, '${displayName.replace(/'/g, "\\'")}', ${lat}, ${lng}, '${country}', '${city}', '${postcode}', '${street.replace(/'/g, "\\'")}')">
+            <div style="font-weight:600;color:#ffffff;margin-bottom:4px;background:transparent;background-color:transparent;">${displayName}</div>
+            <div style="font-size:12px;color:#a0a0a0;background:transparent;background-color:transparent;">${city}${postcode ? ' ' + postcode : ''}${country ? ', ' + country : ''}</div>
+          </div>
+        `;
+      }).join('');
+      
+      // Forcer le style du conteneur avec fond opaque COMPLET (hauteur de ~2 adresses avec scroll)
+      suggestionsDiv.style.cssText = 'display:block;position:relative;width:100%;background:#050810;background-color:#050810;border:2px solid rgba(255,255,255,0.7);border-radius:8px;max-height:120px;overflow-y:auto;opacity:1;backdrop-filter:none;isolation:isolate;mix-blend-mode:normal;box-shadow:0 8px 40px rgba(0,0,0,1), inset 0 0 0 2px rgba(0,0,0,0.5);';
+      
+    } catch (error) {
+      console.error('[PRO ADDRESS] ❌ Erreur Nominatim:', error);
+      suggestionsWrapper.style.display = 'block';
+      suggestionsDiv.innerHTML = '<div class="address-suggestion" style="padding:12px;color:#ef4444;background:#050810;background-color:#050810;opacity:1;mix-blend-mode:normal;">Erreur de recherche. Veuillez réessayer.</div>';
+      suggestionsDiv.style.cssText = 'display:block;position:relative;width:100%;background:#050810;background-color:#050810;border:2px solid rgba(255,255,255,0.7);border-radius:8px;max-height:120px;overflow-y:auto;opacity:1;backdrop-filter:none;isolation:isolate;mix-blend-mode:normal;box-shadow:0 8px 40px rgba(0,0,0,1), inset 0 0 0 2px rgba(0,0,0,0.5);';
+    }
+  }
+  
+  // Fonction de sélection d'adresse
+  window.selectProAddress = function(index, label, lat, lng, country, city, postcode, street) {
+    console.log('[PRO ADDRESS] ✅ Adresse sélectionnée:', { label, lat, lng, country });
+    
+    // Masquer les suggestions
+    const suggestionsWrapper = document.getElementById('pro-address-suggestions-wrapper');
+    const suggestionsDiv = document.getElementById('pro-address-suggestions');
+    if (suggestionsWrapper) suggestionsWrapper.style.display = 'none';
+    if (suggestionsDiv) suggestionsDiv.style.display = 'none';
+    
+    // Supprimer l'overlay s'il existe
+    const overlay = document.getElementById('pro-address-suggestions-overlay');
+    if (overlay) overlay.remove();
+    
+    // Mettre à jour le champ input
+    const addressInput = document.getElementById('pro-postal-address');
+    if (addressInput) addressInput.value = label;
+    
+    // Mettre à jour les champs cachés
+    const latInput = document.getElementById('pro-address-lat');
+    const lngInput = document.getElementById('pro-address-lng');
+    const countryInput = document.getElementById('pro-address-country');
+    const labelInput = document.getElementById('pro-address-label');
+    
+    if (latInput) latInput.setAttribute('value', lat);
+    if (lngInput) lngInput.setAttribute('value', lng);
+    if (countryInput) countryInput.setAttribute('value', country);
+    if (labelInput) labelInput.setAttribute('value', label);
+    
+    // Sauvegarder dans registerData
+    if (!window.registerData) {
+      window.registerData = {};
+    }
+    window.registerData.postalAddress = label;
+    window.registerData.addressLat = lat;
+    window.registerData.addressLng = lng;
+    window.registerData.addressCountry = country;
+    window.registerData.addressCity = city;
+    window.registerData.addressPostcode = postcode;
+    window.registerData.addressStreet = street;
+    
+    // Masquer les suggestions
+    suggestionsDiv.style.display = 'none';
+    
+    // Valider le champ
+    if (typeof window.validateProField === 'function') {
+      window.validateProField('postalAddress', label);
+    }
+    
+    console.log('[PRO ADDRESS] ✅ Adresse sauvegardée dans registerData');
+  };
+  
+  // Masquer les suggestions si on clique ailleurs
+  document.addEventListener('click', function(e) {
+    const suggestionsWrapper = document.getElementById('pro-address-suggestions-wrapper');
+    if (suggestionsWrapper && !input.contains(e.target) && !suggestionsWrapper.contains(e.target)) {
+      suggestionsWrapper.style.display = 'none';
+      suggestionsDiv.style.display = 'none';
+      // Supprimer l'overlay s'il existe
+      const overlay = document.getElementById('pro-address-suggestions-overlay');
+      if (overlay) overlay.remove();
+    }
+  });
+}
+
+// Exposer globalement
+window.setupProAddressAutocomplete = setupProAddressAutocomplete;
+
+// Gestion de l'upload de photo de profil
 function handleProPhotoUpload(event) {
+  // ⚠️⚠️⚠️ CRITIQUE : Empêcher TOUTE propagation pour éviter la fermeture du formulaire
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation();
+    if (event.cancelBubble !== undefined) {
+      event.cancelBubble = true;
+    }
+  }
+  console.log('[PHOTO] 🔥🔥🔥 handleProPhotoUpload APPELÉE!', event);
   const file = event.target.files[0];
-  if (!file) return;
+  if (!file) {
+    console.log('[PHOTO] Aucun fichier sélectionné');
+    return;
+  }
+
+  console.log('[PHOTO] 📁 Fichier détecté:', { name: file.name, size: file.size, type: file.type });
 
   // Vérifier la taille (max 5MB)
   if (file.size > 5 * 1024 * 1024) {
     showError('pro-photo-error', 'La photo est trop grande (max 5MB)');
+    console.error('[PHOTO] Fichier trop grand:', file.size);
     return;
   }
 
   // Vérifier le type
   if (!file.type.startsWith('image/')) {
     showError('pro-photo-error', 'Veuillez sélectionner une image');
+    console.error('[PHOTO] Type de fichier invalide:', file.type);
     return;
   }
+
+  console.log('[PHOTO] ✅ Fichier valide, début conversion en base64...');
 
   // Lire et convertir en Base64
   const reader = new FileReader();
   reader.onload = function(e) {
     const base64 = e.target.result;
-    registerData.profilePhoto = base64;
+    console.log('[PHOTO] ✅ Photo convertie en base64, longueur:', base64.length);
+    
+    // S'assurer que registerData existe
+    if (!window.registerData) {
+      window.registerData = {};
+      console.log('[PHOTO] ⚠️ registerData créé car n\'existait pas');
+    }
+    
+    // Sauvegarder dans registerData.profilePhoto ET registerData.photoData
+    window.registerData.profilePhoto = base64;
+    window.registerData.photoData = base64; // AUSSI dans photoData pour compatibilité
+    
+    console.log('[PHOTO] ✅✅✅ Photo sauvegardée dans registerData.profilePhoto ET registerData.photoData');
+    console.log('[PHOTO] registerData.profilePhoto existe:', !!window.registerData.profilePhoto);
+    console.log('[PHOTO] registerData.photoData existe:', !!window.registerData.photoData);
+    console.log('[PHOTO] registerData.photoData longueur:', window.registerData.photoData ? window.registerData.photoData.length : 0);
+    console.log('[PHOTO] registerData.photoData début:', window.registerData.photoData ? (window.registerData.photoData.substring(0, 50) + '...') : 'null');
     
     // Afficher la preview
     const preview = document.getElementById('pro-photo-preview');
     const placeholder = document.getElementById('pro-photo-placeholder');
+    const photoText = document.querySelector('.pro-register-photo-text');
+    
     if (preview) {
       preview.src = base64;
+      preview.style.display = 'block';
       preview.classList.add('show');
+      console.log('[PHOTO] ✅ Preview mise à jour avec base64');
+    } else {
+      console.warn('[PHOTO] ⚠️ Preview non trouvée');
     }
     if (placeholder) {
       placeholder.style.display = 'none';
     }
+    if (photoText) {
+      photoText.textContent = 'Cliquez pour changer la photo';
+    }
     
     // Cacher l'erreur
     showError('pro-photo-error', '');
+    
+    // Vérification finale
+    setTimeout(() => {
+      console.log('[PHOTO] 🔍 VÉRIFICATION FINALE après 100ms:');
+      console.log('[PHOTO] registerData existe:', !!window.registerData);
+      console.log('[PHOTO] registerData.photoData:', window.registerData?.photoData ? 'PRÉSENT (' + window.registerData.photoData.length + ' chars)' : 'NULL');
+      console.log('[PHOTO] registerData.profilePhoto:', window.registerData?.profilePhoto ? 'PRÉSENT (' + window.registerData.profilePhoto.length + ' chars)' : 'NULL');
+    }, 100);
   };
+  
+  reader.onerror = function(error) {
+    console.error('[PHOTO] ❌ Erreur lors de la lecture du fichier:', error);
+    showError('pro-photo-error', 'Erreur lors de la lecture de la photo');
+  };
+  
   reader.readAsDataURL(file);
+  console.log('[PHOTO] 📖 FileReader.readAsDataURL() appelé');
 }
 
+// Exposer globalement
+// Exposer handleProPhotoUpload globalement AVANT qu'elle soit utilisée
+window.handleProPhotoUpload = handleProPhotoUpload;
+console.log('[PHOTO] ✅ handleProPhotoUpload exposée globalement');
+
+// Fonctions globales pour éviter les erreurs "is not defined" (PRIORITÉ 0)
+window.handleAddressInput = function(event) {
+  // Cette fonction est gérée par setupProAddressAutocomplete
+  // Mais on la définit globalement pour éviter les erreurs si appelée inline
+  const input = event.target;
+  if (input && input.id === 'pro-postal-address') {
+    // L'autocomplete est géré par setupProAddressAutocomplete
+    return;
+  }
+};
+
+window.handleAddressFocus = function(event) {
+  // Fonction vide pour éviter les erreurs - l'autocomplete gère le focus
+};
+
+window.handleAddressBlur = function(event) {
+  // Fonction vide pour éviter les erreurs - l'autocomplete gère le blur
+};
+
+// ⚠️⚠️⚠️ FONCTION DUPLIQUÉE SUPPRIMÉE - La fonction setupProAddressAutocomplete est déjà définie ligne 12439
+// Cette fonction clonait l'input et cassait l'autocomplete, elle a été supprimée
+// Utiliser la fonction définie ligne 12439 à la place
+function setupProAddressAutocomplete_DUPLICATE_REMOVED(inputElement) {
+  // Cette fonction a été supprimée car elle clonait l'input et cassait l'autocomplete
+  // Utiliser la fonction définie ligne 12439 à la place
+  console.warn('[PRO ADDRESS] ⚠️ Fonction dupliquée appelée - redirection vers la fonction principale');
+  const mainFunction = window.setupProAddressAutocomplete;
+  if (mainFunction && typeof mainFunction === 'function') {
+    return mainFunction(inputElement);
+  }
+  return;
+  
+  /* CODE SUPPRIMÉ - Utiliser la fonction ligne 12439
+  let timeout;
+  const suggestionsContainer = document.getElementById('pro-address-suggestions');
+  
+  if (!inputElement || !suggestionsContainer) {
+    console.warn('[PRO ADDRESS] Input ou container non trouvé');
+    return;
+  }
+  
+  // Supprimer les anciens listeners pour éviter les doublons
+  const newInput = inputElement.cloneNode(true);
+  inputElement.parentNode.replaceChild(newInput, inputElement);
+  
+  newInput.addEventListener('input', function(e) {
+    const query = e.target.value.trim();
+    
+    clearTimeout(timeout);
+    
+    if (query.length < 3) {
+      if (suggestionsContainer) {
+        suggestionsContainer.style.display = 'none';
+      }
+      return;
+    }
+    
+    timeout = setTimeout(async () => {
+      try {
+        // ⚠️⚠️⚠️ RECHERCHE MONDIALE - Pas de restriction de pays, support multilingue
+        const langCode = (navigator.language || 'fr').split('-')[0];
+        const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=10&addressdetails=1&accept-language=${langCode},en&dedupe=1`, {
+          headers: {
+            'User-Agent': 'MapEventAI/1.0',
+            'Accept-Language': `${langCode},en,fr`
+          }
+        });
+        
+        if (!response.ok) {
+          console.warn('[PRO ADDRESS] Nominatim erreur HTTP:', response.status);
+          if (suggestionsContainer) {
+            suggestionsContainer.style.display = 'none';
+          }
+          return;
+        }
+        
+        const text = await response.text();
+        let results;
+        try {
+          results = JSON.parse(text);
+        } catch (parseError) {
+          console.error('[PRO ADDRESS] Erreur parsing JSON:', parseError);
+          if (suggestionsContainer) {
+            suggestionsContainer.style.display = 'none';
+          }
+          return;
+        }
+        
+        if (suggestionsContainer && results.length > 0) {
+          const sortedResults = results.sort((a, b) => {
+            const aHasFullAddress = a.address?.road && (a.address?.house_number || a.address?.house);
+            const bHasFullAddress = b.address?.road && (b.address?.house_number || b.address?.house);
+            if (aHasFullAddress && !bHasFullAddress) return -1;
+            if (!aHasFullAddress && bHasFullAddress) return 1;
+            return 0;
+          });
+          
+          suggestionsContainer.innerHTML = sortedResults.map(result => {
+            const hasFullAddress = result.address?.road && (result.address?.house_number || result.address?.house);
+            const addressQuality = hasFullAddress ? '✅' : '📍';
+            return `
+            <div class="pro-address-suggestion" style="padding:12px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.1);transition:background 0.2s;" 
+                 onmouseover="this.style.background='rgba(0,255,195,0.1)'" 
+                 onmouseout="this.style.background='transparent'"
+                 data-lat="${result.lat}" 
+                 data-lng="${result.lon}"
+                 data-label="${result.display_name}"
+                 data-country="${result.address?.country_code?.toUpperCase() || ''}"
+                 data-city="${result.address?.city || result.address?.town || result.address?.village || ''}"
+                 data-postcode="${result.address?.postcode || ''}"
+                 data-street="${result.address?.road || ''}">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                <span style="font-size:14px;">${addressQuality}</span>
+                <div style="font-weight:600;color:var(--ui-text-main);font-size:13px;flex:1;">${result.display_name}</div>
+              </div>
+              <div style="font-size:11px;color:var(--ui-text-muted);padding-left:22px;">${result.address?.country || ''}${result.address?.postcode ? ' • ' + result.address.postcode : ''}</div>
+            </div>
+          `;
+          }).join('');
+          
+          suggestionsContainer.style.display = 'block';
+          
+          suggestionsContainer.querySelectorAll('.pro-address-suggestion').forEach(suggestion => {
+            suggestion.addEventListener('click', function() {
+              const addressData = {
+                lat: parseFloat(this.dataset.lat),
+                lng: parseFloat(this.dataset.lng),
+                label: this.dataset.label,
+                country_code: this.dataset.country,
+                city: this.dataset.city,
+                postcode: this.dataset.postcode,
+                street: this.dataset.street
+              };
+              
+              newInput.value = addressData.label;
+              document.getElementById('pro-address-lat').value = addressData.lat;
+              document.getElementById('pro-address-lng').value = addressData.lng;
+              document.getElementById('pro-address-country').value = addressData.country_code;
+              document.getElementById('pro-address-label').value = addressData.label;
+              
+              if (suggestionsContainer) {
+                suggestionsContainer.style.display = 'none';
+              }
+            });
+          });
+        } else if (suggestionsContainer) {
+          suggestionsContainer.style.display = 'none';
+        }
+      } catch (error) {
+        console.error('[PRO ADDRESS] Erreur autocomplete:', error);
+      }
+    }, 300);
+  });
+  
+  // CODE SUPPRIMÉ - Cette fonction dupliquée cassait l'autocomplete en clonant l'input
+}
+
+// Gestion de l'upload de photo
+// DÉPLACÉ: Cette fonction est déjà définie plus haut (ligne ~12164)
+// La définition ci-dessus était un doublon qui écrasait la première version
+// et ne sauvegardait pas photoData. Supprimée pour éviter les conflits.
+
 // Validation des champs
-function validateProField(fieldName, value) {
+async function validateProField(fieldName, value) {
   const errorEl = document.getElementById(`pro-${fieldName}-error`);
   const successEl = document.getElementById(`pro-${fieldName}-success`);
+  const inputEl = document.getElementById(`pro-${fieldName}`);
   
-  if (!errorEl) return true;
+  if (!errorEl || !inputEl) return true;
+
+  // Réinitialiser les états visuels
+  inputEl.classList.remove('field-error', 'field-success');
+  inputEl.style.borderColor = '';
+  inputEl.style.boxShadow = '';
+  showError(`pro-${fieldName}-error`, '');
+  showSuccess(`pro-${fieldName}-success`, '');
 
   let isValid = true;
   let errorMsg = '';
+  let successMsg = '';
 
   switch(fieldName) {
     case 'firstname':
     case 'lastname':
       if (!value || value.trim().length < 2) {
         isValid = false;
-        errorMsg = 'Minimum 2 caractères';
+        errorMsg = '⚠️ Minimum 2 caractères requis';
       } else if (value.length > 50) {
         isValid = false;
-        errorMsg = 'Maximum 50 caractères';
+        errorMsg = '⚠️ Maximum 50 caractères';
+      } else if (!/^[a-zA-ZàáâäãåèéêëìíîïòóôöõùúûüýÿñçÀÁÂÄÃÅÈÉÊËÌÍÎÏÒÓÔÖÕÙÚÛÜÝŸÑÇ\s-]+$/.test(value)) {
+        isValid = false;
+        errorMsg = '⚠️ Seules les lettres sont autorisées';
+      } else {
+        successMsg = '✓ Format valide';
       }
       break;
     
@@ -9757,93 +13475,325 @@ function validateProField(fieldName, value) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!value) {
         isValid = false;
-        errorMsg = 'Email requis';
+        errorMsg = '⚠️ Email requis';
       } else if (!emailRegex.test(value)) {
         isValid = false;
-        errorMsg = 'Format email invalide';
+        errorMsg = '⚠️ Format email invalide (ex: nom@exemple.com)';
       } else {
-        if (successEl) successEl.textContent = '✓ Email valide';
+        // Vérifier la disponibilité avec debounce
+        clearTimeout(validationTimers[fieldName]);
+        validationTimers[fieldName] = setTimeout(async () => {
+          showLoading(`pro-${fieldName}-success`, 'Vérification disponibilité...');
+          
+          try {
+            const response = await fetch(`${window.API_BASE_URL}/user/exists?email=${encodeURIComponent(value)}`);
+            
+            // Gérer les erreurs 502/503 du backend
+            if (!response.ok) {
+              if (response.status === 502 || response.status === 503) {
+                console.warn('Backend temporairement indisponible pour vérification email');
+                showSuccess(`pro-${fieldName}-success`, '✓ Format valide (vérification indisponible)');
+                return; // Ne pas bloquer l'utilisateur
+              }
+              throw new Error(`HTTP ${response.status}`);
+            }
+            
+            const data = await response.json();
+            
+            if (data.exists) {
+              showError(`pro-${fieldName}-error`, '⚠️ Cet email est déjà utilisé');
+              showSuccess(`pro-${fieldName}-success`, '');
+              inputEl.classList.add('field-error');
+            } else {
+              showError(`pro-${fieldName}-error`, '');
+              showSuccess(`pro-${fieldName}-success`, '✓ Email disponible');
+              inputEl.classList.add('field-success');
+            }
+          } catch (error) {
+            console.error('Erreur vérification email:', error);
+            // En cas d'erreur, ne pas bloquer - juste afficher format valide
+            showSuccess(`pro-${fieldName}-success`, '✓ Format valide');
+          }
+        }, 500);
+        
+        successMsg = '✓ Format valide';
       }
       break;
     
     case 'username':
       if (!value) {
         isValid = false;
-        errorMsg = 'Nom d\'utilisateur requis';
+        errorMsg = '⚠️ Nom d\'utilisateur requis';
       } else if (value.length < 3) {
         isValid = false;
-        errorMsg = 'Minimum 3 caractères';
+        errorMsg = '⚠️ Minimum 3 caractères';
       } else if (value.length > 20) {
         isValid = false;
-        errorMsg = 'Maximum 20 caractères';
+        errorMsg = '⚠️ Maximum 20 caractères';
       } else if (!/^[a-zA-Z0-9_-]+$/.test(value)) {
         isValid = false;
-        errorMsg = 'Caractères autorisés: lettres, chiffres, _ et -';
+        errorMsg = '⚠️ Caractères autorisés: lettres, chiffres, _ et -';
       } else {
-        if (successEl) successEl.textContent = '✓ Disponible';
+        // Vérifier la disponibilité avec debounce
+        clearTimeout(validationTimers[fieldName]);
+        validationTimers[fieldName] = setTimeout(async () => {
+          showLoading(`pro-${fieldName}-success`, 'Vérification disponibilité...');
+          
+          try {
+            const response = await fetch(`${window.API_BASE_URL}/user/exists?username=${encodeURIComponent(value)}`);
+            
+            // Gérer les erreurs 502/503 du backend
+            if (!response.ok) {
+              if (response.status === 502 || response.status === 503) {
+                console.warn('Backend temporairement indisponible pour vérification username');
+                showSuccess(`pro-${fieldName}-success`, '✓ Format valide (vérification indisponible)');
+                return; // Ne pas bloquer l'utilisateur
+              }
+              throw new Error(`HTTP ${response.status}`);
+            }
+            
+            const data = await response.json();
+            
+            if (data.exists) {
+              showError(`pro-${fieldName}-error`, '⚠️ Ce nom d\'utilisateur est déjà pris');
+              showSuccess(`pro-${fieldName}-success`, '');
+              inputEl.classList.add('field-error');
+            } else {
+              showError(`pro-${fieldName}-error`, '');
+              showSuccess(`pro-${fieldName}-success`, '✓ Disponible');
+              inputEl.classList.add('field-success');
+            }
+          } catch (error) {
+            console.error('Erreur vérification username:', error);
+            // En cas d'erreur, ne pas bloquer - juste afficher format valide
+            showSuccess(`pro-${fieldName}-success`, '✓ Format valide');
+          }
+        }, 500);
+        
+        successMsg = '✓ Format valide';
       }
       break;
     
     case 'postalAddress':
-      if (!value || value.trim().length < 5) {
+      const skipAddress = document.getElementById('pro-skip-address')?.checked;
+      if (!skipAddress && (!value || value.trim().length < 5)) {
         isValid = false;
-        errorMsg = 'Adresse complète requise';
+        errorMsg = '⚠️ Adresse complète requise (minimum 5 caractères)';
+      } else if (!skipAddress && value && value.trim().length < 5) {
+        isValid = false;
+        errorMsg = '⚠️ Adresse trop courte (minimum 5 caractères)';
+      } else if (!skipAddress && value) {
+        successMsg = '✓ Adresse valide';
       }
       break;
   }
 
-  showError(`pro-${fieldName}-error`, errorMsg);
+  if (errorMsg) {
+    showError(`pro-${fieldName}-error`, errorMsg);
+  } else if (successMsg && !validationTimers[fieldName]) {
+    showSuccess(`pro-${fieldName}-success`, successMsg);
+  }
+  
   return isValid;
 }
 
-// Validation du mot de passe
-function validateProPassword(password) {
+// Fonction pour vérifier si un mot de passe a été compromis via Have I Been Pwned
+// NOTE: L'API HIBP ne supporte pas CORS depuis le navigateur, donc on désactive temporairement
+// La vérification devrait être faite côté backend pour être efficace
+// ⚠️⚠️⚠️ DÉFINIE DIRECTEMENT SUR window POUR ÉVITER LES PROBLÈMES DE SCOPE
+window.checkPasswordPwned = async function checkPasswordPwned(password) {
+  // DÉSACTIVÉ : CORS bloque les requêtes depuis le navigateur
+  // TODO: Implémenter la vérification côté backend
+  console.log('[HIBP] Vérification désactivée côté frontend (CORS) - à implémenter côté backend');
+  return { pwned: false, count: 0 };
+  
+  /* CODE DÉSACTIVÉ - CORS bloque les requêtes
+  try {
+    // Créer un hash SHA-1 du mot de passe
+    const encoder = new TextEncoder();
+    const data = encoder.encode(password);
+    const hashBuffer = await crypto.subtle.digest('SHA-1', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
+    
+    // Utiliser k-anonymity : envoyer seulement les 5 premiers caractères
+    const hashPrefix = hashHex.substring(0, 5);
+    const hashSuffix = hashHex.substring(5);
+    
+    // Appeler l'API Have I Been Pwned via un proxy backend (à implémenter)
+    // Pour l'instant, désactivé car CORS bloque les requêtes directes
+    const response = await fetch(`${window.API_BASE_URL}/check-password-pwned`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ hashPrefix: hashPrefix, hashSuffix: hashSuffix })
+    });
+    
+    if (!response.ok) {
+      console.warn('Have I Been Pwned API non disponible');
+      return { pwned: false, count: 0 };
+    }
+    
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Erreur vérification Have I Been Pwned:', error);
+    return { pwned: false, count: 0 };
+  }
+  */
+};
+
+// Validation du mot de passe avec feedback visuel amélioré et vérification Have I Been Pwned
+async function validateProPassword(password) {
   const errorEl = document.getElementById('pro-password-error');
   const strengthEl = document.getElementById('pro-password-strength-fill');
+  const inputEl = document.getElementById('pro-password');
   
   if (!password) {
     if (strengthEl) {
       strengthEl.className = 'pro-register-password-strength-fill';
       strengthEl.style.width = '0%';
+      strengthEl.style.transition = 'all 0.3s ease';
     }
+    if (inputEl) {
+      inputEl.classList.remove('field-error', 'field-success');
+      inputEl.style.borderColor = '';
+      inputEl.style.boxShadow = '';
+    }
+    showError('pro-password-error', '');
+    
+    // Réinitialiser le label de force
+    const strengthLabelEl = document.getElementById('pro-password-strength-label');
+    if (strengthLabelEl) {
+      strengthLabelEl.textContent = '';
+    }
+    
     return false;
   }
 
   let strength = 0;
   let errorMsg = '';
+  let strengthPercent = 0;
+  let strengthLabel = '';
+  let strengthColor = '';
 
-  // Vérifier les critères
-  const hasLength = password.length >= 8;
+  // Vérifier les critères avec poids
+  const hasLength = password.length >= 12; // Minimum 12 caractères pour sécurité renforcée
+  const hasLength8 = password.length >= 8;
   const hasUpper = /[A-Z]/.test(password);
   const hasLower = /[a-z]/.test(password);
   const hasNumber = /[0-9]/.test(password);
-  const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+  const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
+  const hasLongLength = password.length >= 16;
 
-  if (hasLength) strength++;
-  if (hasUpper) strength++;
-  if (hasLower) strength++;
-  if (hasNumber) strength++;
-  if (hasSpecial) strength++;
+  // Calcul de la force avec poids
+  if (hasLength8) strength += 1;
+  if (hasLength) strength += 1;
+  if (hasLongLength) strength += 1;
+  if (hasUpper) strength += 1;
+  if (hasLower) strength += 1;
+  if (hasNumber) strength += 1;
+  if (hasSpecial) strength += 1;
 
-  // Mettre à jour la barre de force
+  // Calcul du pourcentage et du label
+  if (strength <= 2) {
+    strengthPercent = (strength / 7) * 33;
+    strengthLabel = 'Faible';
+    strengthColor = '#ef4444';
+  } else if (strength <= 4) {
+    strengthPercent = 33 + ((strength - 2) / 5) * 33;
+    strengthLabel = 'Moyen';
+    strengthColor = '#f59e0b';
+  } else {
+    strengthPercent = 66 + ((strength - 4) / 3) * 34;
+    strengthLabel = 'Fort';
+    strengthColor = '#22c55e';
+  }
+
+  // Mettre à jour la barre de force avec animation
   if (strengthEl) {
-    if (strength <= 2) {
-      strengthEl.className = 'pro-register-password-strength-fill weak';
-    } else if (strength <= 4) {
-      strengthEl.className = 'pro-register-password-strength-fill medium';
-    } else {
-      strengthEl.className = 'pro-register-password-strength-fill strong';
+    strengthEl.className = `pro-register-password-strength-fill ${strength <= 2 ? 'weak' : strength <= 4 ? 'medium' : 'strong'}`;
+    strengthEl.style.width = `${strengthPercent}%`;
+    strengthEl.style.backgroundColor = strengthColor;
+    strengthEl.style.transition = 'all 0.3s ease';
+    
+    // Ajouter un label de force si nécessaire
+    const strengthLabelEl = document.getElementById('pro-password-strength-label');
+    if (!strengthLabelEl && password.length > 0) {
+      const label = document.createElement('div');
+      label.id = 'pro-password-strength-label';
+      label.style.cssText = 'font-size:12px;color:var(--ui-text-muted);margin-top:4px;';
+      strengthEl.parentElement.appendChild(label);
+    }
+    if (strengthLabelEl) {
+      strengthLabelEl.textContent = password.length > 0 ? `Force: ${strengthLabel}` : '';
+      strengthLabelEl.style.color = strengthColor;
     }
   }
 
-  // Messages d'erreur
-  if (!hasLength) {
-    errorMsg = 'Minimum 8 caractères';
-  } else if (strength < 3) {
-    errorMsg = 'Mot de passe trop faible';
+  // Messages d'erreur contextuels
+  const missingCriteria = [];
+  if (!hasLength8) {
+    missingCriteria.push('8 caractères minimum');
+  } else if (!hasLength) {
+    missingCriteria.push('12 caractères recommandés');
+  }
+  if (!hasUpper) missingCriteria.push('une majuscule');
+  if (!hasLower) missingCriteria.push('une minuscule');
+  if (!hasNumber) missingCriteria.push('un chiffre');
+  if (!hasSpecial) missingCriteria.push('un caractère spécial');
+
+  if (missingCriteria.length > 0 && password.length > 0) {
+    errorMsg = `⚠️ Ajoutez: ${missingCriteria.slice(0, 3).join(', ')}${missingCriteria.length > 3 ? '...' : ''}`;
+  } else if (strength >= 5 && password.length >= 12) {
+    // Mot de passe fort - vérifier Have I Been Pwned
+    // Debounce pour éviter trop d'appels API
+    clearTimeout(validationTimers['password-pwned']);
+    validationTimers['password-pwned'] = setTimeout(async () => {
+      // Utiliser window.checkPasswordPwned directement pour éviter les problèmes de scope
+      const checkFn = typeof window.checkPasswordPwned === 'function' ? window.checkPasswordPwned : null;
+      if (!checkFn) {
+        console.warn('[PASSWORD] checkPasswordPwned non disponible, skip vérification HIBP');
+        return;
+      }
+      try {
+        const pwnedCheck = await checkFn(password);
+        
+        if (pwnedCheck.pwned) {
+          const countText = pwnedCheck.count > 0 ? ` (${pwnedCheck.count.toLocaleString()} fois)` : '';
+          showError('pro-password-error', `🔒 Ce mot de passe a été compromis dans une fuite de données${countText}. Veuillez en choisir un autre.`);
+          if (inputEl) {
+            inputEl.classList.add('field-error');
+            inputEl.classList.remove('field-success');
+            inputEl.style.borderColor = '#ef4444';
+            inputEl.style.boxShadow = '0 0 0 3px rgba(239, 68, 68, 0.1)';
+          }
+        } else {
+          // Mot de passe fort et non compromis
+          if (inputEl) {
+            inputEl.classList.add('field-success');
+            inputEl.classList.remove('field-error');
+            inputEl.style.borderColor = '#22c55e';
+            inputEl.style.boxShadow = '0 0 0 3px rgba(34, 197, 94, 0.1)';
+          }
+          showError('pro-password-error', '');
+        }
+      } catch (error) {
+        console.error('[PASSWORD] Erreur vérification HIBP:', error);
+        // Ne pas bloquer l'utilisateur en cas d'erreur
+      }
+    }, 1000); // Attendre 1 seconde après la dernière saisie
+    
+    // Afficher temporairement un message de vérification
+    if (password.length >= 12 && strength >= 5) {
+      showError('pro-password-error', '🔍 Vérification de sécurité...');
+    }
   }
 
-  showError('pro-password-error', errorMsg);
+  if (!errorMsg || password.length < 12 || strength < 5) {
+    showError('pro-password-error', errorMsg);
+  }
   
   // Vérifier aussi la correspondance si la confirmation est remplie
   const confirmValue = document.getElementById('pro-password-confirm')?.value;
@@ -9851,55 +13801,478 @@ function validateProPassword(password) {
     validateProPasswordMatch();
   }
 
-  return strength >= 3;
+  return strength >= 5 && password.length >= 12;
 }
 
-// Validation de la correspondance des mots de passe
+// Validation de la correspondance des mots de passe avec feedback visuel amélioré
 function validateProPasswordMatch() {
-  const password = registerData.password;
-  const confirm = registerData.passwordConfirm;
+  const password = window.registerData.password;
+  const confirm = document.getElementById('pro-password-confirm')?.value || window.window.registerData.passwordConfirm;
   const errorEl = document.getElementById('pro-password-confirm-error');
   const successEl = document.getElementById('pro-password-confirm-success');
+  const inputEl = document.getElementById('pro-password-confirm');
 
   if (!confirm) {
     showError('pro-password-confirm-error', '');
+    showSuccess('pro-password-confirm-success', '');
+    if (inputEl) {
+      inputEl.classList.remove('field-error', 'field-success');
+      inputEl.style.borderColor = '';
+      inputEl.style.boxShadow = '';
+    }
     return false;
   }
 
   if (password !== confirm) {
-    showError('pro-password-confirm-error', 'Les mots de passe ne correspondent pas');
-    if (successEl) successEl.textContent = '';
+    showError('pro-password-confirm-error', '⚠️ Les mots de passe ne correspondent pas');
+    showSuccess('pro-password-confirm-success', '');
+    if (inputEl) {
+      inputEl.classList.add('field-error');
+      inputEl.classList.remove('field-success');
+      inputEl.style.borderColor = '#ef4444';
+      inputEl.style.boxShadow = '0 0 0 3px rgba(239, 68, 68, 0.1)';
+    }
     return false;
   } else {
     showError('pro-password-confirm-error', '');
-    if (successEl) successEl.textContent = '✓ Les mots de passe correspondent';
+    showSuccess('pro-password-confirm-success', '✓ Les mots de passe correspondent');
+    if (inputEl) {
+      inputEl.classList.add('field-success');
+      inputEl.classList.remove('field-error');
+      inputEl.style.borderColor = '#22c55e';
+      inputEl.style.boxShadow = '0 0 0 3px rgba(34, 197, 94, 0.1)';
+    }
     return true;
   }
 }
 
+// Sauvegarde automatique du formulaire d'inscription dans localStorage
+let autoSaveTimer = null;
+function autoSaveRegistrationForm() {
+  // Debounce : sauvegarder seulement après 500ms d'inactivité
+  clearTimeout(autoSaveTimer);
+  autoSaveTimer = setTimeout(() => {
+    try {
+      if (!window.registerData) {
+        return;
+      }
+      
+      // Collecter toutes les données du formulaire
+      const formData = {
+        email: document.getElementById('pro-email')?.value || window.registerData.email || '',
+        username: document.getElementById('pro-username')?.value || window.registerData.username || '',
+        password: document.getElementById('pro-password')?.value || window.registerData.password || '',
+        passwordConfirm: document.getElementById('pro-password-confirm')?.value || window.registerData.passwordConfirm || '',
+        firstName: document.getElementById('pro-firstname')?.value || window.registerData.firstName || '',
+        lastName: document.getElementById('pro-lastname')?.value || window.registerData.lastName || '',
+        postalAddress: document.getElementById('pro-postal-address')?.value || window.registerData.postalAddress || '',
+        addressLat: document.getElementById('pro-address-lat')?.value || window.registerData.addressLat || '',
+        addressLng: document.getElementById('pro-address-lng')?.value || window.registerData.addressLng || '',
+        addressCountry: document.getElementById('pro-address-country')?.value || window.registerData.addressCountry || '',
+        addressLabel: document.getElementById('pro-address-label')?.value || window.registerData.addressLabel || '',
+        profilePhoto: window.registerData.profilePhoto || '',
+        photoData: window.registerData.photoData || '',
+        avatarId: window.registerData.avatarId || 1,
+        avatarDescription: window.registerData.avatarDescription || '',
+        timestamp: Date.now()
+      };
+      
+      // Sauvegarder dans localStorage
+      localStorage.setItem('registerFormDraft', JSON.stringify(formData));
+      
+      // Mettre à jour window.registerData avec les nouvelles valeurs
+      Object.assign(window.registerData, formData);
+      
+    } catch (error) {
+      console.warn('[AUTO-SAVE] Erreur sauvegarde:', error);
+    }
+  }, 500);
+}
+
+// Restaurer le formulaire depuis localStorage
+function restoreRegistrationForm() {
+  try {
+    const saved = localStorage.getItem('registerFormDraft');
+    if (!saved) {
+      return false;
+    }
+    
+    const formData = JSON.parse(saved);
+    
+    // Vérifier si le draft n'est pas trop ancien (max 7 jours)
+    const maxAge = 7 * 24 * 60 * 60 * 1000; // 7 jours en millisecondes
+    if (formData.timestamp && (Date.now() - formData.timestamp) > maxAge) {
+      localStorage.removeItem('registerFormDraft');
+      return false;
+    }
+    
+    // Restaurer les valeurs dans les champs
+    if (formData.email && document.getElementById('pro-email')) {
+      document.getElementById('pro-email').value = formData.email;
+      window.registerData.email = formData.email;
+    }
+    if (formData.username && document.getElementById('pro-username')) {
+      document.getElementById('pro-username').value = formData.username;
+      window.registerData.username = formData.username;
+    }
+    if (formData.firstName && document.getElementById('pro-firstname')) {
+      document.getElementById('pro-firstname').value = formData.firstName;
+      window.registerData.firstName = formData.firstName;
+    }
+    if (formData.lastName && document.getElementById('pro-lastname')) {
+      document.getElementById('pro-lastname').value = formData.lastName;
+      window.registerData.lastName = formData.lastName;
+    }
+    if (formData.postalAddress && document.getElementById('pro-postal-address')) {
+      document.getElementById('pro-postal-address').value = formData.postalAddress;
+      window.registerData.postalAddress = formData.postalAddress;
+    }
+    
+    // Restaurer les données cachées
+    if (formData.addressLat && document.getElementById('pro-address-lat')) {
+      document.getElementById('pro-address-lat').value = formData.addressLat;
+      window.registerData.addressLat = formData.addressLat;
+    }
+    if (formData.addressLng && document.getElementById('pro-address-lng')) {
+      document.getElementById('pro-address-lng').value = formData.addressLng;
+      window.registerData.addressLng = formData.addressLng;
+    }
+    if (formData.addressCountry && document.getElementById('pro-address-country')) {
+      document.getElementById('pro-address-country').value = formData.addressCountry;
+      window.registerData.addressCountry = formData.addressCountry;
+    }
+    if (formData.addressLabel && document.getElementById('pro-address-label')) {
+      document.getElementById('pro-address-label').value = formData.addressLabel;
+      window.registerData.addressLabel = formData.addressLabel;
+    }
+    
+    // Restaurer la photo si elle existe
+    console.log('[RESTORE] 🔍 Restauration photo depuis localStorage:');
+    console.log('[RESTORE] formData.photoData:', formData.photoData ? `PRÉSENT (${formData.photoData.length} chars)` : 'NULL');
+    console.log('[RESTORE] formData.profilePhoto:', formData.profilePhoto ? `PRÉSENT (${formData.profilePhoto.length} chars)` : 'NULL');
+    
+    if (window.registerData) {
+      // Restaurer profilePhoto si présent
+      if (formData.profilePhoto && formData.profilePhoto.length > 0) {
+        window.registerData.profilePhoto = formData.profilePhoto;
+        console.log('[RESTORE] ✅ profilePhoto restauré depuis localStorage');
+      }
+      
+      // Restaurer photoData si présent, sinon utiliser profilePhoto
+      if (formData.photoData && formData.photoData.length > 0) {
+        window.registerData.photoData = formData.photoData;
+        console.log('[RESTORE] ✅ photoData restauré depuis localStorage');
+      } else if (formData.profilePhoto && formData.profilePhoto.length > 0) {
+        window.registerData.photoData = formData.profilePhoto;
+        console.log('[RESTORE] ✅ photoData copié depuis profilePhoto (photoData manquant dans localStorage)');
+      }
+      
+      const photoPreview = document.getElementById('pro-photo-preview');
+      const photoPlaceholder = document.getElementById('pro-photo-placeholder');
+      if (photoPreview && window.registerData.profilePhoto && window.registerData.profilePhoto.length > 0) {
+        photoPreview.src = window.registerData.profilePhoto;
+        photoPreview.style.display = 'block';
+        photoPreview.classList.add('show');
+        if (photoPlaceholder) {
+          photoPlaceholder.style.display = 'none';
+        }
+        console.log('[RESTORE] ✅ Preview mise à jour avec photo restaurée');
+      }
+      
+      console.log('[RESTORE] registerData.photoData APRÈS restauration:', window.registerData.photoData ? `PRÉSENT (${window.registerData.photoData.length} chars)` : 'NULL');
+      console.log('[RESTORE] registerData.profilePhoto APRÈS restauration:', window.registerData.profilePhoto ? `PRÉSENT (${window.registerData.profilePhoto.length} chars)` : 'NULL');
+    }
+    
+    // Mettre à jour window.registerData avec toutes les données restaurées
+    Object.assign(window.registerData, formData);
+    
+    // CORRECTION: S'assurer que photoData existe même après Object.assign
+    if (window.registerData && window.registerData.profilePhoto && window.registerData.profilePhoto.length > 0) {
+      if (!window.registerData.photoData || window.registerData.photoData.length === 0) {
+        window.registerData.photoData = window.registerData.profilePhoto;
+        console.log('[RESTORE] ✅✅✅ photoData FORCÉ depuis profilePhoto après Object.assign');
+      }
+    }
+    
+    return true;
+  } catch (error) {
+    console.warn('[RESTORE] Erreur restauration:', error);
+    return false;
+  }
+}
+
+// Exposer les fonctions globalement
+window.autoSaveRegistrationForm = autoSaveRegistrationForm;
+window.restoreRegistrationForm = restoreRegistrationForm;
+
 // Toggle visibilité mot de passe
-function toggleProPasswordVisibility(inputId) {
+function toggleProPasswordVisibility(inputId, event) {
+  // ⚠️⚠️⚠️ CRITIQUE : Empêcher la propagation pour éviter la fermeture du formulaire
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation();
+  }
+  
   const input = document.getElementById(inputId);
-  if (!input) return;
+  if (!input) {
+    console.warn('[PASSWORD TOGGLE] Input non trouvé:', inputId);
+    return false;
+  }
   
   if (input.type === 'password') {
     input.type = 'text';
   } else {
     input.type = 'password';
   }
+  
+  return false; // Empêcher tout comportement par défaut
 }
 
+// Toggle password visibility pour les champs register (auth modal)
+function toggleRegisterPasswordVisibility(inputId) {
+  console.log('[PASSWORD TOGGLE] toggleRegisterPasswordVisibility appelé:', inputId);
+  const input = document.getElementById(inputId);
+  if (!input) {
+    console.warn('[PASSWORD TOGGLE] Input non trouvé:', inputId);
+    return;
+  }
+  
+  if (input.type === 'password') {
+    input.type = 'text';
+    console.log('[PASSWORD TOGGLE] Type changé en text');
+  } else {
+    input.type = 'password';
+    console.log('[PASSWORD TOGGLE] Type changé en password');
+  }
+}
+
+// Validation du mot de passe en temps réel
+function validateRegisterPassword(password) {
+  const rulesDiv = document.getElementById('register-password-rules');
+  if (!rulesDiv) return;
+  
+  const rules = [];
+  let isValid = true;
+  
+  // Règles de validation
+  if (password.length < 8) {
+    rules.push('❌ Au moins 8 caractères');
+    isValid = false;
+  } else {
+    rules.push('✅ Au moins 8 caractères');
+  }
+  
+  if (!/[A-Z]/.test(password)) {
+    rules.push('❌ Au moins une majuscule');
+    isValid = false;
+  } else {
+    rules.push('✅ Au moins une majuscule');
+  }
+  
+  if (!/[a-z]/.test(password)) {
+    rules.push('❌ Au moins une minuscule');
+    isValid = false;
+  } else {
+    rules.push('✅ Au moins une minuscule');
+  }
+  
+  if (!/[0-9]/.test(password)) {
+    rules.push('❌ Au moins un chiffre');
+    isValid = false;
+  } else {
+    rules.push('✅ Au moins un chiffre');
+  }
+  
+  if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
+    rules.push('❌ Au moins un caractère spécial');
+    isValid = false;
+  } else {
+    rules.push('✅ Au moins un caractère spécial');
+  }
+  
+  rulesDiv.innerHTML = rules.map(rule => `<div style="margin:2px 0;">${rule}</div>`).join('');
+  
+  // Mettre à jour la couleur de bordure
+  const passwordInput = document.getElementById('register-password');
+  if (passwordInput) {
+    if (isValid && password.length > 0) {
+      passwordInput.style.borderColor = '#22c55e';
+    } else if (password.length > 0) {
+      passwordInput.style.borderColor = '#ef4444';
+    } else {
+      passwordInput.style.borderColor = 'rgba(255,255,255,0.1)';
+    }
+  }
+  
+  // Vérifier aussi la correspondance si le champ de confirmation existe
+  const confirmInput = document.getElementById('register-password-confirm');
+  if (confirmInput && confirmInput.value) {
+    validateRegisterPasswordMatch();
+  }
+}
+
+// Validation de la correspondance des mots de passe
+function validateRegisterPasswordMatch() {
+  const password = document.getElementById('register-password')?.value || '';
+  const confirm = document.getElementById('register-password-confirm')?.value || '';
+  const matchDiv = document.getElementById('register-password-match');
+  const confirmInput = document.getElementById('register-password-confirm');
+  
+  if (!matchDiv || !confirmInput) return;
+  
+  if (confirm.length === 0) {
+    matchDiv.style.display = 'none';
+    confirmInput.style.borderColor = 'rgba(255,255,255,0.1)';
+    return;
+  }
+  
+  if (password === confirm && password.length > 0) {
+    matchDiv.style.display = 'block';
+    matchDiv.textContent = '✓ Les mots de passe correspondent';
+    matchDiv.style.color = '#22c55e';
+    confirmInput.style.borderColor = '#22c55e';
+  } else {
+    matchDiv.style.display = 'block';
+    matchDiv.textContent = '❌ Les mots de passe ne correspondent pas';
+    matchDiv.style.color = '#ef4444';
+    confirmInput.style.borderColor = '#ef4444';
+  }
+}
+
+// Exposer les fonctions globalement pour les onclick
+window.toggleRegisterPasswordVisibility = toggleRegisterPasswordVisibility;
+window.toggleProPasswordVisibility = toggleProPasswordVisibility;
+window.validateRegisterPassword = validateRegisterPassword;
+window.validateRegisterPasswordMatch = validateRegisterPasswordMatch;
+
 // Helper pour afficher les erreurs
+// Debounce timers pour éviter trop d'appels API
+const validationTimers = {};
+
 function showError(elementId, message) {
   const el = document.getElementById(elementId);
-  if (el) {
+  if (!el) return;
+  
+  if (message) {
     el.textContent = message;
+    el.style.display = 'block';
+    el.style.opacity = '0';
+    el.style.transform = 'translateY(-5px)';
+    
+    // Animation d'apparition
+    requestAnimationFrame(() => {
+      el.style.transition = 'all 0.3s ease';
+      el.style.opacity = '1';
+      el.style.transform = 'translateY(0)';
+    });
+    
+    // Ajouter classe d'erreur au champ parent
+    const input = document.getElementById(elementId.replace('-error', ''));
+    if (input) {
+      input.classList.add('field-error');
+      input.style.borderColor = '#ef4444';
+      input.style.boxShadow = '0 0 0 3px rgba(239, 68, 68, 0.1)';
+    }
+  } else {
+    el.textContent = '';
+    el.style.display = 'none';
+    
+    // Retirer classe d'erreur du champ parent
+    const input = document.getElementById(elementId.replace('-error', ''));
+    if (input) {
+      input.classList.remove('field-error');
+      input.style.borderColor = '';
+      input.style.boxShadow = '';
+    }
+  }
+}
+
+function showSuccess(elementId, message) {
+  const el = document.getElementById(elementId);
+  if (!el) return;
+  
+  if (message) {
+    el.textContent = message;
+    el.style.display = 'block';
+    el.style.opacity = '0';
+    el.style.transform = 'translateY(-5px)';
+    
+    // Animation d'apparition
+    requestAnimationFrame(() => {
+      el.style.transition = 'all 0.3s ease';
+      el.style.opacity = '1';
+      el.style.transform = 'translateY(0)';
+    });
+    
+    // Ajouter classe de succès au champ parent
+    const input = document.getElementById(elementId.replace('-success', ''));
+    if (input) {
+      input.classList.add('field-success');
+      input.style.borderColor = '#22c55e';
+      input.style.boxShadow = '0 0 0 3px rgba(34, 197, 94, 0.1)';
+    }
+  } else {
+    el.textContent = '';
+    el.style.display = 'none';
+    
+    // Retirer classe de succès du champ parent
+    const input = document.getElementById(elementId.replace('-success', ''));
+    if (input) {
+      input.classList.remove('field-success');
+      input.style.borderColor = '';
+      input.style.boxShadow = '';
+    }
+  }
+}
+
+function showLoading(elementId, message = 'Vérification...') {
+  const el = document.getElementById(elementId);
+  if (!el) return;
+  
+  el.innerHTML = `<span style="display:inline-flex;align-items:center;gap:6px;"><span style="display:inline-block;width:12px;height:12px;border:2px solid rgba(59,130,246,0.3);border-top-color:#3b82f6;border-radius:50%;animation:spin 0.6s linear infinite;"></span>${message}</span>`;
+  el.style.display = 'block';
+  el.style.opacity = '1';
+}
+
+// Fonction pour mettre à jour l'état requis de l'adresse postale
+function updatePostalAddressRequired() {
+  const skipAddress = document.getElementById('pro-skip-address')?.checked || false;
+  const addressInput = document.getElementById('pro-postal-address');
+  if (addressInput) {
+    if (skipAddress) {
+      addressInput.removeAttribute('required');
+      addressInput.disabled = true;
+      addressInput.style.opacity = '0.5';
+      addressInput.style.cursor = 'not-allowed';
+      window.registerData.postalAddress = '';
+      showError('pro-postal-address-error', '');
+    } else {
+      addressInput.setAttribute('required', 'required');
+      addressInput.disabled = false;
+      addressInput.style.opacity = '1';
+      addressInput.style.cursor = 'text';
+      if (addressInput.value) {
+        if (typeof window.validateProField === 'function') {
+          window.validateProField('postalAddress', addressInput.value);
+        }
+      }
+    }
   }
 }
 
 // Soumission du formulaire
+// Guard contre double-submit
+// NOTE: isSubmittingProRegister est déclarée dans auth.js et exposée via window.isSubmittingProRegister
+
 async function handleProRegisterSubmit(event) {
   event.preventDefault();
+  
+  // GUARD: Éviter double-submit et double clic
+  if (window.isSubmittingProRegister) {
+    console.warn('⚠️ Soumission déjà en cours - double clic ignoré');
+    return;
+  }
   
   // VÉRIFICATION CRITIQUE : Si le profil est déjà complet, ne pas permettre la soumission
   if (currentUser && currentUser.profileComplete === true && currentUser.isLoggedIn === true) {
@@ -9909,35 +14282,222 @@ async function handleProRegisterSubmit(event) {
     return;
   }
   
+  // Marquer comme en cours de soumission
+  window.isSubmittingProRegister = true;
+  
+  // S'assurer que registerData existe et est initialisé
+  if (!window.registerData) {
+    window.registerData = {};
+    console.log('[REGISTER] registerData initialisé');
+  }
+  
   // Récupérer toutes les valeurs
-  registerData.firstName = document.getElementById('pro-firstname')?.value.trim() || '';
-  registerData.lastName = document.getElementById('pro-lastname')?.value.trim() || '';
-  registerData.email = document.getElementById('pro-email')?.value.trim() || '';
-  registerData.username = document.getElementById('pro-username')?.value.trim() || '';
-  registerData.password = document.getElementById('pro-password')?.value || '';
-  registerData.passwordConfirm = document.getElementById('pro-password-confirm')?.value || '';
-  registerData.postalAddress = document.getElementById('pro-postal-address')?.value.trim() || '';
+  // ⚠️ firstName et lastName sont OPTIONNELS (comme les leaders mondiaux : Twitter, Instagram, TikTok)
+  // Seul le username est requis pour l'identification
+  window.registerData.firstName = ''; // Optionnel - pas de champ dans le formulaire
+  window.registerData.lastName = ''; // Optionnel - pas de champ dans le formulaire
+  window.registerData.email = document.getElementById('pro-email')?.value.trim() || '';
+  window.registerData.username = document.getElementById('pro-username')?.value.trim() || '';
+  window.registerData.password = document.getElementById('pro-password')?.value || '';
+  window.window.registerData.passwordConfirm = document.getElementById('pro-password-confirm')?.value || '';
+  const skipAddress = document.getElementById('pro-skip-address')?.checked || false;
+  window.registerData.postalAddress = skipAddress ? '' : (document.getElementById('pro-postal-address')?.value.trim() || '');
+  
+  // S'assurer que registerData existe
+  if (!window.registerData) {
+    window.registerData = {};
+  }
+  
+  // Récupérer les données d'adresse vérifiée (si disponible)
+  const addressLat = document.getElementById('pro-address-lat')?.value;
+  const addressLng = document.getElementById('pro-address-lng')?.value;
+  const addressCountry = document.getElementById('pro-address-country')?.value;
+  const addressLabel = document.getElementById('pro-address-label')?.value;
+  
+  // Préparer le tableau addresses pour le backend
+  let addresses = [];
+  if (!skipAddress && window.registerData.postalAddress && addressLat && addressLng && addressCountry) {
+    // Adresse vérifiée via Nominatim
+    addresses = [{
+      label: addressLabel || window.registerData.postalAddress,
+      lat: parseFloat(addressLat),
+      lng: parseFloat(addressLng),
+      addressDetails: {
+        country_code: addressCountry,
+        city: '', // Peut être enrichi plus tard
+        postcode: '',
+        street: ''
+      }
+    }];
+  } else if (!skipAddress && window.registerData.postalAddress && window.registerData.postalAddress.trim().length > 0) {
+    // Adresse saisie mais non vérifiée - accepter quand même avec une adresse basique
+    console.log('[REGISTER] Adresse tapée directement (sans coordonnées) - acceptée');
+    addresses = [{
+      label: window.registerData.postalAddress,
+      address: window.registerData.postalAddress,
+      lat: null,
+      lng: null,
+      addressDetails: {
+        country_code: addressCountry || '', // Pas de pays par défaut - mondial
+        city: '',
+        postcode: '',
+        street: ''
+      }
+    }];
+  }
 
   // Validation complète
   let isValid = true;
-  isValid = validateProField('firstname', registerData.firstName) && isValid;
-  isValid = validateProField('lastname', registerData.lastName) && isValid;
-  isValid = validateProField('email', registerData.email) && isValid;
-  isValid = validateProField('username', registerData.username) && isValid;
-  isValid = validateProPassword(registerData.password) && isValid;
+  if (typeof window.validateProField === 'function') {
+    isValid = window.validateProField('email', window.registerData.email) && isValid;
+    isValid = window.validateProField('username', window.registerData.username) && isValid;
+  }
+  isValid = validateProPassword(window.registerData.password) && isValid;
   isValid = validateProPasswordMatch() && isValid;
-  isValid = validateProField('postalAddress', registerData.postalAddress) && isValid;
+  // L'adresse postale est optionnelle si "Pas pour l'instant" est coché
+  // Si elle est saisie, accepter même sans coordonnées (l'utilisateur peut l'avoir tapée directement)
+  if (!skipAddress && window.registerData.postalAddress && window.registerData.postalAddress.trim().length > 0) {
+    // Si l'adresse a des coordonnées, les utiliser
+    if (addressLat && addressLng && addressCountry) {
+      // Adresse vérifiée avec coordonnées - parfait
+      console.log('[REGISTER] Adresse vérifiée avec coordonnées');
+    } else {
+      // Adresse tapée directement sans sélectionner depuis les suggestions
+      // Accepter quand même mais logger un avertissement
+      console.log('[REGISTER] Adresse tapée directement (sans coordonnées) - acceptée');
+      // Créer une adresse basique avec les données disponibles
+      if (!addresses || addresses.length === 0) {
+        addresses = [{
+          address: window.registerData.postalAddress,
+          city: window.registerData.postalAddress.split(',')[0] || '',
+          lat: null,
+          lng: null,
+          country: window.registerData.addressCountry || '', // Pas de pays par défaut - mondial
+          isPrimary: true
+        }];
+      }
+    }
+  }
 
-  // Vérifier la photo
-  if (!registerData.profilePhoto) {
-    showError('pro-photo-error', 'Veuillez ajouter une photo de profil');
+  // Vérifier la photo - VÉRIFIER photoData, profilePhoto ET l'image preview
+  const photoPreview = document.getElementById('pro-photo-preview');
+  const photoPlaceholder = document.getElementById('pro-photo-placeholder');
+  const hasPhotoPreview = photoPreview && photoPreview.src && !photoPreview.src.includes('placeholder') && photoPreview.style.display !== 'none';
+  
+  // CORRECTION CRITIQUE ABSOLUE: Copier photoData depuis profilePhoto OU preview AVANT TOUTE VÉRIFICATION
+  console.log('[REGISTER] 🔥🔥🔥🔥🔥 CORRECTION PHOTO - AVANT VÉRIFICATION');
+  console.log('[REGISTER] registerData existe:', !!window.registerData);
+  console.log('[REGISTER] registerData.profilePhoto:', window.registerData?.profilePhoto ? `PRÉSENT (${window.registerData.profilePhoto.length} chars)` : 'NULL');
+  console.log('[REGISTER] registerData.photoData AVANT:', window.registerData?.photoData ? `PRÉSENT (${window.registerData.photoData?.length || 0} chars)` : 'NULL');
+  console.log('[REGISTER] photoPreview existe:', !!photoPreview);
+  console.log('[REGISTER] photoPreview.src:', photoPreview?.src ? `PRÉSENT (${photoPreview.src.length} chars, startsWith data:image: ${photoPreview.src.startsWith('data:image')})` : 'NULL');
+  
+  // FORCER la copie de photoData depuis profilePhoto OU preview
+  if (window.registerData) {
+    let photoCopied = false;
+    
+    // 1. Si profilePhoto existe, l'utiliser
+    if (window.registerData.profilePhoto && 
+        window.registerData.profilePhoto.length > 0 &&
+        (!window.registerData.photoData || 
+         window.registerData.photoData === 'null' || 
+         window.registerData.photoData === '' ||
+         window.registerData.photoData.length === 0)) {
+      window.registerData.photoData = window.registerData.profilePhoto;
+      console.log('[REGISTER] ✅✅✅✅✅ photoData FORCÉ depuis profilePhoto!');
+      photoCopied = true;
+    }
+    
+    // 2. Si photoData est toujours vide, utiliser la preview
+    if ((!window.registerData.photoData || window.registerData.photoData.length === 0) &&
+        photoPreview && photoPreview.src && photoPreview.src.startsWith('data:image') && photoPreview.src.length > 100) {
+      window.registerData.photoData = photoPreview.src;
+      // Copier aussi dans profilePhoto si vide
+      if (!window.registerData.profilePhoto || window.registerData.profilePhoto.length === 0) {
+        window.registerData.profilePhoto = photoPreview.src;
+        console.log('[REGISTER] ✅✅✅ profilePhoto ET photoData copiés depuis preview.src');
+      } else {
+        console.log('[REGISTER] ✅✅✅ photoData copié depuis preview.src');
+      }
+      photoCopied = true;
+    }
+    
+    if (!photoCopied) {
+      console.log('[REGISTER] ⚠️ Aucune copie effectuée - photoData existe déjà ou aucune source disponible');
+    }
+  }
+  
+  console.log('[REGISTER] registerData.photoData APRÈS:', window.registerData?.photoData ? `PRÉSENT (${window.registerData.photoData.length} chars)` : 'NULL');
+  
+  const hasPhotoData = window.registerData.photoData && 
+                       window.registerData.photoData !== 'null' && 
+                       window.registerData.photoData !== '' &&
+                       window.registerData.photoData.length > 0;
+  const hasProfilePhoto = window.registerData.profilePhoto && 
+                         window.registerData.profilePhoto !== 'null' && 
+                         window.registerData.profilePhoto !== '' &&
+                         window.registerData.profilePhoto.length > 0;
+  const hasPhoto = hasPhotoData || hasProfilePhoto || hasPhotoPreview;
+  
+  // CORRECTION ABSOLUE FINALE: Si photoData est toujours null mais que profilePhoto ou preview existe, FORCER la copie
+  if (!hasPhotoData && (hasProfilePhoto || hasPhotoPreview)) {
+    console.log('[REGISTER] ⚠️⚠️⚠️ DERNIÈRE CHANCE: photoData est null mais profilePhoto/preview existe, FORCER copie!');
+    if (window.registerData.profilePhoto && window.registerData.profilePhoto.length > 0) {
+      window.registerData.photoData = window.registerData.profilePhoto;
+      console.log('[REGISTER] ✅✅✅✅✅✅✅ photoData FORCÉ depuis profilePhoto (DERNIÈRE CHANCE)!');
+      hasPhotoData = true;
+    } else if (hasPhotoPreview && photoPreview && photoPreview.src && photoPreview.src.startsWith('data:image') && photoPreview.src.length > 100) {
+      window.registerData.photoData = photoPreview.src;
+      if (!window.registerData.profilePhoto || window.registerData.profilePhoto.length === 0) {
+        window.registerData.profilePhoto = photoPreview.src;
+      }
+      console.log('[REGISTER] ✅✅✅✅✅✅✅ photoData FORCÉ depuis preview.src (DERNIÈRE CHANCE)!');
+      hasPhotoData = true;
+    }
+  }
+  
+  console.log('[REGISTER] Vérification photo FINALE - photoData:', hasPhotoData ? 'présent' : 'null', 'profilePhoto:', hasProfilePhoto ? 'présent' : 'null', 'preview:', hasPhotoPreview ? 'visible' : 'non visible');
+  console.log('[REGISTER] hasPhoto (validation):', hasPhoto);
+  console.log('[REGISTER] registerData.photoData FINAL:', window.registerData?.photoData ? `PRÉSENT (${window.registerData.photoData.length} chars)` : 'NULL');
+  
+  if (!hasPhoto) {
+    showError('pro-photo-error', '⚠️ Veuillez ajouter une photo de profil');
     isValid = false;
+  } else {
+    showError('pro-photo-error', ''); // Effacer l'erreur si la photo est présente
+  }
+  
+  // Vérifier consentement RGPD
+  const consentTerms = document.getElementById('pro-consent-terms')?.checked;
+  const consentPrivacy = document.getElementById('pro-consent-privacy')?.checked;
+  if (!consentTerms || !consentPrivacy) {
+    console.log('[REGISTER] ⚠️ Consentement RGPD manquant - consentTerms:', consentTerms, 'consentPrivacy:', consentPrivacy);
+    showNotification('⚠️ Vous devez accepter les conditions d\'utilisation et la politique de confidentialité', 'warning');
+    isValid = false;
+  } else {
+    console.log('[REGISTER] ✅ Consentement RGPD accepté');
   }
 
   if (!isValid) {
+    console.log('[REGISTER] ⚠️ Validation échouée - formulaire non soumis');
+    window.isSubmittingProRegister = false; // Réactiver le bouton
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Créer le compte';
+    }
     showNotification('⚠️ Veuillez corriger les erreurs dans le formulaire', 'warning');
     return;
   }
+  
+  console.log('[REGISTER] ✅✅✅ Validation réussie - soumission du formulaire...');
+  
+  // Arrêter l'auto-save avant soumission
+  if (typeof stopAutoSave === 'function') {
+    stopAutoSave();
+  }
+  
+  // Supprimer le draft après soumission réussie
+  localStorage.removeItem('registration_draft');
 
   // Désactiver le bouton
   const submitBtn = document.getElementById('pro-submit-btn');
@@ -9946,47 +14506,139 @@ async function handleProRegisterSubmit(event) {
     submitBtn.textContent = 'Création du compte...';
   }
 
+  // NOUVEAU FLUX: Après validation du formulaire, afficher le choix de vérification AVANT de créer le compte
+  try {
+    // Stocker les données du formulaire pour utilisation ultérieure
+    const selectedAddress = addresses && addresses.length > 0 ? addresses[0] : null;
+    
+    // CORRECTION CRITIQUE ABSOLUE: S'assurer que photoData existe avant de créer pendingRegisterData
+    console.log('[REGISTER] 🔥🔥🔥 VÉRIFICATION AVANT pendingRegisterData:');
+    console.log('[REGISTER] registerData existe:', !!window.registerData);
+    console.log('[REGISTER] registerData.profilePhoto:', window.registerData?.profilePhoto ? `PRÉSENT (${window.registerData.profilePhoto.length} chars)` : 'NULL');
+    console.log('[REGISTER] registerData.photoData AVANT:', window.registerData?.photoData ? `PRÉSENT (${window.registerData.photoData?.length || 0} chars)` : 'NULL');
+    
+    // Vérifier aussi la preview au cas où
+    const photoPreview = document.getElementById('pro-photo-preview');
+    if (photoPreview && photoPreview.src && photoPreview.src.startsWith('data:image') && photoPreview.src.length > 100) {
+      console.log('[REGISTER] Preview a une source base64, longueur:', photoPreview.src.length);
+      // Si profilePhoto est vide mais la preview a une image, utiliser la preview
+      if (!window.registerData.profilePhoto || window.registerData.profilePhoto.length === 0) {
+        window.registerData.profilePhoto = photoPreview.src;
+        console.log('[REGISTER] ✅ profilePhoto copié depuis preview.src');
+      }
+    }
+    
+    // FORCER la copie de photoData depuis profilePhoto si nécessaire
+    if (window.registerData) {
+      // Si profilePhoto existe et photoData n'existe pas ou est vide
+      if (window.registerData.profilePhoto && 
+          window.registerData.profilePhoto.length > 0 &&
+          (!window.registerData.photoData || 
+           window.registerData.photoData === 'null' || 
+           window.registerData.photoData === '' ||
+           window.registerData.photoData.length === 0)) {
+        window.registerData.photoData = window.registerData.profilePhoto;
+        console.log('[REGISTER] ✅✅✅✅✅ photoData FORCÉ depuis profilePhoto avant pendingRegisterData');
+      }
+      
+      // Si photoData est toujours vide mais que la preview a une image
+      if ((!window.registerData.photoData || window.registerData.photoData.length === 0) &&
+          photoPreview && photoPreview.src && photoPreview.src.startsWith('data:image') && photoPreview.src.length > 100) {
+        window.registerData.photoData = photoPreview.src;
+        console.log('[REGISTER] ✅✅✅ photoData copié depuis preview.src');
+      }
+    }
+    
+    console.log('[REGISTER] registerData.photoData APRÈS:', window.registerData?.photoData ? `PRÉSENT (${window.registerData.photoData.length} chars)` : 'NULL');
+    
+    // Récupérer photoData depuis registerData (photo uploadée) - utiliser profilePhoto comme fallback
+    const photoData = window.registerData.photoData || window.registerData.profilePhoto || null;
+    console.log('[REGISTER] photoData FINAL récupéré pour pendingRegisterData:', photoData ? `PRÉSENT (${photoData.length} chars)` : 'NULL');
+    
+    window.pendingRegisterData = {
+      email: window.registerData.email,
+      username: window.registerData.username,
+      password: window.registerData.password,
+      photoData: photoData, // INCLURE photoData (photo uploadée lors de la création)
+      photoLater: false,
+      addressLater: !selectedAddress,
+      selectedAddress: selectedAddress,
+      addresses: addresses || [],
+      avatarId: window.registerData.avatarId || 1
+    };
+    
+    console.log('[REGISTER] pendingRegisterData créé avec photoData:', window.pendingRegisterData.photoData ? (window.pendingRegisterData.photoData.substring(0, 50) + '...') : 'null');
+    console.log('[REGISTER] Formulaire validé, affichage choix de vérification');
+    
+    // Réactiver le bouton
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Créer mon compte';
+    }
+    
+    // Afficher le choix de méthode de vérification (Google, Facebook bientôt, Email)
+    console.log('[REGISTER] Vérification disponibilité showVerificationChoice...');
+    console.log('[REGISTER] typeof showVerificationChoice:', typeof showVerificationChoice);
+    console.log('[REGISTER] typeof window.showVerificationChoice:', typeof window.showVerificationChoice);
+    
+    if (typeof showVerificationChoice === 'function') {
+      console.log('[REGISTER] Appel showVerificationChoice() direct');
+      showVerificationChoice();
+    } else if (typeof window.showVerificationChoice === 'function') {
+      console.log('[REGISTER] Appel window.showVerificationChoice()');
+      window.showVerificationChoice();
+    } else {
+      console.error('[REGISTER] showVerificationChoice non disponible, fallback vers vérification email');
+      showEmailVerificationModal(window.registerData.email, window.registerData.username || 'Utilisateur');
+    }
+    
+    return; // NE PAS créer le compte maintenant, attendre le choix de vérification
+  } catch (error) {
+    console.error('❌ Erreur lors de la préparation du formulaire:', error);
+    showNotification('❌ Erreur lors de la préparation du formulaire', 'error');
+    
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Créer le compte';
+    }
+  }
+  
+  // ============================================
+  // ANCIEN CODE DÉSACTIVÉ (ne sera plus exécuté)
+  // Le compte sera créé après le choix de vérification (Google ou Email)
+  // ============================================
+  /*
   try {
     // Détecter si c'est un utilisateur Google (connexion OAuth)
-    // Vérifier plusieurs indicateurs : provider, googleValidated, sub, ou email correspondant
     const isGoogleUser = currentUser && (
       currentUser.provider === 'google' || 
       currentUser.googleValidated === true ||
-      (currentUser.sub && currentUser.email === registerData.email) ||
-      (currentUser.email === registerData.email && registerData.email.includes('@gmail.com'))
+      (currentUser.sub && currentUser.email === window.registerData.email) ||
+      (currentUser.email === window.registerData.email && window.registerData.email.includes('@gmail.com'))
     );
     
-    console.log('🔍 Détection type utilisateur:', {
-      isGoogleUser: isGoogleUser,
-      provider: currentUser?.provider,
-      googleValidated: currentUser?.googleValidated,
-      hasSub: !!currentUser?.sub,
-      emailMatch: currentUser?.email === registerData.email
-    });
-    
     // API_BASE_URL contient déjà '/api', donc pas besoin de l'ajouter à nouveau
-    const endpoint = isGoogleUser ? `${API_BASE_URL}/user/oauth/google/complete` : `${API_BASE_URL}/user/register`;
+    const endpoint = isGoogleUser ? `${window.API_BASE_URL}/user/oauth/google/complete` : `${window.API_BASE_URL}/user/register`;
     
     // Préparer le payload selon le type d'utilisateur
-    // Pour Google OAuth, utiliser l'email comme identifiant si pas d'ID disponible
+    const basePayload = {
+      email: window.registerData.email,
+      username: window.registerData.username,
+      password: window.registerData.password,
+      firstName: window.registerData.firstName,
+      lastName: window.registerData.lastName,
+      profilePhoto: window.registerData.profilePhoto,
+      addresses: addresses
+    };
+    
     const payload = isGoogleUser ? {
-      userId: currentUser?.id || currentUser?.sub || null, // Peut être null si localStorage plein
-      email: registerData.email,
-      username: registerData.username,
-      password: registerData.password,
-      firstName: registerData.firstName,
-      lastName: registerData.lastName,
-      profilePhoto: registerData.profilePhoto,
-      postalAddress: registerData.postalAddress
+      ...basePayload,
+      userId: currentUser?.id || null,
+      googleSub: currentUser?.sub || null,
+      sub: currentUser?.sub || null
     } : {
-      email: registerData.email,
-      username: registerData.username,
-      password: registerData.password,
-      firstName: registerData.firstName,
-      lastName: registerData.lastName,
-      profilePhoto: registerData.profilePhoto,
-      postalAddress: registerData.postalAddress,
-      avatarId: registerData.avatarId || 1
+      ...basePayload,
+      avatarId: window.registerData.avatarId || 1
     };
     
     console.log(`📤 Envoi formulaire ${isGoogleUser ? 'Google OAuth' : 'inscription standard'} vers ${endpoint}`);
@@ -10000,135 +14652,94 @@ async function handleProRegisterSubmit(event) {
 
     if (response.ok) {
       const data = await response.json();
+      console.log('[REGISTER] Réponse backend reçue:', { ok: data.ok, hasUser: !!data.user, userKeys: data.user ? Object.keys(data.user) : [] });
       
-      // Mettre à jour currentUser avec les données du backend
+      // PRIORITY HOTFIX: Créer slimUser uniquement avec les champs essentiels
+      // Ne jamais stocker la réponse complète du backend
+      let slimUser = null;
       if (data.user) {
-        // Mapper les champs du backend vers le format frontend
-        const profilePhoto = data.user.profile_photo_url || data.user.avatar || data.user.profilePhoto || registerData.profilePhoto || null;
-        const avatar = data.user.avatar || data.user.profile_photo_url || data.user.profilePhoto || registerData.profilePhoto || '👤';
-        
-        currentUser = {
-          ...currentUser,
-          ...data.user,
-          // PRIORITÉ ABSOLUE : username du backend OU du formulaire (GARANTIR qu'il est présent)
-          username: data.user.username || registerData.username || currentUser.username,
-          // S'assurer que profilePhoto et avatar sont correctement mappés
-          profilePhoto: profilePhoto,
-          avatar: avatar,
-          isLoggedIn: true,
-          profileComplete: true, // Profil maintenant complet après inscription - IMPORTANT !
-          googleValidated: false, // Plus besoin du marqueur
-          likes: currentUser.likes || [],
-          favorites: currentUser.favorites || [],
-          agenda: currentUser.agenda || [],
-          participating: currentUser.participating || [],
-          alerts: currentUser.alerts || [],
-          statusAlerts: currentUser.statusAlerts || [],
-          pendingStatusNotifications: currentUser.pendingStatusNotifications || [],
-          proximityAlerts: currentUser.proximityAlerts || [],
-          eventAlarms: currentUser.eventAlarms || [],
-          reviews: currentUser.reviews || {},
-          friends: currentUser.friends || [],
-          friendRequests: currentUser.friendRequests || [],
-          sentRequests: currentUser.sentRequests || [],
-          blockedUsers: currentUser.blockedUsers || [],
-          conversations: currentUser.conversations || [],
-          groups: currentUser.groups || [],
-          profilePhotos: currentUser.profilePhotos || (profilePhoto ? [profilePhoto] : []),
-          profileLinks: currentUser.profileLinks || [],
-          history: currentUser.history || [],
-          photos: currentUser.photos || [],
-          eventStatusHistory: currentUser.eventStatusHistory || {}
+        slimUser = {
+          id: data.user.id || currentUser?.id,
+          email: data.user.email || window.registerData.email,
+          username: data.user.username || window.registerData.username,
+          role: data.user.role || 'user',
+          subscription: data.user.subscription || 'free',
+          profile_photo_url: data.user.profile_photo_url || null,
+          hasPassword: data.user.hasPassword || false,
+          hasPostalAddress: data.user.hasPostalAddress || false,
+          profileComplete: data.user.profileComplete !== undefined ? data.user.profileComplete : true
         };
       } else {
-        // Fallback si pas de data.user (inscription standard)
-        currentUser = {
+        // Fallback minimal si pas de data.user
+        slimUser = {
           id: data.user?.id || Date.now(),
-          email: registerData.email,
-          username: registerData.username,
-          name: `${registerData.firstName} ${registerData.lastName}`,
-          firstName: registerData.firstName,
-          lastName: registerData.lastName,
-          profilePhoto: registerData.profilePhoto,
-          postalAddress: registerData.postalAddress,
-          isLoggedIn: true,
-          profileComplete: true,
-          likes: [],
-          favorites: [],
-          agenda: [],
-          participating: [],
-          alerts: [],
-          statusAlerts: [],
-          pendingStatusNotifications: [],
-          proximityAlerts: [],
-          eventAlarms: [],
-          reviews: {},
-          friends: [],
-          friendRequests: [],
-          sentRequests: [],
-          blockedUsers: [],
-          conversations: [],
-          groups: [],
-          profilePhotos: [registerData.profilePhoto],
-          profileLinks: [],
-          history: [],
-          photos: [],
-          eventStatusHistory: {}
+          email: window.registerData.email,
+          username: window.registerData.username,
+          role: 'user',
+          subscription: 'free',
+          profileComplete: true
         };
       }
-
-      // Sauvegarder dans localStorage avec gestion d'erreur de quota
+      
+      // PRIORITY HOTFIX: Mettre à jour l'UI "logged-in" IMMÉDIATEMENT AVANT toute écriture storage
+      // Cela garantit que l'UI reflète l'état connecté même si storage échoue
+      console.log('[REGISTER] Mise à jour UI logged-in AVANT storage...');
+      updateAuthUI(slimUser);
+      
+      // Afficher le message de bienvenue
+      const welcomeName = slimUser.username || slimUser.email?.split('@')[0] || 'Utilisateur';
+      
+      // Afficher le modal de vérification d'email au lieu de fermer directement
+      showEmailVerificationModal(window.registerData.email, welcomeName);
+      
+      // PRIORITY HOTFIX: Sauvegarder uniquement slimUser dans localStorage
+      // Fallback vers sessionStorage si localStorage plein
       try {
-        safeSetItem('currentUser', JSON.stringify(currentUser));
-      } catch (e) {
-        if (e.name === 'QuotaExceededError' || e.message.includes('quota')) {
-          console.warn('⚠️ localStorage plein, nettoyage...');
-          // Nettoyer les anciennes données
-          try {
-            // Supprimer les données non essentielles
-            localStorage.removeItem('eventsData');
-            localStorage.removeItem('bookingsData');
-            localStorage.removeItem('servicesData');
-            // Réessayer
-            safeSetItem('currentUser', JSON.stringify(currentUser));
-            showNotification('⚠️ Espace de stockage limité - Certaines données ont été nettoyées', 'warning');
-          } catch (e2) {
-            console.error('❌ Impossible de sauvegarder dans localStorage:', e2);
-            showNotification('⚠️ Impossible de sauvegarder localement. Vos données sont sauvegardées sur le serveur.', 'warning');
+        const slimJson = JSON.stringify(slimUser);
+        try {
+          localStorage.setItem('currentUser', slimJson);
+          console.log('✅ User slim sauvegardé dans localStorage');
+        } catch (localStorageError) {
+          if (localStorageError.name === 'QuotaExceededError' || localStorageError.message.includes('quota')) {
+            console.warn('⚠️ localStorage plein - tentative sessionStorage...');
+            try {
+              sessionStorage.setItem('currentUser', slimJson);
+              console.log('✅ User slim sauvegardé dans sessionStorage (fallback)');
+              showNotification('⚠️ Données sauvegardées temporairement (session)', 'info');
+            } catch (sessionStorageError) {
+              console.warn('⚠️ sessionStorage aussi plein - user gardé en mémoire (window.currentUser)');
+              // User déjà en window.currentUser, UI déjà mise à jour - continuer
+            }
+          } else {
+            throw localStorageError;
           }
-        } else {
-          throw e;
         }
+      } catch (storageError) {
+        console.warn('⚠️ Erreur storage (non bloquant):', storageError);
+        // User déjà en window.currentUser, UI déjà mise à jour - continuer
       }
       
-      // Afficher le message de bienvenue avec le username choisi (priorité absolue)
-      const welcomeName = currentUser.username || currentUser.name || currentUser.email?.split('@')[0] || 'Utilisateur';
-      showNotification(`✅ Bienvenue ${welcomeName} ! Votre compte a été créé avec succès.`, 'success');
+      // Charger les données utilisateur (optionnel, peut échouer sans bloquer)
+      try {
+        await loadUserDataOnLogin();
+      } catch (loadError) {
+        console.warn('⚠️ Erreur loadUserDataOnLogin (non bloquant):', loadError);
+        // Continuer - l'utilisateur est déjà connecté et l'UI mise à jour
+      }
       
-      // Log pour vérifier que le username est bien présent
-      console.log('✅ Compte créé - username:', currentUser.username, 'name:', currentUser.name);
-      
-      closePublishModal();
-      updateUserUI();
-      updateAccountButton(); // Mettre à jour le bouton compte avec le username
-      
-      // Forcer une nouvelle mise à jour après un court délai pour être sûr
-      setTimeout(() => {
-        updateAccountButton();
-        console.log('🔄 Mise à jour forcée du bouton compte - username:', currentUser.username);
-      }, 100);
-      
-      await loadUserDataOnLogin();
+      // Réinitialiser le flag de soumission
+      window.isSubmittingProRegister = false;
     } else {
       // Gérer les erreurs HTTP
       let errorMessage = 'Impossible de créer le compte';
+      let errorData = null;
       
       try {
         const errorText = await response.text();
         console.error(`❌ Erreur serveur ${response.status}:`, errorText);
         
         try {
-          const errorData = JSON.parse(errorText);
+          errorData = JSON.parse(errorText);
           errorMessage = errorData.error || errorMessage;
         } catch (e) {
           // Si ce n'est pas du JSON, utiliser le texte brut
@@ -10138,6 +14749,20 @@ async function handleProRegisterSubmit(event) {
         }
       } catch (e) {
         console.error('Erreur lecture réponse:', e);
+      }
+      
+      // PRIORITÉ 3 FIX: Gérer USERNAME_ALREADY_EXISTS avec message clair
+      if (errorData && errorData.code === 'USERNAME_ALREADY_EXISTS') {
+        errorMessage = 'Ce nom d\'utilisateur est déjà pris. Choisissez-en un autre ou contactez le support si c\'est votre compte.';
+        showNotification(`⚠️ ${errorMessage}`, 'warning');
+        
+        // Focus sur le champ username pour permettre la modification
+        const usernameInput = document.getElementById('pro-username') || document.getElementById('register-username');
+        if (usernameInput) {
+          usernameInput.focus();
+          usernameInput.select();
+        }
+        return; // Ne pas fermer le modal, permettre la correction
       }
       
       // Messages spécifiques selon le code d'erreur
@@ -10154,6 +14779,9 @@ async function handleProRegisterSubmit(event) {
       console.error(`❌ Échec création compte: ${response.status} - ${errorMessage}`);
       showNotification(`❌ ${errorMessage}`, 'error');
       
+      // Réinitialiser le flag de soumission
+      window.isSubmittingProRegister = false;
+      
       if (submitBtn) {
         submitBtn.disabled = false;
         submitBtn.textContent = 'Créer le compte';
@@ -10162,6 +14790,9 @@ async function handleProRegisterSubmit(event) {
   } catch (error) {
     console.error('❌ Erreur création compte:', error);
     console.error('Détails erreur:', error.message, error.stack);
+    
+    // Réinitialiser le flag de soumission
+    isSubmittingProRegister = false;
     
     let errorMessage = 'Erreur réseau. Veuillez réessayer.';
     if (error.message && error.message.includes('Failed to fetch')) {
@@ -10177,7 +14808,532 @@ async function handleProRegisterSubmit(event) {
       submitBtn.textContent = 'Créer le compte';
     }
   }
+  */
 }
+
+// Fonction pour afficher le modal de vérification d'email après inscription
+// Fonction pour afficher un formulaire photo uniquement (quand photo manquante)
+function showPhotoUploadForm(userData) {
+  console.log('[PHOTO UPLOAD] Affichage formulaire photo uniquement pour:', userData?.email);
+  
+  const backdrop = document.getElementById('publish-modal-backdrop');
+  const modal = document.getElementById('publish-modal-inner');
+  
+  if (!backdrop || !modal) {
+    console.error('[PHOTO UPLOAD] Modal elements not found');
+    return;
+  }
+  
+  let selectedPhoto = null;
+  let photoPreview = null;
+  
+  const html = `
+    <div style="padding:40px;max-width:500px;margin:0 auto;text-align:center;position:relative;">
+      <!-- Bouton X (croix) pour fermer -->
+      <button onclick="closeAuthModal()" style="position:absolute;top:16px;right:16px;background:none;border:none;color:var(--ui-text-muted);font-size:24px;cursor:pointer;padding:8px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:all 0.2s;z-index:10;" onmouseover="this.style.background='rgba(239,68,68,0.2)';this.style.color='#ef4444';this.style.transform='scale(1.1)';" onmouseout="this.style.background='none';this.style.color='var(--ui-text-muted)';this.style.transform='scale(1)';" title="Fermer">✕</button>
+      
+      <div style="font-size:64px;margin-bottom:20px;">📷</div>
+      <h2 style="margin:0 0 12px;font-size:24px;font-weight:700;color:#fff;">Photo de profil requise</h2>
+      <p style="margin:0 0 32px;font-size:14px;color:var(--ui-text-muted);line-height:1.6;">
+        Une photo de profil est obligatoire pour compléter votre compte.<br>
+        Vous pouvez ajouter une photo maintenant ou passer cette étape et la configurer plus tard depuis votre profil.
+      </p>
+      
+      <!-- Zone d'aperçu photo -->
+      <div id="photo-preview-container" style="width:150px;height:150px;margin:0 auto 24px;border-radius:50%;background:rgba(15,23,42,0.5);border:3px solid rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;overflow:hidden;cursor:pointer;transition:all 0.3s;" onclick="document.getElementById('photo-upload-oauth-input').click();" onmouseover="this.style.borderColor='rgba(0,255,195,0.5)';this.style.background='rgba(15,23,42,0.8)';" onmouseout="this.style.borderColor='rgba(255,255,255,0.2)';this.style.background='rgba(15,23,42,0.5)';">
+        <div style="font-size:48px;color:var(--ui-text-muted);">📷</div>
+      </div>
+      
+      <input type="file" id="photo-upload-oauth-input" accept="image/*" style="display:none;" onchange="handleOAuthPhotoUpload(event)">
+      
+      <div id="photo-upload-feedback" style="min-height:24px;margin-bottom:24px;font-size:13px;color:var(--ui-text-muted);"></div>
+      
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <button onclick="uploadOAuthPhoto()" id="upload-photo-btn" disabled style="width:100%;padding:14px;border-radius:12px;border:none;background:rgba(255,255,255,0.2);color:rgba(255,255,255,0.5);font-weight:700;font-size:15px;cursor:not-allowed;transition:all 0.3s;">
+          Ajouter la photo
+        </button>
+        <button onclick="skipPhotoUpload()" style="width:100%;padding:12px;border-radius:12px;border:2px solid rgba(255,255,255,0.2);background:transparent;color:#fff;font-weight:600;font-size:14px;cursor:pointer;transition:all 0.3s;" onmouseover="this.style.borderColor='rgba(255,255,255,0.4)';this.style.background='rgba(255,255,255,0.05)';" onmouseout="this.style.borderColor='rgba(255,255,255,0.2)';this.style.background='transparent';">
+          Passer cette étape (pour plus tard)
+        </button>
+        <button onclick="closeAuthModal()" style="width:100%;padding:12px;border-radius:10px;border:2px solid rgba(255,255,255,0.1);background:transparent;color:var(--ui-text-muted);font-weight:600;font-size:14px;cursor:pointer;transition:all 0.3s;" onmouseover="this.style.borderColor='rgba(255,255,255,0.3)';this.style.color='var(--ui-text-main)';" onmouseout="this.style.borderColor='rgba(255,255,255,0.1)';this.style.color='var(--ui-text-muted)';">
+          Annuler
+        </button>
+      </div>
+    </div>
+  `;
+  
+  modal.innerHTML = html;
+  backdrop.style.display = 'flex';
+  
+  // Stocker les données utilisateur pour l'upload
+  window.oauthPhotoUploadData = userData;
+}
+
+// Gérer l'upload de photo pour OAuth
+window.handleOAuthPhotoUpload = function(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  
+  // Vérifier que c'est une image
+  if (!file.type.startsWith('image/')) {
+    document.getElementById('photo-upload-feedback').innerHTML = '<span style="color:var(--ui-text-error);">⚠️ Veuillez sélectionner une image</span>';
+    return;
+  }
+  
+  // Vérifier la taille (max 5MB)
+  if (file.size > 5 * 1024 * 1024) {
+    document.getElementById('photo-upload-feedback').innerHTML = '<span style="color:var(--ui-text-error);">⚠️ L\'image est trop volumineuse (max 5MB)</span>';
+    return;
+  }
+  
+  // Afficher l'aperçu
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const previewContainer = document.getElementById('photo-preview-container');
+    if (previewContainer) {
+      previewContainer.innerHTML = `<img src="${e.target.result}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" alt="Photo preview">`;
+    }
+    
+    // Activer le bouton d'upload
+    const uploadBtn = document.getElementById('upload-photo-btn');
+    if (uploadBtn) {
+      uploadBtn.disabled = false;
+      uploadBtn.style.background = 'linear-gradient(135deg,#00ffc3,#3b82f6)';
+      uploadBtn.style.color = '#000';
+      uploadBtn.style.cursor = 'pointer';
+    }
+    
+    document.getElementById('photo-upload-feedback').innerHTML = '<span style="color:var(--ui-text-success);">✅ Photo sélectionnée</span>';
+  };
+  reader.readAsDataURL(file);
+  
+  // Stocker le fichier
+  window.oauthPhotoFile = file;
+};
+
+// Uploader la photo pour OAuth
+window.uploadOAuthPhoto = async function() {
+  const file = window.oauthPhotoFile;
+  const userData = window.oauthPhotoUploadData;
+  
+  if (!file || !userData) {
+    showNotification('❌ Erreur: Fichier ou données utilisateur manquants', 'error');
+    return;
+  }
+  
+  const uploadBtn = document.getElementById('upload-photo-btn');
+  const feedback = document.getElementById('photo-upload-feedback');
+  
+  if (uploadBtn) {
+    uploadBtn.disabled = true;
+    uploadBtn.textContent = 'Upload en cours...';
+  }
+  
+  if (feedback) {
+    feedback.innerHTML = '<span style="color:var(--ui-text-info);">⏳ Upload en cours...</span>';
+  }
+  
+  try {
+    // Convertir l'image en base64
+    const reader = new FileReader();
+    reader.onload = async function(e) {
+      const base64Photo = e.target.result;
+      
+      // Appeler l'endpoint de complétion OAuth avec la photo
+      const response = await fetch(`${window.API_BASE_URL}/user/oauth/google/complete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: userData.id,
+          email: userData.email,
+          username: userData.username || userData.email?.split('@')[0]?.substring(0, 20),
+          firstName: userData.firstName || userData.first_name || '',
+          lastName: userData.lastName || userData.last_name || '',
+          profilePhoto: base64Photo
+        })
+      });
+      
+      const result = await response.json();
+      
+      if (response.ok && result.ok) {
+        // Mettre à jour currentUser et UI
+        if (result.user) {
+          const slimUser = {
+            id: result.user.id || userData.id,
+            email: result.user.email || userData.email,
+            username: result.user.username || userData.username,
+            firstName: result.user.firstName || result.user.first_name || '',
+            lastName: result.user.lastName || result.user.last_name || '',
+            role: result.user.role || 'user',
+            subscription: result.user.subscription || 'free',
+            profile_photo_url: result.user.profile_photo_url || base64Photo,
+            hasPassword: result.user.hasPassword || false,
+            hasPostalAddress: result.user.hasPostalAddress || false,
+            profileComplete: true,
+            isLoggedIn: true
+          };
+          
+          currentUser = { ...currentUser, ...slimUser, isLoggedIn: true };
+          updateAuthUI(slimUser);
+          
+          try {
+            const slimJson = JSON.stringify(slimUser);
+            localStorage.setItem('currentUser', slimJson);
+          } catch (e) {
+            try { sessionStorage.setItem('currentUser', slimJson); } catch (e2) {}
+          }
+        }
+        
+        closeAuthModal();
+        closePublishModal();
+        
+        // Si besoin confirmation email, afficher le modal
+        if (result.needsEmailVerification) {
+          showEmailVerificationModal(userData.email, userData.username || 'Utilisateur');
+        } else {
+          const displayName = userData.username || userData.firstName || userData.email?.split('@')[0] || 'Utilisateur';
+          showNotification(`✅ Bienvenue ${displayName} ! Vous êtes connecté.`, 'success');
+        }
+        
+        // Nettoyer
+        delete window.oauthPhotoFile;
+        delete window.oauthPhotoUploadData;
+      } else {
+        throw new Error(result.error || 'Erreur lors de l\'upload de la photo');
+      }
+    };
+    reader.readAsDataURL(file);
+  } catch (error) {
+    console.error('❌ Erreur upload photo OAuth:', error);
+    if (feedback) {
+      feedback.innerHTML = `<span style="color:var(--ui-text-error);">❌ ${error.message || 'Erreur lors de l\'upload'}</span>`;
+    }
+    if (uploadBtn) {
+      uploadBtn.disabled = false;
+      uploadBtn.textContent = 'Ajouter la photo';
+    }
+    showNotification(`❌ ${error.message || 'Erreur lors de l\'upload de la photo'}`, 'error');
+  }
+};
+
+// Passer l'étape photo (rediriger vers le formulaire complet)
+window.skipPhotoUpload = function() {
+  const userData = window.oauthPhotoUploadData;
+  if (!userData) {
+    closeAuthModal();
+    return;
+  }
+  
+  // Fermer le modal photo et afficher le formulaire complet d'inscription
+  closeAuthModal();
+  
+  // Afficher le formulaire d'inscription complet avec les données Google pré-remplies
+  if (typeof showProRegisterForm === 'function') {
+    showProRegisterForm();
+  } else if (typeof window.showProRegisterForm === 'function') {
+    window.showProRegisterForm();
+  }
+  
+  // Pré-remplir avec les données Google
+  window.registerData = {
+    email: userData.email || '',
+    username: userData.username || userData.email?.split('@')[0]?.substring(0, 20) || '',
+    password: '',
+    passwordConfirm: '',
+    firstName: userData.firstName || userData.first_name || '',
+    lastName: userData.lastName || userData.last_name || '',
+    profilePhoto: '', // Photo à ajouter dans le formulaire complet
+    postalAddress: '',
+    avatarId: 1,
+    avatarDescription: '',
+    addresses: [],
+    emailVerificationCode: null,
+    emailVerified: false,
+    verificationAttempts: 0,
+    lastVerificationAttempt: null,
+    registrationAttempts: 0,
+    lastRegistrationAttempt: null,
+    captchaAnswer: null,
+    codeSentAt: null,
+    codeExpiresAt: null,
+    resendCountdown: 0,
+    lastResendAttempt: null
+  };
+  
+  showNotification('⚠️ Une photo de profil est obligatoire. Veuillez compléter votre profil.', 'warning');
+  
+  // Nettoyer
+  delete window.oauthPhotoFile;
+  delete window.oauthPhotoUploadData;
+};
+
+// Exposer globalement
+window.showPhotoUploadForm = showPhotoUploadForm;
+
+function showEmailVerificationModal(email, username) {
+  console.log('[EMAIL VERIFICATION] Affichage modal de vérification pour:', email);
+  
+  const backdrop = document.getElementById('publish-modal-backdrop');
+  const modal = document.getElementById('publish-modal-inner');
+  
+  if (!backdrop || !modal) {
+    console.error('[EMAIL VERIFICATION] Modal elements not found');
+    return;
+  }
+  
+  // Générer un code à 6 chiffres
+  const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+  
+  // Stocker le code temporairement (sera vérifié par le backend)
+  window.pendingEmailVerification = {
+    email: email,
+    code: verificationCode,
+    expiresAt: Date.now() + (15 * 60 * 1000) // 15 minutes
+  };
+  
+  // Envoyer le code par email via le backend
+  fetch(`${window.API_BASE_URL}/user/send-verification-code`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, code: verificationCode, username })
+  }).catch(err => {
+    console.warn('[EMAIL VERIFICATION] Erreur envoi code (non bloquant):', err);
+    // En mode développement, afficher le code dans la console
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      console.log(`🔐 CODE DE VÉRIFICATION (DEV ONLY): ${verificationCode}`);
+    }
+  });
+  
+  // Afficher le code dans la console en développement
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    console.log(`🔐 CODE DE VÉRIFICATION (DEV ONLY): ${verificationCode}`);
+  }
+  
+  let codeInputs = '';
+  for (let i = 0; i < 6; i++) {
+    codeInputs += `
+      <input 
+        type="text" 
+        id="email-code-digit-${i}" 
+        maxlength="1" 
+        class="email-code-input"
+        style="width:45px;height:55px;text-align:center;font-size:24px;font-weight:700;border:2px solid rgba(255,255,255,0.2);background:rgba(15,23,42,0.5);color:#fff;border-radius:10px;transition:all 0.2s;"
+        oninput="handleEmailCodeInput(${i}, event)"
+        onkeydown="handleEmailCodeKeydown(${i}, event)"
+        onfocus="this.style.borderColor='rgba(0,255,195,0.5)';this.style.background='rgba(15,23,42,0.8)';"
+        onblur="this.style.borderColor='rgba(255,255,255,0.2)';this.style.background='rgba(15,23,42,0.5)';"
+      >
+    `;
+  }
+  
+  const html = `
+    <div style="padding:40px;max-width:500px;margin:0 auto;text-align:center;position:relative;">
+      <!-- Bouton X (croix) pour fermer -->
+      <button onclick="closeAuthModal()" style="position:absolute;top:16px;right:16px;background:none;border:none;color:var(--ui-text-muted);font-size:24px;cursor:pointer;padding:8px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:all 0.2s;z-index:10;" onmouseover="this.style.background='rgba(239,68,68,0.2)';this.style.color='#ef4444';this.style.transform='scale(1.1)';" onmouseout="this.style.background='none';this.style.color='var(--ui-text-muted)';this.style.transform='scale(1)';" title="Fermer">✕</button>
+      
+      <div style="font-size:64px;margin-bottom:20px;">📧</div>
+      <h2 style="margin:0 0 12px;font-size:24px;font-weight:700;color:#fff;">Vérifiez votre email</h2>
+      <p style="margin:0 0 32px;font-size:14px;color:var(--ui-text-muted);line-height:1.6;">
+        Nous avons envoyé un code de vérification à 6 chiffres à<br>
+        <strong style="color:#00ffc3;">${email}</strong><br><br>
+        Entrez le code ci-dessous pour confirmer votre adresse email.
+      </p>
+      
+      <div style="display:flex;justify-content:center;gap:12px;margin-bottom:24px;">
+        ${codeInputs}
+      </div>
+      
+      <div id="email-code-feedback" style="min-height:24px;margin-bottom:24px;font-size:13px;"></div>
+      
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <button onclick="verifyEmailCode()" style="width:100%;padding:14px;border-radius:12px;border:none;background:linear-gradient(135deg,#00ffc3,#3b82f6);color:#000;font-weight:700;font-size:15px;cursor:pointer;">
+          Vérifier
+        </button>
+        <button onclick="resendEmailVerificationCode()" style="width:100%;padding:12px;border-radius:12px;border:2px solid rgba(255,255,255,0.2);background:transparent;color:#fff;font-weight:600;font-size:14px;cursor:pointer;">
+          Renvoyer le code
+        </button>
+        <button onclick="closeAuthModal()" style="width:100%;padding:12px;border-radius:10px;border:2px solid rgba(255,255,255,0.1);background:transparent;color:var(--ui-text-muted);font-weight:600;font-size:14px;cursor:pointer;transition:all 0.3s;" onmouseover="this.style.borderColor='rgba(255,255,255,0.3)';this.style.color='var(--ui-text-main)';" onmouseout="this.style.borderColor='rgba(255,255,255,0.1)';this.style.color='var(--ui-text-muted)';">
+          Annuler
+        </button>
+      </div>
+    </div>
+  `;
+  
+  modal.innerHTML = html;
+  backdrop.style.display = 'flex';
+  
+  // Focus sur le premier champ
+  setTimeout(() => {
+    const firstInput = document.getElementById('email-code-digit-0');
+    if (firstInput) firstInput.focus();
+  }, 100);
+}
+
+// Gestion de la saisie du code de vérification
+window.handleEmailCodeInput = function(index, event) {
+  const input = event.target;
+  const value = input.value.replace(/[^0-9]/g, '');
+  input.value = value;
+  
+  if (value && index < 5) {
+    const nextInput = document.getElementById(`email-code-digit-${index + 1}`);
+    if (nextInput) nextInput.focus();
+  }
+  
+  // Vérifier si tous les champs sont remplis
+  checkEmailCodeComplete();
+};
+
+window.handleEmailCodeKeydown = function(index, event) {
+  if (event.key === 'Backspace' && !event.target.value && index > 0) {
+    const prevInput = document.getElementById(`email-code-digit-${index - 1}`);
+    if (prevInput) prevInput.focus();
+  }
+};
+
+function checkEmailCodeComplete() {
+  let code = '';
+  for (let i = 0; i < 6; i++) {
+    const input = document.getElementById(`email-code-digit-${i}`);
+    if (input) code += input.value;
+  }
+  
+  if (code.length === 6) {
+    verifyEmailCode(code);
+  }
+}
+
+// Vérifier le code d'email
+async function verifyEmailCode(providedCode) {
+  if (!providedCode) {
+    // Récupérer le code depuis les inputs
+    let code = '';
+    for (let i = 0; i < 6; i++) {
+      const input = document.getElementById(`email-code-digit-${i}`);
+      if (input) code += input.value;
+    }
+    providedCode = code;
+  }
+  
+  if (providedCode.length !== 6) {
+    showNotification('⚠️ Veuillez entrer un code à 6 chiffres', 'warning');
+    return;
+  }
+  
+  const feedbackEl = document.getElementById('email-code-feedback');
+  if (feedbackEl) {
+    feedbackEl.textContent = 'Vérification en cours...';
+    feedbackEl.style.color = 'var(--ui-text-muted)';
+  }
+  
+  try {
+    // Vérifier le code via le backend
+    const response = await fetch(`${window.API_BASE_URL}/user/verify-email`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: window.pendingEmailVerification?.email,
+        code: providedCode
+      })
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      
+      // Marquer l'email comme vérifié
+      if (currentUser) {
+        currentUser.emailVerified = true;
+        safeSetItem('currentUser', JSON.stringify(currentUser));
+      }
+      
+      // Afficher le succès
+      if (feedbackEl) {
+        feedbackEl.textContent = '✅ Email vérifié avec succès !';
+        feedbackEl.style.color = '#22c55e';
+      }
+      
+      // Mettre à jour les inputs en vert
+      for (let i = 0; i < 6; i++) {
+        const input = document.getElementById(`email-code-digit-${i}`);
+        if (input) {
+          input.style.borderColor = '#22c55e';
+          input.style.background = 'rgba(34,197,94,0.1)';
+        }
+      }
+      
+      showNotification('✅ Email vérifié avec succès !', 'success');
+      
+      // Fermer le modal et mettre à jour le bloc compte
+      setTimeout(() => {
+        closeAuthModal();
+        if (typeof updateAccountBlockLegitimately === 'function') {
+          updateAccountBlockLegitimately();
+        }
+      }, 1000);
+    } else {
+      const errorData = await response.json().catch(() => ({}));
+      if (feedbackEl) {
+        feedbackEl.textContent = errorData.error || 'Code incorrect';
+        feedbackEl.style.color = '#ef4444';
+      }
+      
+      // Mettre à jour les inputs en rouge
+      for (let i = 0; i < 6; i++) {
+        const input = document.getElementById(`email-code-digit-${i}`);
+        if (input) {
+          input.style.borderColor = '#ef4444';
+          input.style.background = 'rgba(239,68,68,0.1)';
+        }
+      }
+      
+      showNotification('❌ Code incorrect. Veuillez réessayer.', 'error');
+    }
+  } catch (error) {
+    console.error('[EMAIL VERIFICATION] Erreur:', error);
+    if (feedbackEl) {
+      feedbackEl.textContent = 'Erreur de connexion. Veuillez réessayer.';
+      feedbackEl.style.color = '#ef4444';
+    }
+    showNotification('❌ Erreur de connexion. Veuillez réessayer.', 'error');
+  }
+}
+
+// Renvoyer le code de vérification
+async function resendEmailVerificationCode() {
+  if (!window.pendingEmailVerification) {
+    showNotification('⚠️ Aucune vérification en cours', 'warning');
+    return;
+  }
+  
+  const { email } = window.pendingEmailVerification;
+  const newCode = Math.floor(100000 + Math.random() * 900000).toString();
+  
+  window.pendingEmailVerification.code = newCode;
+  window.pendingEmailVerification.expiresAt = Date.now() + (15 * 60 * 1000);
+  
+  try {
+    await fetch(`${window.API_BASE_URL}/user/send-verification-code`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, code: newCode })
+    });
+    
+    showNotification('✅ Code renvoyé ! Vérifiez votre boîte email.', 'success');
+    
+    // En mode développement, afficher le code
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      console.log(`🔐 NOUVEAU CODE DE VÉRIFICATION (DEV ONLY): ${newCode}`);
+    }
+  } catch (error) {
+    console.error('[EMAIL VERIFICATION] Erreur renvoi code:', error);
+    showNotification('⚠️ Erreur lors du renvoi du code', 'error');
+  }
+}
+
+// Exposer les fonctions globalement
+window.showEmailVerificationModal = showEmailVerificationModal;
+window.verifyEmailCode = verifyEmailCode;
+window.resendEmailVerificationCode = resendEmailVerificationCode;
 
 function showRegisterStep1() {
   console.log('🎯 showRegisterStep1 called - REDIRECTION VERS FORMULAIRE PRO');
@@ -10198,19 +15354,19 @@ function socialLogin(provider) {
 
 function showRegisterStep2() {
   console.log('🎯 showRegisterStep2 called - starting registration step 2');
-  registerStep = 2;
+  window.registerStep = 2;
   
   // Générer la grille d'avatars
   const avatarGrid = AVAILABLE_AVATARS.map(av => `
     <div data-avatar-id="${av.id}"
          id="avatar-option-${av.id}"
-         class="register-avatar-option ${registerData.avatarId === av.id ? 'selected' : ''}"
+         class="register-avatar-option ${window.registerData.avatarId === av.id ? 'selected' : ''}"
          title="${av.name}">
       ${av.emoji}
     </div>
   `).join('');
   
-  const selectedAvatar = AVAILABLE_AVATARS.find(av => av.id === registerData.avatarId) || AVAILABLE_AVATARS[0];
+  const selectedAvatar = AVAILABLE_AVATARS.find(av => av.id === window.registerData.avatarId) || AVAILABLE_AVATARS[0];
   
   const html = `
     <div class="register-step2-container">
@@ -10234,7 +15390,7 @@ function showRegisterStep2() {
             <span id="firstname-status" class="register-field-status"></span>
           </label>
           <input type="text" id="register-firstname" placeholder="Votre prénom" required
-                 value="${registerData.firstName}"
+                 value="${window.registerData.firstName}"
                  oninput="validateNameRealTime('firstname', this.value)"
                  class="register-input">
           <div id="firstname-feedback" class="register-feedback"></div>
@@ -10245,7 +15401,7 @@ function showRegisterStep2() {
             <span id="lastname-status" class="register-field-status"></span>
           </label>
           <input type="text" id="register-lastname" placeholder="Votre nom" required
-                 value="${registerData.lastName}"
+                 value="${window.registerData.lastName}"
                  oninput="validateNameRealTime('lastname', this.value)"
                  class="register-input">
           <div id="lastname-feedback" class="register-feedback"></div>
@@ -10259,7 +15415,7 @@ function showRegisterStep2() {
           <span id="email-status" class="register-field-status"></span>
         </label>
         <input type="email" id="register-email" placeholder="votre@email.com" required
-               value="${registerData.email}"
+               value="${window.registerData.email}"
                oninput="validateEmailRealTime(this.value)"
                class="register-input">
         <div id="email-feedback" class="register-feedback"></div>
@@ -10272,7 +15428,7 @@ function showRegisterStep2() {
           <span id="username-status" class="register-field-status"></span>
         </label>
         <input type="text" id="register-username" placeholder="Votre pseudo (3-20 caractères)" required
-               value="${registerData.username}"
+               value="${window.registerData.username}"
                oninput="validateUsernameRealTime(this.value)"
                class="register-input">
         <div id="username-feedback" class="register-feedback"></div>
@@ -10286,7 +15442,7 @@ function showRegisterStep2() {
         </label>
         <div class="register-password-container">
           <input type="password" id="register-password" placeholder="Minimum 8 caractères" required
-                 value="${registerData.password}"
+                 value="${window.registerData.password}"
                  oninput="checkPasswordStrength(this.value)"
                  class="register-input register-password-input">
           <button type="button" onclick="togglePasswordVisibility()" class="register-password-toggle">👁️</button>
@@ -10323,9 +15479,9 @@ function showRegisterStep2() {
         </label>
         <textarea id="register-avatar-desc" placeholder="Ex: Fan de techno, toujours partant pour les festivals !" maxlength="150"
                   oninput="document.getElementById('avatar-desc-count').textContent = this.value.length + '/150'"
-                  class="register-textarea">${registerData.avatarDescription || ''}</textarea>
+                  class="register-textarea">${window.registerData.avatarDescription || ''}</textarea>
         <div class="register-textarea-counter">
-          <span id="avatar-desc-count">${(registerData.avatarDescription || '').length}/150</span>
+          <span id="avatar-desc-count">${(window.registerData.avatarDescription || '').length}/150</span>
         </div>
       </div>
       
@@ -10378,21 +15534,21 @@ function showRegisterStep2() {
   const passwordInput = document.getElementById('register-password');
   const avatarDescInput = document.getElementById('register-avatar-desc');
 
-  if (firstnameInput) firstnameInput.addEventListener('input', (e) => registerData.firstName = e.target.value);
-  if (lastnameInput) lastnameInput.addEventListener('input', (e) => registerData.lastName = e.target.value);
+  if (firstnameInput) firstnameInput.addEventListener('input', (e) => window.registerData.firstName = e.target.value);
+  if (lastnameInput) lastnameInput.addEventListener('input', (e) => window.registerData.lastName = e.target.value);
   if (emailInput) {
-    emailInput.addEventListener('input', (e) => registerData.email = e.target.value);
+    emailInput.addEventListener('input', (e) => window.registerData.email = e.target.value);
   }
-  if (usernameInput) usernameInput.addEventListener('input', (e) => registerData.username = e.target.value);
-  if (passwordInput) passwordInput.addEventListener('input', (e) => registerData.password = e.target.value);
-  if (avatarDescInput) avatarDescInput.addEventListener('input', (e) => registerData.avatarDescription = e.target.value);
+  if (usernameInput) usernameInput.addEventListener('input', (e) => window.registerData.username = e.target.value);
+  if (passwordInput) passwordInput.addEventListener('input', (e) => window.registerData.password = e.target.value);
+  if (avatarDescInput) avatarDescInput.addEventListener('input', (e) => window.registerData.avatarDescription = e.target.value);
   
   // Initialiser les validations
-  if (registerData.firstName) validateNameRealTime('firstname', registerData.firstName);
-  if (registerData.lastName) validateNameRealTime('lastname', registerData.lastName);
-  if (registerData.email) validateEmailRealTime(registerData.email);
-  if (registerData.username) validateUsernameRealTime(registerData.username);
-  if (registerData.password) checkPasswordStrength(registerData.password);
+  if (window.registerData.firstName) validateNameRealTime('firstname', window.registerData.firstName);
+  if (window.registerData.lastName) validateNameRealTime('lastname', window.registerData.lastName);
+  if (window.registerData.email) validateEmailRealTime(window.registerData.email);
+  if (window.registerData.username) validateUsernameRealTime(window.registerData.username);
+  if (window.registerData.password) checkPasswordStrength(window.registerData.password);
 
   console.log('✅ showRegisterStep2 completed successfully');
 }
@@ -10401,24 +15557,24 @@ function showRegisterStep2() {
 function selectAvatar(avatarId) {
   // IMPORTANT: Sauvegarder les valeurs actuelles du formulaire AVANT de régénérer
   const currentFormValues = {
-    firstName: document.getElementById('register-firstname')?.value || registerData.firstName || '',
-    lastName: document.getElementById('register-lastname')?.value || registerData.lastName || '',
-    email: document.getElementById('register-email')?.value || registerData.email || '',
-    username: document.getElementById('register-username')?.value || registerData.username || '',
-    password: document.getElementById('register-password')?.value || registerData.password || '',
-    avatarDescription: document.getElementById('register-avatar-desc')?.value || registerData.avatarDescription || ''
+    firstName: document.getElementById('register-firstname')?.value || window.registerData.firstName || '',
+    lastName: document.getElementById('register-lastname')?.value || window.registerData.lastName || '',
+    email: document.getElementById('register-email')?.value || window.registerData.email || '',
+    username: document.getElementById('register-username')?.value || window.registerData.username || '',
+    password: document.getElementById('register-password')?.value || window.registerData.password || '',
+    avatarDescription: document.getElementById('register-avatar-desc')?.value || window.registerData.avatarDescription || ''
   };
 
   // Mettre à jour registerData avec les valeurs actuelles du formulaire
-  registerData.firstName = currentFormValues.firstName;
-  registerData.lastName = currentFormValues.lastName;
-  registerData.email = currentFormValues.email;
-  registerData.username = currentFormValues.username;
-  registerData.password = currentFormValues.password;
-  registerData.avatarDescription = currentFormValues.avatarDescription;
+  window.registerData.firstName = currentFormValues.firstName;
+  window.registerData.lastName = currentFormValues.lastName;
+  window.registerData.email = currentFormValues.email;
+  window.registerData.username = currentFormValues.username;
+  window.registerData.password = currentFormValues.password;
+  window.registerData.avatarDescription = currentFormValues.avatarDescription;
 
   // Mettre à jour l'avatarId
-  registerData.avatarId = avatarId;
+  window.registerData.avatarId = avatarId;
 
   // Rafraîchir l'affichage
   showRegisterStep2();
@@ -10718,7 +15874,7 @@ async function validateStep2() {
   }
   
   // Validation avatar
-  if (!registerData.avatarId) {
+  if (!window.registerData.avatarId) {
     showNotification("⚠️ Veuillez choisir un avatar", "warning");
     return;
   }
@@ -10731,24 +15887,24 @@ async function validateStep2() {
   
   // Vérifier le rate limiting
   const now = Date.now();
-  if (registerData.lastRegistrationAttempt && (now - registerData.lastRegistrationAttempt) < 60000) {
-    const remainingSeconds = Math.ceil((60000 - (now - registerData.lastRegistrationAttempt)) / 1000);
+  if (window.registerData.lastRegistrationAttempt && (now - window.registerData.lastRegistrationAttempt) < 60000) {
+    const remainingSeconds = Math.ceil((60000 - (now - window.registerData.lastRegistrationAttempt)) / 1000);
     showNotification(`⏱️ Veuillez patienter ${remainingSeconds} secondes avant de réessayer`, "warning");
     return;
   }
   
-  registerData.firstName = firstName;
-  registerData.lastName = lastName;
-  registerData.email = email;
-  registerData.username = username;
-  registerData.password = password;
-  registerData.avatarDescription = avatarDesc;
-  registerData.lastRegistrationAttempt = now;
-  registerData.registrationAttempts++;
+  window.registerData.firstName = firstName;
+  window.registerData.lastName = lastName;
+  window.registerData.email = email;
+  window.registerData.username = username;
+  window.registerData.password = password;
+  window.registerData.avatarDescription = avatarDesc;
+  window.registerData.lastRegistrationAttempt = now;
+  window.registerData.registrationAttempts++;
   
   // Vérifier si l'email existe déjà
   try {
-    const checkResponse = await fetch(`${API_BASE_URL}/user/check-email`, {
+    const checkResponse = await fetch(`${window.API_BASE_URL}/user/check-email`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: email })
@@ -10772,15 +15928,15 @@ async function validateStep2() {
 
 // ÉTAPE 2.5 : VÉRIFICATION D'EMAIL
 function showRegisterStep2_5() {
-  registerStep = 2.5;
+  window.registerStep = 2.5;
   
   // Générer et envoyer le code si pas déjà fait
-  if (!registerData.emailVerificationCode) {
+  if (!window.window.registerData.emailVerificationCode) {
     sendVerificationCode();
   }
   
-  const maskedEmail = registerData.email.replace(/(.{2})(.*)(@.*)/, '$1***$3');
-  let countdown = registerData.resendCountdown || 0;
+  const maskedEmail = window.registerData.email.replace(/(.{2})(.*)(@.*)/, '$1***$3');
+  let countdown = window.registerData.resendCountdown || 0;
   
   const html = `
     <div style="padding:24px;max-width:550px;margin:0 auto;max-height:85vh;overflow-y:auto;animation:fadeIn 0.3s ease-in;">
@@ -10911,7 +16067,7 @@ function generateCaptcha() {
     answer = num1 * num2;
   }
   
-  registerData.captchaAnswer = answer;
+  window.registerData.captchaAnswer = answer;
   
   const questionEl = document.getElementById("captcha-question");
   if (questionEl) {
@@ -10977,18 +16133,18 @@ async function sendVerificationCode() {
     
     // Générer un code à 6 chiffres
     const code = Math.floor(100000 + Math.random() * 900000).toString();
-    registerData.emailVerificationCode = code;
-    registerData.codeSentAt = Date.now();
-    registerData.codeExpiresAt = Date.now() + (15 * 60 * 1000); // 15 minutes
+    window.window.registerData.emailVerificationCode = code;
+    window.registerData.codeSentAt = Date.now();
+    window.registerData.codeExpiresAt = Date.now() + (15 * 60 * 1000); // 15 minutes
     
     // Envoyer via le backend
-    const response = await fetch(`${API_BASE_URL}/user/send-verification-code`, {
+    const response = await fetch(`${window.API_BASE_URL}/user/send-verification-code`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        email: registerData.email,
+        email: window.registerData.email,
         code: code,
-        username: registerData.username
+        username: window.registerData.username
       })
     });
     
@@ -11009,9 +16165,9 @@ async function sendVerificationCode() {
     console.error('Erreur envoi code:', error);
     // En cas d'erreur, générer quand même un code pour le développement
     const code = Math.floor(100000 + Math.random() * 900000).toString();
-    registerData.emailVerificationCode = code;
-    registerData.codeSentAt = Date.now();
-    registerData.codeExpiresAt = Date.now() + (15 * 60 * 1000);
+    window.window.registerData.emailVerificationCode = code;
+    window.registerData.codeSentAt = Date.now();
+    window.registerData.codeExpiresAt = Date.now() + (15 * 60 * 1000);
     showNotification("✅ Code généré ! (Mode développement - vérifiez la console)", "info");
     console.log(`🔐 CODE DE VÉRIFICATION (DEV ONLY): ${code}`);
   }
@@ -11020,7 +16176,7 @@ async function sendVerificationCode() {
 // Renvoyer le code
 async function resendVerificationCode() {
   const now = Date.now();
-  const lastResend = registerData.lastResendAttempt || 0;
+  const lastResend = window.registerData.lastResendAttempt || 0;
   
   // Rate limiting : 60 secondes entre chaque renvoi
   if (now - lastResend < 60000) {
@@ -11029,13 +16185,13 @@ async function resendVerificationCode() {
     return;
   }
   
-  registerData.lastResendAttempt = now;
-  registerData.emailVerificationCode = null; // Réinitialiser
+  window.registerData.lastResendAttempt = now;
+  window.window.registerData.emailVerificationCode = null; // Réinitialiser
   
   await sendVerificationCode();
   
   // Démarrer le countdown
-  registerData.resendCountdown = 60;
+  window.registerData.resendCountdown = 60;
   startResendCountdown(60);
 }
 
@@ -11053,7 +16209,7 @@ function startResendCountdown(seconds) {
   
   const interval = setInterval(() => {
     remaining--;
-    registerData.resendCountdown = remaining;
+    window.registerData.resendCountdown = remaining;
     
     if (countdownEl) {
       countdownEl.textContent = `Vous pourrez renvoyer dans ${remaining} secondes`;
@@ -11065,7 +16221,7 @@ function startResendCountdown(seconds) {
       resendButton.style.opacity = '1';
       resendButton.style.cursor = 'pointer';
       if (countdownEl) countdownEl.textContent = '';
-      registerData.resendCountdown = 0;
+      window.registerData.resendCountdown = 0;
     }
   }, 1000);
 }
@@ -11085,7 +16241,7 @@ async function verifyEmailCode(providedCode) {
   }
   
   const captchaAnswer = parseInt(captchaInput.value.trim());
-  if (captchaAnswer !== registerData.captchaAnswer) {
+  if (captchaAnswer !== window.registerData.captchaAnswer) {
     if (captchaFeedback) {
       captchaFeedback.textContent = "❌ Réponse incorrecte";
       captchaFeedback.style.color = "#ef4444";
@@ -11122,27 +16278,27 @@ async function verifyEmailCode(providedCode) {
   
   // Vérifier le rate limiting
   const now = Date.now();
-  if (registerData.lastVerificationAttempt) {
-    const timeSinceLastAttempt = now - registerData.lastVerificationAttempt;
+  if (window.registerData.lastVerificationAttempt) {
+    const timeSinceLastAttempt = now - window.registerData.lastVerificationAttempt;
     if (timeSinceLastAttempt < 2000) { // 2 secondes entre chaque tentative
       showNotification("⏱️ Veuillez patienter avant de réessayer", "warning");
       return;
     }
   }
   
-  registerData.lastVerificationAttempt = now;
-  registerData.verificationAttempts++;
+  window.registerData.lastVerificationAttempt = now;
+  window.registerData.verificationAttempts++;
   
   // Vérifier si le code a expiré
-  if (registerData.codeExpiresAt && now > registerData.codeExpiresAt) {
+  if (window.registerData.codeExpiresAt && now > window.registerData.codeExpiresAt) {
     showNotification("⏰ Le code a expiré. Veuillez en demander un nouveau.", "warning");
-    registerData.emailVerificationCode = null;
+    window.window.registerData.emailVerificationCode = null;
     return;
   }
   
   // Vérifier le code
-  if (providedCode === registerData.emailVerificationCode) {
-    registerData.emailVerified = true;
+  if (providedCode === window.window.registerData.emailVerificationCode) {
+    window.window.registerData.emailVerified = true;
     
     // Mettre à jour l'affichage
     for (let i = 0; i < 6; i++) {
@@ -11167,13 +16323,13 @@ async function verifyEmailCode(providedCode) {
     }, 1000);
   } else {
     // Code incorrect
-    registerData.verificationAttempts++;
+    window.registerData.verificationAttempts++;
     
     // Bloquer après 5 tentatives
-    if (registerData.verificationAttempts >= 5) {
+    if (window.registerData.verificationAttempts >= 5) {
       showNotification("🚫 Trop de tentatives échouées. Veuillez renvoyer un nouveau code.", "error");
-      registerData.emailVerificationCode = null;
-      registerData.verificationAttempts = 0;
+      window.window.registerData.emailVerificationCode = null;
+      window.registerData.verificationAttempts = 0;
       showRegisterStep2_5();
       return;
     }
@@ -11181,7 +16337,7 @@ async function verifyEmailCode(providedCode) {
     // Afficher l'erreur
     const feedbackEl = document.getElementById("code-feedback");
     if (feedbackEl) {
-      feedbackEl.textContent = `❌ Code incorrect (${registerData.verificationAttempts}/5 tentatives)`;
+      feedbackEl.textContent = `❌ Code incorrect (${window.registerData.verificationAttempts}/5 tentatives)`;
       feedbackEl.style.color = "#ef4444";
     }
     
@@ -11207,19 +16363,19 @@ async function verifyEmailCode(providedCode) {
 
 function updateCodeAttemptsDisplay() {
   const attemptsEl = document.getElementById("code-attempts");
-  if (attemptsEl && registerData.verificationAttempts > 0) {
-    attemptsEl.textContent = `${registerData.verificationAttempts}/5 tentatives utilisées`;
-    attemptsEl.style.color = registerData.verificationAttempts >= 3 ? "#ef4444" : "var(--ui-text-muted)";
+  if (attemptsEl && window.registerData.verificationAttempts > 0) {
+    attemptsEl.textContent = `${window.registerData.verificationAttempts}/5 tentatives utilisées`;
+    attemptsEl.style.color = window.registerData.verificationAttempts >= 3 ? "#ef4444" : "var(--ui-text-muted)";
   }
 }
 
 function showRegisterStep3() {
-  registerStep = 3;
-  const addressCount = registerData.addresses.length || 1;
+  window.registerStep = 3;
+  const addressCount = window.window.registerData.addresses.length || 1;
   
   // S'assurer qu'il y a au moins un champ d'adresse
-  if (registerData.addresses.length === 0) {
-    registerData.addresses = [{ address: '', city: '', lat: null, lng: null, isPrimary: true }];
+  if (window.registerData.addresses.length === 0) {
+    window.registerData.addresses = [{ address: '', city: '', lat: null, lng: null, isPrimary: true }];
   }
   
   const html = `
@@ -11247,14 +16403,14 @@ function showRegisterStep3() {
       </div>
       
       <div id="addresses-container">
-        ${registerData.addresses.map((addr, index) => `
+        ${window.registerData.addresses.map((addr, index) => `
           <div id="address-field-${index}" style="background:rgba(15,23,42,0.5);border:1px solid var(--ui-card-border);border-radius:12px;padding:16px;margin-bottom:12px;">
             ${index === 0 ? '<div style="font-size:11px;color:#00ffc3;margin-bottom:8px;font-weight:600;">📍 Adresse principale</div>' : ''}
             <div style="margin-bottom:12px;">
               <label style="display:block;font-size:12px;font-weight:600;color:#fff;margin-bottom:6px;">Adresse complète *</label>
               <input type="text" id="address-${index}" placeholder="Rue, numéro, ville" required
                      value="${addr.address}"
-                     onchange="registerData.addresses[${index}].address = this.value"
+                     onchange="window.registerData.addresses[${index}].address = this.value"
                      style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--ui-card-border);background:rgba(15,23,42,0.9);color:var(--ui-text-main);font-size:14px;">
             </div>
             <div style="display:flex;gap:8px;align-items:end;">
@@ -11262,7 +16418,7 @@ function showRegisterStep3() {
                 <label style="display:block;font-size:12px;font-weight:600;color:#fff;margin-bottom:6px;">Ville *</label>
                 <input type="text" id="city-${index}" placeholder="Ville" required
                        value="${addr.city}"
-                       onchange="registerData.addresses[${index}].city = this.value"
+                       onchange="window.registerData.addresses[${index}].city = this.value"
                        style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--ui-card-border);background:rgba(15,23,42,0.9);color:var(--ui-text-main);font-size:14px;">
               </div>
               <button onclick="geocodeAddress(${index})" style="padding:10px 16px;border-radius:8px;border:none;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;font-weight:600;cursor:pointer;font-size:13px;white-space:nowrap;">
@@ -11287,9 +16443,9 @@ function showRegisterStep3() {
         `).join('')}
       </div>
       
-      ${registerData.addresses.length < 2 ? `
+      ${window.registerData.addresses.length < 2 ? `
         <button onclick="addAddressField()" style="width:100%;padding:10px;border-radius:8px;border:1px dashed var(--ui-card-border);background:transparent;color:var(--ui-text-main);cursor:pointer;font-size:13px;margin-bottom:20px;">
-          + Ajouter une adresse (${registerData.addresses.length}/2)
+          + Ajouter une adresse (${window.registerData.addresses.length}/2)
         </button>
       ` : ''}
       
@@ -11308,22 +16464,22 @@ function showRegisterStep3() {
 }
 
 function addAddressField() {
-  if (registerData.addresses.length >= 2) {
+  if (window.registerData.addresses.length >= 2) {
     showNotification("⚠️ Maximum 2 adresses autorisées", "warning");
     return;
   }
   
-  registerData.addresses.push({ address: '', city: '', lat: null, lng: null, isPrimary: false });
+  window.registerData.addresses.push({ address: '', city: '', lat: null, lng: null, isPrimary: false });
   showRegisterStep3();
 }
 
 function removeAddressField(index) {
-  if (registerData.addresses.length <= 1) {
+  if (window.registerData.addresses.length <= 1) {
     showNotification("⚠️ Au moins une adresse est requise", "warning");
     return;
   }
   
-  registerData.addresses.splice(index, 1);
+  window.registerData.addresses.splice(index, 1);
   showRegisterStep3();
 }
 
@@ -11347,9 +16503,13 @@ async function geocodeAddress(addressIndex) {
     showNotification("🔍 Vérification de l'adresse...", "info");
     
     // Utiliser Nominatim avec plus de détails pour vérifier que l'adresse est réelle
-    const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(fullAddress)}&limit=5&addressdetails=1&extratags=1`, {
+    // VALIDATION STRICTE + PERFORMANCE: Paramètres optimisés pour recherche rapide et exacte
+    // ⚠️⚠️⚠️ RECHERCHE MONDIALE - Pas de restriction de pays, support multilingue
+    const langCode = (navigator.language || 'fr').split('-')[0];
+    const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(fullAddress)}&limit=10&addressdetails=1&extratags=1&accept-language=${langCode},en&dedupe=1`, {
       headers: {
-        'User-Agent': 'MapEventAI/1.0'
+        'User-Agent': 'MapEventAI/1.0',
+        'Accept-Language': `${langCode},en,fr`
       }
     });
     
@@ -11413,12 +16573,12 @@ async function geocodeAddress(addressIndex) {
     }
     
     // Stocker les informations complètes pour vérification backend
-    registerData.addresses[addressIndex].lat = lat;
-    registerData.addresses[addressIndex].lng = lng;
-    registerData.addresses[addressIndex].address = address;
-    registerData.addresses[addressIndex].city = city;
-    registerData.addresses[addressIndex].verified = true;
-    registerData.addresses[addressIndex].addressDetails = {
+    window.registerData.addresses[addressIndex].lat = lat;
+    window.registerData.addresses[addressIndex].lng = lng;
+    window.registerData.addresses[addressIndex].address = address;
+    window.registerData.addresses[addressIndex].city = city;
+    window.registerData.addresses[addressIndex].verified = true;
+    window.registerData.addresses[addressIndex].addressDetails = {
       house_number: addressDetails.house_number || '',
       road: addressDetails.road || '',
       postcode: addressDetails.postcode || '',
@@ -11436,32 +16596,34 @@ async function geocodeAddress(addressIndex) {
 
 async function completeRegistration() {
   // Vérifier que l'email est vérifié
-  if (!registerData.emailVerified) {
-    showNotification("⚠️ Veuillez vérifier votre email avant de créer le compte", "warning");
-    showRegisterStep2_5();
+  if (!window.window.registerData.emailVerified) {
+    showContextualError('EMAIL_NOT_VERIFIED', 'Email non vérifié');
     return;
   }
   
   // Vérifier qu'au moins une adresse a des coordonnées
-  const validAddresses = registerData.addresses.filter(addr => 
+  const validAddresses = window.registerData.addresses.filter(addr => 
     addr.address && addr.city && addr.lat && addr.lng
   );
   
   if (validAddresses.length === 0) {
-    showNotification("⚠️ Veuillez géocoder au moins une adresse", "warning");
+    showContextualError('VALIDATION_ERROR', 'Adresse postale requise', {
+      details: 'Veuillez ajouter et géocoder au moins une adresse postale.',
+      fieldId: 'pro-postal-address'
+    });
     return;
   }
   
   // Vérifier le rate limiting final
   const now = Date.now();
-  if (registerData.lastRegistrationAttempt && (now - registerData.lastRegistrationAttempt) < 30000) {
-    const remainingSeconds = Math.ceil((30000 - (now - registerData.lastRegistrationAttempt)) / 1000);
-    showNotification(`⏱️ Veuillez patienter ${remainingSeconds} secondes avant de créer le compte`, "warning");
+  if (window.registerData.lastRegistrationAttempt && (now - window.registerData.lastRegistrationAttempt) < 30000) {
+    const remainingSeconds = Math.ceil((30000 - (now - window.registerData.lastRegistrationAttempt)) / 1000);
+    showContextualError('RATE_LIMITED', 'Trop de tentatives', { retryAfter: remainingSeconds });
     return;
   }
   
   // Récupérer l'avatar sélectionné
-  const selectedAvatar = AVAILABLE_AVATARS.find(av => av.id === registerData.avatarId) || AVAILABLE_AVATARS[0];
+  const selectedAvatar = AVAILABLE_AVATARS.find(av => av.id === window.registerData.avatarId) || AVAILABLE_AVATARS[0];
   
   // Créer l'utilisateur
   const userId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -11469,14 +16631,14 @@ async function completeRegistration() {
   
   currentUser = {
     id: userId,
-    name: registerData.username,
-    firstName: registerData.firstName,
-    lastName: registerData.lastName,
-    email: registerData.email,
+    name: window.registerData.username,
+    firstName: window.registerData.firstName,
+    lastName: window.registerData.lastName,
+    email: window.registerData.email,
     avatar: selectedAvatar.emoji,
     avatarId: selectedAvatar.id,
     avatarName: selectedAvatar.name,
-    avatarDescription: registerData.avatarDescription || '',
+    avatarDescription: window.registerData.avatarDescription || '',
     bio: '',
     isLoggedIn: true,
     favorites: [],
@@ -11537,48 +16699,54 @@ async function completeRegistration() {
     console.error('Erreur sauvegarde utilisateur:', e);
   }
   
-  // Mettre à jour l'avatar dans la barre des titres
-  updateAccountButton();
+  // INTERDICTION : Ne pas modifier le bloc compte - fonctions supprimées
   
   // Sauvegarder dans le backend (OBLIGATOIRE - vérification côté serveur)
   try {
-    const response = await fetch(`${API_BASE_URL}/user/register`, {
+    const response = await fetch(`${window.API_BASE_URL}/user/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        email: registerData.email,
-        username: registerData.username,
-        password: registerData.password, // Le backend hash le mot de passe
-        firstName: registerData.firstName,
-        lastName: registerData.lastName,
+        email: window.registerData.email,
+        username: window.registerData.username,
+        password: window.registerData.password, // Le backend hash le mot de passe
+        firstName: window.registerData.firstName,
+        lastName: window.registerData.lastName,
         avatarId: selectedAvatar.id,
         avatarEmoji: selectedAvatar.emoji,
-        avatarDescription: registerData.avatarDescription || '',
+        avatarDescription: window.registerData.avatarDescription || '',
         addresses: currentUser.addresses.map(addr => ({
           ...addr,
-          addressDetails: registerData.addresses.find(a => a.address === addr.address && a.city === addr.city)?.addressDetails || {}
+          addressDetails: window.registerData.addresses.find(a => a.address === addr.address && a.city === addr.city)?.addressDetails || {}
         })),
-        verificationCode: registerData.emailVerificationCode // Envoyer le code pour double vérification
+        verificationCode: window.window.registerData.emailVerificationCode // Envoyer le code pour double vérification
       })
     });
     
     const result = await response.json();
     
     if (!response.ok) {
-      // Erreur côté backend
+      // Erreur côté backend - utiliser messages contextuels
       if (result.code === 'EMAIL_NOT_VERIFIED') {
-        showNotification("⚠️ Email non vérifié. Veuillez vérifier votre email d'abord.", "warning");
-        showRegisterStep2_5();
+        showContextualError('EMAIL_NOT_VERIFIED', result.error || 'Email non vérifié');
         return;
-      } else if (result.code === 'EMAIL_ALREADY_EXISTS') {
-        showNotification("⚠️ Cet email est déjà utilisé. Veuillez vous connecter.", "warning");
+      } else if (result.code === 'EMAIL_ALREADY_EXISTS' || result.error?.includes('email') || result.error?.includes('Email')) {
+        showContextualError('EMAIL_ALREADY_EXISTS', result.error || 'Email déjà utilisé', { email: window.registerData.email });
         return;
-      } else if (result.code === 'USERNAME_ALREADY_EXISTS') {
-        showNotification("⚠️ Ce nom d'utilisateur est déjà pris. Choisissez-en un autre.", "warning");
-        showRegisterStep2();
+      } else if (result.code === 'USERNAME_ALREADY_EXISTS' || result.error?.includes('username') || result.error?.includes('nom d\'utilisateur')) {
+        showContextualError('USERNAME_ALREADY_EXISTS', result.error || 'Nom d\'utilisateur déjà pris', { username: window.registerData.username });
+        return;
+      } else if (result.rate_limited) {
+        showContextualError('RATE_LIMITED', result.error || 'Trop de tentatives', { retryAfter: result.retry_after || 300 });
+        return;
+      } else if (result.error?.includes('mot de passe') || result.error?.includes('password')) {
+        showContextualError('PASSWORD_TOO_WEAK', result.error || 'Mot de passe invalide', { details: result.error });
         return;
       } else {
-        showNotification(`❌ Erreur lors de la création du compte: ${result.error || 'Erreur inconnue'}`, "error");
+        // Erreur générique avec suggestion de réessayer
+        showContextualError('NETWORK_ERROR', result.error || 'Erreur lors de la création du compte', {
+          retryCallback: () => completeRegistration()
+        });
         return;
       }
     }
@@ -11591,14 +16759,15 @@ async function completeRegistration() {
     console.log('✅ Compte créé avec succès dans le backend:', result);
   } catch (error) {
     console.error('Erreur enregistrement backend:', error);
-    showNotification("❌ Erreur de connexion au serveur. Veuillez réessayer.", "error");
+    showContextualError('NETWORK_ERROR', 'Erreur de connexion au serveur', {
+      retryCallback: () => completeRegistration()
+    });
     return; // Ne pas continuer si le backend échoue
   }
   
   showNotification("✅ Compte créé avec succès !", "success");
   closePublishModal();
-  updateUserUI();
-  updateAccountButton();
+  // INTERDICTION : Ne pas modifier le bloc compte - fonctions supprimées
   
   // Charger les données utilisateur
   await loadUserDataOnLogin();
@@ -11611,6 +16780,17 @@ function showRegisterForm() {
 
 // Modales CGU/RGPD
 function showTermsModal() {
+  console.log('[MODAL] showTermsModal appelée');
+  
+  // Ouvrir le modal d'abord
+  const backdrop = document.getElementById('publish-modal-backdrop');
+  const modal = document.getElementById('publish-modal-inner');
+  
+  if (!backdrop || !modal) {
+    console.error('[MODAL] Éléments modal non trouvés');
+    return false;
+  }
+  
   const html = `
     <div style="padding:24px;max-width:700px;margin:0 auto;max-height:85vh;overflow-y:auto;">
       <h2 style="margin:0 0 20px;font-size:24px;font-weight:700;color:#fff;">Conditions d'utilisation</h2>
@@ -11626,15 +16806,33 @@ function showTermsModal() {
         <h3 style="color:#fff;margin-top:24px;margin-bottom:12px;">4. Limitation de responsabilité</h3>
         <p>MapEventAI ne peut être tenu responsable des dommages résultant de l'utilisation de la plateforme.</p>
       </div>
-      <button onclick="closePublishModal()" style="width:100%;padding:14px;border-radius:999px;border:none;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;font-weight:700;cursor:pointer;margin-top:24px;">
-        Fermer
+      <button onclick="if(typeof window.showProRegisterForm==='function'){window.showProRegisterForm();}else if(typeof showProRegisterForm==='function'){showProRegisterForm();}return false;" style="width:100%;padding:14px;border-radius:999px;border:none;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;font-weight:700;cursor:pointer;margin-top:24px;">
+        Fermer et revenir au formulaire
       </button>
     </div>
   `;
-  document.getElementById("publish-modal-inner").innerHTML = html;
+  
+  backdrop.style.display = 'flex';
+  modal.style.display = 'block';
+  modal.innerHTML = html;
+  console.log('[MODAL] Modal Conditions d\'utilisation affiché');
+  return false;
 }
 
 function showPrivacyModal() {
+  console.log('[MODAL] ✅ showPrivacyModal appelée');
+  
+  // Ouvrir le modal d'abord
+  const backdrop = document.getElementById('publish-modal-backdrop');
+  const modal = document.getElementById('publish-modal-inner');
+  
+  if (!backdrop || !modal) {
+    console.error('[MODAL] ❌ Éléments modal non trouvés pour showPrivacyModal');
+    return false;
+  }
+  
+  console.log('[MODAL] ✅ Éléments trouvés, ouverture du modal');
+  
   const html = `
     <div style="padding:24px;max-width:700px;margin:0 auto;max-height:85vh;overflow-y:auto;">
       <h2 style="margin:0 0 20px;font-size:24px;font-weight:700;color:#fff;">Politique de confidentialité</h2>
@@ -11655,12 +16853,17 @@ function showPrivacyModal() {
         <h3 style="color:#fff;margin-top:24px;margin-bottom:12px;">4. Vos droits</h3>
         <p>Conformément au RGPD, vous disposez d'un droit d'accès, de rectification, de suppression et de portabilité de vos données.</p>
       </div>
-      <button onclick="closePublishModal()" style="width:100%;padding:14px;border-radius:999px;border:none;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;font-weight:700;cursor:pointer;margin-top:24px;">
-        Fermer
+      <button onclick="if(typeof window.showProRegisterForm==='function'){window.showProRegisterForm();}else if(typeof showProRegisterForm==='function'){showProRegisterForm();}return false;" style="width:100%;padding:14px;border-radius:999px;border:none;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;font-weight:700;cursor:pointer;margin-top:24px;">
+        Fermer et revenir au formulaire
       </button>
     </div>
   `;
-  document.getElementById("publish-modal-inner").innerHTML = html;
+  
+  backdrop.style.display = 'flex';
+  modal.style.display = 'block';
+  modal.innerHTML = html;
+  console.log('[MODAL] Modal Politique de confidentialité affiché');
+  return false;
 }
 
 function openReviewModal(type, id) {
@@ -11869,7 +17072,7 @@ function submitReply(reviewId, type, id) {
     return;
   }
   
-  if (!currentUser.isLoggedIn) {
+  if (!currentUser || !currentUser.isLoggedIn) {
     openLoginModal();
     return;
   }
@@ -11917,7 +17120,7 @@ function submitReview(type, id) {
     return;
   }
   
-  if (!currentUser.isLoggedIn) {
+  if (!currentUser || !currentUser.isLoggedIn) {
     openLoginModal();
     return;
   }
@@ -12812,7 +18015,7 @@ function openReportModal(type, id, parentType = null, parentId = null) {
 }
 
 async function submitReport(type, id, parentType = null, parentId = null) {
-  if (!currentUser.isLoggedIn) {
+  if (!currentUser || !currentUser.isLoggedIn) {
     openLoginModal();
     return;
   }
@@ -12857,7 +18060,7 @@ async function submitReport(type, id, parentType = null, parentId = null) {
   
   try {
     // Sauvegarder dans le backend
-    const response = await fetch(`${API_BASE_URL}/user/reports`, {
+    const response = await fetch(`${window.API_BASE_URL}/user/reports`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(reportData)
@@ -13063,7 +18266,7 @@ function openCartModal() {
 async function processCartCheckout() {
   if (cart.length === 0) return;
   
-  if (!currentUser.isLoggedIn) {
+  if (!currentUser || !currentUser.isLoggedIn) {
     openLoginModal();
     return;
   }
@@ -13075,7 +18278,7 @@ async function processCartCheckout() {
     showNotification("💳 Redirection vers le paiement...", "info");
     
     // Créer une session Stripe Checkout
-    const response = await fetch(`${API_BASE_URL}/payments/create-checkout-session`, {
+    const response = await fetch(`${window.API_BASE_URL}/payments/create-checkout-session`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -13144,7 +18347,7 @@ function checkoutCart() {
 }
 
 async function processContactPayment(type, id) {
-  if (!currentUser.isLoggedIn) {
+  if (!currentUser || !currentUser.isLoggedIn) {
     openLoginModal();
     return;
   }
@@ -13153,7 +18356,7 @@ async function processContactPayment(type, id) {
     showNotification("💳 Redirection vers le paiement...", "info");
     
     // Créer une session Stripe Checkout
-    const response = await fetch(`${API_BASE_URL}/payments/create-checkout-session`, {
+    const response = await fetch(`${window.API_BASE_URL}/payments/create-checkout-session`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -13296,143 +18499,8 @@ function hideAgendaMiniWindow() {
   }
 }
 
-// Mettre à jour le bouton Compte avec l'avatar et le nom de l'utilisateur
-function updateAccountButton() {
-  const accountBtn = document.getElementById("account-topbar-btn");
-  const avatarEl = document.getElementById("account-avatar");
-  const nameEl = document.getElementById("account-name");
-  
-  // Debug: vérifier si les éléments existent
-  if (!avatarEl) {
-    console.warn('⚠️ updateAccountButton: account-avatar non trouvé dans le DOM');
-    return;
-  }
-  if (!nameEl) {
-    console.warn('⚠️ updateAccountButton: account-name non trouvé dans le DOM');
-    return;
-  }
-  
-  if (accountBtn && avatarEl && nameEl) {
-    // Afficher le nom d'utilisateur si connecté, sinon "Compte"
-    if (currentUser.isLoggedIn) {
-      // PRIORITÉ: username > name > email > "Compte"
-      const displayName = currentUser.username || currentUser.name || currentUser.email?.split('@')[0] || "Compte";
-      nameEl.textContent = displayName.length > 14 ? displayName.substring(0, 14) + "..." : displayName;
-    } else {
-      nameEl.textContent = "Compte";
-    }
-    
-    // Mettre à jour l'avatar si connecté
-    if (currentUser.isLoggedIn) {
-      // Utiliser la photo de profil si disponible, sinon l'avatar emoji
-      // PRIORITÉ: profilePhoto > profile_photo_url > avatar (qui peut être une URL Google)
-      let avatarUrl = currentUser.profilePhoto || currentUser.profile_photo_url || currentUser.avatar;
-      
-      // Si avatar est une URL (Google picture), l'utiliser si pas de profilePhoto
-      if (!currentUser.profilePhoto && !currentUser.profile_photo_url && currentUser.avatar && 
-          (currentUser.avatar.startsWith('http') || currentUser.avatar.startsWith('data:image'))) {
-        avatarUrl = currentUser.avatar;
-      }
-      
-      // Debug: afficher l'URL trouvée
-      if (avatarUrl && (avatarUrl.startsWith('http') || avatarUrl.startsWith('data:image'))) {
-        console.log('🔍 updateAccountButton - Avatar URL trouvée:', avatarUrl);
-      } else {
-        console.log('⚠️ updateAccountButton - Pas d\'URL avatar. profilePhoto:', currentUser.profilePhoto, 'profile_photo_url:', currentUser.profile_photo_url, 'avatar:', currentUser.avatar);
-      }
-      
-      // Réduire la taille de l'avatar pour correspondre aux blocs booking/service
-      // Les blocs ont une hauteur d'image de 160px, mais l'avatar doit être plus petit
-      avatarEl.style.width = '32px';
-      avatarEl.style.height = '32px';
-      avatarEl.style.borderRadius = '50%';
-      avatarEl.style.display = 'flex';
-      avatarEl.style.alignItems = 'center';
-      avatarEl.style.justifyContent = 'center';
-      avatarEl.style.fontSize = '16px';
-      avatarEl.style.overflow = 'hidden';
-      avatarEl.style.flexShrink = '0';
-      
-      if (avatarUrl && (avatarUrl.startsWith('http') || avatarUrl.startsWith('data:image'))) {
-        // C'est une URL d'image (http ou base64)
-        console.log('🔄 updateAccountButton: Tentative de chargement de l\'image:', avatarUrl);
-        const existingImg = avatarEl.querySelector('img');
-        if (!existingImg) {
-          console.log('🔄 updateAccountButton: Création d\'une nouvelle image');
-          const img = document.createElement('img');
-          img.src = avatarUrl;
-          img.crossOrigin = 'anonymous'; // Important pour CORS
-          img.style.width = '100%';
-          img.style.height = '100%';
-          img.style.borderRadius = '50%';
-          img.style.objectFit = 'cover';
-          img.style.display = 'block';
-          img.onerror = function(e) {
-            console.error('❌ Erreur chargement avatar header:', avatarUrl, e);
-            // Si l'image ne charge pas, afficher l'emoji
-            avatarEl.innerHTML = '';
-            avatarEl.textContent = currentUser.avatar || "👤";
-            avatarEl.style.fontSize = '16px';
-          };
-          img.onload = function() {
-            console.log('✅ Avatar header chargé avec succès:', avatarUrl);
-          };
-          avatarEl.innerHTML = '';
-          avatarEl.appendChild(img);
-          console.log('🔄 updateAccountButton: Image ajoutée au DOM');
-        } else {
-          // Mettre à jour l'image existante seulement si l'URL a changé
-          if (existingImg.src !== avatarUrl && existingImg.src !== (window.location.origin + avatarUrl)) {
-            console.log('🔄 updateAccountButton: Mise à jour de l\'image existante');
-            existingImg.src = avatarUrl;
-            existingImg.crossOrigin = 'anonymous'; // Important pour CORS
-            existingImg.onerror = function(e) {
-              console.error('❌ Erreur chargement avatar header (mise à jour):', avatarUrl, e);
-              // Si l'image ne charge pas, afficher l'emoji
-              avatarEl.innerHTML = '';
-              avatarEl.textContent = currentUser.avatar || "👤";
-              avatarEl.style.fontSize = '16px';
-            };
-            existingImg.onload = function() {
-              console.log('✅ Avatar header chargé avec succès (mise à jour):', avatarUrl);
-            };
-          } else {
-            console.log('ℹ️ updateAccountButton: Image déjà chargée avec la même URL');
-          }
-        }
-      } else {
-        // C'est un emoji ou texte
-        console.log('🔄 updateAccountButton: Affichage emoji/texte:', avatarUrl || currentUser.avatar || "👤");
-        avatarEl.innerHTML = '';
-        avatarEl.textContent = avatarUrl || currentUser.avatar || "👤";
-      }
-    } else {
-      avatarEl.innerHTML = '';
-      avatarEl.textContent = "👤";
-    }
-  }
-  
-  // Mettre à jour aussi l'avatar dans le modal compte si ouvert
-  const modalInner = document.getElementById("publish-modal-inner");
-  if (modalInner && currentUser.isLoggedIn) {
-    // Chercher l'avatar dans le header du modal compte
-    const headerAvatar = modalInner.querySelector('[data-account-avatar="true"]');
-    if (headerAvatar) {
-      if (currentUser.profilePhoto) {
-        headerAvatar.style.backgroundImage = `url(${currentUser.profilePhoto})`;
-        headerAvatar.style.backgroundSize = 'cover';
-        headerAvatar.style.backgroundPosition = 'center';
-        headerAvatar.innerHTML = '';
-      } else {
-        headerAvatar.style.backgroundImage = 'none';
-        headerAvatar.innerHTML = currentUser.avatar || "👤";
-      }
-    }
-  }
-}
-
-// Exposer la fonction globalement
-window.updateAccountButton = updateAccountButton;
+// FONCTION SUPPRIMÉE - Le bloc compte ne doit JAMAIS être modifié
+// function updateAccountButton() { ... }
 
 // Fonctions pour les photos
 window.openPhotoViewer = function(photoUrl) {
@@ -13656,7 +18724,7 @@ if (!currentUser.eventAlarms) {
 
 // Ouvrir le modal pour ajouter une alarme
 function openAddAlarmModal(source, eventId = null) {
-  if (!currentUser.isLoggedIn) {
+  if (!currentUser || !currentUser.isLoggedIn) {
     showNotification("⚠️ Vous devez être connecté pour ajouter une alarme", "warning");
     openLoginModal();
     return;
@@ -13911,7 +18979,7 @@ window.saveAlarm = saveAlarm;
 
 // Vérifier et déclencher les alarmes
 function checkEventAlarms() {
-  if (!currentUser.isLoggedIn || !currentUser.eventAlarms || currentUser.eventAlarms.length === 0) {
+  if (!isLoggedIn() || !currentUser.eventAlarms || currentUser.eventAlarms.length === 0) {
     return;
   }
   
@@ -13948,6 +19016,11 @@ checkEventAlarms(); // Vérifier immédiatement au chargement
 // ============================================
 
 function cleanExpiredEvents() {
+  if (!isLoggedIn()) {
+    // Nettoyer les événements expirés même si non connecté (pour la liste publique)
+    // Mais ne pas toucher aux alarmes/agenda de l'utilisateur
+  }
+  
   const now = new Date();
   const organizerEvents = {}; // {organizerEmail: [events]}
   
@@ -14010,7 +19083,7 @@ function cleanExpiredEvents() {
   }
   
   // Nettoyer aussi les alarmes des événements supprimés
-  if (currentUser.isLoggedIn && currentUser.eventAlarms) {
+  if (isLoggedIn() && currentUser.eventAlarms) {
     const eventIds = new Set(eventsData.map(e => e.id.toString()));
     const beforeAlarmsCount = currentUser.eventAlarms.length;
     currentUser.eventAlarms = currentUser.eventAlarms.filter(alarm => eventIds.has(alarm.eventId));
@@ -14022,7 +19095,7 @@ function cleanExpiredEvents() {
   }
   
   // Nettoyer aussi l'agenda des événements supprimés
-  if (currentUser.isLoggedIn && currentUser.agenda) {
+  if (isLoggedIn() && currentUser.agenda) {
     const eventIds = new Set(eventsData.map(e => e.id.toString()));
     const beforeAgendaCount = currentUser.agenda.length;
     currentUser.agenda = currentUser.agenda.filter(key => {
@@ -14081,24 +19154,8 @@ function openItemFromAgenda(type, id) {
   }
 }
 
-// Mise à jour de l'UI utilisateur
-function updateUserUI() {
-  // Mettre à jour le bouton Compte avec avatar et nom
-  const accountAvatar = document.getElementById("account-avatar");
-  const accountName = document.getElementById("account-name");
-  
-  if (currentUser.isLoggedIn && currentUser.avatar) {
-    if (accountAvatar) accountAvatar.textContent = currentUser.avatar;
-    if (accountName) {
-      // PRIORITÉ: username > name > "Compte"
-      const displayName = currentUser.username || currentUser.name || "Compte";
-      accountName.textContent = displayName.length > 14 ? displayName.substring(0, 14) + "..." : displayName;
-    }
-  } else {
-    if (accountAvatar) accountAvatar.textContent = "👤";
-    if (accountName) accountName.textContent = "Compte";
-  }
-}
+// FONCTION SUPPRIMÉE - Le bloc compte ne doit JAMAIS être modifié
+// function updateUserUI() { ... }
 
 // ============================================
 // SYSTÈME D'ABONNEMENTS & ALERTES
@@ -14107,7 +19164,7 @@ function updateUserUI() {
 // Obtenir le nombre d'utilisateurs actifs depuis l'API
 async function getActiveUsersCount() {
   try {
-    const response = await fetch(`${API_BASE_URL}/stats/active-users`, {
+    const response = await fetch(`${window.API_BASE_URL}/stats/active-users`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' }
     });
@@ -14360,7 +19417,7 @@ function openPremiumPaymentModal(plan = 'full-premium', price = 25) {
 }
 
 async function processSubscriptionPayment(plan = 'full-premium', price = 25) {
-  if (!currentUser.isLoggedIn) {
+  if (!currentUser || !currentUser.isLoggedIn) {
     openLoginModal();
     return;
   }
@@ -14369,7 +19426,7 @@ async function processSubscriptionPayment(plan = 'full-premium', price = 25) {
     showNotification("💳 Redirection vers le paiement...", "info");
     
     // Créer une session Stripe Checkout pour abonnement
-    const response = await fetch(`${API_BASE_URL}/payments/create-checkout-session`, {
+    const response = await fetch(`${window.API_BASE_URL}/payments/create-checkout-session`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -14570,7 +19627,7 @@ function initDemoUsers() {
 
 // Ouvrir le modal des amis
 function openFriendsModal() {
-  if (!currentUser.isLoggedIn) {
+  if (!currentUser || !currentUser.isLoggedIn) {
     openLoginModal();
     return;
   }
@@ -14656,7 +19713,7 @@ function openFriendsModal() {
 
 // Ouvrir le modal des groupes
 function openGroupsModal() {
-  if (!currentUser.isLoggedIn) {
+  if (!currentUser || !currentUser.isLoggedIn) {
     openLoginModal();
     return;
   }
@@ -14779,7 +19836,7 @@ function searchUsers(query) {
 
 // Envoyer une demande d'ami
 function sendFriendRequest(userId, userName, userAvatar) {
-  if (!currentUser.isLoggedIn) {
+  if (!currentUser || !currentUser.isLoggedIn) {
     openLoginModal();
     return;
   }
@@ -15008,133 +20065,7 @@ function getFriendsParticipatingToEvent(eventId) {
 }
 
 // Charger l'utilisateur sauvegardé au démarrage
-function loadSavedUser() {
-  try {
-    const savedUser = localStorage.getItem('currentUser');
-    if (savedUser) {
-      const parsedUser = JSON.parse(savedUser);
-      
-      // Vérifier que l'utilisateur a des tokens Cognito valides avant de restaurer la session
-      const tokensRaw = localStorage.getItem("cognito_tokens");
-      let hasValidTokens = false;
-      
-      if (tokensRaw) {
-        try {
-          const tokens = JSON.parse(tokensRaw);
-          // Vérifier que les tokens existent et ne sont pas expirés
-          if (tokens && tokens.id_token && tokens.access_token) {
-            // Vérifier l'expiration du token (optionnel mais recommandé)
-            try {
-              const payload = decodeJwtPayload(tokens.id_token);
-              const now = Math.floor(Date.now() / 1000);
-              if (payload.exp && payload.exp > now) {
-                hasValidTokens = true;
-              }
-            } catch (e) {
-              // Si on ne peut pas décoder, on considère que les tokens sont valides
-              // (ils seront vérifiés côté serveur)
-              hasValidTokens = true;
-            }
-          }
-        } catch (e) {
-          console.warn('⚠️ Tokens Cognito invalides:', e);
-        }
-      }
-      
-      // IMPORTANT: Ne PAS restaurer automatiquement la session
-      // L'utilisateur doit TOUJOURS passer par la modal de connexion
-      // On charge juste les données mais on garde isLoggedIn: false
-      if (parsedUser) {
-        // Si pas de tokens valides, nettoyer complètement
-        if (!hasValidTokens) {
-          console.log('⚠️ Pas de tokens Cognito valides - Nettoyage de la session');
-          currentUser.isLoggedIn = false;
-          // Forcer profileComplete à false pour forcer le formulaire
-          parsedUser.profileComplete = false;
-          localStorage.removeItem('cognito_tokens');
-          localStorage.setItem('currentUser', JSON.stringify({ ...parsedUser, isLoggedIn: false, profileComplete: false }));
-          updateAccountButton();
-          return;
-        }
-        
-        // Même avec des tokens valides, on ne restaure PAS automatiquement la session
-        // L'utilisateur doit cliquer sur "Compte" et se reconnecter
-        // On charge juste les données de base pour référence
-        // FORCER profileComplete à false pour forcer le formulaire d'inscription
-        console.log('ℹ️ Données utilisateur trouvées mais session non restaurée automatiquement');
-        parsedUser.profileComplete = false; // FORCER à false pour forcer le formulaire
-        
-        // Fusionner avec les valeurs par défaut pour éviter les propriétés manquantes
-        currentUser = {
-          id: null,
-          name: "",
-          email: "",
-          avatar: "👤",
-          avatarId: null,
-          avatarDescription: "",
-          bio: "",
-          isLoggedIn: false, // TOUJOURS false au chargement - doit passer par la modal de connexion
-          favorites: [],
-          agenda: [],
-          likes: [],
-          participating: [],
-          alerts: [],
-          statusAlerts: [],
-          pendingStatusNotifications: [],
-          proximityAlerts: [],
-          eventAlarms: [],
-          reviews: {},
-          subscription: "free",
-          agendaLimit: 20,
-          alertLimit: 0,
-          eventStatusHistory: {},
-          addresses: [],
-          smsNotifications: 0,
-          smsLimit: 0,
-          emailNotifications: 0,
-          notificationPreferences: { email: true, sms: false },
-          privacySettings: {
-            showName: true,
-            showAvatar: true,
-            showBio: true,
-            showEmail: false,
-            showAddresses: false,
-            showFavorites: true,
-            showAgenda: true,
-            showParticipating: true,
-            showFriends: true,
-            showActivity: true
-          },
-          friends: [],
-          friendRequests: [],
-          sentRequests: [],
-          blockedUsers: [],
-          conversations: [],
-          groups: [],
-          profilePhotos: [],
-          profileLinks: [],
-          history: [],
-          photos: [],
-          ...parsedUser, // Écraser avec les valeurs sauvegardées
-          lastSeen: new Date().toISOString(),
-          isLoggedIn: false, // TOUJOURS false au chargement - l'utilisateur doit passer par la modal de connexion
-          profileComplete: false // FORCER à false pour forcer le formulaire d'inscription
-        };
-        console.log(`ℹ️ Données utilisateur chargées depuis localStorage mais session non restaurée (doit passer par modal de connexion)`);
-        // Sauvegarder avec profileComplete: false
-        try {
-          localStorage.setItem('currentUser', JSON.stringify({ ...currentUser, profileComplete: false }));
-        } catch (e) {
-          console.warn('⚠️ Impossible de sauvegarder currentUser:', e);
-        }
-        updateUserUI();
-        updateAccountButton();
-      }
-    }
-  } catch (e) {
-    console.error('Erreur chargement utilisateur:', e);
-  }
-}
+// REMOVED: loadSavedUser() est maintenant dans auth.js et exposé via window.loadSavedUser
 
 // Fonctions helper pour le modal compte
 function acceptFriendRequest(requestId) {
@@ -15185,15 +20116,1007 @@ function openGroupDetails(groupId) {
 let accountModalActiveTab = 'agenda';
 
 function openAccountModal() {
-  if (!currentUser.isLoggedIn) {
-    openLoginModal();
+  console.log('[ACCOUNT MODAL] openAccountModal appelée', {
+    currentUser: currentUser ? { isLoggedIn: currentUser.isLoggedIn, email: currentUser.email } : null,
+    getUserDisplayName: typeof getUserDisplayName,
+    getUserAvatar: typeof getUserAvatar,
+    windowGetUserDisplayName: typeof window.getUserDisplayName,
+    windowGetUserAvatar: typeof window.getUserAvatar
+  });
+  
+  if (!currentUser || !currentUser.isLoggedIn) {
+    console.log('[ACCOUNT MODAL] Utilisateur non connecté, ouverture modal login');
+    openAuthModal('login');
     return;
   }
   
-  // Réinitialiser l'onglet actif
-  accountModalActiveTab = 'agenda';
-  showAccountModalTab('agenda');
+  const backdrop = document.getElementById('publish-modal-backdrop');
+  const modal = document.getElementById('publish-modal-inner');
+  
+  if (!backdrop || !modal) {
+    console.error('[ACCOUNT MODAL] Modal elements not found', { backdrop: !!backdrop, modal: !!modal });
+    return;
+  }
+  
+  // Obtenir le nom d'affichage (utiliser window.getUserDisplayName si disponible)
+  const getUserDisplayNameFunc = window.getUserDisplayName || getUserDisplayName;
+  const getUserAvatarFunc = window.getUserAvatar || getUserAvatar;
+  
+  if (typeof getUserDisplayNameFunc !== 'function') {
+    console.error('[ACCOUNT MODAL] getUserDisplayName n\'est pas une fonction');
+    return;
+  }
+  if (typeof getUserAvatarFunc !== 'function') {
+    console.error('[ACCOUNT MODAL] getUserAvatar n\'est pas une fonction');
+    return;
+  }
+  
+  // FORCER l'utilisation du username, jamais l'email
+  // DEBUG: Vérifier les données de currentUser AVANT traitement
+  console.log('[ACCOUNT MODAL] currentUser AVANT traitement:', JSON.stringify({
+    username: currentUser.username,
+    email: currentUser.email,
+    name: currentUser.name,
+    profile_photo_url: currentUser.profile_photo_url ? currentUser.profile_photo_url.substring(0, 50) + '...' : null,
+    profilePhoto: currentUser.profilePhoto ? currentUser.profilePhoto.substring(0, 50) + '...' : null,
+    isLoggedIn: currentUser.isLoggedIn
+  }));
+  
+  let displayName = currentUser.username || currentUser.name || 'Compte';
+  if (!displayName || displayName === currentUser.email || displayName.includes('@')) {
+    // Si c'est l'email ou vide, utiliser le username ou "Compte"
+    displayName = currentUser.username || 'Compte';
+  }
+  
+  // Si toujours pas de username, essayer de le récupérer depuis le storage
+  if (!displayName || displayName === 'Compte') {
+    try {
+      const storedUser = localStorage.getItem('currentUser') || sessionStorage.getItem('currentUser');
+      if (storedUser) {
+        const parsed = JSON.parse(storedUser);
+        displayName = parsed.username || parsed.name || 'Compte';
+        console.log('[ACCOUNT MODAL] Username récupéré depuis storage:', displayName);
+        // Mettre à jour currentUser avec les données du storage
+        if (parsed.username && !currentUser.username) {
+          currentUser.username = parsed.username;
+        }
+        if (parsed.profile_photo_url && !currentUser.profile_photo_url) {
+          currentUser.profile_photo_url = parsed.profile_photo_url;
+        }
+      }
+    } catch (e) {
+      console.warn('[ACCOUNT MODAL] Erreur récupération storage:', e);
+    }
+  }
+  
+  // Nettoyer le nom (enlever caractères spéciaux) - utiliser une fonction locale si cleanAccountText n'est pas disponible
+  if (typeof cleanAccountText === 'function') {
+    displayName = cleanAccountText(displayName) || 'Compte';
+  } else {
+    // Fallback : nettoyer manuellement
+    displayName = displayName.replace(/[<>]/g, '').trim() || 'Compte';
+  }
+  
+  const avatar = getUserAvatarFunc();
+  
+  console.log('[ACCOUNT MODAL] displayName final:', displayName, 'avatar:', avatar ? avatar.substring(0, 50) + '...' : 'null', 'currentUser.username:', currentUser.username);
+  
+  // Fonction pour créer un avatar avec initiales (style Facebook)
+  function getInitialsAvatar(name) {
+    if (!name || name === "Compte") return "👤";
+    const parts = name.trim().split(/\s+/);
+    let initials = "";
+    if (parts.length >= 2) {
+      initials = (parts[0][0] || "").toUpperCase() + (parts[parts.length - 1][0] || "").toUpperCase();
+    } else if (parts.length === 1) {
+      initials = parts[0].substring(0, 2).toUpperCase();
+    }
+    if (!initials) return "👤";
+    
+    // Couleur de fond basée sur le nom (pour avoir toujours la même couleur pour le même nom)
+    const colors = [
+      '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8',
+      '#F7DC6F', '#BB8FCE', '#85C1E2', '#F8B739', '#52BE80'
+    ];
+    const colorIndex = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % colors.length;
+    const bgColor = colors[colorIndex];
+    
+    return `<div style="width:100%;height:100%;border-radius:50%;background:${bgColor};display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:32px;text-transform:uppercase;">${initials}</div>`;
+  }
+  
+  // Créer un avatar avec la première lettre du nom (comme Facebook) si pas de photo
+  let avatarDisplay;
+  
+  // DEBUG: Vérifier toutes les sources possibles de l'avatar
+  console.log('[ACCOUNT MODAL] Avatar check - TOUTES les sources:', {
+    avatar: avatar ? avatar.substring(0, 50) + '...' : 'null',
+    profile_photo_url: currentUser.profile_photo_url ? currentUser.profile_photo_url.substring(0, 50) + '...' : 'null',
+    profilePhoto: currentUser.profilePhoto ? currentUser.profilePhoto.substring(0, 50) + '...' : 'null',
+    isHttp: avatar && avatar.startsWith('http'),
+    isData: avatar && avatar.startsWith('data:image'),
+    avatarLength: avatar ? avatar.length : 0
+  });
+  
+  // Essayer de récupérer l'avatar depuis currentUser si pas trouvé dans avatar
+  let finalAvatar = avatar;
+  if ((!finalAvatar || finalAvatar === "👤") && currentUser.profile_photo_url) {
+    finalAvatar = currentUser.profile_photo_url;
+    console.log('[ACCOUNT MODAL] Avatar récupéré depuis currentUser.profile_photo_url');
+  }
+  if ((!finalAvatar || finalAvatar === "👤") && currentUser.profilePhoto) {
+    finalAvatar = currentUser.profilePhoto;
+    console.log('[ACCOUNT MODAL] Avatar récupéré depuis currentUser.profilePhoto');
+  }
+  
+  if (finalAvatar && finalAvatar !== "👤" && (finalAvatar.startsWith('http') || finalAvatar.startsWith('data:image'))) {
+    // Utiliser directement l'URL - échapper seulement les guillemets doubles pour l'attribut HTML
+    const safeAvatar = finalAvatar.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    // Obtenir les initiales et la couleur pour le fallback
+    const initials = getInitials(displayName);
+    const bgColor = getInitialsColor(displayName);
+    // Créer un conteneur avec l'image et un fallback caché
+    avatarDisplay = `<div style="position:relative;width:100%;height:100%;"><img src="${safeAvatar}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;position:absolute;top:0;left:0;" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" /><div style="display:none;width:100%;height:100%;border-radius:50%;background:${bgColor};display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:32px;text-transform:uppercase;position:absolute;top:0;left:0;">${initials}</div></div>`;
+    console.log('[ACCOUNT MODAL] Avatar URL utilisée:', safeAvatar.substring(0, 100) + '...');
+  } else {
+    // Si pas de photo, afficher les initiales (comme Facebook)
+    console.log('[ACCOUNT MODAL] Pas de photo valide, utilisation initiales pour:', displayName);
+    avatarDisplay = getInitialsAvatar(displayName);
+  }
+  
+  // Fonction helper pour obtenir les initiales
+  function getInitials(name) {
+    if (!name || name === "Compte") return "👤";
+    const parts = name.trim().split(/\s+/);
+    if (parts.length >= 2) {
+      return (parts[0][0] || "").toUpperCase() + (parts[parts.length - 1][0] || "").toUpperCase();
+    } else if (parts.length === 1) {
+      return parts[0].substring(0, 2).toUpperCase();
+    }
+    return "👤";
+  }
+  
+  // Fonction helper pour obtenir la couleur
+  function getInitialsColor(name) {
+    if (!name || name === "Compte") return '#4ECDC4';
+    const colors = [
+      '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8',
+      '#F7DC6F', '#BB8FCE', '#85C1E2', '#F8B739', '#52BE80'
+    ];
+    const colorIndex = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % colors.length;
+    return colors[colorIndex];
+  }
+  
+  console.log('[ACCOUNT MODAL] Données préparées', { 
+    displayName, 
+    avatar: avatar ? avatar.substring(0, 50) + '...' : 'null',
+    avatarDisplay: avatarDisplay ? avatarDisplay.substring(0, 100) + '...' : 'null',
+    currentUser: currentUser ? {
+      username: currentUser.username,
+      email: currentUser.email,
+      profile_photo_url: currentUser.profile_photo_url ? currentUser.profile_photo_url.substring(0, 50) + '...' : 'null',
+      profilePhoto: currentUser.profilePhoto ? currentUser.profilePhoto.substring(0, 50) + '...' : 'null'
+    } : null
+  });
+  
+  // FORCER l'affichage du nom d'utilisateur - ne jamais utiliser l'email
+  const finalDisplayName = displayName && displayName !== 'Compte' && !displayName.includes('@') ? displayName : (currentUser.username || 'Compte');
+  console.log('[ACCOUNT MODAL] finalDisplayName:', finalDisplayName, 'displayName original:', displayName);
+  
+  const html = `
+    <div style="padding:40px;max-width:600px;margin:0 auto;text-align:center;position:relative;">
+      <!-- Bouton X (croix) pour fermer -->
+      <button onclick="closePublishModal()" style="position:absolute;top:16px;right:16px;background:none;border:none;color:var(--ui-text-muted);font-size:24px;cursor:pointer;padding:8px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:all 0.2s;z-index:10;" onmouseover="this.style.background='rgba(239,68,68,0.2)';this.style.color='#ef4444';this.style.transform='scale(1.1)';" onmouseout="this.style.background='none';this.style.color='var(--ui-text-muted)';this.style.transform='scale(1)';" title="Fermer">✕</button>
+      
+      <!-- En-tête avec avatar et nom -->
+      <div style="margin-bottom:32px;">
+        <div style="width:80px;height:80px;border-radius:50%;margin:0 auto 16px;background:rgba(0,255,195,0.1);border:3px solid rgba(0,255,195,0.3);display:flex;align-items:center;justify-content:center;font-size:40px;overflow:hidden;">
+          ${avatarDisplay}
+        </div>
+        <h2 style="margin:0;font-size:24px;font-weight:700;color:#fff;" id="account-modal-display-name">${escapeHtml(finalDisplayName)}</h2>
+        <p style="margin:8px 0 0;font-size:13px;color:var(--ui-text-muted);">${currentUser.email || ''}</p>
+      </div>
+      
+      <!-- Blocs cliquables - OUVERTURE FENÊTRES EXTERNES -->
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-bottom:24px;">
+        <div onclick="openAccountWindow('agenda')" style="padding:24px;border-radius:16px;background:rgba(15,23,42,0.5);border:2px solid rgba(255,255,255,0.1);cursor:pointer;transition:all 0.3s;" onmouseover="this.style.borderColor='rgba(0,255,195,0.5)';this.style.background='rgba(0,255,195,0.1)';this.style.transform='translateY(-2px)';" onmouseout="this.style.borderColor='rgba(255,255,255,0.1)';this.style.background='rgba(15,23,42,0.5)';this.style.transform='translateY(0)';">
+          <div style="font-size:32px;margin-bottom:8px;">📅</div>
+          <div style="font-weight:600;font-size:14px;color:#fff;">Agenda</div>
+        </div>
+        
+        <div onclick="openAccountWindow('amis')" style="padding:24px;border-radius:16px;background:rgba(15,23,42,0.5);border:2px solid rgba(255,255,255,0.1);cursor:pointer;transition:all 0.3s;" onmouseover="this.style.borderColor='rgba(0,255,195,0.5)';this.style.background='rgba(0,255,195,0.1)';this.style.transform='translateY(-2px)';" onmouseout="this.style.borderColor='rgba(255,255,255,0.1)';this.style.background='rgba(15,23,42,0.5)';this.style.transform='translateY(0)';">
+          <div style="font-size:32px;margin-bottom:8px;">👥</div>
+          <div style="font-weight:600;font-size:14px;color:#fff;">Amis</div>
+        </div>
+        
+        <div onclick="openAccountWindow('notifications')" style="padding:24px;border-radius:16px;background:rgba(15,23,42,0.5);border:2px solid rgba(255,255,255,0.1);cursor:pointer;transition:all 0.3s;" onmouseover="this.style.borderColor='rgba(0,255,195,0.5)';this.style.background='rgba(0,255,195,0.1)';this.style.transform='translateY(-2px)';" onmouseout="this.style.borderColor='rgba(255,255,255,0.1)';this.style.background='rgba(15,23,42,0.5)';this.style.transform='translateY(0)';">
+          <div style="font-size:32px;margin-bottom:8px;">🔔</div>
+          <div style="font-weight:600;font-size:14px;color:#fff;">Notifications</div>
+        </div>
+        
+        <div onclick="openAccountWindow('parametres')" style="padding:24px;border-radius:16px;background:rgba(15,23,42,0.5);border:2px solid rgba(255,255,255,0.1);cursor:pointer;transition:all 0.3s;" onmouseover="this.style.borderColor='rgba(0,255,195,0.5)';this.style.background='rgba(0,255,195,0.1)';this.style.transform='translateY(-2px)';" onmouseout="this.style.borderColor='rgba(255,255,255,0.1)';this.style.background='rgba(15,23,42,0.5)';this.style.transform='translateY(0)';">
+          <div style="font-size:32px;margin-bottom:8px;">⚙️</div>
+          <div style="font-weight:600;font-size:14px;color:#fff;">Paramètres</div>
+        </div>
+        
+        <div onclick="openAccountWindow('profil')" style="padding:24px;border-radius:16px;background:rgba(15,23,42,0.5);border:2px solid rgba(255,255,255,0.1);cursor:pointer;transition:all 0.3s;" onmouseover="this.style.borderColor='rgba(0,255,195,0.5)';this.style.background='rgba(0,255,195,0.1)';this.style.transform='translateY(-2px)';" onmouseout="this.style.borderColor='rgba(255,255,255,0.1)';this.style.background='rgba(15,23,42,0.5)';this.style.transform='translateY(0)';">
+          <div style="font-size:32px;margin-bottom:8px;">👤</div>
+          <div style="font-weight:600;font-size:14px;color:#fff;">Profil</div>
+        </div>
+        
+        <div onclick="openAccountWindow('modifier-profil')" style="padding:24px;border-radius:16px;background:rgba(15,23,42,0.5);border:2px solid rgba(255,255,255,0.1);cursor:pointer;transition:all 0.3s;" onmouseover="this.style.borderColor='rgba(0,255,195,0.5)';this.style.background='rgba(0,255,195,0.1)';this.style.transform='translateY(-2px)';" onmouseout="this.style.borderColor='rgba(255,255,255,0.1)';this.style.background='rgba(15,23,42,0.5)';this.style.transform='translateY(0)';">
+          <div style="font-size:32px;margin-bottom:8px;">✏️</div>
+          <div style="font-weight:600;font-size:14px;color:#fff;">Modifier mon profil</div>
+        </div>
+      </div>
+      
+      <!-- Zone de contenu - Option "Rester connecté" -->
+      <div id="account-block-content" style="min-height:120px;padding:20px;border-radius:16px;background:rgba(15,23,42,0.3);border:1px solid rgba(255,255,255,0.1);">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:16px;border-radius:12px;background:rgba(0,255,195,0.05);border:1px solid rgba(0,255,195,0.2);">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="font-size:24px;">🔐</div>
+            <div>
+              <div style="font-weight:600;font-size:14px;color:#fff;margin-bottom:4px;">Rester connecté pour la prochaine fois</div>
+              <div style="font-size:12px;color:var(--ui-text-muted);">Vous serez automatiquement reconnecté</div>
+            </div>
+          </div>
+          <label style="position:relative;display:inline-block;width:48px;height:24px;cursor:pointer;">
+            <input type="checkbox" id="account-remember-me-toggle" style="opacity:0;width:0;height:0;" />
+            <span id="account-remember-me-slider" style="position:absolute;top:0;left:0;right:0;bottom:0;background-color:rgba(255,255,255,0.2);border-radius:24px;transition:all 0.3s;"></span>
+            <span id="account-remember-me-knob" style="position:absolute;top:2px;left:2px;width:20px;height:20px;background-color:#fff;border-radius:50%;transition:all 0.3s;box-shadow:0 2px 4px rgba(0,0,0,0.2);"></span>
+          </label>
+        </div>
+      </div>
+      
+      <button id="account-logout-btn" style="width:100%;margin-top:24px;padding:12px;border-radius:12px;border:2px solid rgba(239,68,68,0.3);background:rgba(239,68,68,0.1);color:#ef4444;font-weight:600;font-size:14px;cursor:pointer;transition:all 0.3s;" onmouseover="this.style.background='rgba(239,68,68,0.2)';this.style.borderColor='rgba(239,68,68,0.5)';" onmouseout="this.style.background='rgba(239,68,68,0.1)';this.style.borderColor='rgba(239,68,68,0.3)';">
+        Se déconnecter
+      </button>
+      
+      <button id="account-delete-btn" style="width:100%;margin-top:12px;padding:12px;border-radius:12px;border:2px solid rgba(239,68,68,0.2);background:transparent;color:var(--ui-text-muted);font-weight:500;font-size:13px;cursor:pointer;transition:all 0.3s;" onmouseover="this.style.color='#ef4444';this.style.borderColor='rgba(239,68,68,0.4)';" onmouseout="this.style.color='var(--ui-text-muted)';this.style.borderColor='rgba(239,68,68,0.2)';">
+        🗑️ Supprimer mon compte
+      </button>
+    </div>
+  `;
+  
+  modal.innerHTML = html;
+  modal.style.display = 'block';
+  modal.style.visibility = 'visible';
+  modal.style.opacity = '1';
+  backdrop.style.display = 'flex';
+  backdrop.style.visibility = 'visible';
+  backdrop.style.opacity = '1';
+  backdrop.style.zIndex = '9999';
+  
+  // ⚠️⚠️⚠️ CRITIQUE : Attacher les event listeners après injection HTML (CSP)
+  setTimeout(() => {
+    const logoutBtn = document.getElementById('account-logout-btn');
+    const deleteBtn = document.getElementById('account-delete-btn');
+    const rememberMeToggle = document.getElementById('account-remember-me-toggle');
+    const rememberMeSlider = document.getElementById('account-remember-me-slider');
+    const rememberMeKnob = document.getElementById('account-remember-me-knob');
+    
+    // Initialiser le toggle "Rester connecté" avec la valeur actuelle
+    const currentRememberMe = localStorage.getItem('rememberMe') === 'true';
+    if (rememberMeToggle) {
+      rememberMeToggle.checked = currentRememberMe;
+      updateRememberMeToggleUI(currentRememberMe, rememberMeSlider, rememberMeKnob);
+    }
+    
+    // Event listener pour le toggle "Rester connecté"
+    if (rememberMeToggle) {
+      rememberMeToggle.addEventListener('change', (e) => {
+        const checked = e.target.checked;
+        localStorage.setItem('rememberMe', checked ? 'true' : 'false');
+        updateRememberMeToggleUI(checked, rememberMeSlider, rememberMeKnob);
+        console.log('[ACCOUNT MODAL] "Rester connecté" changé:', checked);
+        if (typeof showNotification === 'function') {
+          showNotification(checked ? '✅ Vous serez reconnecté automatiquement' : 'ℹ️ Vous devrez vous reconnecter à la prochaine visite', 'info');
+        }
+      });
+    }
+    
+    // Fonction helper pour mettre à jour l'UI du toggle
+    function updateRememberMeToggleUI(checked, slider, knob) {
+      if (slider && knob) {
+        if (checked) {
+          slider.style.backgroundColor = 'rgba(0,255,195,0.5)';
+          knob.style.transform = 'translateX(24px)';
+          knob.style.backgroundColor = '#00ffc3';
+        } else {
+          slider.style.backgroundColor = 'rgba(255,255,255,0.2)';
+          knob.style.transform = 'translateX(0)';
+          knob.style.backgroundColor = '#fff';
+        }
+      }
+    }
+    
+    if (logoutBtn) {
+      logoutBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('[ACCOUNT MODAL] Bouton "Se déconnecter" cliqué');
+        // Utiliser la valeur actuelle du toggle pour la déconnexion
+        const rememberMeValue = rememberMeToggle ? rememberMeToggle.checked : false;
+        if (typeof window.performLogout === 'function') {
+          window.performLogout(rememberMeValue);
+        } else if (typeof window.logout === 'function') {
+          window.logout();
+        } else {
+          console.error('[ACCOUNT MODAL] ❌ Fonction logout non trouvée');
+          alert('Erreur: fonction de déconnexion non disponible');
+        }
+      }, { capture: true });
+    }
+    
+    if (deleteBtn) {
+      deleteBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('[ACCOUNT MODAL] Bouton "Supprimer mon compte" cliqué');
+        if (typeof showDeleteAccountConfirmation === 'function') {
+          showDeleteAccountConfirmation();
+        } else {
+          console.error('[ACCOUNT MODAL] ❌ Fonction showDeleteAccountConfirmation non trouvée');
+        }
+      }, { capture: true });
+    }
+    
+    console.log('[ACCOUNT MODAL] ✅ Event listeners attachés', { logoutBtn: !!logoutBtn, deleteBtn: !!deleteBtn, rememberMeToggle: !!rememberMeToggle });
+  }, 100);
+  
+  console.log('[ACCOUNT MODAL] Modal affiché', {
+    backdropDisplay: backdrop.style.display,
+    modalDisplay: modal.style.display,
+    htmlLength: html.length,
+    backdropComputed: window.getComputedStyle(backdrop).display,
+    modalComputed: window.getComputedStyle(modal).display
+  });
 }
+
+// Fonction pour afficher la confirmation de suppression de compte
+function showDeleteAccountConfirmation() {
+  const backdrop = document.getElementById('publish-modal-backdrop');
+  const modal = document.getElementById('publish-modal-inner');
+  
+  if (!backdrop || !modal) return;
+  
+  const html = `
+    <div style="padding:40px;max-width:500px;margin:0 auto;text-align:center;">
+      <div style="font-size:64px;margin-bottom:20px;">⚠️</div>
+      <h2 style="margin:0 0 16px;font-size:24px;font-weight:700;color:#fff;">Supprimer mon compte</h2>
+      <p style="margin:0 0 24px;font-size:14px;color:var(--ui-text-muted);line-height:1.6;">
+        Cette action est <strong style="color:#ef4444;">irréversible</strong>. Toutes vos données seront définitivement supprimées :
+      </p>
+      <ul style="text-align:left;margin:0 0 24px;padding-left:20px;color:var(--ui-text-muted);font-size:13px;line-height:2;">
+        <li>Votre profil et vos informations personnelles</li>
+        <li>Tous vos événements créés</li>
+        <li>Vos avis et commentaires</li>
+        <li>Vos favoris et participations</li>
+        <li>Vos alertes et notifications</li>
+      </ul>
+      <p style="margin:0 0 24px;font-size:13px;color:var(--ui-text-muted);">
+        Êtes-vous sûr de vouloir continuer ?
+      </p>
+      <div style="display:flex;gap:12px;">
+        <button onclick="closePublishModal();" style="flex:1;padding:12px;border-radius:12px;border:2px solid rgba(255,255,255,0.2);background:transparent;color:#fff;font-weight:600;font-size:14px;cursor:pointer;transition:all 0.3s;" onmouseover="this.style.borderColor='rgba(255,255,255,0.4)';this.style.background='rgba(255,255,255,0.1)';" onmouseout="this.style.borderColor='rgba(255,255,255,0.2)';this.style.background='transparent';">
+          Annuler
+        </button>
+        <button onclick="confirmDeleteAccount();" style="flex:1;padding:12px;border-radius:12px;border:none;background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff;font-weight:700;font-size:14px;cursor:pointer;transition:all 0.3s;" onmouseover="this.style.transform='scale(1.02)';this.style.boxShadow='0 4px 12px rgba(239,68,68,0.4)';" onmouseout="this.style.transform='scale(1)';this.style.boxShadow='none';">
+          Oui, supprimer
+        </button>
+      </div>
+    </div>
+  `;
+  
+  modal.innerHTML = html;
+}
+
+// Fonction pour confirmer et exécuter la suppression du compte
+async function confirmDeleteAccount() {
+  if (!currentUser || !currentUser.isLoggedIn) {
+    showNotification('❌ Vous devez être connecté pour supprimer votre compte', 'error');
+    return;
+  }
+  
+  // Demander une confirmation finale
+  const finalConfirm = confirm('⚠️ DERNIÈRE CONFIRMATION\n\nCette action supprimera définitivement votre compte et toutes vos données.\n\nCette action est IRRÉVERSIBLE.\n\nVoulez-vous vraiment continuer ?');
+  
+  if (!finalConfirm) {
+    return;
+  }
+  
+  try {
+    showNotification('🗑️ Suppression du compte en cours...', 'info');
+    
+    const token = localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken');
+    if (!token) {
+      showNotification('❌ Token d\'authentification manquant', 'error');
+      return;
+    }
+    
+    const response = await fetch(`${window.API_BASE_URL}/user/account`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        confirm: true
+      })
+    });
+    
+    const result = await response.json();
+    
+    if (!response.ok) {
+      if (result.code === 'CONFIRMATION_REQUIRED') {
+        showNotification('❌ Confirmation requise pour supprimer le compte', 'error');
+      } else {
+        showNotification(`❌ Erreur: ${result.error || 'Impossible de supprimer le compte'}`, 'error');
+      }
+      return;
+    }
+    
+    // Suppression réussie - déconnecter et nettoyer
+    showNotification('✅ Compte supprimé avec succès', 'success');
+    
+    // Nettoyer toutes les données locales
+    localStorage.removeItem('currentUser');
+    sessionStorage.removeItem('currentUser');
+    localStorage.removeItem('accessToken');
+    sessionStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    sessionStorage.removeItem('refreshToken');
+    
+    // Réinitialiser currentUser
+    currentUser = null;
+    
+    // Fermer le modal
+    closePublishModal();
+    
+    // Recharger la page après 2 secondes
+    setTimeout(() => {
+      window.location.reload();
+    }, 2000);
+    
+  } catch (error) {
+    console.error('Erreur suppression compte:', error);
+    showNotification('❌ Erreur lors de la suppression du compte. Veuillez réessayer.', 'error');
+  }
+}
+
+// Fonction pour ouvrir une fenêtre externe pour chaque bloc
+function openAccountWindow(blockType) {
+  console.log('[ACCOUNT WINDOW] Ouverture fenêtre pour:', blockType);
+  
+  // ⚠️⚠️⚠️ CRITIQUE : Ne pas fermer le modal si c'est pour modifier-profil
+  // Car openEditProfileModal a besoin que le modal soit ouvert
+  if (blockType !== 'modifier-profil') {
+    closePublishModal();
+  }
+  
+  // Créer une nouvelle fenêtre avec le contenu du bloc
+  const windowFeatures = 'width=600,height=700,scrollbars=yes,resizable=yes';
+  const windowName = `account_${blockType}_${Date.now()}`;
+  
+  // Créer le HTML pour la fenêtre
+  let windowContent = '';
+  
+  if (blockType === 'agenda') {
+    const agendaItems = (currentUser.agenda || []).map(key => {
+      const [type, id] = key.split(":");
+      const data = type === "event" ? eventsData : type === "booking" ? bookingsData : servicesData;
+      return data.find(i => i.id === parseInt(id));
+    }).filter(Boolean);
+    
+    windowContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Mon Agenda - MapEvent</title>
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: #fff; margin: 0; padding: 20px; }
+          h1 { margin: 0 0 20px; font-size: 24px; }
+        </style>
+      </head>
+      <body>
+        <h1>📅 Mon Agenda</h1>
+        ${agendaItems.length === 0 ? '<p>Votre agenda est vide</p>' : agendaItems.map(item => `<div style="padding:12px;margin-bottom:8px;background:rgba(15,23,42,0.5);border-radius:8px;">${escapeHtml(item.title || item.name || 'Sans titre')}</div>`).join('')}
+      </body>
+      </html>
+    `;
+  } else if (blockType === 'notifications') {
+    windowContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Notifications - MapEvent</title>
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: #fff; margin: 0; padding: 20px; }
+          h1 { margin: 0 0 20px; font-size: 24px; }
+        </style>
+      </head>
+      <body>
+        <h1>🔔 Mes Notifications</h1>
+        <p>Fonctionnalité à venir</p>
+      </body>
+      </html>
+    `;
+  } else if (blockType === 'modifier-profil') {
+    // ⚠️⚠️⚠️ CRITIQUE : Pour modifier-profil, afficher le formulaire dans le modal au lieu d'une nouvelle fenêtre
+    console.log('[ACCOUNT WINDOW] modifier-profil détecté - Affichage dans modal au lieu de nouvelle fenêtre');
+    
+    // Essayer d'abord showAccountBlockContent (affiche dans le modal)
+    if (typeof showAccountBlockContent === 'function') {
+      console.log('[ACCOUNT WINDOW] Utilisation showAccountBlockContent pour modifier-profil');
+      showAccountBlockContent('modifier-profil');
+      return; // Ne pas ouvrir de nouvelle fenêtre
+    }
+    
+    // Fallback : ouvrir le formulaire d'édition complet
+    if (typeof window.openEditProfileModal === 'function') {
+      console.log('[ACCOUNT WINDOW] Utilisation window.openEditProfileModal (fallback)');
+      window.openEditProfileModal();
+      return;
+    } else if (typeof openEditProfileModal === 'function') {
+      console.log('[ACCOUNT WINDOW] Utilisation openEditProfileModal (fallback)');
+      openEditProfileModal();
+      return;
+    } else {
+      console.error('[ACCOUNT WINDOW] ❌ Aucune fonction disponible pour modifier-profil');
+      showNotification('⚠️ Fonctionnalité en cours de développement', 'info');
+      return;
+    }
+  } else {
+    // Pour les autres blocs, utiliser showAccountBlockContent dans une nouvelle fenêtre
+    windowContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>${blockType} - MapEvent</title>
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: #fff; margin: 0; padding: 20px; }
+        </style>
+      </head>
+      <body>
+        <p>Fonctionnalité à venir</p>
+      </body>
+      </html>
+    `;
+  }
+  
+  try {
+    const newWindow = window.open('', windowName, windowFeatures);
+    if (newWindow) {
+      newWindow.document.write(windowContent);
+      newWindow.document.close();
+      console.log('[ACCOUNT WINDOW] Fenêtre ouverte avec succès:', windowName);
+    } else {
+      console.error('[ACCOUNT WINDOW] Échec ouverture fenêtre - popup bloquée?');
+      alert('Veuillez autoriser les popups pour cette fonctionnalité');
+    }
+  } catch (e) {
+    console.error('[ACCOUNT WINDOW] Erreur ouverture fenêtre:', e);
+    alert('Erreur lors de l\'ouverture de la fenêtre: ' + e.message);
+  }
+}
+
+// Fonction pour demander "rester connecté" avant déconnexion
+function askRememberMeBeforeLogout() {
+  console.log('[LOGOUT] Demande "rester connecté" avant déconnexion');
+  
+  // Trouver le modal pour afficher la question (NE PAS FERMER AVANT)
+  const modal = document.getElementById('publish-modal-inner');
+  const backdrop = document.getElementById('publish-modal-backdrop');
+  
+  if (!modal || !backdrop) {
+    console.error('[LOGOUT] Modal non trouvé, déconnexion directe');
+    if (typeof window.logout === 'function') {
+      window.logout();
+    }
+    return;
+  }
+  
+  const rememberMeHtml = `
+    <div style="padding:40px;max-width:500px;margin:0 auto;text-align:center;position:relative;">
+      <!-- Bouton X pour fermer -->
+      <button onclick="closePublishModal();" style="position:absolute;top:16px;right:16px;background:none;border:none;color:var(--ui-text-muted);font-size:24px;cursor:pointer;padding:8px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:all 0.2s;z-index:10;" onmouseover="this.style.background='rgba(239,68,68,0.2)';this.style.color='#ef4444';this.style.transform='scale(1.1)';" onmouseout="this.style.background='none';this.style.color='var(--ui-text-muted)';this.style.transform='scale(1)';" title="Fermer">✕</button>
+      
+      <div style="font-size:48px;margin-bottom:24px;">👋</div>
+      <h2 style="margin:0 0 16px;font-size:24px;font-weight:700;color:#fff;">Voulez-vous rester connecté ?</h2>
+      <p style="margin:0 0 32px;font-size:14px;color:var(--ui-text-muted);line-height:1.6;">
+        Si vous choisissez "Oui", vous resterez connecté pour la prochaine fois.<br>
+        Si vous choisissez "Non", vous devrez vous reconnecter à chaque visite.
+      </p>
+      
+      <div style="display:flex;gap:12px;justify-content:center;">
+        <button id="logout-yes-btn" style="flex:1;padding:14px;border-radius:12px;border:2px solid rgba(34,197,94,0.5);background:rgba(34,197,94,0.1);color:#22c55e;font-weight:600;font-size:14px;cursor:pointer;transition:all 0.3s;" onmouseover="this.style.background='rgba(34,197,94,0.2)';this.style.borderColor='rgba(34,197,94,0.7)';" onmouseout="this.style.background='rgba(34,197,94,0.1)';this.style.borderColor='rgba(34,197,94,0.5)';">
+          Oui, rester connecté
+        </button>
+        <button id="logout-no-btn" style="flex:1;padding:14px;border-radius:12px;border:2px solid rgba(239,68,68,0.5);background:rgba(239,68,68,0.1);color:#ef4444;font-weight:600;font-size:14px;cursor:pointer;transition:all 0.3s;" onmouseover="this.style.background='rgba(239,68,68,0.2)';this.style.borderColor='rgba(239,68,68,0.7)';" onmouseout="this.style.background='rgba(239,68,68,0.1)';this.style.borderColor='rgba(239,68,68,0.5)';">
+          Non, me déconnecter
+        </button>
+      </div>
+      
+      <button onclick="closePublishModal();" style="margin-top:16px;padding:10px 20px;border-radius:8px;border:1px solid rgba(255,255,255,0.2);background:transparent;color:var(--ui-text-muted);font-weight:500;font-size:13px;cursor:pointer;transition:all 0.3s;" onmouseover="this.style.background='rgba(255,255,255,0.1)';" onmouseout="this.style.background='transparent';">
+        Annuler
+      </button>
+    </div>
+  `;
+  
+  // Injecter le HTML dans le modal
+  modal.innerHTML = rememberMeHtml;
+  
+  // FORCER l'affichage du modal
+  modal.style.display = 'block';
+  modal.style.visibility = 'visible';
+  modal.style.opacity = '1';
+  backdrop.style.display = 'flex';
+  backdrop.style.visibility = 'visible';
+  backdrop.style.opacity = '1';
+  backdrop.style.zIndex = '9999';
+  
+  // Attacher les event listeners aux boutons immédiatement après injection
+  // Utiliser requestAnimationFrame pour garantir que le DOM est prêt
+  requestAnimationFrame(() => {
+    const yesBtn = document.getElementById('logout-yes-btn');
+    const noBtn = document.getElementById('logout-no-btn');
+    
+    console.log('[LOGOUT] Recherche boutons:', { yesBtn: !!yesBtn, noBtn: !!noBtn });
+    
+    if (yesBtn) {
+      // Supprimer l'ancien listener s'il existe en clonant le bouton
+      const newYesBtn = yesBtn.cloneNode(true);
+      yesBtn.parentNode.replaceChild(newYesBtn, yesBtn);
+      newYesBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('[LOGOUT] ✅ Bouton "Oui" cliqué');
+        if (typeof window.confirmLogoutWithRememberMe === 'function') {
+          window.confirmLogoutWithRememberMe(true);
+        } else if (typeof confirmLogoutWithRememberMe === 'function') {
+          confirmLogoutWithRememberMe(true);
+        } else {
+          console.error('[LOGOUT] ❌ confirmLogoutWithRememberMe non trouvé');
+        }
+      });
+      console.log('[LOGOUT] ✅ Event listener attaché au bouton "Oui"');
+    } else {
+      console.error('[LOGOUT] ❌ Bouton "Oui" non trouvé dans le DOM');
+    }
+    
+    if (noBtn) {
+      // Supprimer l'ancien listener s'il existe en clonant le bouton
+      const newNoBtn = noBtn.cloneNode(true);
+      noBtn.parentNode.replaceChild(newNoBtn, noBtn);
+      newNoBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('[LOGOUT] ✅ Bouton "Non" cliqué');
+        if (typeof window.confirmLogoutWithRememberMe === 'function') {
+          window.confirmLogoutWithRememberMe(false);
+        } else if (typeof confirmLogoutWithRememberMe === 'function') {
+          confirmLogoutWithRememberMe(false);
+        } else {
+          console.error('[LOGOUT] ❌ confirmLogoutWithRememberMe non trouvé');
+        }
+      });
+      console.log('[LOGOUT] ✅ Event listener attaché au bouton "Non"');
+    } else {
+      console.error('[LOGOUT] ❌ Bouton "Non" non trouvé dans le DOM');
+    }
+    
+    console.log('[LOGOUT] ✅ Modal "rester connecté" affiché, boutons attachés');
+  });
+}
+
+// Fonction pour confirmer la déconnexion avec choix "rester connecté"
+function confirmLogoutWithRememberMe(rememberMe) {
+  console.log('[LOGOUT] Confirmation déconnexion, rememberMe:', rememberMe);
+  
+  // Sauvegarder le choix "rester connecté" AVANT déconnexion
+  try {
+    if (rememberMe) {
+      // Garder les tokens dans localStorage pour la prochaine fois
+      const accessToken = localStorage.getItem('access_token') || localStorage.getItem('accessToken') || sessionStorage.getItem('access_token') || sessionStorage.getItem('accessToken');
+      const refreshToken = localStorage.getItem('refresh_token') || localStorage.getItem('refreshToken') || sessionStorage.getItem('refresh_token') || sessionStorage.getItem('refreshToken');
+      if (accessToken) {
+        localStorage.setItem('access_token', accessToken);
+        localStorage.setItem('refresh_token', refreshToken || '');
+        localStorage.setItem('rememberMe', 'true');
+        console.log('[LOGOUT] Tokens sauvegardés dans localStorage pour la prochaine fois');
+      }
+    } else {
+      // Supprimer complètement les tokens
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+      sessionStorage.removeItem('access_token');
+      sessionStorage.removeItem('refresh_token');
+      sessionStorage.removeItem('accessToken');
+      sessionStorage.removeItem('refreshToken');
+      localStorage.removeItem('rememberMe');
+      sessionStorage.removeItem('rememberMe');
+      console.log('[LOGOUT] Tokens supprimés complètement');
+    }
+  } catch (e) {
+    console.warn('[LOGOUT] Erreur sauvegarde tokens:', e);
+  }
+  
+  // Fermer le modal
+  if (typeof closePublishModal === 'function') {
+    closePublishModal();
+  }
+  
+  // Déconnecter l'utilisateur
+  if (typeof window.logout === 'function') {
+    window.logout();
+  } else if (typeof logout === 'function') {
+    logout();
+  } else {
+    console.error('[LOGOUT] Fonction logout non trouvée');
+    // Fallback : nettoyer manuellement
+    if (typeof window !== 'undefined' && window.currentUser) {
+      window.currentUser.isLoggedIn = false;
+    }
+    localStorage.removeItem('currentUser');
+    sessionStorage.removeItem('currentUser');
+  }
+  
+  // Mettre à jour l'UI pour remettre tout comme avant la connexion
+  setTimeout(() => {
+    if (typeof window.updateAccountBlockLegitimately === 'function') {
+      window.updateAccountBlockLegitimately();
+    }
+    if (typeof updateAuthButtons === 'function') {
+      updateAuthButtons();
+    }
+  }, 100);
+  
+  // Afficher une notification
+  setTimeout(() => {
+    if (typeof showNotification === 'function') {
+      showNotification(rememberMe ? '👋 Vous resterez connecté pour la prochaine fois' : '👋 À bientôt ! Vous devrez vous reconnecter à la prochaine visite', 'info');
+    }
+  }, 200);
+}
+
+// Exposer les fonctions globalement
+window.openAccountWindow = openAccountWindow;
+window.askRememberMeBeforeLogout = askRememberMeBeforeLogout;
+window.confirmLogoutWithRememberMe = confirmLogoutWithRememberMe;
+
+// Fonction pour afficher le contenu d'un bloc
+function showAccountBlockContent(blockType) {
+  console.log('[ACCOUNT BLOCK] showAccountBlockContent appelé avec blockType:', blockType);
+  
+  // ⚠️⚠️⚠️ CRITIQUE : Pour modifier-profil, utiliser directement openEditProfileModal
+  if (blockType === 'modifier-profil') {
+    console.log('[ACCOUNT BLOCK] modifier-profil détecté - Utilisation directe openEditProfileModal');
+    if (typeof window.openEditProfileModal === 'function') {
+      window.openEditProfileModal();
+      return;
+    } else if (typeof openEditProfileModal === 'function') {
+      openEditProfileModal();
+      return;
+    } else {
+      console.error('[ACCOUNT BLOCK] ❌ openEditProfileModal non disponible');
+      if (typeof showNotification === 'function') {
+        showNotification('⚠️ Fonctionnalité en cours de développement', 'info');
+      }
+      return;
+    }
+  }
+  
+  const contentDiv = document.getElementById('account-block-content');
+  if (!contentDiv) {
+    console.error('[ACCOUNT BLOCK] ❌ account-block-content non trouvé!');
+    return;
+  }
+  console.log('[ACCOUNT BLOCK] ✅ account-block-content trouvé');
+  
+  let content = '';
+  
+  if (blockType === 'agenda') {
+    const agendaItems = (currentUser.agenda || []).map(key => {
+      const [type, id] = key.split(":");
+      const data = type === "event" ? eventsData : type === "booking" ? bookingsData : servicesData;
+      return data.find(i => i.id === parseInt(id));
+    }).filter(Boolean);
+    
+    content = `
+      <div style="padding:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+          <h3 style="margin:0;font-size:18px;font-weight:700;color:#fff;">📅 Mon Agenda</h3>
+          <button onclick="openAccountModal()" style="background:none;border:none;color:var(--ui-text-muted);font-size:20px;cursor:pointer;padding:4px;">✕</button>
+        </div>
+        ${agendaItems.length === 0 ? `
+          <div style="text-align:center;padding:40px;color:var(--ui-text-muted);">
+            <div style="font-size:48px;margin-bottom:16px;">📭</div>
+            <p>Votre agenda est vide</p>
+            <p style="font-size:12px;margin-top:8px;">Ajoutez des événements depuis la carte !</p>
+          </div>
+        ` : `
+          <div style="display:flex;flex-direction:column;gap:12px;">
+            ${agendaItems.slice(0, 10).map(item => {
+              const imgTag = buildMainImageTag(item, item.title || item.name || "");
+              return `
+                <div onclick="openPopupFromList('${item.type}', ${item.id}); closePublishModal();" style="display:flex;gap:12px;padding:12px;border-radius:12px;background:rgba(15,23,42,0.5);border:1px solid var(--ui-card-border);cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='rgba(0,255,195,0.1)';this.style.borderColor='rgba(0,255,195,0.5)'" onmouseout="this.style.background='rgba(15,23,42,0.5)';this.style.borderColor='var(--ui-card-border)'">
+                  <div style="width:80px;height:80px;border-radius:8px;overflow:hidden;flex-shrink:0;">
+                    ${imgTag}
+                  </div>
+                  <div style="flex:1;min-width:0;">
+                    <div style="font-weight:600;font-size:14px;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(item.title || item.name || 'Sans titre')}</div>
+                    <div style="font-size:12px;color:var(--ui-text-muted);margin-bottom:4px;">${getCategoryEmoji(item)} ${item.category || 'Autre'}</div>
+                    ${item.startDate ? `<div style="font-size:11px;color:var(--ui-text-muted);">📅 ${formatDate(item.startDate)}</div>` : ''}
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        `}
+      </div>
+    `;
+  } else if (blockType === 'amis') {
+    const friends = currentUser.friends || [];
+    const friendRequests = currentUser.friendRequests || [];
+    
+    content = `
+      <div style="padding:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+          <h3 style="margin:0;font-size:18px;font-weight:700;color:#fff;">👥 Mes Amis</h3>
+          <button onclick="openAccountModal()" style="background:none;border:none;color:var(--ui-text-muted);font-size:20px;cursor:pointer;padding:4px;">✕</button>
+        </div>
+        ${friendRequests.length > 0 ? `
+          <div style="margin-bottom:20px;">
+            <div style="font-size:12px;color:var(--ui-text-muted);margin-bottom:12px;font-weight:600;">🔔 Demandes en attente (${friendRequests.length})</div>
+            <div style="display:flex;flex-direction:column;gap:8px;">
+              ${friendRequests.slice(0, 5).map(req => `
+                <div style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;background:rgba(15,23,42,0.5);border:1px solid var(--ui-card-border);">
+                  <div style="width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#00ffc3,#3b82f6);display:flex;align-items:center;justify-content:center;font-size:20px;">${req.avatar || '👤'}</div>
+                  <div style="flex:1;">
+                    <div style="font-weight:600;font-size:14px;">${escapeHtml(req.name || 'Utilisateur')}</div>
+                    <div style="font-size:11px;color:var(--ui-text-muted);">${req.username || ''}</div>
+                  </div>
+                  <div style="display:flex;gap:8px;">
+                    <button onclick="acceptFriendRequest(${req.id})" style="padding:6px 12px;border-radius:8px;border:none;background:#22c55e;color:#fff;font-size:12px;font-weight:600;cursor:pointer;">✓</button>
+                    <button onclick="rejectFriendRequest(${req.id})" style="padding:6px 12px;border-radius:8px;border:none;background:#ef4444;color:#fff;font-size:12px;font-weight:600;cursor:pointer;">✕</button>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        ` : ''}
+        ${friends.length === 0 ? `
+          <div style="text-align:center;padding:40px;color:var(--ui-text-muted);">
+            <div style="font-size:48px;margin-bottom:16px;">👥</div>
+            <p>Vous n'avez pas encore d'amis</p>
+            <p style="font-size:12px;margin-top:8px;">Ajoutez des amis pour partager vos événements !</p>
+          </div>
+        ` : `
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            ${friends.slice(0, 20).map(friend => `
+              <div style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;background:rgba(15,23,42,0.5);border:1px solid var(--ui-card-border);cursor:pointer;" onmouseover="this.style.background='rgba(0,255,195,0.1)';this.style.borderColor='rgba(0,255,195,0.5)'" onmouseout="this.style.background='rgba(15,23,42,0.5)';this.style.borderColor='var(--ui-card-border)'">
+                <div style="width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#00ffc3,#3b82f6);display:flex;align-items:center;justify-content:center;font-size:20px;">${friend.avatar || '👤'}</div>
+                <div style="flex:1;">
+                  <div style="font-weight:600;font-size:14px;">${escapeHtml(friend.name || friend.username || 'Ami')}</div>
+                  <div style="font-size:11px;color:var(--ui-text-muted);">${friend.username || ''}</div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        `}
+      </div>
+    `;
+  } else if (blockType === 'parametres') {
+    content = `
+      <div style="padding:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+          <h3 style="margin:0;font-size:18px;font-weight:700;color:#fff;">⚙️ Paramètres</h3>
+          <button onclick="openAccountModal()" style="background:none;border:none;color:var(--ui-text-muted);font-size:20px;cursor:pointer;padding:4px;">✕</button>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <button onclick="openUserProfile()" style="padding:14px;border-radius:12px;border:2px solid rgba(255,255,255,0.1);background:rgba(15,23,42,0.5);color:#fff;font-weight:600;font-size:14px;cursor:pointer;text-align:left;transition:all 0.3s;" onmouseover="this.style.borderColor='rgba(0,255,195,0.5)';this.style.background='rgba(0,255,195,0.1)';" onmouseout="this.style.borderColor='rgba(255,255,255,0.1)';this.style.background='rgba(15,23,42,0.5)';">
+            👤 Modifier mon profil
+          </button>
+          <button onclick="showNotification('Fonctionnalité à venir', 'info')" style="padding:14px;border-radius:12px;border:2px solid rgba(255,255,255,0.1);background:rgba(15,23,42,0.5);color:#fff;font-weight:600;font-size:14px;cursor:pointer;text-align:left;transition:all 0.3s;" onmouseover="this.style.borderColor='rgba(0,255,195,0.5)';this.style.background='rgba(0,255,195,0.1)';" onmouseout="this.style.borderColor='rgba(255,255,255,0.1)';this.style.background='rgba(15,23,42,0.5)';">
+            🔔 Notifications
+          </button>
+          <button onclick="showNotification('Fonctionnalité à venir', 'info')" style="padding:14px;border-radius:12px;border:2px solid rgba(255,255,255,0.1);background:rgba(15,23,42,0.5);color:#fff;font-weight:600;font-size:14px;cursor:pointer;text-align:left;transition:all 0.3s;" onmouseover="this.style.borderColor='rgba(0,255,195,0.5)';this.style.background='rgba(0,255,195,0.1)';" onmouseout="this.style.borderColor='rgba(255,255,255,0.1)';this.style.background='rgba(15,23,42,0.5)';">
+            🔒 Confidentialité
+          </button>
+        </div>
+      </div>
+    `;
+  } else if (blockType === 'profil') {
+    content = `
+      <div style="padding:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+          <h3 style="margin:0;font-size:18px;font-weight:700;color:#fff;">👤 Mon Profil</h3>
+          <button onclick="openAccountModal()" style="background:none;border:none;color:var(--ui-text-muted);font-size:20px;cursor:pointer;padding:4px;">✕</button>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:16px;">
+          <div>
+            <div style="font-size:12px;color:var(--ui-text-muted);margin-bottom:8px;">Nom d'utilisateur</div>
+            <div style="font-weight:600;font-size:16px;color:#fff;">${escapeHtml(currentUser.username || 'Non défini')}</div>
+          </div>
+          <div>
+            <div style="font-size:12px;color:var(--ui-text-muted);margin-bottom:8px;">Email</div>
+            <div style="font-weight:600;font-size:16px;color:#fff;">${escapeHtml(currentUser.email || 'Non défini')}</div>
+          </div>
+          ${currentUser.firstName || currentUser.lastName ? `
+            <div>
+              <div style="font-size:12px;color:var(--ui-text-muted);margin-bottom:8px;">Nom complet</div>
+              <div style="font-weight:600;font-size:16px;color:#fff;">${escapeHtml((currentUser.firstName || '') + ' ' + (currentUser.lastName || ''))}</div>
+            </div>
+          ` : ''}
+          <button onclick="openUserProfile()" style="padding:14px;border-radius:12px;border:2px solid rgba(0,255,195,0.5);background:rgba(0,255,195,0.1);color:#00ffc3;font-weight:600;font-size:14px;cursor:pointer;transition:all 0.3s;" onmouseover="this.style.background='rgba(0,255,195,0.2)';" onmouseout="this.style.background='rgba(0,255,195,0.1)';">
+            ✏️ Modifier mon profil
+          </button>
+        </div>
+      </div>
+    `;
+  } else if (blockType === 'modifier-profil') {
+    // Afficher TOUTES les données du profil
+    const addresses = currentUser.addresses || [];
+    const mainAddress = addresses.length > 0 ? addresses[0] : (currentUser.postalAddress ? { label: currentUser.postalAddress } : null);
+    
+    content = `
+      <div style="padding:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+          <h3 style="margin:0;font-size:18px;font-weight:700;color:#fff;">✏️ Modifier mon profil</h3>
+          <button onclick="openAccountModal()" style="background:none;border:none;color:var(--ui-text-muted);font-size:20px;cursor:pointer;padding:4px;">✕</button>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:16px;">
+          <div>
+            <div style="font-size:12px;color:var(--ui-text-muted);margin-bottom:8px;">Nom d'utilisateur</div>
+            <div style="font-weight:600;font-size:16px;color:#fff;">${escapeHtml(currentUser.username || 'Non défini')}</div>
+          </div>
+          <div>
+            <div style="font-size:12px;color:var(--ui-text-muted);margin-bottom:8px;">Email</div>
+            <div style="font-weight:600;font-size:16px;color:#fff;">${escapeHtml(currentUser.email || 'Non défini')}</div>
+          </div>
+          ${currentUser.firstName ? `
+            <div>
+              <div style="font-size:12px;color:var(--ui-text-muted);margin-bottom:8px;">Prénom</div>
+              <div style="font-weight:600;font-size:16px;color:#fff;">${escapeHtml(currentUser.firstName)}</div>
+            </div>
+          ` : ''}
+          ${currentUser.lastName ? `
+            <div>
+              <div style="font-size:12px;color:var(--ui-text-muted);margin-bottom:8px;">Nom</div>
+              <div style="font-weight:600;font-size:16px;color:#fff;">${escapeHtml(currentUser.lastName)}</div>
+            </div>
+          ` : ''}
+          ${mainAddress ? `
+            <div>
+              <div style="font-size:12px;color:var(--ui-text-muted);margin-bottom:8px;">Adresse postale</div>
+              <div style="font-weight:600;font-size:16px;color:#fff;">${escapeHtml(mainAddress.label || mainAddress)}</div>
+            </div>
+          ` : ''}
+          ${currentUser.profile_photo_url ? `
+            <div>
+              <div style="font-size:12px;color:var(--ui-text-muted);margin-bottom:8px;">Photo de profil</div>
+              <div style="width:80px;height:80px;border-radius:50%;overflow:hidden;border:2px solid rgba(0,255,195,0.3);">
+                <img src="${currentUser.profile_photo_url}" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none';" />
+              </div>
+            </div>
+          ` : ''}
+          <button onclick="if(typeof window.openEditProfileModal === 'function') { window.openEditProfileModal(); } else if(typeof openEditProfileModal === 'function') { openEditProfileModal(); } else { showNotification('Fonctionnalité à venir', 'info'); }" style="width:100%;padding:14px;border-radius:12px;border:2px solid rgba(0,255,195,0.5);background:rgba(0,255,195,0.1);color:#00ffc3;font-weight:600;font-size:14px;cursor:pointer;transition:all 0.3s;" onmouseover="this.style.background='rgba(0,255,195,0.2)';" onmouseout="this.style.background='rgba(0,255,195,0.1)';">
+            ✏️ Modifier mes informations
+          </button>
+        </div>
+      </div>
+    `;
+  }
+  
+  if (content) {
+    contentDiv.innerHTML = content;
+  }
+}
+
+// Exposer les fonctions globalement
+window.openAccountModal = openAccountModal;
+window.showAccountBlockContent = showAccountBlockContent;
 
 function showAccountModalTab(tab) {
   accountModalActiveTab = tab;
@@ -15237,20 +21160,11 @@ function showAccountModalTab(tab) {
   const currentPlan = planNames[currentUser.subscription] || planNames.free;
   
   // Avatar à afficher (photo de profil ou emoji)
-  // PRIORITÉ: profilePhoto > profile_photo_url > avatar (qui peut être une URL Google)
-  const avatarUrl = currentUser.profilePhoto || currentUser.profile_photo_url || currentUser.avatar;
-  
-  // Debug: afficher l'URL dans la console
-  if (avatarUrl && (avatarUrl.startsWith('http') || avatarUrl.startsWith('data:image'))) {
-    console.log('🔍 Avatar URL trouvée:', avatarUrl);
-  } else {
-    console.log('⚠️ Pas d\'URL avatar trouvée. profilePhoto:', currentUser.profilePhoto, 'profile_photo_url:', currentUser.profile_photo_url, 'avatar:', currentUser.avatar);
-  }
-  
-  // Améliorer l'affichage avec gestion d'erreur et crossorigin pour CORS
+  // PRIORITÉ: profile_photo_url > profilePhoto > avatarUrl > avatar
+  const avatarUrl = currentUser.profile_photo_url || currentUser.profilePhoto || currentUser.avatarUrl || currentUser.avatar;
   const avatarDisplay = (avatarUrl && (avatarUrl.startsWith('http') || avatarUrl.startsWith('data:image')))
-    ? `<img src="${avatarUrl}" crossorigin="anonymous" style="width:100%;height:100%;border-radius:50%;object-fit:cover;display:block;background:transparent;" onerror="console.error('❌ Erreur chargement avatar:', '${avatarUrl}'); this.onerror=null; this.src=''; this.parentElement.innerHTML='<span style=\\'display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:24px;\\'>${escapeHtml(currentUser.avatar || '👤')}</span>';" onload="console.log('✅ Avatar chargé:', '${avatarUrl}');" />`
-    : `<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:24px;">${avatarUrl || currentUser.avatar || "👤"}</span>`;
+    ? `<img src="${avatarUrl}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" onerror="this.parentElement.innerHTML='${currentUser.avatar || '👤'}';" />`
+    : (avatarUrl || currentUser.avatar || "👤");
   
   // Contenu des onglets
   let tabContent = '';
@@ -15279,16 +21193,16 @@ function showAccountModalTab(tab) {
                 <div onclick="openPopupFromList('${item.type}', ${item.id}); closePublishModal();" style="display:flex;gap:12px;padding:12px;border-radius:12px;background:rgba(15,23,42,0.5);border:1px solid var(--ui-card-border);cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='rgba(0,255,195,0.1)';this.style.borderColor='rgba(0,255,195,0.5)'" onmouseout="this.style.background='rgba(15,23,42,0.5)';this.style.borderColor='var(--ui-card-border)'">
                   <div style="width:80px;height:80px;border-radius:8px;overflow:hidden;flex-shrink:0;">
                     ${imgTag}
-                  </div>
+          </div>
                   <div style="flex:1;min-width:0;">
                     <div style="font-weight:600;font-size:14px;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(item.title || item.name || 'Sans titre')}</div>
                     <div style="font-size:12px;color:var(--ui-text-muted);margin-bottom:4px;">${getCategoryEmoji(item)} ${item.category || 'Autre'}</div>
                     ${item.startDate ? `<div style="font-size:11px;color:var(--ui-text-muted);">📅 ${formatDate(item.startDate)}</div>` : ''}
-                  </div>
-                </div>
+          </div>
+          </div>
               `;
             }).join('')}
-          </div>
+        </div>
         `}
       </div>
     `;
@@ -15393,6 +21307,89 @@ function showAccountModalTab(tab) {
         `}
       </div>
     `;
+  } else if (tab === 'privacy') {
+    // Initialiser les valeurs de confidentialité par défaut si non définies
+    const profilePublic = currentUser.profile_public !== undefined ? currentUser.profile_public : false;
+    const showName = currentUser.show_name !== undefined ? currentUser.show_name : false;
+    const showPhoto = currentUser.show_photo !== undefined ? currentUser.show_photo : false;
+    const showCityCountryOnly = currentUser.show_city_country_only !== undefined ? currentUser.show_city_country_only : false;
+    
+    tabContent = `
+      <div style="padding:16px;">
+        <div style="margin-bottom:20px;padding:12px;background:rgba(0,255,195,0.1);border:1px solid rgba(0,255,195,0.3);border-radius:12px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+            <span style="font-size:20px;">🔒</span>
+            <div style="font-weight:700;font-size:14px;color:#00ffc3;">Compte privé (par défaut)</div>
+          </div>
+          <div style="font-size:12px;color:var(--ui-text-muted);line-height:1.5;">
+            Vos données personnelles (email, adresse complète) ne sont <strong>jamais</strong> affichées publiquement. 
+            Vous pouvez choisir de rendre certains éléments de votre profil visibles via les options ci-dessous.
+          </div>
+        </div>
+        
+        <h3 style="margin:0 0 16px;font-size:16px;font-weight:700;">Visibilité du profil</h3>
+        
+        <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:20px;">
+          <label style="display:flex;align-items:start;justify-content:space-between;padding:14px;background:rgba(15,23,42,0.5);border-radius:10px;border:1px solid var(--ui-card-border);cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor='rgba(0,255,195,0.5)'" onmouseout="this.style.borderColor='var(--ui-card-border)'">
+            <div style="flex:1;">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                <span style="font-size:18px;">🌐</span>
+                <span style="font-weight:600;font-size:14px;">Rendre mon profil visible</span>
+              </div>
+              <div style="font-size:12px;color:var(--ui-text-muted);line-height:1.4;">
+                Si activé, votre profil peut être découvert par d'autres utilisateurs. Vos données sensibles (email, adresse complète) restent toujours privées.
+              </div>
+            </div>
+            <input type="checkbox" id="privacy-profile-public" ${profilePublic ? 'checked' : ''} onchange="togglePrivacySetting('profile_public', this.checked)" style="width:20px;height:20px;margin-left:12px;accent-color:#00ffc3;cursor:pointer;">
+          </label>
+          
+          <label style="display:flex;align-items:start;justify-content:space-between;padding:14px;background:rgba(15,23,42,0.5);border-radius:10px;border:1px solid var(--ui-card-border);cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor='rgba(0,255,195,0.5)'" onmouseout="this.style.borderColor='var(--ui-card-border)'">
+            <div style="flex:1;">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                <span style="font-size:18px;">👤</span>
+                <span style="font-weight:600;font-size:14px;">Afficher mon nom</span>
+              </div>
+              <div style="font-size:12px;color:var(--ui-text-muted);line-height:1.4;">
+                Permet d'afficher votre nom d'utilisateur ou votre nom complet sur votre profil public.
+              </div>
+            </div>
+            <input type="checkbox" id="privacy-show-name" ${showName ? 'checked' : ''} onchange="togglePrivacySetting('show_name', this.checked)" style="width:20px;height:20px;margin-left:12px;accent-color:#00ffc3;cursor:pointer;">
+          </label>
+          
+          <label style="display:flex;align-items:start;justify-content:space-between;padding:14px;background:rgba(15,23,42,0.5);border-radius:10px;border:1px solid var(--ui-card-border);cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor='rgba(0,255,195,0.5)'" onmouseout="this.style.borderColor='var(--ui-card-border)'">
+            <div style="flex:1;">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                <span style="font-size:18px;">📸</span>
+                <span style="font-weight:600;font-size:14px;">Afficher ma photo</span>
+              </div>
+              <div style="font-size:12px;color:var(--ui-text-muted);line-height:1.4;">
+                Permet d'afficher votre photo de profil sur votre profil public.
+              </div>
+            </div>
+            <input type="checkbox" id="privacy-show-photo" ${showPhoto ? 'checked' : ''} onchange="togglePrivacySetting('show_photo', this.checked)" style="width:20px;height:20px;margin-left:12px;accent-color:#00ffc3;cursor:pointer;">
+          </label>
+          
+          <label style="display:flex;align-items:start;justify-content:space-between;padding:14px;background:rgba(15,23,42,0.5);border-radius:10px;border:1px solid var(--ui-card-border);cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor='rgba(0,255,195,0.5)'" onmouseout="this.style.borderColor='var(--ui-card-border)'">
+            <div style="flex:1;">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                <span style="font-size:18px;">📍</span>
+                <span style="font-weight:600;font-size:14px;">Afficher ville/pays uniquement</span>
+              </div>
+              <div style="font-size:12px;color:var(--ui-text-muted);line-height:1.4;">
+                Permet d'afficher uniquement votre ville et pays (sans adresse complète) sur votre profil public.
+              </div>
+            </div>
+            <input type="checkbox" id="privacy-show-city-country" ${showCityCountryOnly ? 'checked' : ''} onchange="togglePrivacySetting('show_city_country_only', this.checked)" style="width:20px;height:20px;margin-left:12px;accent-color:#00ffc3;cursor:pointer;">
+          </label>
+        </div>
+        
+        <div style="padding:12px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:10px;margin-top:20px;">
+          <div style="font-size:12px;color:var(--ui-text-muted);line-height:1.5;">
+            <strong style="color:#ef4444;">⚠️ Important :</strong> Votre email et votre adresse postale complète ne sont <strong>jamais</strong> affichés publiquement, même si vous activez ces options.
+          </div>
+        </div>
+      </div>
+    `;
   }
   
   const html = `
@@ -15400,23 +21397,21 @@ function showAccountModalTab(tab) {
       <!-- Header avec avatar et infos -->
       <div style="background:linear-gradient(135deg,#0f172a 0%,#1e293b 50%,#0f172a 100%);padding:20px;border-radius:16px 16px 0 0;position:relative;">
         <div style="display:flex;align-items:center;gap:16px;">
-          <div style="position:relative;flex-shrink:0;">
-            <div style="width:60px;height:60px;border-radius:50%;background:${avatarUrl && (avatarUrl.startsWith('http') || avatarUrl.startsWith('data:image')) ? 'transparent' : 'linear-gradient(135deg,#00ffc3,#3b82f6)'};display:flex;align-items:center;justify-content:center;font-size:24px;border:2px solid rgba(255,255,255,0.25);overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.2);" data-account-avatar="true">
+          <div style="position:relative;">
+            <div style="width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#00ffc3,#3b82f6);display:flex;align-items:center;justify-content:center;font-size:24px;border:2px solid rgba(255,255,255,0.2);overflow:hidden;" data-account-avatar="true">
               ${avatarDisplay}
             </div>
-            <div style="position:absolute;bottom:0;right:0;width:18px;height:18px;background:${levelColor};border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;border:2px solid #0f172a;box-shadow:0 1px 4px rgba(0,0,0,0.3);">
+            <div style="position:absolute;bottom:-2px;right:-2px;width:20px;height:20px;background:${levelColor};border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;border:2px solid #0f172a;">
               ${levelEmoji}
             </div>
           </div>
-          <div style="flex:1;min-width:0;">
-            <div style="font-size:18px;font-weight:700;color:#fff;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${currentUser.username || currentUser.name || 'Utilisateur'}</div>
-            <div style="font-size:11px;color:rgba(255,255,255,0.65);margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${currentUser.email || ''}</div>
-            ${currentUser.postalAddress ? `
-              <div style="font-size:10px;color:rgba(255,255,255,0.55);display:flex;align-items:center;gap:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+          <div style="flex:1;">
+            <div style="font-size:18px;font-weight:800;color:#fff;margin-bottom:2px;">${currentUser.username || currentUser.name || 'Utilisateur'}</div>
+            <div style="font-size:11px;color:rgba(255,255,255,0.6);margin-bottom:4px;">${currentUser.email || ''}</div>
+            ${(currentUser.address_city || currentUser.address_country_code) && currentUser.show_city_country_only ? `
+              <div style="font-size:11px;color:rgba(255,255,255,0.5);display:flex;align-items:center;gap:4px;">
                 <span>📍</span>
-                <span>${typeof currentUser.postalAddress === 'object' 
-                  ? `${currentUser.postalAddress.address || ''}${currentUser.postalAddress.city ? ', ' + currentUser.postalAddress.city : ''}${currentUser.postalAddress.zip ? ' ' + currentUser.postalAddress.zip : ''}${currentUser.postalAddress.country ? ' (' + currentUser.postalAddress.country + ')' : ''}`.trim()
-                  : currentUser.postalAddress}</span>
+                <span>${currentUser.address_city || ''}${currentUser.address_city && currentUser.address_country_code ? ', ' : ''}${currentUser.address_country_code || ''}</span>
               </div>
             ` : ''}
           </div>
@@ -15425,7 +21420,7 @@ function showAccountModalTab(tab) {
       
       <!-- Onglets style Facebook -->
       <div style="display:flex;background:var(--ui-card-bg);border-top:1px solid var(--ui-card-border);border-bottom:1px solid var(--ui-card-border);">
-        <button onclick="openAgendaWindow()" style="flex:1;padding:14px;border:none;background:transparent;color:var(--ui-text-main);font-weight:600;font-size:13px;cursor:pointer;border-bottom:none;transition:all 0.2s;" onmouseover="this.style.background='rgba(0,255,195,0.1)';this.style.color='#00ffc3';this.style.borderBottom='3px solid rgba(0,255,195,0.5)'" onmouseout="this.style.background='transparent';this.style.color='var(--ui-text-main)';this.style.borderBottom='none'">
+        <button onclick="showAccountModalTab('agenda')" style="flex:1;padding:14px;border:none;background:${tab === 'agenda' ? 'rgba(0,255,195,0.1)' : 'transparent'};color:${tab === 'agenda' ? '#00ffc3' : 'var(--ui-text-main)'};font-weight:${tab === 'agenda' ? '700' : '600'};font-size:13px;cursor:pointer;border-bottom:${tab === 'agenda' ? '3px solid #00ffc3' : 'none'};transition:all 0.2s;">
           📅 Agenda
         </button>
         <button onclick="showAccountModalTab('groupes')" style="flex:1;padding:14px;border:none;background:${tab === 'groupes' ? 'rgba(0,255,195,0.1)' : 'transparent'};color:${tab === 'groupes' ? '#00ffc3' : 'var(--ui-text-main)'};font-weight:${tab === 'groupes' ? '700' : '600'};font-size:13px;cursor:pointer;border-bottom:${tab === 'groupes' ? '3px solid #00ffc3' : 'none'};transition:all 0.2s;">
@@ -15438,6 +21433,9 @@ function showAccountModalTab(tab) {
         <button onclick="showAccountModalTab('notifications')" style="flex:1;padding:14px;border:none;background:${tab === 'notifications' ? 'rgba(0,255,195,0.1)' : 'transparent'};color:${tab === 'notifications' ? '#00ffc3' : 'var(--ui-text-main)'};font-weight:${tab === 'notifications' ? '700' : '600'};font-size:13px;cursor:pointer;border-bottom:${tab === 'notifications' ? '3px solid #00ffc3' : 'none'};transition:all 0.2s;position:relative;">
           🔔 Notifs
           ${notificationsCount > 0 ? `<span style="position:absolute;top:8px;right:8px;width:16px;height:16px;background:#ef4444;border-radius:50%;font-size:9px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;">${notificationsCount}</span>` : ''}
+        </button>
+        <button onclick="showAccountModalTab('privacy')" style="flex:1;padding:14px;border:none;background:${tab === 'privacy' ? 'rgba(0,255,195,0.1)' : 'transparent'};color:${tab === 'privacy' ? '#00ffc3' : 'var(--ui-text-main)'};font-weight:${tab === 'privacy' ? '700' : '600'};font-size:13px;cursor:pointer;border-bottom:${tab === 'privacy' ? '3px solid #00ffc3' : 'none'};transition:all 0.2s;">
+          🔒 Confidentialité
         </button>
       </div>
       
@@ -15663,10 +21661,16 @@ function openEditProfileModal() {
       <div style="margin-bottom:24px;text-align:center;">
         <label style="display:block;font-size:13px;font-weight:600;color:var(--ui-text-main);margin-bottom:12px;">📸 Photo de profil</label>
         <div style="position:relative;display:inline-block;">
-          <div id="edit-profile-photo-preview" style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,#00ffc3,#3b82f6);display:flex;align-items:center;justify-content:center;font-size:32px;border:3px solid rgba(255,255,255,0.2);overflow:hidden;margin:0 auto;">
-            ${currentUser.profilePhoto && (currentUser.profilePhoto.startsWith('http') || currentUser.profilePhoto.startsWith('data:image'))
-              ? `<img src="${escapeHtml(currentUser.profilePhoto)}" crossorigin="anonymous" style="width:100%;height:100%;object-fit:cover;" onerror="this.onerror=null; this.src=''; this.parentElement.innerHTML='${escapeHtml(currentUser.avatar || '👤')}';" />`
-              : escapeHtml(currentUser.avatar || '👤')}
+          <div id="edit-profile-photo-preview" style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,#00ffc3,#3b82f6);display:flex;align-items:center;justify-content:center;font-size:32px;border:3px solid rgba(255,255,255,0.2);overflow:hidden;margin:0 auto;position:relative;">
+            ${(() => {
+              // PRIORITÉ: profile_photo_url > profilePhoto > avatarUrl > avatar
+              const avatarUrl = currentUser.profile_photo_url || currentUser.profilePhoto || currentUser.avatarUrl || currentUser.avatar;
+              if (avatarUrl && (avatarUrl.startsWith('http') || avatarUrl.startsWith('data:image'))) {
+                const safeUrl = avatarUrl.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+                return `<img src="${safeUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;position:absolute;top:0;left:0;" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" /><div style="display:none;width:100%;height:100%;border-radius:50%;background:linear-gradient(135deg,#00ffc3,#3b82f6);align-items:center;justify-content:center;font-size:32px;position:absolute;top:0;left:0;">👤</div>`;
+              }
+              return '<div style="width:100%;height:100%;border-radius:50%;background:linear-gradient(135deg,#00ffc3,#3b82f6);display:flex;align-items:center;justify-content:center;font-size:32px;">👤</div>';
+            })()}
           </div>
           <input type="file" id="edit-profile-photo-input" accept="image/*" style="display:none;" onchange="handleEditProfilePhoto(event)">
           <button onclick="document.getElementById('edit-profile-photo-input').click()" style="margin-top:12px;padding:8px 16px;border-radius:8px;border:2px solid rgba(0,255,195,0.3);background:rgba(0,255,195,0.1);color:#00ffc3;font-weight:600;font-size:13px;cursor:pointer;transition:all 0.3s;" onmouseover="this.style.background='rgba(0,255,195,0.2)';this.style.borderColor='rgba(0,255,195,0.5)';" onmouseout="this.style.background='rgba(0,255,195,0.1)';this.style.borderColor='rgba(0,255,195,0.3)';">
@@ -15700,7 +21704,45 @@ function openEditProfileModal() {
     </div>
   `;
   
-  document.getElementById("publish-modal-inner").innerHTML = html;
+  // ⚠️⚠️⚠️ CRITIQUE : S'assurer que le modal est ouvert avant d'injecter le HTML
+  const modal = document.getElementById("publish-modal-inner");
+  const backdrop = document.getElementById("publish-modal-backdrop");
+  
+  if (!modal || !backdrop) {
+    console.error('[EDIT PROFILE] ❌ Modal non trouvé');
+    if (typeof showNotification === 'function') {
+      showNotification('⚠️ Erreur: Modal non trouvé', 'error');
+    }
+    return;
+  }
+  
+  // Forcer l'ouverture du modal
+  backdrop.style.display = 'flex';
+  backdrop.style.visibility = 'visible';
+  backdrop.style.opacity = '1';
+  backdrop.style.zIndex = '9999';
+  modal.style.display = 'block';
+  modal.style.visibility = 'visible';
+  modal.style.opacity = '1';
+  
+  // Injecter le HTML
+  modal.innerHTML = html;
+  
+  console.log('[EDIT PROFILE] ✅ Formulaire de modification affiché');
+  
+  // ⚠️⚠️⚠️ CRITIQUE : Empêcher la fermeture du modal pendant l'injection
+  // Attendre un peu pour que le HTML soit complètement injecté
+  setTimeout(() => {
+    // Réattacher les event listeners après l'injection
+    const closeBtn = modal.querySelector('.modal-close-btn, [onclick*="closePublishModal"]');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        e.preventDefault();
+        closePublishModal(e);
+      });
+    }
+  }, 100);
 }
 
 // Gérer le changement de photo de profil
@@ -15726,37 +21768,140 @@ function handleEditProfilePhoto(event) {
   reader.readAsDataURL(file);
 }
 
-// Sauvegarder les modifications du profil
+// Sauvegarder les modifications du profil - AVEC VALIDATION GOOGLE/EMAIL
 async function saveProfileChanges() {
   const username = document.getElementById('edit-profile-username')?.value.trim();
   const address = document.getElementById('edit-profile-address')?.value.trim();
-  const photo = window.tempProfilePhoto || currentUser.profilePhoto;
+  const photo = window.tempProfilePhoto || currentUser.profile_photo_url || currentUser.profilePhoto;
   
   if (!username || username.length < 3) {
     showNotification("⚠️ Le nom d'utilisateur doit contenir au moins 3 caractères", "warning");
     return;
   }
   
+  // Stocker les modifications temporairement
+  window.pendingProfileChanges = {
+    username: username,
+    postalAddress: address,
+    photo: photo
+  };
+  
+  // Afficher le choix de validation (Google ou Email)
+  showProfileVerificationChoice();
+}
+
+// Afficher le choix de validation pour les modifications de profil
+function showProfileVerificationChoice() {
+  const backdrop = document.getElementById('publish-modal-backdrop');
+  const modal = document.getElementById('publish-modal-inner');
+  
+  if (!backdrop || !modal) {
+    showNotification("⚠️ Erreur d'affichage", "warning");
+    return;
+  }
+  
+  modal.innerHTML = `
+    <div style="padding:40px;max-width:500px;margin:0 auto;text-align:center;position:relative;">
+      <button onclick="openEditProfileModal()" style="position:absolute;top:16px;right:16px;background:none;border:none;color:var(--ui-text-muted);font-size:24px;cursor:pointer;padding:8px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:all 0.2s;z-index:10;" onmouseover="this.style.background='rgba(239,68,68,0.2)';this.style.color='#ef4444';this.style.transform='scale(1.1)';" onmouseout="this.style.background='none';this.style.color='var(--ui-text-muted)';this.style.transform='scale(1)';" title="Fermer">✕</button>
+      
+      <div style="margin-bottom:32px;">
+        <div style="font-size:64px;margin-bottom:16px;">🔐</div>
+        <h2 style="margin:0 0 8px;font-size:28px;font-weight:800;color:#fff;background:linear-gradient(135deg,#00ffc3,#3b82f6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">Confirmer les modifications</h2>
+        <p style="margin:0;font-size:14px;color:var(--ui-text-muted);">Choisissez votre méthode de vérification</p>
+      </div>
+      
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <button onclick="confirmProfileChangesWithGoogle()" style="width:100%;padding:16px;border-radius:12px;border:2px solid rgba(0,255,195,0.3);background:linear-gradient(135deg,rgba(0,255,195,0.1),rgba(59,130,246,0.1));color:var(--ui-text-main);font-weight:600;font-size:15px;cursor:pointer;transition:all 0.3s;display:flex;align-items:center;justify-content:center;gap:12px;" onmouseover="this.style.borderColor='rgba(0,255,195,0.6)';this.style.background='linear-gradient(135deg,rgba(0,255,195,0.2),rgba(59,130,246,0.2))';" onmouseout="this.style.borderColor='rgba(0,255,195,0.3)';this.style.background='linear-gradient(135deg,rgba(0,255,195,0.1),rgba(59,130,246,0.1))';">
+          <span>🔵</span> Confirmer avec Google
+        </button>
+        <button onclick="confirmProfileChangesWithEmail()" style="width:100%;padding:16px;border-radius:12px;border:2px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.05);color:var(--ui-text-main);font-weight:600;font-size:15px;cursor:pointer;transition:all 0.3s;display:flex;align-items:center;justify-content:center;gap:12px;" onmouseover="this.style.borderColor='rgba(255,255,255,0.4)';this.style.background='rgba(255,255,255,0.1)';" onmouseout="this.style.borderColor='rgba(255,255,255,0.2)';this.style.background='rgba(255,255,255,0.05)';">
+          <span>📧</span> Confirmer par email
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+// Confirmer les modifications avec Google
+async function confirmProfileChangesWithGoogle() {
+  if (!window.pendingProfileChanges) {
+    showNotification("⚠️ Aucune modification en attente", "warning");
+    return;
+  }
+  
+  // Démarrer la connexion Google
+  if (typeof window.startGoogleLogin === 'function') {
+    window.isUpdatingProfile = true;
+    window.startGoogleLogin();
+  } else {
+    showNotification("⚠️ Erreur de connexion Google", "warning");
+  }
+}
+
+// Confirmer les modifications avec Email
+async function confirmProfileChangesWithEmail() {
+  if (!window.pendingProfileChanges) {
+    showNotification("⚠️ Aucune modification en attente", "warning");
+    return;
+  }
+  
+  // Envoyer un email de vérification
+  try {
+    const response = await fetch(`${window.API_BASE_URL || '/api'}/user/send-profile-verification-link`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: currentUser.email,
+        changes: window.pendingProfileChanges
+      })
+    });
+    
+    if (response.ok) {
+      showNotification("✅ Email de vérification envoyé ! Vérifiez votre boîte mail.", "success");
+      openAccountModal();
+    } else {
+      showNotification("⚠️ Erreur lors de l'envoi de l'email", "warning");
+    }
+  } catch (error) {
+    console.error('Erreur envoi email:', error);
+    showNotification("⚠️ Erreur lors de l'envoi de l'email", "warning");
+  }
+}
+
+// Appliquer les modifications après validation
+async function applyProfileChanges() {
+  if (!window.pendingProfileChanges) return;
+  
+  const { username, postalAddress, photo } = window.pendingProfileChanges;
+  
   // Mettre à jour currentUser
   currentUser.username = username;
-  currentUser.postalAddress = address;
+  currentUser.postalAddress = postalAddress;
   if (photo) {
+    currentUser.profile_photo_url = photo;
     currentUser.profilePhoto = photo;
   }
   
   // Sauvegarder dans localStorage
-  safeSetItem('currentUser', JSON.stringify(currentUser));
+  try {
+    localStorage.setItem('currentUser', JSON.stringify(currentUser));
+  } catch (e) {
+    try { sessionStorage.setItem('currentUser', JSON.stringify(currentUser)); } catch (e2) {}
+  }
   
-  // Mettre à jour le backend si connecté
+  // Mettre à jour le backend
   if (currentUser.isLoggedIn && currentUser.id) {
     try {
-      const response = await fetch(`${API_BASE_URL}/user/profile`, {
+      const response = await fetch(`${window.API_BASE_URL || '/api'}/user/profile`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken') || ''}`
+        },
         body: JSON.stringify({
           userId: currentUser.id,
           username: username,
-          postalAddress: address,
+          postalAddress: postalAddress,
           profilePhoto: photo
         })
       });
@@ -15765,7 +21910,11 @@ async function saveProfileChanges() {
         const data = await response.json();
         if (data.user) {
           currentUser = { ...currentUser, ...data.user };
-          safeSetItem('currentUser', JSON.stringify(currentUser));
+          try {
+            localStorage.setItem('currentUser', JSON.stringify(currentUser));
+          } catch (e) {
+            try { sessionStorage.setItem('currentUser', JSON.stringify(currentUser)); } catch (e2) {}
+          }
         }
       }
     } catch (error) {
@@ -15773,12 +21922,17 @@ async function saveProfileChanges() {
     }
   }
   
-  // Mettre à jour l'UI
-  updateAccountButton();
-  updateUserUI();
+  // Nettoyer
+  window.pendingProfileChanges = null;
+  window.isUpdatingProfile = false;
   
   showNotification("✅ Profil modifié avec succès !", "success");
   openAccountModal();
+  
+  // Mettre à jour l'affichage
+  if (typeof window.updateAccountBlock === 'function') {
+    window.updateAccountBlock();
+  }
 }
 
 // Exposer les fonctions globalement pour les onclick
@@ -15944,11 +22098,7 @@ function focusOnItem(type, id) {
   }
 }
 
-function logout() {
-    currentUser.isLoggedIn = false;
-  showNotification("👋 À bientôt !", "info");
-    closePublishModal();
-}
+// REMOVED: logout() est maintenant dans auth.js et exposé via window.logout
 
 // ============================================
 // UTILITAIRES
@@ -16095,11 +22245,26 @@ window.toggleLeftPanel = toggleLeftPanel;
 window.toggleListView = toggleListView;
 window.openPublishModal = openPublishModal;
 window.closePublishModal = closePublishModal;
-window.openRegisterModal = openRegisterModal;
+// REMOVED: closeAuthModal est maintenant dans auth.js et exposé via window.closeAuthModal
+// REMOVED: openRegisterModal est maintenant dans auth.js (ou wrapper utilisant window.openAuthModal)
 window.showProRegisterForm = showProRegisterForm;
 window.cycleUITheme = cycleUITheme;
 window.cycleMapTheme = cycleMapTheme;
 window.onSearchCity = onSearchCity;
+// Exposer les fonctions de validation et d'affichage
+// ⚠️⚠️⚠️ validateProField est déjà exposée ligne 13013, ne pas réexposer ici si elle n'existe pas encore
+if (typeof validateProField !== 'undefined') {
+  window.validateProField = validateProField;
+}
+if (typeof validateProPassword !== 'undefined') {
+  window.validateProPassword = validateProPassword;
+}
+if (typeof showError !== 'undefined') {
+  window.showError = showError;
+}
+if (typeof showSuccess !== 'undefined') {
+  window.showSuccess = showSuccess;
+}
 
 // Exposer les fonctions du formulaire de publication
 window.toggleRepeatOptions = toggleRepeatOptions;
@@ -16124,9 +22289,11 @@ window.openAgendaModal = openAgendaModal;
 window.toggleAgendaWindow = toggleAgendaWindow;
 window.showAgendaMiniWindow = showAgendaMiniWindow;
 window.hideAgendaMiniWindow = hideAgendaMiniWindow;
-window.openLoginModal = openLoginModal;
+// REMOVED: Les fonctions AUTH sont maintenant dans auth.js
+// Les wrappers openLoginModal et openRegisterModal sont définis plus haut et utilisent window.openAuthModal
+// REMOVED: performRegister est maintenant dans auth.js et exposé via window.performRegister
 window.simulateLogin = simulateLogin;
-window.performLogin = performLogin;
+// REMOVED: performLogin est maintenant dans auth.js et exposé via window.performLogin
 window.openReviewModal = openReviewModal;
 window.setRating = setRating;
 window.submitReview = submitReview;
@@ -16328,7 +22495,7 @@ let socket = null;
 let socketConnected = false;
 
 function initWebSocket() {
-  if (!currentUser.isLoggedIn) return;
+  if (!currentUser || !currentUser.isLoggedIn) return;
   
   try {
     // Pour Lambda/API Gateway, WebSocket nécessite un endpoint séparé
@@ -16353,10 +22520,10 @@ function initWebSocket() {
 
 // Vérifier les nouvelles notifications
 async function checkForNewNotifications() {
-  if (!currentUser.isLoggedIn) return;
+  if (!currentUser || !currentUser.isLoggedIn) return;
   
   try {
-    const response = await fetch(`${API_BASE_URL}/social/alerts?userId=${currentUser.id}&unreadOnly=true`);
+    const response = await fetch(`${window.API_BASE_URL}/social/alerts?userId=${currentUser.id}&unreadOnly=true`);
     if (response.ok) {
       const data = await response.json();
       if (data.alerts && data.alerts.length > 0) {
@@ -16381,7 +22548,7 @@ async function checkForNewMessages() {
   
   for (const groupId of window.activeGroupChannels) {
     try {
-      const response = await fetch(`${API_BASE_URL}/social/groups/${groupId}/messages?userId=${currentUser.id}&limit=1`);
+      const response = await fetch(`${window.API_BASE_URL}/social/groups/${groupId}/messages?userId=${currentUser.id}&limit=1`);
       if (response.ok) {
         const data = await response.json();
         if (data.messages && data.messages.length > 0) {
@@ -16420,7 +22587,7 @@ async function checkForNewMessages() {
 // Modérer une image avant upload
 async function moderateImageBeforeUpload(imageUrl) {
   try {
-    const response = await fetch(`${API_BASE_URL}/social/moderation/image`, {
+    const response = await fetch(`${window.API_BASE_URL}/social/moderation/image`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -16442,13 +22609,13 @@ async function moderateImageBeforeUpload(imageUrl) {
 
 // Envoyer un message avec intégration backend
 async function sendGroupMessageBackend(channelId, channelName, messageText) {
-  if (!currentUser.isLoggedIn) {
+  if (!currentUser || !currentUser.isLoggedIn) {
     openLoginModal();
     return;
   }
   
   try {
-    const response = await fetch(`${API_BASE_URL}/social/groups/${channelId}/messages`, {
+    const response = await fetch(`${window.API_BASE_URL}/social/groups/${channelId}/messages`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -16501,10 +22668,10 @@ async function sendGroupMessageBackend(channelId, channelName, messageText) {
 
 // Ajouter une réaction à un message
 async function addMessageReaction(messageId, emoji) {
-  if (!currentUser.isLoggedIn) return;
+  if (!currentUser || !currentUser.isLoggedIn) return;
   
   try {
-    const response = await fetch(`${API_BASE_URL}/social/messages/${messageId}/reaction`, {
+    const response = await fetch(`${window.API_BASE_URL}/social/messages/${messageId}/reaction`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -16556,7 +22723,7 @@ saveProfile = async function() {
   
   // Sauvegarder via backend
   try {
-    const response = await fetch(`${API_BASE_URL}/social/profile`, {
+    const response = await fetch(`${window.API_BASE_URL}/social/profile`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -16591,7 +22758,7 @@ saveProfile = async function() {
   const originalPerformLogin = window.performLogin;
   window.performLogin = async function() {
     await originalPerformLogin();
-    if (currentUser.isLoggedIn) {
+    if (currentUser && currentUser.isLoggedIn) {
       initWebSocket();
     }
   };
@@ -16600,7 +22767,7 @@ saveProfile = async function() {
 // Mettre à jour openGroupChannel pour charger les messages depuis le backend
 const originalOpenGroupChannel = openGroupChannel;
 openGroupChannel = async function(channelId, channelName, channelType, channelCategory) {
-  if (!currentUser.isLoggedIn) {
+  if (!currentUser || !currentUser.isLoggedIn) {
     openLoginModal();
     return;
   }
@@ -16613,7 +22780,7 @@ openGroupChannel = async function(channelId, channelName, channelType, channelCa
   
   // Charger les messages depuis le backend
   try {
-    const response = await fetch(`${API_BASE_URL}/social/groups/${channelId}/messages?userId=${currentUser.id}&limit=50`);
+    const response = await fetch(`${window.API_BASE_URL}/social/groups/${channelId}/messages?userId=${currentUser.id}&limit=50`);
     if (response.ok) {
       const data = await response.json();
       
@@ -16780,7 +22947,7 @@ window.removeFriend = removeFriend;
 window.openChatWith = openChatWith;
 window.sendChatMessage = sendChatMessage;
 window.focusOnItem = focusOnItem;
-window.logout = logout;
+// REMOVED: logout est maintenant dans auth.js et exposé via window.logout
 window.playPreview = playPreview;
 window.openEcoMissionModal = openEcoMissionModal;
 window.makeDonation = makeDonation;
@@ -16789,10 +22956,8 @@ window.addToCart = addToCart;
 window.removeFromCart = removeFromCart;
 window.checkoutCart = checkoutCart;
 window.openAlertsView = openAlertsView;
-window.openProximityAlertsView = openProximityAlertsView;
-window.closeProximityAlertsView = closeProximityAlertsView;
-window.removeProximityAlert = removeProximityAlert;
-window.openItemFromProximityAlert = openItemFromProximityAlert;
+// NOTE: openProximityAlertsView, closeProximityAlertsView, removeProximityAlert, openItemFromProximityAlert
+// sont exposées plus tard dans le fichier après leur définition (voir après ligne 21750)
 // Compatibilité : rediriger openAlertsModal vers openSubscriptionModal
 window.openAlertsModal = function() {
   console.warn("openAlertsModal() est obsolète, redirection vers openSubscriptionModal()");
@@ -17788,6 +23953,15 @@ window.highlightSuggestion = highlightSuggestion;
 
 // Mettre à jour le badge abonnement dans la topbar
 function updateSubscriptionBadge() {
+  if (!isLoggedIn()) {
+    const badge = document.getElementById("subscription-badge");
+    if (badge) {
+      const label = document.getElementById("subscription-label");
+      if (label) label.textContent = "ABOS";
+    }
+    return;
+  }
+  
   const badge = document.getElementById("subscription-badge");
   const label = document.getElementById("subscription-label");
   if (!badge || !label) return;
@@ -17933,8 +24107,180 @@ function makeDonation(amount) {
 // SYSTÈME D'ALERTES ET D'ALARMES - LEADER MONDIAL
 // ============================================
 
-// Configuration API
-const API_BASE_URL = "https://j33osy4bvj.execute-api.eu-west-1.amazonaws.com/default/api";
+// API_BASE_URL est maintenant défini en haut du fichier
+
+// Fonction pour charger l'utilisateur depuis /api/user/me (source de vérité)
+async function loadCurrentUserFromAPI() {
+  try {
+    // LOG: API_BASE_URL utilisé
+    console.log('[AUTH] API_BASE_URL:', window.API_BASE_URL);
+    
+    const accessToken = getAuthToken();
+    const refreshToken = getRefreshToken();
+    
+    if (!accessToken) {
+      // Pas de token, déconnecter
+      console.log('[AUTH] Pas de token, deconnexion');
+      localStorage.removeItem('currentUser');
+      sessionStorage.removeItem('currentUser');
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('rememberMe');
+      sessionStorage.removeItem('accessToken');
+      sessionStorage.removeItem('refreshToken');
+      currentUser = getDefaultUser();
+      return null;
+    }
+    
+    // LOG: Tentative /api/user/me
+    console.log('[AUTH] Appel GET /api/user/me...');
+    
+    // Appeler /api/user/me avec le token
+    const response = await fetch(`${window.API_BASE_URL}/user/me`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`
+      }
+    });
+    
+    // LOG: Status /api/user/me
+    console.log('[AUTH] GET /api/user/me - Status:', response.status, response.statusText);
+    
+    if (response.ok) {
+      const data = await response.json();
+      const user = data.user;
+      
+      // IMPORTANT: Normaliser la source d'avatar avec priorité claire
+      // Priorité: profile_photo_url > profilePhoto > avatarUrl > avatar > emoji
+      const avatarUrl = user.profile_photo_url || user.profilePhoto || user.avatarUrl || user.avatar || null;
+      
+      // Mettre à jour currentUser avec les données du serveur (source de vérité)
+      currentUser = {
+        ...user,
+        isLoggedIn: true,
+        accessToken: accessToken,
+        refreshToken: refreshToken,
+        // Normaliser avatar avec priorité
+        avatarUrl: avatarUrl, // Champ unifié
+        profilePhoto: avatarUrl, // Alias
+        profile_photo_url: avatarUrl, // Alias
+        avatar: avatarUrl || '👤' // Fallback emoji
+      };
+      
+      // Sauvegarder dans localStorage
+      localStorage.setItem('currentUser', JSON.stringify(currentUser));
+      console.log('[AUTH] Utilisateur charge depuis /api/user/me:', user.email);
+      console.log('[AVATAR] Avatar normalise:', avatarUrl ? avatarUrl.substring(0, 50) + '...' : 'null (emoji)');
+      
+      // Mettre à jour l'UI immédiatement après chargement
+      if (typeof updateAccountBlockLegitimately === 'function') {
+        setTimeout(() => updateAccountBlockLegitimately(), 100);
+      }
+      
+      return currentUser;
+    } else if (response.status === 401) {
+      // Token expiré, tenter refresh
+      console.log('[AUTH] Token expire (401), tentative refresh...');
+      
+      if (!refreshToken) {
+        // Pas de refresh token, déconnecter
+        console.log('[AUTH] Pas de refresh token, deconnexion');
+        localStorage.removeItem('currentUser');
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        currentUser = getDefaultUser();
+        return null;
+      }
+      
+      // LOG: Tentative /api/auth/refresh
+      console.log('[AUTH] Appel POST /api/auth/refresh...');
+      
+      // Appeler /api/auth/refresh
+      const refreshResponse = await fetch(`${window.API_BASE_URL}/auth/refresh`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ refreshToken: refreshToken })
+      });
+      
+      // LOG: Status refresh
+      console.log('[AUTH] POST /api/auth/refresh - Status:', refreshResponse.status, refreshResponse.statusText);
+      
+      if (refreshResponse.ok) {
+        const refreshData = await refreshResponse.json();
+        const newAccessToken = refreshData.accessToken;
+        
+        // Sauvegarder le nouveau token
+        localStorage.setItem('accessToken', newAccessToken);
+        console.log('[AUTH] Nouveau accessToken obtenu');
+        
+        // Réessayer /api/user/me avec le nouveau token
+        console.log('[AUTH] Retry GET /api/user/me avec nouveau token...');
+        const retryResponse = await fetch(`${window.API_BASE_URL}/user/me`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${newAccessToken}`
+          }
+        });
+        
+        // LOG: Status retry /api/user/me
+        console.log('[AUTH] Retry GET /api/user/me - Status:', retryResponse.status, retryResponse.statusText);
+        
+        if (retryResponse.ok) {
+          const retryData = await retryResponse.json();
+          const user = retryData.user;
+          
+          // IMPORTANT: Normaliser avatar avec priorité claire
+          const avatarUrl = user.profile_photo_url || user.profilePhoto || user.avatarUrl || user.avatar || null;
+          
+          currentUser = {
+            ...user,
+            isLoggedIn: true,
+            accessToken: newAccessToken,
+            refreshToken: refreshToken,
+            avatarUrl: avatarUrl, // Champ unifié
+            profilePhoto: avatarUrl, // Alias
+            profile_photo_url: avatarUrl, // Alias
+            avatar: avatarUrl || '👤' // Fallback emoji
+          };
+          
+          localStorage.setItem('currentUser', JSON.stringify(currentUser));
+          console.log('[AUTH] Utilisateur charge apres refresh:', user.email);
+          console.log('[AVATAR] Avatar normalise apres refresh:', avatarUrl ? avatarUrl.substring(0, 50) + '...' : 'null (emoji)');
+          
+          // Mettre à jour l'UI immédiatement après refresh
+          if (typeof updateAccountBlockLegitimately === 'function') {
+            setTimeout(() => updateAccountBlockLegitimately(), 100);
+          }
+          
+          return currentUser;
+        } else {
+          console.log('[AUTH] Retry /api/user/me echoue:', retryResponse.status);
+        }
+      } else {
+        console.log('[AUTH] Refresh echoue:', refreshResponse.status);
+      }
+      
+      // Refresh échoué, déconnecter
+      console.log('[AUTH] Refresh echoue, deconnexion');
+      localStorage.removeItem('currentUser');
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+      currentUser = getDefaultUser();
+      return null;
+    } else {
+      // Autre erreur
+      console.error('[AUTH] Erreur chargement utilisateur:', response.status);
+      return null;
+    }
+  } catch (error) {
+    console.error('[AUTH] Erreur lors du chargement utilisateur:', error);
+    return null;
+  }
+}
 
 // --- CONFIGURATION STRIPE ---
 // Note: La clé publique sera récupérée depuis le backend lors de la création de la session
@@ -18124,7 +24470,7 @@ async function checkFavoritesInNewEvents(newEvents) {
     // Sauvegarder dans le backend
     for (const alert of newAlerts) {
       try {
-        const response = await fetch(`${API_BASE_URL}/user/alerts`, {
+        const response = await fetch(`${window.API_BASE_URL}/user/alerts`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -18142,7 +24488,7 @@ async function checkFavoritesInNewEvents(newEvents) {
     }
 
     // Afficher la fenêtre popup au login si l'utilisateur vient de se connecter
-    if (currentUser.isLoggedIn) {
+    if (currentUser && currentUser.isLoggedIn) {
       showAlertsLoginPopup(newAlerts);
     }
   }
@@ -18350,7 +24696,7 @@ function addEventAlert(eventId) {
     return;
   }
   
-  if (!currentUser.isLoggedIn) {
+  if (!currentUser || !currentUser.isLoggedIn) {
     showNotification("⚠️ Vous devez être connecté pour ajouter des alertes", "warning");
     openLoginModal();
     return;
@@ -18615,7 +24961,7 @@ function updateProximityAlertsBadge() {
 
 // Fonction pour ouvrir les alertes sociales (alertes de proximité)
 function openSocialAlertsModal() {
-  if (!currentUser.isLoggedIn) {
+  if (!currentUser || !currentUser.isLoggedIn) {
     showNotification("⚠️ Vous devez être connecté pour voir vos alertes", "warning");
     openLoginModal();
     return;
@@ -18631,7 +24977,7 @@ function openProximityAlertsView() {
   refreshProximityAlertsView();
   
   // Si pas d'alertes, expliquer comment ça marche
-  if (!currentUser.isLoggedIn) {
+  if (!currentUser || !currentUser.isLoggedIn) {
     showNotification("⚠️ Vous devez être connecté pour recevoir des alertes", "warning");
     openLoginModal();
     proximityAlertsViewOpen = false;
@@ -18753,6 +25099,12 @@ function removeProximityAlert(alertId) {
   updateProximityAlertsBadge();
   refreshProximityAlertsView();
 }
+
+// Exposer les fonctions d'alertes de proximité globalement
+window.openProximityAlertsView = openProximityAlertsView;
+window.closeProximityAlertsView = closeProximityAlertsView;
+window.removeProximityAlert = removeProximityAlert;
+window.openItemFromProximityAlert = openItemFromProximityAlert;
 
 // BLOC ALERTES - INTERFACE SIMILAIRE À EVENT LIST
 // ============================================
@@ -18999,7 +25351,7 @@ function markAlertAsSeen(alertId) {
     alert.seenAt = new Date().toISOString();
     
     // Sauvegarder dans le backend
-    fetch(`${API_BASE_URL}/user/alerts/seen`, {
+    fetch(`${window.API_BASE_URL}/user/alerts/seen`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -19037,7 +25389,7 @@ function deleteAlertWithWarning(alertId) {
   currentUserAlarms = currentUserAlarms.filter(a => a.alertId !== alertId);
   
   // Sauvegarder dans le backend
-  fetch(`${API_BASE_URL}/user/alerts`, {
+  fetch(`${window.API_BASE_URL}/user/alerts`, {
     method: 'DELETE',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -19327,7 +25679,7 @@ function closeAddAlarmModal() {
 let triggeredAlarms = new Set();
 
 function checkAndTriggerAlarms() {
-  if (!currentUser.isLoggedIn) return;
+  if (!isLoggedIn()) return;
   
   const now = new Date();
   const allAlarms = [...currentUserAlarms, ...alarmsForAgenda];
@@ -19521,8 +25873,36 @@ function startAlarmChecker() {
 }
 
 // Démarrer le vérificateur d'alarmes au chargement
+// ET charger l'utilisateur depuis /api/user/me (source de vérité)
 if (typeof window !== 'undefined') {
   window.addEventListener('load', () => {
+    // PRIORITÉ 1: Charger l'utilisateur depuis /api/user/me (source de vérité)
+    // Ne pas faire confiance à localStorage.currentUser
+    loadCurrentUserFromAPI().then(user => {
+      if (user) {
+        console.log('[AUTH] Utilisateur chargé au démarrage depuis /api/user/me:', user.email);
+        // Mettre à jour le bloc compte
+        if (typeof updateAccountBlockLegitimately === 'function') {
+          setTimeout(() => updateAccountBlockLegitimately(), 100);
+        }
+        
+        // IMPORTANT: Ne JAMAIS afficher l'onboarding après reconnexion
+        // L'onboarding est demandé UNIQUEMENT lors de la première création de compte (dans performRegister)
+        // Après déconnexion/reconnexion, on charge simplement le profil depuis /user/me
+        console.log('[AUTH] Utilisateur reconnexion - pas d\'onboarding (uniquement a la creation de compte)');
+      } else {
+        console.log('[AUTH] Aucun utilisateur chargé, déconnexion');
+        // Nettoyer localStorage
+        localStorage.removeItem('currentUser');
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        currentUser = getDefaultUser();
+      }
+    }).catch(error => {
+      console.error('[AUTH] Erreur lors du chargement utilisateur au démarrage:', error);
+    });
+    
+    // PRIORITÉ 2: Démarrer le vérificateur d'alarmes
     setTimeout(() => {
       startAlarmChecker();
     }, 5000); // Attendre 5 secondes après le chargement
@@ -19542,10 +25922,10 @@ if (typeof window !== 'undefined') {
 
 // Charger les favoris depuis le backend
 async function loadFavoritesFromBackend() {
-  if (!currentUser.isLoggedIn) return;
+  if (!currentUser || !currentUser.isLoggedIn) return;
   
   try {
-    const response = await fetch(`${API_BASE_URL}/user/favorites?userId=${currentUser.id}`);
+    const response = await fetch(`${window.API_BASE_URL}/user/favorites?userId=${currentUser.id}`);
     if (response.ok) {
       const data = await response.json();
       if (data.success && data.favorites) {
@@ -19559,10 +25939,10 @@ async function loadFavoritesFromBackend() {
 
 // Charger les alertes depuis le backend
 async function loadAlertsFromBackend() {
-  if (!currentUser.isLoggedIn) return;
+  if (!currentUser || !currentUser.isLoggedIn) return;
   
   try {
-    const response = await fetch(`${API_BASE_URL}/user/alerts?userId=${currentUser.id}`);
+    const response = await fetch(`${window.API_BASE_URL}/user/alerts?userId=${currentUser.id}`);
     if (response.ok) {
       const data = await response.json();
       if (data.success && data.alerts) {
@@ -19580,7 +25960,7 @@ async function loadEventsFromBackend() {
     // ✅ Charger les événements de France ET du backend en parallèle
     const [franceResponse, backendResponse] = await Promise.allSettled([
       fetch('/public/events_france_final.geojson'),
-      fetch(`${API_BASE_URL}/events`)
+      fetch(`${window.API_BASE_URL}/events`)
     ]);
     
     let allNewEvents = [];
@@ -19685,21 +26065,35 @@ function parseFrenchDate(dateStr, timeStr) {
 
 // Charger toutes les données utilisateur au login
 async function loadUserDataOnLogin() {
-  // Charger la position depuis le stockage local
-  loadUserLocationFromStorage();
-  
-  // Charger les adresses depuis localStorage si elles existent
-  try {
-    const savedUser = localStorage.getItem('currentUser');
-    if (savedUser) {
-      const parsed = JSON.parse(savedUser);
-      if (parsed.addresses && parsed.addresses.length > 0) {
-        currentUser.addresses = parsed.addresses;
+  // Charger l'utilisateur depuis /api/user/me au chargement (si token existe)
+  // C'est la source de vérité, pas localStorage
+  loadCurrentUserFromAPI().then(user => {
+    if (user) {
+      console.log('[AUTH] Utilisateur chargé au démarrage depuis /api/user/me:', user.email);
+      // Mettre à jour le bloc compte
+      if (typeof window.updateAccountBlock === 'function') {
+        setTimeout(() => window.updateAccountBlock(), 100);
+      }
+    } else {
+      // Pas d'utilisateur chargé, utiliser localStorage comme fallback temporaire
+      const savedUser = localStorage.getItem('currentUser');
+      if (savedUser) {
+        try {
+          const parsed = JSON.parse(savedUser);
+          if (parsed.addresses && parsed.addresses.length > 0) {
+            currentUser.addresses = parsed.addresses;
+          }
+        } catch (e) {
+          console.error('Erreur chargement adresses:', e);
+        }
       }
     }
-  } catch (e) {
-    console.error('Erreur chargement adresses:', e);
-  }
+  }).catch(err => {
+    console.error('[AUTH] Erreur chargement utilisateur au démarrage:', err);
+  });
+  
+  // Charger la position depuis le stockage local
+  loadUserLocationFromStorage();
   
   // Si pas de position, demander la géolocalisation
   if (!currentUser.location || !currentUser.location.lat || !currentUser.location.lng) {
@@ -19715,11 +26109,19 @@ async function loadUserDataOnLogin() {
   await loadEventsFromBackend();
   
   // Afficher la popup d'alertes si il y en a de nouvelles
-  const newAlerts = currentUser.alerts.filter(a => a.status === 'new');
-  if (newAlerts.length > 0) {
-    setTimeout(() => {
-      showAlertsLoginPopup(newAlerts);
-    }, 1000);
+  // CORRECTION: Vérifier que currentUser.alerts existe avant d'utiliser filter
+  if (currentUser && currentUser.alerts && Array.isArray(currentUser.alerts)) {
+    const newAlerts = currentUser.alerts.filter(a => a.status === 'new');
+    if (newAlerts.length > 0) {
+      setTimeout(() => {
+        showAlertsLoginPopup(newAlerts);
+      }, 1000);
+    }
+  } else {
+    // Initialiser alerts si undefined
+    if (currentUser && !currentUser.alerts) {
+      currentUser.alerts = [];
+    }
   }
 }
 
@@ -19825,3 +26227,113 @@ async function requestUserLocation() {
 
 // Modifier openAgendaModal pour ajouter le bouton "Ajouter alarme"
 // Cette fonction doit être modifiée pour inclure le système d'alarmes
+
+// ============================================
+// EXPOSITION GLOBALE EXPLICITE DES FONCTIONS D'AUTHENTIFICATION
+// ============================================
+// Garantir que les fonctions sont disponibles globalement à la fin du chargement
+// Ces assignations sont critiques pour que les boutons/links HTML puissent les appeler
+
+// Fonction helper pour exposer de manière robuste
+(function exposeAuthFunctions() {
+  // Vérifier que window existe
+  if (typeof window === 'undefined') {
+    console.error('[AUTH] window n\'est pas disponible');
+    return;
+  }
+  
+  // REMOVED: Les fonctions AUTH sont maintenant dans auth.js et exposées globalement
+  // Vérification que les fonctions sont bien chargées depuis auth.js
+  if (typeof window.openAuthModal === 'function') {
+    console.log('[AUTH] ✅ openAuthModal chargée depuis auth.js');
+  } else {
+    console.error('[AUTH] ❌ ERREUR: window.openAuthModal n\'est pas disponible (auth.js non chargé ?)');
+  }
+  
+  if (typeof window.openLoginModal === 'function') {
+    console.log('[AUTH] ✅ openLoginModal chargée depuis auth.js');
+  } else {
+    console.warn('[AUTH] ⚠️ window.openLoginModal non disponible (utilisera wrapper local)');
+  }
+  
+  if (typeof window.openRegisterModal === 'function') {
+    console.log('[AUTH] ✅ openRegisterModal chargée depuis auth.js');
+  } else {
+    console.warn('[AUTH] ⚠️ window.openRegisterModal non disponible (utilisera wrapper local)');
+  }
+  
+  // showRegisterStep1 peut rester ici si elle n'est pas dans auth.js
+  // Exposer seulement si elle n'est pas déjà exposée
+  if (typeof showRegisterStep1 === 'function' && typeof window.showRegisterStep1 !== 'function') {
+    window.showRegisterStep1 = showRegisterStep1;
+    console.log('[AUTH] showRegisterStep1 expose globalement (local)');
+  } else if (typeof window.showRegisterStep1 === 'function') {
+    console.log('[AUTH] ✅ showRegisterStep1 déjà chargée');
+  } else {
+    // Créer une fonction de fallback seulement si elle n'existe pas
+    if (typeof window.showRegisterStep1 !== 'function') {
+      window.showRegisterStep1 = function() {
+        console.warn('[AUTH] showRegisterStep1 non disponible, redirection vers openAuthModal("register")');
+        if (typeof window.openAuthModal === 'function') {
+          window.openAuthModal('register');
+        } else {
+          console.error('[AUTH] ERREUR: window.openAuthModal n\'est pas disponible');
+        }
+      };
+      console.log('[AUTH] showRegisterStep1 (fallback) cree et expose');
+    }
+  }
+  
+  // Les fonctions d'onboarding restent dans map_logic.js (elles ne sont pas dans auth.js)
+  // Exposer seulement si elles ne sont pas déjà exposées
+  if (typeof startOnboardingIfNeeded === 'function' && typeof window.startOnboardingIfNeeded !== 'function') {
+    window.startOnboardingIfNeeded = startOnboardingIfNeeded;
+    window.startOnboarding = startOnboardingIfNeeded; // Alias
+    console.log('[ONBOARDING] startOnboardingIfNeeded expose globalement');
+  } else if (typeof window.startOnboardingIfNeeded === 'function') {
+    console.log('[ONBOARDING] ✅ startOnboardingIfNeeded déjà chargée');
+  } else {
+    console.warn('[ONBOARDING] startOnboardingIfNeeded non disponible');
+  }
+  
+  if (typeof openOnboardingModal === 'function' && typeof window.openOnboardingModal !== 'function') {
+    window.openOnboardingModal = openOnboardingModal;
+    console.log('[ONBOARDING] openOnboardingModal expose globalement');
+  } else if (typeof window.openOnboardingModal === 'function') {
+    console.log('[ONBOARDING] ✅ openOnboardingModal déjà chargée');
+  } else {
+    console.warn('[ONBOARDING] openOnboardingModal non disponible');
+  }
+  
+  if (typeof checkProfileCompleteness === 'function' && typeof window.checkProfileCompleteness !== 'function') {
+    window.checkProfileCompleteness = checkProfileCompleteness;
+    console.log('[ONBOARDING] checkProfileCompleteness expose globalement');
+  } else if (typeof window.checkProfileCompleteness === 'function') {
+    console.log('[ONBOARDING] ✅ checkProfileCompleteness déjà chargée');
+  } else {
+    console.warn('[ONBOARDING] checkProfileCompleteness non disponible');
+  }
+  
+  // Vérification finale avec logs ASCII
+  console.log('[AUTH] Verification finale des fonctions globales:');
+  console.log('  typeof window.openAuthModal:', typeof window.openAuthModal);
+  console.log('  typeof window.openLoginModal:', typeof window.openLoginModal);
+  console.log('  typeof window.openRegisterModal:', typeof window.openRegisterModal);
+  console.log('  typeof window.showRegisterStep1:', typeof window.showRegisterStep1);
+  console.log('  typeof window.closeAuthModal:', typeof window.closeAuthModal);
+  console.log('  typeof window.fermerModalAuth:', typeof window.fermerModalAuth);
+  console.log('[ONBOARDING] Verification finale des fonctions onboarding:');
+  console.log('  typeof window.startOnboardingIfNeeded:', typeof window.startOnboardingIfNeeded);
+  console.log('  typeof window.startOnboarding:', typeof window.startOnboarding);
+  console.log('  typeof window.openOnboardingModal:', typeof window.openOnboardingModal);
+  console.log('  typeof window.checkProfileCompleteness:', typeof window.checkProfileCompleteness);
+  
+  // Vérification supplémentaire: tester si les fonctions sont vraiment dans window
+  console.log('[AUTH] Verification window:');
+  console.log('  window.hasOwnProperty("openAuthModal"):', window.hasOwnProperty('openAuthModal'));
+  console.log('  "openAuthModal" in window:', 'openAuthModal' in window);
+  console.log('  Object.keys(window).includes("openAuthModal"):', Object.keys(window).includes('openAuthModal'));
+  console.log('[ONBOARDING] Verification window onboarding:');
+  console.log('  window.hasOwnProperty("startOnboardingIfNeeded"):', window.hasOwnProperty('startOnboardingIfNeeded'));
+  console.log('  "startOnboardingIfNeeded" in window:', 'startOnboardingIfNeeded' in window);
+})();

@@ -1,0 +1,86 @@
+============================================================
+MÉTHODE LA PLUS SIMPLE : AWS CloudShell
+============================================================
+
+ÉTAPE 1 : Ouvrir CloudShell
+----------------------------
+1. En haut de l'écran AWS Console, cherchez l'icône "CloudShell" (☁️ avec >_)
+2. OU allez sur : https://console.aws.amazon.com/cloudshell/home
+3. Cliquez sur CloudShell
+
+⏱️ Première fois : Attendez 30-60 secondes que CloudShell démarre
+
+
+ÉTAPE 2 : Installer psql
+------------------------
+Dans CloudShell, tapez :
+
+sudo yum install -y postgresql15
+
+(Appuyez sur Entrée, attendez la fin de l'installation)
+
+
+ÉTAPE 3 : Se connecter à la base
+---------------------------------
+Tapez cette commande (REMPLACEZ le mot de passe) :
+
+PGPASSWORD='VOTRE_MOT_DE_PASSE_RDS' psql -h mapevent-db.cr0mmuc0elm6.eu-west-1.rds.amazonaws.com -U postgres -d postgres
+
+Exemple :
+PGPASSWORD='MonMotDePasse123!' psql -h mapevent-db.cr0mmuc0elm6.eu-west-1.rds.amazonaws.com -U postgres -d postgres
+
+(Appuyez sur Entrée)
+
+
+ÉTAPE 4 : Voir tous vos comptes
+--------------------------------
+Une fois connecté, tapez :
+
+SELECT id, email, username, COALESCE(role, 'user') as role, created_at FROM users ORDER BY created_at DESC;
+
+(Appuyez sur Entrée)
+
+📝 NOTEZ L'EMAIL de votre compte admin (celui que vous voulez garder)
+
+
+ÉTAPE 5 : Supprimer tous les comptes SAUF l'admin
+--------------------------------------------------
+⚠️ REMPLACEZ 'admin@example.com' par l'email de votre compte admin !
+
+Tapez (copiez-collez tout d'un coup) :
+
+BEGIN;
+DELETE FROM user_favorites WHERE user_id NOT IN (SELECT id FROM users WHERE email = 'VOTRE-EMAIL-ADMIN@example.com');
+DELETE FROM user_agenda WHERE user_id NOT IN (SELECT id FROM users WHERE email = 'VOTRE-EMAIL-ADMIN@example.com');
+DELETE FROM user_likes WHERE user_id NOT IN (SELECT id FROM users WHERE email = 'VOTRE-EMAIL-ADMIN@example.com');
+DELETE FROM subscriptions WHERE user_id NOT IN (SELECT id FROM users WHERE email = 'VOTRE-EMAIL-ADMIN@example.com');
+DELETE FROM user_passwords WHERE user_id NOT IN (SELECT id FROM users WHERE email = 'VOTRE-EMAIL-ADMIN@example.com');
+DELETE FROM user_profiles WHERE user_id NOT IN (SELECT id FROM users WHERE email = 'VOTRE-EMAIL-ADMIN@example.com');
+DELETE FROM users WHERE email != 'VOTRE-EMAIL-ADMIN@example.com';
+COMMIT;
+
+(Appuyez sur Entrée)
+
+
+ÉTAPE 6 : Vérifier
+------------------
+Tapez :
+
+SELECT email, username, role FROM users;
+
+Vous devriez voir UN SEUL compte (votre admin) !
+
+
+ÉTAPE 7 : Quitter
+-----------------
+Tapez :
+
+\q
+
+(Appuyez sur Entrée)
+
+
+============================================================
+C'EST TOUT ! 🚀
+============================================================
+

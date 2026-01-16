@@ -1,0 +1,18 @@
+COMMANDE POUR SUPPRIMER TOUS LES COMPTES
+=========================================
+
+1. Ouvrir PowerShell dans le dossier du projet :
+   cd C:\MapEventAI_NEW\frontend
+
+2. Exécuter cette commande (remplacez email et mot de passe) :
+   
+   .\supprimer-tous-comptes.ps1 -Email "votre-email-admin@example.com" -Password "votre-mot-de-passe" -Confirm "OUI"
+
+IMPORTANT :
+- Votre compte doit avoir le rôle "director" ou "admin"
+- Remplacez "votre-email-admin@example.com" par votre email administrateur
+- Remplacez "votre-mot-de-passe" par votre mot de passe
+- La commande supprimera TOUS les comptes de manière IRRÉVERSIBLE
+
+
+

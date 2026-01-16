@@ -1,0 +1,17 @@
+COMMANDE FINALE POUR SUPPRIMER TOUS LES COMPTES
+===============================================
+
+Le code a été déployé. Attendez 1-2 minutes puis exécutez :
+
+.\supprimer-comptes-api.ps1 -Confirm "OUI"
+
+Si ça ne fonctionne toujours pas, vérifiez les logs CloudWatch dans AWS :
+- AWS Console > Lambda > mapevent-backend > Monitoring > View CloudWatch logs
+
+OU utilisez la méthode Python directe (si vous avez autorisé votre IP) :
+
+python supprimer-comptes.py
+
+(tapez juste Entrée quand il demande quel compte garder pour tout supprimer)
+
+

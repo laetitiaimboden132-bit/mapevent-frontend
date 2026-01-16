@@ -1,0 +1,19 @@
+VÉRIFIER L'ÉTAT DANS AWS RDS
+=============================
+
+1. Dans AWS RDS > mapevent-db
+
+2. Vérifiez le STATUT en haut :
+   - "Disponible" ✅ = OK
+   - "Modification en cours" ⏳ = Attendez encore
+
+3. Vérifiez "Accessible publiquement" :
+   - "Oui" ✅ = OK
+   - "Non" ❌ = Attendez encore
+
+4. Si les deux sont OK, réessayez :
+   python supprimer-comptes.py
+
+5. Si ça ne fonctionne toujours pas, attendez encore 5 minutes
+
+

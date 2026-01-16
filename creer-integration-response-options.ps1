@@ -28,3 +28,10 @@ $deploymentId = aws apigateway create-deployment --rest-api-id $API_ID --stage-n
 Write-Host "OK: API deployee (ID: $deploymentId)" -ForegroundColor Green
 
 
+
+
+
+
+
+
+

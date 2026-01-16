@@ -1,0 +1,86 @@
+﻿1768241908913	INIT_START Runtime Version: python:3.12.v101	Runtime Version ARN: arn:aws:lambda:eu-west-1::runtime:994aac32248ecf4d69d9f5e9a3a57aba3ccea19d94170a61d5ecf978927e1b0f
+
+1768241909012	[INFO]	2026-01-12T18:18:29.011Z		handler.py: Module init - ASCII-safe logging only
+
+1768241909012	[INFO]	2026-01-12T18:18:29.012Z		step=5 ok
+
+1768241909012	[INFO]	2026-01-12T18:18:29.012Z		PYTHONPATH updated: /var/task/backend
+
+1768241909017	START RequestId: db49b04a-93c4-4b46-9559-498be365513b Version: $LATEST
+
+1768241909204	[INFO]	2026-01-12T18:18:29.204Z	db49b04a-93c4-4b46-9559-498be365513b	lambda_handler: Entry point called
+
+1768241909204	[INFO]	2026-01-12T18:18:29.204Z	db49b04a-93c4-4b46-9559-498be365513b	lambda_handler: Path = /api/user/register, Method = POST
+
+1768241909204	[INFO]	2026-01-12T18:18:29.204Z	db49b04a-93c4-4b46-9559-498be365513b	lambda_handler: Lazy import of create_app...
+
+1768241909404	[INFO]	2026-01-12T18:18:29.404Z	db49b04a-93c4-4b46-9559-498be365513b	main.py: Starting imports...
+
+1768241911349	[INFO]	2026-01-12T18:18:31.348Z	db49b04a-93c4-4b46-9559-498be365513b	main.py: Flask imported
+
+1768241911349	[INFO]	2026-01-12T18:18:31.349Z	db49b04a-93c4-4b46-9559-498be365513b	main.py: os imported
+
+1768241911545	[INFO]	2026-01-12T18:18:31.545Z	db49b04a-93c4-4b46-9559-498be365513b	main.py: psycopg2 imported
+
+1768241912346	[INFO]	2026-01-12T18:18:32.346Z	db49b04a-93c4-4b46-9559-498be365513b	main.py: redis imported
+
+1768241912346	[INFO]	2026-01-12T18:18:32.346Z	db49b04a-93c4-4b46-9559-498be365513b	main.py: json imported
+
+1768241912346	[INFO]	2026-01-12T18:18:32.346Z	db49b04a-93c4-4b46-9559-498be365513b	main.py: re imported
+
+1768241912346	[INFO]	2026-01-12T18:18:32.346Z	db49b04a-93c4-4b46-9559-498be365513b	main.py: datetime imported
+
+1768241912346	[INFO]	2026-01-12T18:18:32.346Z	db49b04a-93c4-4b46-9559-498be365513b	main.py: typing imported
+
+1768241915142	[INFO]	2026-01-12T18:18:35.142Z	db49b04a-93c4-4b46-9559-498be365513b	main.py: stripe imported
+
+1768241915142	[INFO]	2026-01-12T18:18:35.142Z	db49b04a-93c4-4b46-9559-498be365513b	main.py: random/string/secrets imported
+
+1768241915142	[INFO]	2026-01-12T18:18:35.142Z	db49b04a-93c4-4b46-9559-498be365513b	main.py: Importing email_sender...
+
+1768241915443	[INFO]	2026-01-12T18:18:35.442Z	db49b04a-93c4-4b46-9559-498be365513b	main.py: email_sender imported
+
+1768241915443	[INFO]	2026-01-12T18:18:35.443Z	db49b04a-93c4-4b46-9559-498be365513b	main.py: Importing auth...
+
+1768241915522	[INFO]	2026-01-12T18:18:35.522Z	db49b04a-93c4-4b46-9559-498be365513b	main.py: auth imported - ALL IMPORTS DONE
+
+1768241915522	[INFO]	2026-01-12T18:18:35.522Z	db49b04a-93c4-4b46-9559-498be365513b	lambda_handler: create_app imported successfully from main
+
+1768241915522	[INFO]	2026-01-12T18:18:35.522Z	db49b04a-93c4-4b46-9559-498be365513b	lambda_handler: Creating Flask app...
+
+1768241915523	Variables RDS chargees:
+
+1768241915523	RDS_HOST: mapevent-db.cr0mmuc0elm6.eu-we...
+
+1768241915523	RDS_PORT: 5432
+
+1768241915523	RDS_DB: mapevent
+
+1768241915523	RDS_USER: postgres
+
+1768241915523	RDS_PASSWORD length: 14
+
+1768241915607	[INFO]	2026-01-12T18:18:35.607Z	db49b04a-93c4-4b46-9559-498be365513b	Routes d'administration chargÚes
+
+1768241915623	[INFO]	2026-01-12T18:18:35.623Z	db49b04a-93c4-4b46-9559-498be365513b	lambda_handler: Flask app created successfully
+
+1768241915623	[INFO]	2026-01-12T18:18:35.623Z	db49b04a-93c4-4b46-9559-498be365513b	lambda_handler: Using Flask test client for routing
+
+1768241915862	[INFO]	2026-01-12T18:18:35.862Z	db49b04a-93c4-4b46-9559-498be365513b	Validation champs - email: True, username: True, password: True, first_name: True, last_name: True
+
+1768241915862	[INFO]	2026-01-12T18:18:35.862Z	db49b04a-93c4-4b46-9559-498be365513b	Validation nom/prenom - first_name: 'Fabien', last_name: 'Auclair'
+
+1768241915863	[INFO]	2026-01-12T18:18:35.863Z	db49b04a-93c4-4b46-9559-498be365513b	Validation nom/prenom OK
+
+1768241915863	[INFO]	2026-01-12T18:18:35.863Z	db49b04a-93c4-4b46-9559-498be365513b	Validation majuscules OK
+
+1768241915863	Tentative de connexion Ó RDS: mapevent-db.cr0mmuc0elm6.eu-west-1.rds.amazonaws.com:5432/mapevent
+
+1768241915863	User: postgres
+
+1768241915863	Password length: 14
+
+1768241915988	[INFO]	2026-01-12T18:18:35.988Z	db49b04a-93c4-4b46-9559-498be365513b	Connexion RDS reussie
+
+1768241916146	[ERROR]	2026-01-12T18:18:36.146Z	db49b04a-93c4-4b46-9559-498be365513b	Erreur connexion Redis: Timeout connecting to server
+

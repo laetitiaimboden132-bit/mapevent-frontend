@@ -76,7 +76,7 @@
     <div id="result"></div>
     
     <script>
-        const API_URL = 'https://j33osy4bvj.execute-api.eu-west-1.amazonaws.com/api/payments/create-checkout-session';
+        const API_URL = 'https://ctp67u5hgni2rbfr3kp4p74kxa0gxycf.lambda-url.eu-west-1.on.aws/api/payments/create-checkout-session';
         
         // Afficher l'URL actuelle
         document.getElementById('current-url').textContent = window.location.origin;
@@ -186,7 +186,7 @@
             result.className = '';
             result.textContent = '⏳ Création des tables en cours...';
             
-            const API_URL_TABLES = 'https://j33osy4bvj.execute-api.eu-west-1.amazonaws.com/api/admin/create-tables';
+            const API_URL_TABLES = 'https://ctp67u5hgni2rbfr3kp4p74kxa0gxycf.lambda-url.eu-west-1.on.aws/api/admin/create-tables';
             
             try {
                 const response = await fetch(API_URL_TABLES, {

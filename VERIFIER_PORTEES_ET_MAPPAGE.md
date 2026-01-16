@@ -104,3 +104,10 @@ Dites-moi si après avoir retiré `phone` des portées, la connexion fonctionne 
 
 
 
+
+
+
+
+
+
+

@@ -126,3 +126,10 @@ Pour chaque endpoint (`/api/user/oauth/google` et `/api/user/oauth/google/comple
 Une fois tout coché, les erreurs CORS devraient être résolues ! 🎉
 
 
+
+
+
+
+
+
+

@@ -44,3 +44,10 @@ psql -h mapevent-db.cr0mmuc0elm6.eu-west-1.rds.amazonaws.com -U postgres -d mape
 ⚠️ **Important** : Ne partagez jamais ce mot de passe publiquement. Il est uniquement pour votre usage personnel.
 
 
+
+
+
+
+
+
+

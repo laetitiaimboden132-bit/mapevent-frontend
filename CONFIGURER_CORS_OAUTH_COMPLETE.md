@@ -86,3 +86,10 @@ Si d'autres endpoints fonctionnent déjà avec CORS, vous pouvez :
 2. L'appliquer à `/api/user/oauth/google/complete`
 
 
+
+
+
+
+
+
+

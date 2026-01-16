@@ -73,3 +73,10 @@ Pour voir les logs en temps réel pendant que vous testez :
 3. Revenez à CloudWatch et actualisez pour voir les nouveaux logs
 
 
+
+
+
+
+
+
+

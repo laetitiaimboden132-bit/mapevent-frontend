@@ -1,0 +1,1 @@
+{"statusCode": 500, "headers": {"Content-Type": "application/json", "Access-Control-Allow-Origin": "https://mapevent.world"}, "body": "{\"error\": \"Internal server error\", \"details\": \"expected 'except' or 'finally' block (main.py, line 2433)\"}"}

@@ -1,0 +1,19 @@
+VÉRIFIER VOTRE IP ACTUELLE
+==========================
+
+1. Allez sur : https://www.whatismyip.com/
+
+2. Notez votre IP actuelle
+
+3. Comparez avec l'IP dans le Security Group RDS :
+   - AWS RDS > mapevent-db > Security Groups > default
+   - Vérifiez l'IP dans les règles entrantes
+
+4. Si l'IP est différente :
+   - Ajoutez la nouvelle IP dans le Security Group
+   - Type : PostgreSQL
+   - Source : nouvelle IP/32
+
+5. Attendez 1-2 minutes et réessayez
+
+

@@ -102,3 +102,10 @@
 **Mais** : Vous devez quand même autoriser votre IP dans AWS pour que pgAdmin puisse se connecter !
 
 
+
+
+
+
+
+
+

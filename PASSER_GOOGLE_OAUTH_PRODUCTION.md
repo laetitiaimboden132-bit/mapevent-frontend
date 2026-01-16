@@ -119,3 +119,10 @@ Si vous avez besoin d'aide supplémentaire, envoyez-moi :
 - Une capture d'écran de la configuration Cognito
 
 
+
+
+
+
+
+
+

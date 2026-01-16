@@ -1,0 +1,17 @@
+{
+  "httpMethod": "POST",
+  "path": "/api/admin/delete-all-users-simple",
+  "rawPath": "/api/admin/delete-all-users-simple",
+  "headers": {
+    "Host": "j33osy4bvj.execute-api.eu-west-1.amazonaws.com",
+    "Content-Type": "application/json"
+  },
+  "body": "{\"confirm\": \"yes\"}",
+  "requestContext": {
+    "http": {
+      "method": "POST",
+      "path": "/default/api/admin/delete-all-users-simple"
+    }
+  }
+}
+

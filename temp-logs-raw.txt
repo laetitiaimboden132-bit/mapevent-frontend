@@ -1,0 +1,8 @@
+﻿aws : 
+Au caractère C:\Users\Laeti\AppData\Local\Temp\ps-script-ac7004e5-f90e-4160-882f-755a6f9c6595.ps1:77 : 78
++ ... iseconds(); aws logs filter-log-events --log-group-name /aws/lambda/m ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+'charmap' codec can't encode characters in position 1355-1356: character maps to <undefined>

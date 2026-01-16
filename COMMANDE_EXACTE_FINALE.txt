@@ -1,0 +1,20 @@
+COMMANDE EXACTE À EXÉCUTER
+==========================
+
+1. Attendez 1-2 minutes après avoir ajouté la règle dans AWS
+
+2. Ouvrez PowerShell dans le dossier du projet :
+   cd C:\MapEventAI_NEW\frontend
+
+3. Exécutez cette commande :
+   python supprimer-comptes.py
+
+4. Le script va vous montrer tous vos comptes
+
+5. Tapez l'email du compte que vous voulez GARDER
+
+6. Tapez "OUI" pour confirmer
+
+7. C'est tout ! Les autres comptes seront supprimés automatiquement
+
+

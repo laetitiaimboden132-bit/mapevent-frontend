@@ -1,0 +1,8 @@
+{
+  "httpMethod": "GET",
+  "path": "/api/health",
+  "rawPath": "/api/health",
+  "headers": {},
+  "body": null
+}
+

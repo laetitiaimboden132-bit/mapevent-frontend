@@ -85,3 +85,10 @@ Le problème CORS vient probablement d'API Gateway qui bloque les requêtes OPTI
 
 
 
+
+
+
+
+
+
+

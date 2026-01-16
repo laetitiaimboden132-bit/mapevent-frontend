@@ -1,0 +1,14 @@
+COMMANDE POUR SUPPRIMER TOUS LES COMPTES
+========================================
+
+Exécutez cette commande :
+
+.\supprimer-comptes-api.ps1 -Confirm "OUI"
+
+C'est tout !
+
+Le script va supprimer TOUS les comptes automatiquement.
+
+⚠️ ATTENTION : Cette opération est IRRÉVERSIBLE !
+
+

@@ -1,0 +1,17 @@
+MÉTHODE SIMPLE - DÉSACTIVER FIREWALL MANUELLEMENT
+=================================================
+
+1. Désactiver le firewall :
+   - Paramètres (Windows + I)
+   - Sécurité Windows > Pare-feu et protection réseau
+   - Désactivez pour "Réseau privé" et "Réseau public"
+
+2. Tester la connexion :
+   cd C:\MapEventAI_NEW\frontend
+   python supprimer-comptes.py
+
+3. Réactiver le firewall après le test
+
+C'est tout !
+
+

@@ -46,6 +46,9 @@
 
     <!-- Google Identity Services -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
+    
+    <!-- Service IndexedDB (plus simple que Firestore, pas de configuration nécessaire) -->
+    <script src="indexeddb_service.js"></script>
 
     <style>
         :root {
@@ -65,6 +68,12 @@
 
         * {
             box-sizing: border-box;
+        }
+        
+        /* Style simple pour les inputs autofill */
+        input:-webkit-autofill {
+            -webkit-box-shadow: 0 0 0 30px rgba(15,23,42,0.5) inset !important;
+            -webkit-text-fill-color: var(--ui-text-main) !important;
         }
 
         body {
@@ -150,6 +159,48 @@
         .pill.small {
             padding: 7px 12px;
             font-size: 12px;
+        }
+
+        /* Style spécifique pour le bouton compte - permet l'agrandissement */
+        #account-topbar-btn {
+            min-width: auto !important;
+            max-width: none !important;
+            width: auto !important;
+            flex-shrink: 0 !important;
+            white-space: nowrap !important;
+            padding: 6px 14px !important; /* Padding légèrement augmenté pour accommoder la photo */
+        }
+
+        #account-topbar-btn #account-avatar {
+            width: 28px !important; /* Augmenté de 20px à 28px pour mieux afficher la photo */
+            height: 28px !important; /* Augmenté de 20px à 28px */
+            min-width: 28px !important;
+            min-height: 28px !important;
+            border-radius: 50% !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            font-size: 18px !important; /* Augmenté pour les emojis */
+            overflow: hidden !important;
+            flex-shrink: 0 !important;
+            background: rgba(0, 255, 195, 0.1) !important; /* Fond subtil pour la photo */
+            border: 1px solid rgba(0, 255, 195, 0.2) !important; /* Bordure subtile */
+        }
+
+        #account-topbar-btn #account-avatar img {
+            width: 100% !important;
+            height: 100% !important;
+            object-fit: cover !important;
+            border-radius: 50% !important;
+            display: block !important;
+        }
+
+        #account-topbar-btn #account-name {
+            max-width: 200px !important; /* Augmenté de 150px à 200px */
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            white-space: nowrap !important;
+            margin-left: 6px !important; /* Espacement entre avatar et nom */
         }
 
         .pill.btn-main {
@@ -253,7 +304,7 @@
             padding:14px;
             overflow-y:auto;
             display:none;
-            z-index:70; /* Au-dessus du modal de publication (60) */
+            z-index:80; /* Au-dessus du modal de publication (60) pour pouvoir travailler sur les deux */
             color:var(--ui-text-main);
             font-size:13px;
             box-shadow:0 20px 60px rgba(0,0,0,0.5);
@@ -274,7 +325,7 @@
             z-index:40;
         }
 
-        /* MODAL PUBLISH - Déplaçable comme le filtre */
+        /* MODAL PUBLISH - Déplaçable comme le filtre - Peut être ouvert avec le filtre */
         #publish-modal-backdrop {
             position:fixed;
             inset:0;
@@ -283,7 +334,7 @@
             align-items:flex-start;
             justify-content:flex-end;
             z-index:60;
-            pointer-events:none; /* Permet de cliquer à travers pour accéder au filtre */
+            pointer-events:auto; /* Permet d'interagir avec le modal */
             backdrop-filter: none; /* Pas de blur pour que le filtre soit net */
         }
         #publish-modal {
@@ -580,6 +631,140 @@
         }
 
         .pro-register-password-strength {
+            height: 4px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 2px;
+            margin-top: 4px;
+            overflow: hidden;
+        }
+
+        .pro-register-password-strength-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ef4444, #f59e0b, #22c55e);
+            width: 0%;
+            transition: width 0.3s;
+        }
+
+        /* Styles pour l'autocomplete d'adresse */
+        .address-suggestions {
+            position: absolute !important;
+            top: 100% !important;
+            left: 0 !important;
+            right: 0 !important;
+            background: #0a0e1a !important;
+            background-color: #0a0e1a !important;
+            border: 2px solid rgba(255,255,255,0.6) !important;
+            border-radius: 8px !important;
+            margin-top: 4px !important;
+            max-height: 300px !important;
+            overflow-y: auto !important;
+            z-index: 10001 !important;
+            box-shadow: 0 8px 32px rgba(0,0,0,1), inset 0 0 0 1px rgba(255,255,255,0.1) !important;
+            opacity: 1 !important;
+            backdrop-filter: none !important;
+            isolation: isolate !important;
+            mix-blend-mode: normal !important;
+        }
+
+        .address-suggestion-item {
+            padding: 12px !important;
+            cursor: pointer !important;
+            border-bottom: 1px solid rgba(255,255,255,0.15) !important;
+            transition: background 0.2s !important;
+            background: #0a0e1a !important;
+            background-color: #0a0e1a !important;
+            opacity: 1 !important;
+            backdrop-filter: none !important;
+            isolation: isolate !important;
+            mix-blend-mode: normal !important;
+        }
+
+        .address-suggestion-item:hover {
+            background: rgba(0,255,195,0.25) !important;
+            background-color: rgba(0,255,195,0.25) !important;
+        }
+
+        .address-suggestion-item:last-child {
+            border-bottom: none !important;
+        }
+        
+        .address-suggestion {
+            background: #0a0e1a !important;
+            background-color: #0a0e1a !important;
+            opacity: 1 !important;
+            backdrop-filter: none !important;
+            isolation: isolate !important;
+            mix-blend-mode: normal !important;
+        }
+        
+        .address-suggestion:hover {
+            background: rgba(0,255,195,0.25) !important;
+            background-color: rgba(0,255,195,0.25) !important;
+        }
+        
+        #pro-address-suggestions-wrapper {
+            background: transparent !important;
+            isolation: isolate !important;
+            mix-blend-mode: normal !important;
+        }
+        
+        #pro-address-suggestions {
+            background: #050810 !important;
+            background-color: #050810 !important;
+            opacity: 1 !important;
+            backdrop-filter: none !important;
+            isolation: isolate !important;
+            mix-blend-mode: normal !important;
+            box-shadow: 0 8px 40px rgba(0,0,0,1), inset 0 0 0 2px rgba(0,0,0,0.5) !important;
+            max-height: 120px !important;
+            overflow-y: auto !important;
+        }
+        
+        #pro-address-suggestions .address-suggestion {
+            background: #050810 !important;
+            background-color: #050810 !important;
+            opacity: 1 !important;
+            backdrop-filter: none !important;
+            isolation: isolate !important;
+            mix-blend-mode: normal !important;
+        }
+        
+        #pro-address-suggestions * {
+            background-color: transparent !important;
+            mix-blend-mode: normal !important;
+        }
+        
+        #pro-address-suggestions .address-suggestion > div {
+            background: transparent !important;
+            background-color: transparent !important;
+            mix-blend-mode: normal !important;
+        }
+        
+        #pro-address-suggestions::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: #0a0e1a;
+            z-index: -1;
+            border-radius: 8px;
+            mix-blend-mode: normal;
+        }
+        
+        #pro-address-suggestions::after {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            background: #0a0e1a;
+            z-index: -2;
+            border-radius: 10px;
+            mix-blend-mode: normal;
+        }
             margin-top: 8px;
             height: 4px;
             background: rgba(255, 255, 255, 0.1);
@@ -2023,6 +2208,17 @@
             background: rgba(59,130,246,0.85);
             color: white;
         }
+        
+        /* Responsive mobile pour les boutons auth */
+        @media (max-width: 768px) {
+            #auth-buttons {
+                gap: 6px !important;
+            }
+            #auth-buttons .pill {
+                padding: 6px 12px !important;
+                font-size: 11px !important;
+            }
+        }
     </style>
 </head>
 <body>
@@ -2144,6 +2340,12 @@
                 <span>Panier</span>
                 <span id="cart-count" style="position:absolute;top:-6px;right:-6px;background:#ef4444;color:white;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;display:none;">0</span>
             </button>
+            <!-- Bouton Auth (affiché seulement si non connecté) -->
+            <div id="auth-buttons" style="display:none;gap:8px;align-items:center;flex-wrap:wrap;">
+                <button id="login-topbar-btn" class="pill small" onclick="if(typeof window.openLoginModal === 'function') { window.openLoginModal(); } else if(typeof window.openAuthModal === 'function') { window.openAuthModal('login'); } else if(typeof openLoginModal === 'function') { openLoginModal(); }" style="background:transparent;border:1px solid rgba(255,255,255,0.2);color:var(--ui-text-main);font-weight:600;padding:8px 16px;white-space:nowrap;font-size:13px;cursor:pointer;">
+                    Connexion
+                </button>
+            </div>
             <button id="account-topbar-btn" class="pill small">
                 <span id="account-avatar">👤</span>
                 <span id="account-name">Compte</span>
@@ -2202,7 +2404,10 @@
 
     <!-- SCRIPT DE FALLBACK SUPPRIMÉ - Le formulaire s'affiche uniquement dans le callback OAuth après validation Google -->
     
-    <script src="map_logic.js"></script>
+    <!-- Module AUTH (fonctions d'authentification) -->
+    <script src="auth.js?v=20260116-184000-REVIEWS-FIX"></script>
+    <!-- Logique principale de la carte -->
+    <script src="map_logic.js?v=20260116-184000-REVIEWS-FIX"></script>
     <!-- Script pour mettre à jour les métadonnées Open Graph immédiatement au chargement -->
     <script>
       // Mettre à jour les métadonnées Open Graph dès le chargement de la page

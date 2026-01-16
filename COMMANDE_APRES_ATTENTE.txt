@@ -1,0 +1,17 @@
+COMMANDE APRÈS AVOIR ATTENDU
+=============================
+
+1. Attendez 10-20 minutes après avoir activé "Accessible publiquement"
+
+2. Vérifiez dans AWS que :
+   - Statut = "Disponible"
+   - "Accessible publiquement" = "Oui"
+
+3. Exécutez :
+   cd C:\MapEventAI_NEW\frontend
+   python supprimer-comptes.py
+
+4. Tapez Entrée (vide) pour tout supprimer
+5. Tapez "OUI" pour confirmer
+
+

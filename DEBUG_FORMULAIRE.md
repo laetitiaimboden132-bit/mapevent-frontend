@@ -74,3 +74,10 @@ Envoyez-moi :
 3. Le résultat de `document.getElementById('publish-modal-inner').innerHTML.substring(0, 200)` dans la console
 
 
+
+
+
+
+
+
+

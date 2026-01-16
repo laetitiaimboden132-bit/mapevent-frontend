@@ -189,3 +189,10 @@ Si vous rencontrez des problèmes :
 Une fois terminé, les erreurs CORS 500 devraient être résolues ! 🎉
 
 
+
+
+
+
+
+
+

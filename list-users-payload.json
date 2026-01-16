@@ -1,0 +1,18 @@
+{
+  "httpMethod": "GET",
+  "path": "/api/admin/list-users",
+  "rawPath": "/api/admin/list-users",
+  "headers": {
+    "Host": "j33osy4bvj.execute-api.eu-west-1.amazonaws.com",
+    "Content-Type": "application/json"
+  },
+  "queryStringParameters": null,
+  "body": null,
+  "requestContext": {
+    "http": {
+      "method": "GET",
+      "path": "/default/api/admin/list-users"
+    }
+  }
+}
+

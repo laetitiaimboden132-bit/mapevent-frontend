@@ -117,3 +117,10 @@ Pour éviter que le localStorage se remplisse :
 **Après avoir nettoyé localStorage, testez à nouveau la connexion Google !**
 
 
+
+
+
+
+
+
+

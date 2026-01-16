@@ -111,3 +111,6 @@ Write-Host "1. Exécutez: .\configurer-cors-s3.ps1" -ForegroundColor White
 Write-Host "2. Vérifiez que la politique du bucket permet l'accès public en lecture" -ForegroundColor White
 Write-Host "3. Videz le cache du navigateur et réessayez" -ForegroundColor White
 
+
+
+

@@ -137,3 +137,10 @@ AWS Console → Cognito → Pools d'utilisateurs → [Votre Pool]
 
 
 
+
+
+
+
+
+
+

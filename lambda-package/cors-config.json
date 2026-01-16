@@ -1,0 +1,20 @@
+{
+  "AllowCredentials": false,
+  "AllowHeaders": [
+    "Content-Type",
+    "Authorization",
+    "Origin",
+    "X-Requested-With",
+    "Accept"
+  ],
+  "AllowMethods": [
+    "*"
+  ],
+  "AllowOrigins": [
+    "https://mapevent.world",
+    "http://localhost:8000",
+    "http://127.0.0.1:8000"
+  ],
+  "ExposeHeaders": [],
+  "MaxAge": 3600
+}

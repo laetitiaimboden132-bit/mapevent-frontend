@@ -69,3 +69,10 @@ Write-Host ""
 Write-Host "Les requetes OPTIONS seront maintenant gerees par Lambda qui retourne les headers CORS." -ForegroundColor Green
 
 
+
+
+
+
+
+
+

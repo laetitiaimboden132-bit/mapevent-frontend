@@ -62,3 +62,6 @@ try {
 Write-Host "`n💡 Note: Si le bucket n'autorise pas les ACLs, assurez-vous que la politique du bucket permet l'accès public en lecture." -ForegroundColor Cyan
 Write-Host "   Vous pouvez vérifier avec: aws s3api get-bucket-policy --bucket $BUCKET_NAME" -ForegroundColor Gray
 
+
+
+

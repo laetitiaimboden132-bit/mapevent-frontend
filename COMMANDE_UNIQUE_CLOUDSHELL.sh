@@ -1,0 +1,47 @@
+cat > creer-layer.sh << 'EOF'
+#!/bin/bash
+set -e
+LAYER_NAME="mapevent-python-dependencies"
+REGION="eu-west-1"
+PYTHON_VERSION="3.9"
+LAYER_DIR="/tmp/lambda-layer-build"
+PYTHON_LIB_PATH="$LAYER_DIR/python/lib/python${PYTHON_VERSION}/site-packages"
+echo "============================================================"
+echo "CREATION LAMBDA LAYER"
+echo "============================================================"
+rm -rf $LAYER_DIR /tmp/python-layer.zip
+mkdir -p $PYTHON_LIB_PATH
+cat > /tmp/requirements.txt << 'REQEOF'
+flask==3.0.0
+flask-cors==4.0.0
+werkzeug==3.1.4
+bcrypt==4.1.2
+psycopg2-binary==2.9.9
+requests==2.31.0
+boto3==1.34.0
+pyjwt==2.8.0
+stripe==7.8.0
+sendgrid==6.11.0
+Pillow==10.2.0
+redis==5.0.1
+google-cloud-vision==3.4.5
+REQEOF
+echo "Installation dependances (5-10 min)..."
+pip3 install --upgrade pip -q --user
+pip3 install -r /tmp/requirements.txt -t $PYTHON_LIB_PATH --quiet --no-cache-dir --user
+find $PYTHON_LIB_PATH -type d -name __pycache__ -exec rm -r {} + 2>/dev/null || true
+find $PYTHON_LIB_PATH -name "*.pyc" -delete
+cd $LAYER_DIR
+zip -r /tmp/python-layer.zip python/ -q >/dev/null
+LAYER_ARN=$(aws lambda publish-layer-version --layer-name $LAYER_NAME --zip-file fileb:///tmp/python-layer.zip --compatible-runtimes python3.9 --compatible-architectures x86_64 --description "Dependances Python MapEventAI" --region $REGION --query 'LayerVersionArn' --output text)
+echo ""
+echo "============================================================"
+echo "✅ SUCCES !"
+echo "============================================================"
+echo ""
+echo "📋 COPIEZ CET ARN:"
+echo "$LAYER_ARN"
+echo ""
+rm -rf $LAYER_DIR
+EOF
+chmod +x creer-layer.sh && ./creer-layer.sh

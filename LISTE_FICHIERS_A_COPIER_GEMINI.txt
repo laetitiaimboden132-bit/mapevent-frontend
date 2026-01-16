@@ -1,0 +1,70 @@
+📋 LISTE DES FICHIERS À COPIER POUR GEMINI
+==========================================
+
+Copiez ces fichiers DANS L'ORDRE à Gemini :
+
+1. PACKAGE_COMPLET_GEMINI.md
+   → Vue d'ensemble complète, résumé exécutif
+
+2. README_GEMINI_COMPLET.md
+   → Guide complet depuis le début (TOUT est dedans)
+
+3. DEMARRAGE_RAPIDE_GEMINI.md
+   → Correction rapide du problème (15 min)
+
+4. RESUME_ETAT_PROJET.md
+   → État actuel, problèmes, solutions tentées
+
+5. RESUME_CHEMINS_AWS.md
+   → Tous les chemins AWS, endpoints, credentials
+
+6. INFORMATIONS_COMPLEMENTAIRES_GEMINI.md
+   → Détails techniques, structure code
+
+7. INDEX_FICHIERS_GEMINI.md
+   → Index de tous les fichiers
+
+==========================================
+FICHIERS OPTIONNELS (si besoin de plus de détails)
+==========================================
+
+- GUIDE_CONFIGURATION_CORS_CONSOLE.md
+- GUIDE_COGNITO_FRANCAIS.md
+- PLAN_CORRECTION_AUTHENTIFICATION.md
+
+==========================================
+FICHIERS DE CODE IMPORTANTS
+==========================================
+
+- lambda-package/backend/main.py (route oauth_google ligne ~1328)
+- lambda-package/handler.py (détection sérialisation ligne ~180)
+- public/map_logic.js (handleCognitoCallbackIfPresent ligne ~380)
+
+==========================================
+⚠️ NE PAS COPIER
+==========================================
+
+- lambda-package/lambda.env (contient les mots de passe)
+- Tous les fichiers .zip
+- node_modules, __pycache__, *.pyc
+
+==========================================
+✅ RÉSUMÉ
+==========================================
+
+Copiez dans l'ordre :
+1. PACKAGE_COMPLET_GEMINI.md
+2. README_GEMINI_COMPLET.md
+3. DEMARRAGE_RAPIDE_GEMINI.md
+4. RESUME_ETAT_PROJET.md
+5. RESUME_CHEMINS_AWS.md
+6. INFORMATIONS_COMPLEMENTAIRES_GEMINI.md
+
+C'est suffisant pour que Gemini comprenne TOUT et puisse corriger le problème.
+
+
+
+
+
+
+

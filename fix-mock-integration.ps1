@@ -82,3 +82,10 @@ Write-Host "Deploiement termine !" -ForegroundColor Green
 Write-Host "`nAttendez 10 secondes puis testez..." -ForegroundColor Yellow
 
 
+
+
+
+
+
+
+

@@ -57,3 +57,10 @@ Vérifiez dans la console du navigateur (F12) :
 - La requête POST devrait retourner 200 avec les données utilisateur
 
 
+
+
+
+
+
+
+

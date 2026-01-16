@@ -1,0 +1,25 @@
+COMMANDE FINALE - ULTRA SIMPLE
+==============================
+
+Exécutez cette commande en remplaçant l'email :
+
+.\supprimer-comptes-api.ps1 -EmailAGarder "votre-email@example.com"
+
+Exemple :
+.\supprimer-comptes-api.ps1 -EmailAGarder "admin@mapevent.world"
+
+Le script va :
+1. Supprimer tous les comptes SAUF celui que vous gardez
+2. Afficher un résumé
+
+C'EST TOUT !
+
+Pas besoin de :
+- Modifier RDS
+- pgAdmin
+- Python
+- Autoriser votre IP
+
+Juste cette commande ! 🚀
+
+

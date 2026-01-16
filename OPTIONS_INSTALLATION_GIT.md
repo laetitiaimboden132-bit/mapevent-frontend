@@ -119,3 +119,10 @@ git config --global --list
 
 Vous devriez voir votre nom et email dans la liste.
 
+
+
+
+
+
+
+

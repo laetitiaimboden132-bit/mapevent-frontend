@@ -1,0 +1,8 @@
+﻿aws : 
+Au caractère C:\Users\Laeti\AppData\Local\Temp\ps-script-1c559cd3-6ad2-4b79-b809-b7a06877f62b.ps1:77 : 1
++ aws logs filter-log-events --log-group-name /aws/lambda/mapevent-back ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+'charmap' codec can't encode characters in position 3943-3944: character maps to <undefined>

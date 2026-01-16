@@ -68,7 +68,21 @@ if ($CLOUDFRONT_DISTRIBUTION_ID) {
     Write-Host "   Distribution ID: $CLOUDFRONT_DISTRIBUTION_ID" -ForegroundColor Gray
     
     try {
-        $invalidationId = aws cloudfront create-invalidation --distribution-id $CLOUDFRONT_DISTRIBUTION_ID --paths "/*" --query "Invalidation.Id" --output text
+        # Invalider spécifiquement les fichiers modifiés
+        $paths = @(
+            "/map_logic.js*",
+            "/auth.js*",
+            "/mapevent.html*",
+            "/index.html*"
+        )
+        
+        Write-Host "   Chemins a invalider:" -ForegroundColor Gray
+        foreach ($path in $paths) {
+            Write-Host "     - $path" -ForegroundColor Gray
+        }
+        
+        # Créer l'invalidation avec les chemins spécifiques
+        $invalidationId = aws cloudfront create-invalidation --distribution-id $CLOUDFRONT_DISTRIBUTION_ID --paths "/map_logic.js*" "/auth.js*" "/mapevent.html*" "/index.html*" --query "Invalidation.Id" --output text
         
         if ($LASTEXITCODE -ne 0) {
             throw "Erreur lors de l'invalidation"
@@ -89,7 +103,22 @@ if ($CLOUDFRONT_DISTRIBUTION_ID) {
             $status = aws cloudfront get-invalidation --distribution-id $CLOUDFRONT_DISTRIBUTION_ID --id $invalidationId --query "Invalidation.Status" --output text 2>&1
             
             if ($status -eq "Completed") {
-                Write-Host "   Invalidation terminee! (apres $($attempt * 5) secondes)" -ForegroundColor Green
+                Write-Host "" -ForegroundColor Green
+                Write-Host "========================================" -ForegroundColor Green
+                Write-Host "========================================" -ForegroundColor Green
+                Write-Host "[OK] INVALIDATION CLOUDFRONT TERMINEE!" -ForegroundColor Green
+                Write-Host "========================================" -ForegroundColor Green
+                Write-Host "========================================" -ForegroundColor Green
+                Write-Host "" -ForegroundColor Green
+                Write-Host "   Temps: $($attempt * 5) secondes" -ForegroundColor Cyan
+                Write-Host "   ID: $invalidationId" -ForegroundColor Cyan
+                Write-Host "" -ForegroundColor Green
+                Write-Host "   Le cache est maintenant invalide." -ForegroundColor Yellow
+                Write-Host "   Vous pouvez tester le site maintenant." -ForegroundColor Yellow
+                Write-Host "" -ForegroundColor Green
+                Write-Host "========================================" -ForegroundColor Green
+                Write-Host "========================================" -ForegroundColor Green
+                Write-Host "" -ForegroundColor Green
                 $completed = $true
             } elseif ($status -eq "InProgress") {
                 Write-Host "   En cours... ($($attempt * 5) secondes)" -ForegroundColor Gray
@@ -99,7 +128,11 @@ if ($CLOUDFRONT_DISTRIBUTION_ID) {
         }
         
         if (-not $completed) {
-            Write-Host "   Timeout apres 5 minutes. L'invalidation continue en arriere-plan." -ForegroundColor Yellow
+            Write-Host "" -ForegroundColor Yellow
+            Write-Host "[ATTENTION] Timeout apres 5 minutes. L'invalidation continue en arriere-plan." -ForegroundColor Yellow
+            Write-Host "   ID d'invalidation: $invalidationId" -ForegroundColor Yellow
+            Write-Host "   Vous pouvez verifier le statut dans la console AWS CloudFront." -ForegroundColor Yellow
+            Write-Host ""
         }
     } catch {
         Write-Host "Erreur lors de l'invalidation CloudFront: $_" -ForegroundColor Yellow

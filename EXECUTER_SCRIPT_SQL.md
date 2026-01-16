@@ -49,3 +49,10 @@ Une fois le script SQL exécuté, testez la connexion Google :
 3. Cliquez sur "Compte" → "Connexion avec Google"
 
 
+
+
+
+
+
+
+

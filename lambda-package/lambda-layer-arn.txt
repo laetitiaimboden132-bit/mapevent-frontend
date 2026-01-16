@@ -1,0 +1,1 @@
+﻿arn:aws:lambda:eu-west-1:818127249940:layer:mapevent-python-dependencies:1

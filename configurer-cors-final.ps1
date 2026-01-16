@@ -70,3 +70,10 @@ Write-Host "   - Ajoutez: method.response.header.Access-Control-Allow-Headers = 
 Write-Host "3. Deployez l'API" -ForegroundColor White
 
 
+
+
+
+
+
+
+

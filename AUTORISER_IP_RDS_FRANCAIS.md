@@ -1,151 +1,97 @@
-# 🔐 Guide Complet : Autoriser votre IP dans RDS (Français)
+# 🔓 AUTORISER VOTRE IP DANS RDS - GUIDE FRANÇAIS
 
-## 📋 Objectif
-Autoriser votre ordinateur à se connecter directement à la base de données RDS pour pouvoir exécuter des scripts SQL.
+## 🎯 PROBLÈME
 
----
-
-## Étape 1 : Trouver votre Adresse IP Publique
-
-1. **Ouvrez votre navigateur** (Chrome, Firefox, Edge, etc.)
-2. **Allez sur** : https://www.whatismyip.com/
-3. **Notez votre IPv4** (exemple : `123.45.67.89`)
-   - C'est votre adresse IP publique
-   - Vous en aurez besoin dans quelques instants
+Vous ne pouvez pas vous connecter car votre IP n'est pas autorisée dans le Security Group.
 
 ---
 
-## Étape 2 : Se Connecter à AWS Console
+## ✅ SOLUTION ÉTAPE PAR ÉTAPE
 
-1. **Ouvrez** : https://console.aws.amazon.com/
-2. **Connectez-vous** avec vos identifiants AWS
-3. **Sélectionnez la région** : `eu-west-1` (Europe - Irlande)
-   - En haut à droite, vérifiez que c'est bien "Europe (Ireland)"
+### 1. Trouver votre IP publique
 
----
+**Allez sur :** https://www.whatismyip.com/
 
-## Étape 3 : Accéder à RDS
-
-1. **Dans la barre de recherche** (en haut), tapez : `RDS`
-2. **Cliquez sur** "RDS" dans les résultats
-3. Vous arrivez sur la page principale de RDS
+**Notez votre IP** (exemple : `81.13.194.194`)
 
 ---
 
-## Étape 4 : Trouver votre Base de Données
+### 2. Aller dans AWS RDS
 
-1. **Dans le menu de gauche**, cliquez sur **"Databases"** (Bases de données)
-2. **Dans la liste**, trouvez `mapevent-db`
-3. **Cliquez sur le nom** `mapevent-db` (pas sur la case à cocher)
-4. Vous arrivez sur la page de détails de la base de données
-
----
-
-## Étape 5 : Accéder aux Security Groups
-
-1. **Faites défiler** jusqu'à la section **"Connectivity & security"** (Connectivité et sécurité)
-2. **Trouvez** "VPC security groups" (Groupes de sécurité VPC)
-3. Vous verrez quelque chose comme : `sg-xxxxxxxxx (default)`
-4. **Cliquez sur le nom du Security Group** (ex: `sg-xxxxxxxxx`)
+1. **AWS Console** : https://console.aws.amazon.com
+2. **Barre de recherche** : Tapez "RDS"
+3. Cliquez sur **"RDS"**
+4. Cliquez sur **"Bases de données"** dans le menu de gauche
+5. Cliquez sur **"mapevent-db"**
 
 ---
 
-## Étape 6 : Modifier les Règles Entrantes (Inbound Rules)
+### 3. Ouvrir le Security Group
 
-1. **Vous arrivez sur la page du Security Group**
-2. **Cliquez sur l'onglet** "Inbound rules" (Règles entrantes)
-3. **Cliquez sur le bouton** "Edit inbound rules" (Modifier les règles entrantes)
+1. Dans la page de votre base de données, cherchez **"Connectivité et sécurité"**
+2. Cherchez **"Groupes de sécurité VPC"**
+3. Vous verrez : **"default (sg-09293e0d6313eb92c)"**
+4. **Cliquez sur "default"** (le nom du groupe de sécurité)
 
 ---
 
-## Étape 7 : Ajouter une Nouvelle Règle
+### 4. Ajouter votre IP
 
-1. **Cliquez sur** "Add rule" (Ajouter une règle)
-2. **Remplissez les champs** :
-   - **Type** : Sélectionnez `PostgreSQL` dans le menu déroulant
-   - **Protocol** : Devrait être automatiquement `TCP`
-   - **Port range** : `5432`
+1. Une nouvelle fenêtre s'ouvre
+2. Cliquez sur l'onglet **"Règles de trafic entrant"** (Inbound rules)
+3. Cliquez sur **"Modifier les règles de trafic entrant"** (Edit inbound rules)
+4. Cliquez sur **"Ajouter une règle"** (Add rule)
+5. Remplissez :
+   - **Type** : Sélectionnez **"PostgreSQL"** dans le menu déroulant
    - **Source** : 
-     - Option 1 : Cliquez sur "My IP" (Mon IP) - AWS détecte automatiquement votre IP
-     - Option 2 : Sélectionnez "Custom" et entrez votre IP avec `/32` à la fin
-       - Exemple : `123.45.67.89/32`
-       - Le `/32` signifie "cette IP exacte uniquement"
-   - **Description** : `Accès administration depuis mon ordinateur` (optionnel mais recommandé)
-
-3. **Vérifiez** que tout est correct
-4. **Cliquez sur** "Save rules" (Enregistrer les règles)
+     - Option 1 : Sélectionnez **"Mon IP"** (My IP) si disponible
+     - Option 2 : Tapez votre IP avec `/32` (exemple : `81.13.194.194/32`)
+   - **Description** : `Accès depuis mon ordinateur`
+6. Cliquez sur **"Enregistrer les règles"** (Save rules)
 
 ---
 
-## Étape 8 : Vérifier que ça Marche
+### 5. Vérifier l'accessibilité publique
 
-1. **Retournez dans RDS** → Databases → `mapevent-db`
-2. **Notez l'endpoint** (ex: `mapevent-db.cr0mmuc0elm6.eu-west-1.rds.amazonaws.com`)
-3. **Testez la connexion** avec pgAdmin ou le script Python
-
----
-
-## ✅ C'est Fait !
-
-Votre IP est maintenant autorisée à se connecter à RDS.
-
-### Prochaines Étapes
-
-1. **Installez pgAdmin** : https://www.pgadmin.org/download/pgadmin-4-windows/
-2. **Configurez la connexion** avec les informations :
-   - Host: `mapevent-db.cr0mmuc0elm6.eu-west-1.rds.amazonaws.com`
-   - Port: `5432`
-   - Database: `mapevent`
-   - Username: `postgres`
-   - Password: `666666Laeti69!`
-3. **Exécutez** `CREER_COLONNES_USERS.sql`
+1. Retournez à la page de votre base de données
+2. Dans **"Connectivité et sécurité"**, vérifiez **"Accessible publiquement"**
+3. Si c'est **"Non"** :
+   - Cliquez sur **"Modifier"** (Modify)
+   - Dans **"Connectivité"**, cochez **"Accessible publiquement"**
+   - Cliquez sur **"Continuer"** puis **"Modifier la base de données"**
+   - Attendez que la modification soit terminée (5-10 minutes)
 
 ---
 
-## ⚠️ Notes Importantes
+### 6. Réessayer la connexion
 
-- **Sécurité** : Cette règle autorise SEULEMENT votre IP actuelle
-- **IP changeante** : Si votre IP change (nouveau WiFi, VPN), vous devrez réautoriser
-- **Utilisateurs** : Les utilisateurs du site ne sont PAS affectés (ils passent par Lambda)
-- **Temps** : Les règles peuvent prendre quelques secondes à s'appliquer
-
----
-
-## 🆘 En Cas de Problème
-
-### "My IP" ne fonctionne pas
-- Utilisez l'option "Custom" et entrez votre IP manuellement avec `/32`
-- Vérifiez votre IP sur https://www.whatismyip.com/
-
-### La connexion ne marche toujours pas
-1. Vérifiez que votre IP est bien dans les règles entrantes
-2. Attendez 30 secondes (les règles peuvent prendre du temps)
-3. Vérifiez que le Security Group est bien attaché à votre base de données RDS
-4. Vérifiez que le port est bien `5432`
-
-### Vous ne trouvez pas le Security Group
-- Dans la page de détails de `mapevent-db`, section "Connectivity & security"
-- Cliquez directement sur le nom du Security Group (ex: `sg-xxxxxxxxx`)
+1. **Attendez 1-2 minutes** après avoir ajouté la règle
+2. **Réessayez de vous connecter** dans pgAdmin
+3. Ça devrait fonctionner !
 
 ---
 
-## 📸 Aperçu Visuel (Description)
+## 📋 INFORMATIONS DE CONNEXION
 
-**Page RDS Databases** :
-- Liste des bases de données
-- Cliquez sur `mapevent-db`
+Une fois votre IP autorisée, utilisez ces informations dans pgAdmin :
 
-**Page Détails Base de Données** :
-- Section "Connectivity & security"
-- "VPC security groups" → Cliquez sur le nom
-
-**Page Security Group** :
-- Onglet "Inbound rules"
-- Bouton "Edit inbound rules"
-- "Add rule" → Remplissez → "Save rules"
+- **Host** : `mapevent-db.cr0mmuc0elm6.eu-west-1.rds.amazonaws.com`
+- **Port** : `5432`
+- **Database** : `mapevent`
+- **Username** : `postgres`
+- **Password** : `666666Laeti69!`
 
 ---
 
-**Bon courage ! 🚀**
+## ✅ RÉSUMÉ
 
+1. ✅ Trouver votre IP : https://www.whatismyip.com/
+2. ✅ RDS > mapevent-db > Security Groups > default
+3. ✅ Ajouter règle : Type PostgreSQL, Source = votre IP/32
+4. ✅ Vérifier "Accessible publiquement" = Oui
+5. ✅ Attendre 1-2 minutes
+6. ✅ Réessayer la connexion
 
+---
+
+**Suivez ces étapes et vous pourrez vous connecter !** 🚀

@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diagnostic Bloc Compte</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: #fff;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: rgba(15, 23, 42, 0.9);
+            border-radius: 16px;
+            padding: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+            color: #00ffc3;
+        }
+        
+        .subtitle {
+            color: #94a3b8;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        
+        .section {
+            background: rgba(30, 41, 59, 0.5);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        
+        .section h2 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #3b82f6;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .button {
+            background: linear-gradient(135deg, #00ffc3, #3b82f6);
+            color: #000;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .button:hover {
+            transform: translateY(-2px);
+        }
+        
+        .button-danger {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            color: #fff;
+        }
+        
+        .button-secondary {
+            background: rgba(59, 130, 246, 0.2);
+            color: #3b82f6;
+            border: 1px solid rgba(59, 130, 246, 0.3);
+        }
+        
+        .output {
+            background: #0f172a;
+            border-radius: 8px;
+            padding: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            margin-top: 15px;
+        }
+        
+        .status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+        
+        .status.success {
+            background: rgba(34, 197, 94, 0.2);
+            color: #22c55e;
+        }
+        
+        .status.warning {
+            background: rgba(245, 158, 11, 0.2);
+            color: #f59e0b;
+        }
+        
+        .status.error {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+        }
+        
+        .info-box {
+            background: rgba(59, 130, 246, 0.1);
+            border-left: 3px solid #3b82f6;
+            padding: 12px;
+            border-radius: 4px;
+            margin-top: 15px;
+            font-size: 13px;
+        }
+        
+        .code-block {
+            background: #0f172a;
+            padding: 10px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            margin-top: 10px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Diagnostic Bloc Compte</h1>
+        <p class="subtitle">Identifiez l'origine de "om/ε" dans le bloc compte utilisateur</p>
+        
+        <div class="section">
+            <h2>📦 1. Vérifier les données</h2>
+            <button class="button" onclick="checkLocalStorage()">Vérifier localStorage</button>
+            <button class="button" onclick="checkDOM()">Vérifier le DOM</button>
+            <button class="button" onclick="checkFunctions()">Vérifier les fonctions</button>
+            <div id="output-1" class="output" style="display: none;"></div>
+        </div>
+        
+        <div class="section">
+            <h2>🧹 2. Nettoyer les données</h2>
+            <button class="button button-danger" onclick="cleanLocalStorage()">Nettoyer localStorage</button>
+            <button class="button button-secondary" onclick="reloadPage()">Recharger la page</button>
+            <div class="info-box">
+                ⚠️ <strong>Attention:</strong> Le nettoyage supprimera les données utilisateur corrompues. Vous devrez vous reconnecter.
+            </div>
+            <div id="output-2" class="output" style="display: none;"></div>
+        </div>
+        
+        <div class="section">
+            <h2>🔧 3. Actions manuelles</h2>
+            <button class="button" onclick="showManualCleanFunction()">Afficher fonction de nettoyage</button>
+            <button class="button" onclick="testCleanFunction()">Tester fonction de nettoyage</button>
+            <div id="output-3" class="output" style="display: none;"></div>
+        </div>
+        
+        <div class="section">
+            <h2>📊 4. Rapport complet</h2>
+            <button class="button" onclick="runFullDiagnostic()">Lancer diagnostic complet</button>
+            <div id="output-4" class="output" style="display: none;"></div>
+        </div>
+    </div>
+    
+    <script>
+        // Fonction de nettoyage (copie de celle dans map_logic.js)
+        function cleanAccountText(text) {
+            if (!text || typeof text !== 'string') return text;
+            let cleaned = text;
+            cleaned = cleaned.replace(/^om\/[^\s]*\s*/gi, '');
+            cleaned = cleaned.replace(/om\/[^\s]*/gi, '');
+            cleaned = cleaned.replace(/^[a-z]+\/[^\s]*\s*/gi, '');
+            cleaned = cleaned.replace(/^[A-Z]+\/[^\s]*\s*/g, '');
+            cleaned = cleaned.replace(/[αβεγδεζηθικλμνξοπρστυφχψω]/gi, '');
+            cleaned = cleaned.replace(/[^\w\s\u00C0-\u017F\u00E0-\u00FF\u00E9\u00E8\u00EA\u00EB\u00E0\u00E2\u00E7\u00F9\u00FB\u00FC]/g, '');
+            cleaned = cleaned.replace(/\/+/g, '');
+            cleaned = cleaned.replace(/\s+/g, ' ');
+            cleaned = cleaned.trim();
+            return cleaned;
+        }
+        
+        function log(outputId, message) {
+            const output = document.getElementById(outputId);
+            output.style.display = 'block';
+            output.textContent += message + '\n';
+            output.scrollTop = output.scrollHeight;
+        }
+        
+        function clearOutput(outputId) {
+            const output = document.getElementById(outputId);
+            output.style.display = 'none';
+            output.textContent = '';
+        }
+        
+        function checkLocalStorage() {
+            clearOutput('output-1');
+            log('output-1', '📦 Vérification de localStorage...\n');
+            
+            try {
+                const currentUserStr = localStorage.getItem('currentUser');
+                if (currentUserStr) {
+                    const currentUser = JSON.parse(currentUserStr);
+                    log('output-1', '✅ currentUser trouvé:');
+                    log('output-1', JSON.stringify({
+                        isLoggedIn: currentUser.isLoggedIn,
+                        username: currentUser.username,
+                        name: currentUser.name,
+                        firstName: currentUser.firstName,
+                        lastName: currentUser.lastName,
+                        email: currentUser.email
+                    }, null, 2));
+                    
+                    const fieldsToCheck = ['username', 'name', 'firstName', 'lastName', 'avatar'];
+                    let foundOmEpsilon = false;
+                    
+                    fieldsToCheck.forEach(field => {
+                        const value = currentUser[field];
+                        if (value && typeof value === 'string') {
+                            if (value.includes('om/') || value.includes('ε') || value.includes('om/ε')) {
+                                log('output-1', `\n⚠️ "${field}" contient "om/" ou "ε": ${value}`);
+                                foundOmEpsilon = true;
+                            }
+                        }
+                    });
+                    
+                    if (!foundOmEpsilon) {
+                        log('output-1', '\n✅ Aucun "om/" ou "ε" trouvé dans les champs textuels');
+                    }
+                } else {
+                    log('output-1', '❌ Aucun currentUser dans localStorage');
+                }
+            } catch (e) {
+                log('output-1', `❌ Erreur: ${e.message}`);
+            }
+        }
+        
+        function checkDOM() {
+            clearOutput('output-1');
+            log('output-1', '🌐 Vérification du DOM...\n');
+            
+            const accountAvatar = document.getElementById('account-avatar');
+            const accountName = document.getElementById('account-name');
+            const accountBtn = document.getElementById('account-topbar-btn');
+            
+            if (accountAvatar) {
+                const avatarText = accountAvatar.textContent || accountAvatar.innerHTML || '';
+                const avatarHasImage = accountAvatar.querySelector('img');
+                log('output-1', 'account-avatar:');
+                log('output-1', `  textContent: "${accountAvatar.textContent}"`);
+                log('output-1', `  innerHTML: "${accountAvatar.innerHTML.substring(0, 100)}"`);
+                log('output-1', `  hasImage: ${!!avatarHasImage}`);
+                if (avatarHasImage) {
+                    log('output-1', `  imageSrc: ${avatarHasImage.src}`);
+                }
+                
+                if (avatarText.includes('om/') || avatarText.includes('ε')) {
+                    log('output-1', `\n⚠️ account-avatar contient "om/" ou "ε": ${avatarText}`);
+                }
+            } else {
+                log('output-1', '❌ account-avatar non trouvé dans le DOM');
+            }
+            
+            if (accountName) {
+                const nameText = accountName.textContent || accountName.innerHTML || '';
+                log('output-1', '\naccount-name:');
+                log('output-1', `  textContent: "${accountName.textContent}"`);
+                log('output-1', `  innerHTML: "${accountName.innerHTML}"`);
+                
+                if (nameText.includes('om/') || nameText.includes('ε')) {
+                    log('output-1', `\n⚠️ account-name contient "om/" ou "ε": ${nameText}`);
+                } else {
+                    log('output-1', '✅ account-name ne contient pas "om/" ou "ε"');
+                }
+            } else {
+                log('output-1', '❌ account-name non trouvé dans le DOM');
+            }
+        }
+        
+        function checkFunctions() {
+            clearOutput('output-1');
+            log('output-1', '🔧 Vérification des fonctions...\n');
+            
+            // Tester la fonction de nettoyage
+            const testCases = [
+                'om/ε Laetibibi',
+                'om/Laetibibi',
+                'Laetibibi om/ε',
+                'om/test/ε',
+                'Laetibibi'
+            ];
+            
+            log('output-1', 'Tests de nettoyage:');
+            testCases.forEach(test => {
+                const cleaned = cleanAccountText(test);
+                log('output-1', `  "${test}" → "${cleaned}"`);
+            });
+        }
+        
+        function cleanLocalStorage() {
+            clearOutput('output-2');
+            log('output-2', '🧹 Nettoyage de localStorage...\n');
+            
+            try {
+                const currentUserStr = localStorage.getItem('currentUser');
+                if (currentUserStr) {
+                    const currentUser = JSON.parse(currentUserStr);
+                    
+                    // Nettoyer les champs textuels
+                    if (currentUser.username) {
+                        const old = currentUser.username;
+                        currentUser.username = cleanAccountText(currentUser.username);
+                        if (old !== currentUser.username) {
+                            log('output-2', `✅ username nettoyé: "${old}" → "${currentUser.username}"`);
+                        }
+                    }
+                    
+                    if (currentUser.name) {
+                        const old = currentUser.name;
+                        currentUser.name = cleanAccountText(currentUser.name);
+                        if (old !== currentUser.name) {
+                            log('output-2', `✅ name nettoyé: "${old}" → "${currentUser.name}"`);
+                        }
+                    }
+                    
+                    if (currentUser.firstName) {
+                        const old = currentUser.firstName;
+                        currentUser.firstName = cleanAccountText(currentUser.firstName);
+                        if (old !== currentUser.firstName) {
+                            log('output-2', `✅ firstName nettoyé: "${old}" → "${currentUser.firstName}"`);
+                        }
+                    }
+                    
+                    if (currentUser.lastName) {
+                        const old = currentUser.lastName;
+                        currentUser.lastName = cleanAccountText(currentUser.lastName);
+                        if (old !== currentUser.lastName) {
+                            log('output-2', `✅ lastName nettoyé: "${old}" → "${currentUser.lastName}"`);
+                        }
+                    }
+                    
+                    // Sauvegarder
+                    localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                    log('output-2', '\n✅ Données nettoyées et sauvegardées');
+                    log('output-2', '\n⚠️ Rechargez la page pour voir les changements');
+                } else {
+                    log('output-2', '❌ Aucun currentUser dans localStorage');
+                }
+            } catch (e) {
+                log('output-2', `❌ Erreur: ${e.message}`);
+            }
+        }
+        
+        function reloadPage() {
+            location.reload();
+        }
+        
+        function showManualCleanFunction() {
+            clearOutput('output-3');
+            log('output-3', '📋 Fonction de nettoyage manuel:\n');
+            log('output-3', `function nettoyerDonneesUtilisateur() {
+  try {
+    const currentUserStr = localStorage.getItem('currentUser');
+    if (currentUserStr) {
+      const currentUser = JSON.parse(currentUserStr);
+      
+      const clean = (text) => {
+        if (!text || typeof text !== 'string') return text;
+        let cleaned = text.replace(/^om\\/[^\\s]*\\s*/gi, '');
+        cleaned = cleaned.replace(/om\\/[^\\s]*/gi, '');
+        cleaned = cleaned.replace(/[αβεγδεζηθικλμνξοπρστυφχψω]/gi, '');
+        cleaned = cleaned.replace(/[^\\w\\s\\u00C0-\\u017F\\u00E0-\\u00FF]/g, '');
+        cleaned = cleaned.replace(/\\/+/g, '');
+        cleaned = cleaned.replace(/\\s+/g, ' ').trim();
+        return cleaned;
+      };
+      
+      if (currentUser.username) currentUser.username = clean(currentUser.username);
+      if (currentUser.name) currentUser.name = clean(currentUser.name);
+      if (currentUser.firstName) currentUser.firstName = clean(currentUser.firstName);
+      if (currentUser.lastName) currentUser.lastName = clean(currentUser.lastName);
+      
+      localStorage.setItem('currentUser', JSON.stringify(currentUser));
+      console.log('✅ Données nettoyées');
+      location.reload();
+    }
+  } catch (e) {
+    console.error('❌ Erreur:', e);
+  }
+}`);
+            log('output-3', '\n💡 Copiez cette fonction dans la console du navigateur pour l\'exécuter');
+        }
+        
+        function testCleanFunction() {
+            clearOutput('output-3');
+            log('output-3', '🧪 Test de la fonction de nettoyage...\n');
+            
+            const testCases = [
+                { input: 'om/ε Laetibibi', expected: 'Laetibibi' },
+                { input: 'om/Laetibibi', expected: 'Laetibibi' },
+                { input: 'Laetibibi om/ε', expected: 'Laetibibi' },
+                { input: 'om/test/ε', expected: 'test' },
+                { input: 'Laetibibi', expected: 'Laetibibi' }
+            ];
+            
+            testCases.forEach(test => {
+                const result = cleanAccountText(test.input);
+                const passed = result === test.expected;
+                log('output-3', `${passed ? '✅' : '❌'} "${test.input}" → "${result}" ${passed ? '' : `(attendu: "${test.expected}")`}`);
+            });
+        }
+        
+        function runFullDiagnostic() {
+            clearOutput('output-4');
+            log('output-4', '🔍 === DIAGNOSTIC COMPLET ===\n\n');
+            
+            // 1. localStorage
+            log('output-4', '📦 1. LOCALSTORAGE:');
+            checkLocalStorage();
+            const output1 = document.getElementById('output-1').textContent;
+            log('output-4', output1);
+            
+            // 2. DOM
+            log('output-4', '\n🌐 2. DOM:');
+            checkDOM();
+            const output1b = document.getElementById('output-1').textContent;
+            log('output-4', output1b.split('\n').slice(-20).join('\n'));
+            
+            // 3. Fonctions
+            log('output-4', '\n🔧 3. FONCTIONS:');
+            checkFunctions();
+            const output1c = document.getElementById('output-1').textContent;
+            log('output-4', output1c.split('\n').slice(-10).join('\n'));
+            
+            log('output-4', '\n✅ Diagnostic terminé');
+        }
+    </script>
+</body>
+</html>
+
+
+
+

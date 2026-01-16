@@ -75,6 +75,18 @@ BEGIN
     END IF;
 END $$;
 
+-- Table des mots de passe utilisateur (séparée pour sécurité)
+CREATE TABLE IF NOT EXISTS user_passwords (
+    user_id VARCHAR(255) PRIMARY KEY,
+    password_hash TEXT NOT NULL,
+    salt VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_passwords_user ON user_passwords(user_id);
+
 -- Table des likes (likes sur events, bookings, services)
 CREATE TABLE IF NOT EXISTS user_likes (
     id SERIAL PRIMARY KEY,

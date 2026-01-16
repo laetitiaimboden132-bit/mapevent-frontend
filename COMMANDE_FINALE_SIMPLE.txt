@@ -1,0 +1,27 @@
+COMMANDE FINALE - ULTRA SIMPLE
+===============================
+
+1. Allez dans le bon dossier :
+   cd C:\MapEventAI_NEW\frontend
+
+2. Vérifiez dans AWS que :
+   - Votre IP est autorisée (règle PostgreSQL)
+   - "Accessible publiquement" = Oui
+
+3. Attendez 1-2 minutes
+
+4. Exécutez :
+   python supprimer-comptes.py
+
+5. Le script vous montrera tous vos comptes
+
+6. Tapez l'email du compte à GARDER
+
+7. Tapez "OUI" pour confirmer
+
+8. C'est tout !
+
+IMPORTANT : Vous n'avez PAS besoin de pgAdmin !
+Le script Python fait tout automatiquement.
+
+

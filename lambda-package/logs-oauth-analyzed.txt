@@ -1,0 +1,105 @@
+2026-01-06T20:43:32.337000 INIT_START Runtime Version: python:3.12.v101	Runtime Version ARN: arn:aws:lambda:eu-west-1::runtime:994aac32248ecf4d69d9f5e9a3a57aba3ccea19d94170a61d5ecf978927e1b0f
+
+2026-01-06T20:43:32.447000 🔍 Python path: ['/var/task', '/opt/python/lib/python3.12/site-packages', '/opt/python', '/var/lang/lib/python3.12/site-packages', '/var/runtime', '/var/lang/lib/python312.zip', '/var/lang/lib/python3.12', '/var/lang/lib/python3.12/lib-dynload', '/var/lang/lib/python3.12/site-packages']
+
+2026-01-06T20:43:32.447000 🔍 /opt/python existe: True
+
+2026-01-06T20:43:32.447000 🔍 Packages dans /opt/python/lib/python3.12/site-packages: ['psycopg2', 'psycopg2_binary-2.9.9.dist-info', 'psycopg2_binary.libs']
+
+2026-01-06T20:43:32.447000 ✅ psycopg2 trouvé dans /opt!
+
+2026-01-06T20:43:32.447000 🔍 Fichiers dans psycopg2: ['__init__.py', '__pycache__', '_ipaddress.py', '_json.py', '_psycopg.cpython-312-x86_64-linux-gnu.so', '_range.py', 'errorcodes.py', 'errors.py', 'extensions.py', 'extras.py']
+
+2026-01-06T20:43:33.275000 ❌ Import error: No module named 'typing_extensions'
+
+2026-01-06T20:43:33.275000 Python path: ['/var/task/backend', '/var/task', '/opt/python/lib/python3.12/site-packages', '/opt/python', '/var/lang/lib/python3.12/site-packages', '/var/runtime', '/var/lang/lib/python312.zip', '/var/lang/lib/python3.12', '/var/lang/lib/python3.12/lib-dynload', '/var/lang/lib/python3.12/site-packages']
+
+2026-01-06T20:43:33.311000 ❌ Import error depuis backend.main: No module named 'typing_extensions'
+
+2026-01-06T20:43:33.317000 START RequestId: ac42886c-edcc-4091-b896-91ae6380ace8 Version: $LATEST
+
+2026-01-06T20:43:33.318000 [DEBUG H1] handler.py:lambda_handler:entry: lambda_handler appelé | {"event_type": "dict", "event_keys": ["resource", "path", "httpMethod", "headers", "multiValueHeaders", "queryStringParameters", "multiValueQueryStringParameters", "pathParameters", "stageVariables", "requestContext", "body", "isBase64Encoded"], "has_context": true}
+
+2026-01-06T20:43:33.318000 🚀 lambda_handler appelé - Event keys: ['resource', 'path', 'httpMethod', 'headers', 'multiValueHeaders', 'queryStringParameters', 'multiValueQueryStringParameters', 'pathParameters', 'stageVariables', 'requestContext', 'body', 'isBase64Encoded']
+
+2026-01-06T20:43:33.318000 🔍 Début traitement requête (après OPTIONS)
+
+2026-01-06T20:43:33.318000 🔍 App Flask n'existe pas, création...
+
+2026-01-06T20:43:33.318000 [DEBUG H3] handler.py:lambda_handler:check_create_app: Vérification create_app | {"create_app_is_none": true, "create_app_type": null}
+
+2026-01-06T20:43:33.318000 [ERROR] create_app n'est pas defini - import echoue
+
+2026-01-06T20:43:33.318000 Traceback: NoneType: None
+
+2026-01-06T20:43:33.318000 [DEBUG H3] handler.py:lambda_handler:create_app_none: create_app est None | {"error": "create_app n'est pas defini - import echoue", "traceback": "NoneType: None\n"}
+
+2026-01-06T20:43:33.320000 END RequestId: ac42886c-edcc-4091-b896-91ae6380ace8
+
+2026-01-06T20:43:33.320000 REPORT RequestId: ac42886c-edcc-4091-b896-91ae6380ace8	Duration: 3.00 ms	Billed Duration: 980 ms	Memory Size: 256 MB	Max Memory Used: 86 MB	Init Duration: 976.67 ms	
+
+2026-01-06T20:43:47.340000 START RequestId: 0e40d79b-2216-425a-8318-9c9a2a4904de Version: $LATEST
+
+2026-01-06T20:43:47.700000 [DEBUG H1] handler.py:lambda_handler:entry: lambda_handler appelé | {"event_type": "dict", "event_keys": ["resource", "path", "httpMethod", "headers", "multiValueHeaders", "queryStringParameters", "multiValueQueryStringParameters", "pathParameters", "stageVariables", "requestContext", "body", "isBase64Encoded"], "has_context": true}
+
+2026-01-06T20:43:47.700000 🚀 lambda_handler appelé - Event keys: ['resource', 'path', 'httpMethod', 'headers', 'multiValueHeaders', 'queryStringParameters', 'multiValueQueryStringParameters', 'pathParameters', 'stageVariables', 'requestContext', 'body', 'isBase64Encoded']
+
+2026-01-06T20:43:47.700000 🔍 Début traitement requête (après OPTIONS)
+
+2026-01-06T20:43:47.700000 🔍 App Flask n'existe pas, création...
+
+2026-01-06T20:43:47.700000 [DEBUG H3] handler.py:lambda_handler:check_create_app: Vérification create_app | {"create_app_is_none": true, "create_app_type": null}
+
+2026-01-06T20:43:47.700000 [ERROR] create_app n'est pas defini - import echoue
+
+2026-01-06T20:43:47.700000 Traceback: NoneType: None
+
+2026-01-06T20:43:47.700000 [DEBUG H3] handler.py:lambda_handler:create_app_none: create_app est None | {"error": "create_app n'est pas defini - import echoue", "traceback": "NoneType: None\n"}
+
+2026-01-06T20:43:47.719000 END RequestId: 0e40d79b-2216-425a-8318-9c9a2a4904de
+
+2026-01-06T20:43:47.719000 REPORT RequestId: 0e40d79b-2216-425a-8318-9c9a2a4904de	Duration: 378.45 ms	Billed Duration: 379 ms	Memory Size: 256 MB	Max Memory Used: 102 MB	
+
+2026-01-06T20:44:07.743000 START RequestId: 76e7f036-f718-4690-8b53-bbfcd788692c Version: $LATEST
+
+2026-01-06T20:44:07.744000 [DEBUG H1] handler.py:lambda_handler:entry: lambda_handler appelé | {"event_type": "dict", "event_keys": ["resource", "path", "httpMethod", "headers", "multiValueHeaders", "queryStringParameters", "multiValueQueryStringParameters", "pathParameters", "stageVariables", "requestContext", "body", "isBase64Encoded"], "has_context": true}
+
+2026-01-06T20:44:07.744000 🚀 lambda_handler appelé - Event keys: ['resource', 'path', 'httpMethod', 'headers', 'multiValueHeaders', 'queryStringParameters', 'multiValueQueryStringParameters', 'pathParameters', 'stageVariables', 'requestContext', 'body', 'isBase64Encoded']
+
+2026-01-06T20:44:07.744000 🔍 Début traitement requête (après OPTIONS)
+
+2026-01-06T20:44:07.744000 🔍 App Flask n'existe pas, création...
+
+2026-01-06T20:44:07.744000 [DEBUG H3] handler.py:lambda_handler:check_create_app: Vérification create_app | {"create_app_is_none": true, "create_app_type": null}
+
+2026-01-06T20:44:07.744000 [ERROR] create_app n'est pas defini - import echoue
+
+2026-01-06T20:44:07.744000 Traceback: NoneType: None
+
+2026-01-06T20:44:07.744000 [DEBUG H3] handler.py:lambda_handler:create_app_none: create_app est None | {"error": "create_app n'est pas defini - import echoue", "traceback": "NoneType: None\n"}
+
+2026-01-06T20:44:07.746000 END RequestId: 76e7f036-f718-4690-8b53-bbfcd788692c
+
+2026-01-06T20:44:07.746000 REPORT RequestId: 76e7f036-f718-4690-8b53-bbfcd788692c	Duration: 2.28 ms	Billed Duration: 3 ms	Memory Size: 256 MB	Max Memory Used: 102 MB	
+
+2026-01-06T20:44:20.053000 START RequestId: 128ebd7b-4ead-4446-8348-11217ba52393 Version: $LATEST
+
+2026-01-06T20:44:20.218000 [DEBUG H1] handler.py:lambda_handler:entry: lambda_handler appelé | {"event_type": "dict", "event_keys": ["resource", "path", "httpMethod", "headers", "multiValueHeaders", "queryStringParameters", "multiValueQueryStringParameters", "pathParameters", "stageVariables", "requestContext", "body", "isBase64Encoded"], "has_context": true}
+
+2026-01-06T20:44:20.218000 🚀 lambda_handler appelé - Event keys: ['resource', 'path', 'httpMethod', 'headers', 'multiValueHeaders', 'queryStringParameters', 'multiValueQueryStringParameters', 'pathParameters', 'stageVariables', 'requestContext', 'body', 'isBase64Encoded']
+
+2026-01-06T20:44:20.218000 🔍 Début traitement requête (après OPTIONS)
+
+2026-01-06T20:44:20.218000 🔍 App Flask n'existe pas, création...
+
+2026-01-06T20:44:20.218000 [DEBUG H3] handler.py:lambda_handler:check_create_app: Vérification create_app | {"create_app_is_none": true, "create_app_type": null}
+
+2026-01-06T20:44:20.218000 [ERROR] create_app n'est pas defini - import echoue
+
+2026-01-06T20:44:20.218000 Traceback: NoneType: None
+
+2026-01-06T20:44:20.218000 [DEBUG H3] handler.py:lambda_handler:create_app_none: create_app est None | {"error": "create_app n'est pas defini - import echoue", "traceback": "NoneType: None\n"}
+
+2026-01-06T20:44:20.258000 END RequestId: 128ebd7b-4ead-4446-8348-11217ba52393
+
+2026-01-06T20:44:20.258000 REPORT RequestId: 128ebd7b-4ead-4446-8348-11217ba52393	Duration: 204.12 ms	Billed Duration: 205 ms	Memory Size: 256 MB	Max Memory Used: 106 MB	

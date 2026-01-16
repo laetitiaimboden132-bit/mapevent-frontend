@@ -1,0 +1,25 @@
+# Dockerfile pour créer une Lambda Layer avec dépendances Python Linux
+FROM public.ecr.aws/lambda/python:3.12
+
+WORKDIR /layer-build
+
+# Créer la structure Lambda Layer
+# Lambda Layer attend: python/lib/python3.12/site-packages/
+RUN mkdir -p python/lib/python3.12/site-packages
+
+# Copier requirements.txt
+COPY backend/requirements.txt /tmp/requirements.txt
+
+# Installer les dépendances dans la structure Lambda Layer
+RUN pip install -r /tmp/requirements.txt -t python/lib/python3.12/site-packages/ --quiet --no-cache-dir
+
+# Nettoyer les fichiers inutiles
+RUN find python -type d -name __pycache__ -exec rm -r {} + 2>/dev/null || true
+RUN find python -name "*.pyc" -delete
+RUN find python -name "*.pyo" -delete
+
+# Créer le ZIP de la Layer
+RUN cd python && zip -r /layer-build/python-layer.zip . && cd ..
+
+# La Layer est prête dans /layer-build/python-layer.zip
+

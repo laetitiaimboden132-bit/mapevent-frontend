@@ -1,0 +1,8 @@
+aws : 
+Au caract?re C:\Users\Laeti\AppData\Local\Temp\ps-script-74c3ec16-afdd-4754-ae3c-3d3982684a06.ps1:77 : 166
++ ... S_PAGER=""; aws logs tail /aws/lambda/mapevent-backend --since 10m -- ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+'charmap' codec can't encode character '\U0001f50d' in position 20: character maps to <undefined>

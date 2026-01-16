@@ -1,0 +1,38 @@
+🎯 AJOUTER LA NOUVELLE IP AU SECURITY GROUP
+=========================================
+
+Votre IP a change !
+- Ancienne: 81.13.194.194
+- Nouvelle: 81.88.183.173
+
+ÉTAPES SUR AWS:
+
+1. ALLER SUR RDS:
+   AWS Console > RDS > mapevent-db
+
+2. SECURITY GROUP:
+   - Connectivite et securite > Groupes de securite
+   - Cliquez sur "default (sg-09293e0d6313eb92c)"
+
+3. AJOUTER LA NOUVELLE REGLE:
+   - Regles entrantes > Modifier les regles entrantes
+   - Ajouter une regle:
+     * Type: PostgreSQL (ou "Personnalise TCP")
+     * Port: 5432
+     * Source: 81.88.183.173/32
+     * Description: "IP actuelle utilisateur"
+   - Enregistrer les regles
+
+4. ATTENDRE 5-10 MINUTES
+   (Propagation AWS)
+
+5. RETESTER:
+   cd C:\MapEventAI_NEW\frontend
+   python supprimer-comptes.py
+
+=========================================
+IMPORTANT: Si votre IP change souvent, vous pouvez:
+- Ajouter toute votre plage IP (si elle est fixe)
+- Ou utiliser un VPN avec IP fixe
+- Ou se connecter depuis Lambda (qui est dans le meme VPC)
+

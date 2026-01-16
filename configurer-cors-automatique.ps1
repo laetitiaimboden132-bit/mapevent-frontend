@@ -239,3 +239,10 @@ Write-Host ""
 Write-Host "Testez maintenant la connexion Google depuis https://mapevent.world" -ForegroundColor Cyan
 
 
+
+
+
+
+
+
+

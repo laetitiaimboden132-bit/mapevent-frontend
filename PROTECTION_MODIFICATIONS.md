@@ -108,3 +108,10 @@ Git est le meilleur moyen de protéger votre code. Installation :
 2. Installer avec les options par défaut
 3. Ensuite utiliser les commandes du guide `GUIDE_VERSIONNEMENT_GIT.md`
 
+
+
+
+
+
+
+

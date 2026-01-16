@@ -206,3 +206,10 @@ Si vous ne trouvez pas certains termes, voici les traductions possibles :
 Une fois terminé, les erreurs CORS 500 devraient être résolues ! 🎉
 
 
+
+
+
+
+
+
+

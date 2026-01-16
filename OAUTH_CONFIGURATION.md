@@ -124,3 +124,10 @@ Une fois configuré, les boutons OAuth dans le formulaire d'inscription devraien
 
 
 
+
+
+
+
+
+
+

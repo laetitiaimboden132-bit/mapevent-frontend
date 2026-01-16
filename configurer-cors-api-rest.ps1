@@ -110,3 +110,10 @@ Write-Host ""
 Write-Host "Si des erreurs persistent, configurez manuellement dans la console AWS" -ForegroundColor Yellow
 
 
+
+
+
+
+
+
+

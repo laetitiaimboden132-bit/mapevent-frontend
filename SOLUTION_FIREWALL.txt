@@ -1,0 +1,18 @@
+SOLUTION FIREWALL WINDOWS
+========================
+
+Le port 5432 n'est pas accessible. Testez sans firewall :
+
+1. Désactivez temporairement le firewall Windows :
+   - Paramètres > Sécurité Windows > Pare-feu
+   - Désactivez pour "Privé" et "Public"
+
+2. Réessayez :
+   cd C:\MapEventAI_NEW\frontend
+   python supprimer-comptes.py
+
+3. Si ça fonctionne, réactivez le firewall après
+
+OU attendez encore 20-30 minutes (propagation réseau)
+
+

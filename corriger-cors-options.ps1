@@ -74,3 +74,10 @@ Write-Host "Deploiement termine !" -ForegroundColor Green
 Write-Host "`nTestez maintenant le formulaire sur https://mapevent.world" -ForegroundColor Cyan
 
 
+
+
+
+
+
+
+

@@ -1,258 +1,317 @@
 """
 Lambda Handler pour MapEventAI Backend
-Handler simple avec Flask test client - version ultra-simplifiée
+Réintroduction progressive des imports - Étape 5: DB + JWT
 """
-
 import sys
+import os
+
+# CRITIQUE: Ajouter /opt/python EN PREMIER avant TOUT autre import
+# Cela garantit que les Lambda Layers (bcrypt, psycopg2) sont prioritaires
+# sur tout module dans /var/task qui pourrait masquer le Layer
+layer_path = "/opt/python"
+if layer_path not in sys.path:
+    sys.path.insert(0, layer_path)
+elif sys.path.index(layer_path) > 0:
+    # Si /opt/python existe mais n'est pas en première position, le déplacer
+    sys.path.remove(layer_path)
+    sys.path.insert(0, layer_path)
+
+# Vérifier que /opt/python existe et contient bcrypt
+if os.path.exists('/opt/python'):
+    try:
+        contents = os.listdir('/opt/python')
+        if 'bcrypt' in contents:
+            print(f"[INIT] /opt/python existe et contient bcrypt: {contents}")
+        else:
+            print(f"[INIT] /opt/python existe mais ne contient pas bcrypt: {contents}")
+    except Exception as e:
+        print(f"[INIT] Erreur lors de la vérification /opt/python: {e}")
+else:
+    print("[INIT] ATTENTION: /opt/python n'existe pas!")
+
 import json
+import logging
 from pathlib import Path
 
-# Ajouter le chemin du backend au PYTHONPATH
+# Configuration logging ASCII-safe
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+logger.info("handler.py: Module init - ASCII-safe logging only")
+logger.info("step=5 ok")
+logger.info(f"PYTHONPATH (premiers 3): {sys.path[:3]}")
+
+# CRITIQUE: Ajouter /opt/python EN PREMIER pour les Lambda Layers (bcrypt, psycopg2, etc.)
+# Cela garantit que les modules du Layer sont utilisés avant ceux du code déployé
+layer_path = "/opt/python"
+if layer_path in sys.path:
+    # Si déjà présent, le déplacer au début
+    sys.path.remove(layer_path)
+    sys.path.insert(0, layer_path)
+    logger.info(f"PYTHONPATH: /opt/python déplacé en première position")
+else:
+    sys.path.insert(0, layer_path)
+    logger.info(f"PYTHONPATH updated with Lambda Layers (PRIORITÉ): {layer_path}")
+
+# Ajouter le chemin du backend au PYTHONPATH (sans importer)
 backend_path = Path(__file__).parent / "backend"
 backend_path_str = str(backend_path.resolve())
 if backend_path_str not in sys.path:
-    sys.path.insert(0, backend_path_str)
+    sys.path.insert(1, backend_path_str)  # Insérer après /opt/python
+    logger.info(f"PYTHONPATH updated: {backend_path_str}")
 
-# Importer la fonction de création de l'app Flask (mais ne pas créer l'app maintenant)
-try:
-    from main import create_app
-except ImportError as e:
-    print(f"Import error: {e}")
-    print(f"Python path: {sys.path}")
-    # Ne pas lever l'erreur ici, on gérera OPTIONS même sans Flask
-
-# Variable globale pour l'app Flask (créée à la demande)
+# Variables globales pour l'app Flask (créée à la demande)
+create_app_func = None
 app = None
 
 def lambda_handler(event, context):
     """
-    Handler Lambda pour API Gateway
-    Version ultra-simplifiée avec Flask test client
+    Handler Lambda avec routage Flask complet (DB + JWT)
     """
-    # Gérer OPTIONS AVANT TOUT, même avant de créer l'app Flask
-    try:
-        method = event.get('httpMethod', event.get('requestContext', {}).get('http', {}).get('method', 'GET'))
-        
-        if method == 'OPTIONS':
-            print(f"OK: Requete OPTIONS detectee")
-            print(f"🔍 Event keys: {list(event.keys())}")
-            
-            # Extraire headers de différentes façons possibles
-            headers = event.get('headers', {}) or {}
-            if not headers:
-                headers = event.get('multiValueHeaders', {}) or {}
-            
-            # Normaliser les clés de headers en minuscules
-            headers_lower = {}
-            if isinstance(headers, dict):
-                headers_lower = {str(k).lower(): str(v) if v else '' for k, v in headers.items()}
-            
-            # Extraire l'origine
-            origin = headers_lower.get('origin', '') or headers_lower.get('Origin', '')
-            if not origin or origin.lower() in ['null', 'none', 'undefined']:
-                origin = 'https://mapevent.world'
-            
-            allowed_origins = ['https://mapevent.world', 'http://localhost:8000', 'http://localhost:3000']
-            cors_origin = origin if origin in allowed_origins else 'https://mapevent.world'
-            
-            print(f"🔍 Origin: {origin} -> CORS Origin: {cors_origin}")
-            
-            response = {
-                'statusCode': 200,
-                'headers': {
-                    'Access-Control-Allow-Origin': cors_origin,
-                    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS, PATCH',
-                    'Access-Control-Allow-Headers': 'Content-Type, Authorization, Origin, X-Requested-With, Accept, X-Amz-Date, X-Api-Key, X-Amz-Security-Token',
-                    'Access-Control-Allow-Credentials': 'true',
-                    'Access-Control-Max-Age': '3600'
-                },
-                'body': ''
-            }
-            
-            print(f"✅ Réponse OPTIONS: {json.dumps(response)}")
-            return response
-            
-    except Exception as e:
-        import traceback
-        error_msg = f"Erreur dans OPTIONS: {str(e)}\n{traceback.format_exc()}"
-        print(f"❌ {error_msg}")
-        
-        # Retourner quand même une réponse CORS valide même en cas d'erreur
-        return {
-            'statusCode': 200,
-            'headers': {
-                'Access-Control-Allow-Origin': 'https://mapevent.world',
-                'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS, PATCH',
-                'Access-Control-Allow-Headers': 'Content-Type, Authorization, Origin, X-Requested-With, Accept, X-Amz-Date, X-Api-Key, X-Amz-Security-Token',
-                'Access-Control-Allow-Credentials': 'true',
-                'Access-Control-Max-Age': '3600'
-            },
-            'body': ''
-        }
+    logger.info("lambda_handler: Entry point called")
     
-    # Pour les autres méthodes, continuer avec Flask
     try:
-        # Créer l'app Flask seulement maintenant (après avoir géré OPTIONS)
-        global app
-        if app is None:
-            try:
-                app = create_app()
-                print("OK: Application Flask creee")
-            except Exception as e:
-                print(f"❌ Erreur création app Flask: {e}")
-                import traceback
-                print(traceback.format_exc())
-                raise
+        # Extraire le chemin et la méthode
+        path = event.get("rawPath") or event.get("path") or event.get("rawPathString") or "/"
+        method = event.get("httpMethod") or event.get("requestContext", {}).get("http", {}).get("method", "GET")
         
-        # Normaliser les headers (API Gateway peut les mettre en minuscules)
-        headers = event.get('headers', {}) or {}
-        # Normaliser les clés de headers en minuscules pour la recherche
-        headers_lower = {k.lower(): v for k, v in headers.items()}
+        # Normaliser le chemin
+        if path.startswith("/default"):
+            path = path.replace("/default", "", 1)
+        if not path.startswith("/"):
+            path = "/" + path
         
-        # Extraire le chemin
-        path = event.get('path', '/')
-        print(f"🔍 Path reçu: {path}")  # Log pour diagnostic
-        if path.startswith('/default'):
-            path = path.replace('/default', '', 1)
-        if not path.startswith('/'):
-            path = '/' + path
-        print(f"🔍 Path traité: {path}")  # Log pour diagnostic
+        logger.info(f"lambda_handler: Path = {path}, Method = {method}")
         
-        method = event.get('httpMethod', 'GET')
-        print(f"🔍 Méthode: {method}")  # Log pour diagnostic
-        
-        query_params = event.get('queryStringParameters') or {}
-        body = event.get('body', '')
-        print(f"🔍 Body: {body[:100] if body else 'vide'}")  # Log pour diagnostic
-        
-        # Utiliser Flask test client avec gestion d'erreur robuste
-        print(f"🔍 Appel Flask: {method} {path}")  # Log pour diagnostic
-        
-        try:
-            with app.test_client() as client:
-                try:
-                    if method == 'GET':
-                        response = client.get(path, query_string=query_params)
-                    elif method == 'POST':
-                        # Parser le body JSON si nécessaire
-                        if body and isinstance(body, str):
-                            try:
-                                json_data = json.loads(body)
-                                response = client.post(path, json=json_data, content_type='application/json')
-                            except json.JSONDecodeError:
-                                # Si ce n'est pas du JSON, envoyer tel quel
-                                response = client.post(path, data=body, content_type='application/json')
-                        else:
-                            response = client.post(path, data=body, content_type='application/json')
-                    else:
-                        response = client.open(path, method=method, data=body)
-                    
-                    print(f"🔍 Réponse Flask: {response.status_code}")  # Log pour diagnostic
-                    
-                    # Récupérer le body avec gestion d'erreur
-                    try:
-                        body_content = response.get_data(as_text=True).rstrip('\n\r')
-                        if not body_content:
-                            body_content = '{}'
-                        
-                        # Vérifier la taille du body (limite Lambda: 6MB)
-                        body_size_mb = len(body_content.encode('utf-8')) / (1024 * 1024)
-                        if body_size_mb > 5.5:  # Limite à 5.5MB pour être sûr
-                            print(f"⚠️ Body trop volumineux: {body_size_mb:.2f}MB - Tronquage")
-                            # Si c'est du JSON, essayer de le réduire
-                            try:
-                                body_json = json.loads(body_content)
-                                # Réduire les données si possible
-                                if isinstance(body_json, dict):
-                                    # Supprimer les champs volumineux inutiles
-                                    for key in list(body_json.keys()):
-                                        if isinstance(body_json[key], (list, dict)) and len(str(body_json[key])) > 10000:
-                                            body_json[key] = f"[{type(body_json[key]).__name__} - {len(body_json[key])} items]"
-                                    body_content = json.dumps(body_json)
-                            except:
-                                # Si ce n'est pas du JSON, tronquer
-                                body_content = body_content[:5000000]  # Limiter à ~5MB
-                    except Exception as body_error:
-                        print(f"⚠️ Erreur récupération body: {body_error}")
-                        body_content = '{"error": "Erreur lors de la récupération de la réponse"}'
-                    
-                    body_size_mb = len(body_content.encode('utf-8')) / (1024 * 1024)
-                    print(f"🔍 Body réponse: {body_size_mb:.2f}MB (premiers 200 chars): {body_content[:200]}")  # Log pour diagnostic
-                    
-                    # Retourner la réponse avec headers CORS complets
-                    # Utiliser l'origine spécifique pour une meilleure sécurité
-                    origin = headers_lower.get('origin', 'https://mapevent.world')
-                    if not origin or origin == 'null':
-                        origin = 'https://mapevent.world'
-                    allowed_origins = ['https://mapevent.world', 'http://localhost:8000', 'http://localhost:3000']
-                    cors_origin = origin if origin in allowed_origins else 'https://mapevent.world'
-                    
-                    # Vérifier la taille finale avant de retourner (limite Lambda: 6MB)
-                    final_body_size = len(body_content.encode('utf-8'))
-                    final_body_size_mb = final_body_size / (1024 * 1024)
-                    
-                    if final_body_size_mb > 5.5:  # Limite à 5.5MB pour être sûr
-                        print(f"⚠️ ATTENTION: Body final trop volumineux: {final_body_size_mb:.2f}MB")
-                        # Retourner une erreur plutôt qu'une réponse trop grande
-                        body_content = json.dumps({
-                            'error': 'Response too large',
-                            'message': f'La réponse dépasse la limite de taille ({final_body_size_mb:.2f}MB > 5.5MB)',
-                            'size_mb': round(final_body_size_mb, 2)
-                        })
-                        response.status_code = 500
-                    
-                    return {
-                        'statusCode': response.status_code,
-                        'headers': {
-                            'Content-Type': 'application/json',
-                            'Access-Control-Allow-Origin': cors_origin,
-                            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS, PATCH',
-                            'Access-Control-Allow-Headers': 'Content-Type, Authorization, Origin, X-Requested-With, Accept, X-Amz-Date, X-Api-Key, X-Amz-Security-Token',
-                            'Access-Control-Allow-Credentials': 'true',
-                            'Access-Control-Max-Age': '3600'
-                        },
-                        'body': body_content
-                    }
-                except Exception as flask_error:
-                    import traceback
-                    print(f"❌ Erreur dans Flask test client: {flask_error}")
-                    print(traceback.format_exc())
-                    raise
-        except Exception as client_error:
-            import traceback
-            print(f"❌ Erreur création/utilisation test client: {client_error}")
-            print(traceback.format_exc())
-            raise
+        # Gérer /health AVANT tout import Flask
+        if path == "/health" or path == "/api/health":
+            logger.info("lambda_handler: /health endpoint - returning 200")
+            headers = event.get("headers", {}) or {}
+            headers_lower = {k.lower(): v for k, v in headers.items()}
+            origin = headers_lower.get("origin", "")
+            allowed_origins = ["https://mapevent.world", "http://localhost:8000", "http://127.0.0.1:8000"]
+            cors_origin = origin if origin in allowed_origins else "https://mapevent.world"
             
+            return {
+                "statusCode": 200,
+                "headers": {
+                    "Content-Type": "application/json",
+                    "Access-Control-Allow-Origin": cors_origin
+                },
+                "body": json.dumps({"ok": True})
+            }
+        
+        # Gérer OPTIONS pour CORS
+        if method == "OPTIONS":
+            logger.info("lambda_handler: OPTIONS request - returning CORS headers")
+            headers = event.get("headers", {}) or {}
+            headers_lower = {k.lower(): v for k, v in headers.items()}
+            origin = headers_lower.get("origin", "")
+            
+            # Whitelist des origines autorisées
+            allowed_origins = ["https://mapevent.world", "http://localhost:8000", "http://127.0.0.1:8000"]
+            
+            # Autoriser mapevent.world explicitement
+            if origin in allowed_origins:
+                allowed_origin = origin
+            else:
+                # En production, ne pas autoriser "*" - seulement les origines whitelistées
+                allowed_origin = "https://mapevent.world" if origin else "*"
+            
+            logger.info(f"lambda_handler: OPTIONS - origin={origin}, allowed_origin={allowed_origin}")
+            
+            return {
+                "statusCode": 200,
+                "headers": {
+                    "Access-Control-Allow-Origin": allowed_origin,  # UNE SEULE valeur, jamais "origin1, *"
+                    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
+                    "Access-Control-Allow-Headers": "Content-Type, Authorization, Origin, X-Requested-With, Accept",
+                    "Access-Control-Max-Age": "3600",
+                    "Access-Control-Allow-Credentials": "false"
+                },
+                "body": ""
+            }
+        
+        # Pour les autres routes, créer l'app Flask si nécessaire
+        global app, create_app_func
+        
+        # Import lazy de create_app
+        if create_app_func is None:
+            logger.info("lambda_handler: Lazy import of create_app...")
+            try:
+                from main import create_app as create_app_func
+                logger.info("lambda_handler: create_app imported successfully from main")
+            except ImportError as e:
+                logger.warning(f"lambda_handler: Import from main failed: {e}")
+                try:
+                    from backend.main import create_app as create_app_func
+                    logger.info("lambda_handler: create_app imported successfully from backend.main")
+                except ImportError as e2:
+                    logger.error(f"lambda_handler: Import from backend.main failed: {e2}")
+                    return {
+                        "statusCode": 500,
+                        "headers": {
+                            "Content-Type": "application/json",
+                            "Access-Control-Allow-Origin": "*"
+                        },
+                        "body": json.dumps({"error": "Failed to import create_app", "details": str(e2)})
+                    }
+        
+        # Créer l'app Flask si nécessaire
+        if app is None:
+            logger.info("lambda_handler: Creating Flask app...")
+            try:
+                app = create_app_func()
+                logger.info("lambda_handler: Flask app created successfully")
+            except Exception as e:
+                logger.error(f"lambda_handler: Failed to create Flask app: {e}")
+                import traceback
+                logger.error(f"lambda_handler: Traceback = {traceback.format_exc()}")
+                headers = event.get("headers", {}) or {}
+                headers_lower = {k.lower(): v for k, v in headers.items()}
+                origin = headers_lower.get("origin", "")
+                allowed_origins = ["https://mapevent.world", "http://localhost:8000", "http://127.0.0.1:8000"]
+                cors_origin = origin if origin in allowed_origins else "https://mapevent.world"
+                
+                return {
+                    "statusCode": 500,
+                    "headers": {
+                        "Content-Type": "application/json",
+                        "Access-Control-Allow-Origin": cors_origin
+                    },
+                    "body": json.dumps({"error": "Failed to create Flask app", "details": str(e)})
+                }
+        
+        # Utiliser Flask test client pour router les requêtes
+        logger.info("lambda_handler: Using Flask test client for routing")
+        with app.test_client() as client:
+            # Préparer les headers
+            headers = event.get('headers', {}) or {}
+            headers_lower = {k.lower(): v for k, v in headers.items()}
+            
+            # Préparer le body
+            body = event.get('body', '')
+            query_params = event.get('queryStringParameters') or {}
+            
+            # Construire les headers Flask
+            flask_headers = {}
+            if 'authorization' in headers_lower:
+                flask_headers['Authorization'] = headers_lower['authorization']
+            
+            # Appeler Flask
+            try:
+                if method == 'GET':
+                    response = client.get(path, query_string=query_params, headers=flask_headers)
+                elif method == 'POST':
+                    if body:
+                        try:
+                            json_data = json.loads(body)
+                            response = client.post(path, json=json_data, content_type='application/json', headers=flask_headers)
+                        except json.JSONDecodeError:
+                            response = client.post(path, data=body, content_type='application/json', headers=flask_headers)
+                    else:
+                        response = client.post(path, data=body, content_type='application/json', headers=flask_headers)
+                elif method == 'PUT':
+                    if body:
+                        try:
+                            json_data = json.loads(body)
+                            response = client.put(path, json=json_data, content_type='application/json', headers=flask_headers)
+                        except json.JSONDecodeError:
+                            response = client.put(path, data=body, content_type='application/json', headers=flask_headers)
+                    else:
+                        response = client.put(path, data=body, content_type='application/json', headers=flask_headers)
+                elif method == 'DELETE':
+                    response = client.delete(path, headers=flask_headers)
+                else:
+                    response = client.open(path, method=method, data=body, headers=flask_headers)
+            except Exception as flask_error:
+                logger.error(f"lambda_handler: Flask routing error: {flask_error}")
+                import traceback
+                logger.error(f"lambda_handler: Traceback = {traceback.format_exc()}")
+                headers = event.get("headers", {}) or {}
+                headers_lower = {k.lower(): v for k, v in headers.items()}
+                origin = headers_lower.get("origin", "")
+                allowed_origins = ["https://mapevent.world", "http://localhost:8000", "http://127.0.0.1:8000"]
+                cors_origin = origin if origin in allowed_origins else "https://mapevent.world"
+                
+                return {
+                    "statusCode": 500,
+                    "headers": {
+                        "Content-Type": "application/json",
+                        "Access-Control-Allow-Origin": cors_origin
+                    },
+                    "body": json.dumps({"error": "Flask routing error", "details": str(flask_error)})
+                }
+            
+            # Récupérer le body de la réponse
+            body_content = response.get_data(as_text=True)
+            if not body_content:
+                body_content = '{}'
+            
+            # Headers CORS - IMPORTANT: Ne jamais créer "origin1, *"
+            origin = headers_lower.get('origin', '')
+            allowed_origins = ['https://mapevent.world', 'http://localhost:8000', 'http://127.0.0.1:8000']
+            
+            # Autoriser mapevent.world explicitement
+            if origin in allowed_origins:
+                cors_origin = origin
+            else:
+                # En production, ne pas autoriser "*" - seulement les origines whitelistées
+                cors_origin = "https://mapevent.world" if origin else "*"
+            
+            logger.info(f"lambda_handler: Response CORS - origin={origin}, cors_origin={cors_origin}, status={response.status_code}")
+            
+            # Construire les headers finaux
+            # IMPORTANT: Supprimer TOUS les headers CORS de Flask
+            # Lambda Function URL ajoute automatiquement les headers CORS basé sur sa configuration
+            # Si Flask les ajoute aussi, on aura des doublons
+            final_headers = {}
+            cors_headers_to_ignore = ['access-control-allow-origin', 'access-control-allow-methods', 
+                                     'access-control-allow-headers', 'access-control-max-age', 
+                                     'access-control-allow-credentials', 'access-control-expose-headers']
+            
+            # Supprimer tous les headers CORS de Flask - Lambda Function URL les ajoutera automatiquement
+            for key, value in response.headers:
+                key_lower = key.lower()
+                if key_lower not in cors_headers_to_ignore:
+                    # Éviter les doublons : si la clé existe déjà, ne pas l'ajouter
+                    if key not in final_headers:
+                        final_headers[key] = value
+            
+            # IMPORTANT: Lambda Function URL NE gère PAS automatiquement CORS pour les réponses
+            # Il faut ajouter les headers CORS manuellement
+            if 'Content-Type' not in final_headers:
+                final_headers['Content-Type'] = 'application/json'
+            
+            # NE PAS ajouter les headers CORS ici - Lambda Function URL les ajoute automatiquement
+            # basé sur sa configuration CORS (AllowOrigins: ["https://mapevent.world", ...])
+            # Si on les ajoute ici, Lambda Function URL les ajoute aussi, créant des doublons
+            # comme "https://mapevent.world, https://mapevent.world"
+            # 
+            # Lambda Function URL gère automatiquement CORS pour toutes les réponses
+            # basé sur la configuration de la Function URL
+            logger.info(f"lambda_handler: CORS géré automatiquement par Lambda Function URL - origin={origin}, cors_origin={cors_origin}")
+            
+            return {
+                'statusCode': response.status_code,
+                'headers': final_headers,
+                'body': body_content
+            }
+        
     except Exception as e:
+        logger.error(f"lambda_handler: Exception = {str(e)}")
         import traceback
-        error_type = type(e).__name__
-        error_message = str(e)
-        error_traceback = traceback.format_exc()
-        
-        print(f"❌ ERREUR CRITIQUE dans lambda_handler: {error_type}")
-        print(f"❌ Message: {error_message}")
-        print(f"❌ Traceback complet:\n{error_traceback}")
-        
-        # TOUJOURS retourner une réponse valide, même en cas d'erreur
-        try:
-            error_body = json.dumps({
-                'error': 'Internal Server Error',
-                'message': error_message[:200],  # Limiter la longueur
-                'type': error_type
-            })
-        except:
-            error_body = json.dumps({'error': 'Internal Server Error'})
+        logger.error(f"lambda_handler: Traceback = {traceback.format_exc()}")
+        headers = event.get("headers", {}) or {}
+        headers_lower = {k.lower(): v for k, v in headers.items()}
+        origin = headers_lower.get("origin", "")
+        allowed_origins = ["https://mapevent.world", "http://localhost:8000", "http://127.0.0.1:8000"]
+        cors_origin = origin if origin in allowed_origins else "https://mapevent.world"
         
         return {
-            'statusCode': 500,
-            'headers': {
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS, PATCH',
-                'Access-Control-Allow-Headers': 'Content-Type, Authorization, Origin, X-Requested-With, Accept, X-Amz-Date, X-Api-Key, X-Amz-Security-Token',
-                'Access-Control-Allow-Credentials': 'true',
-                'Access-Control-Max-Age': '3600'
+            "statusCode": 500,
+            "headers": {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": cors_origin
             },
-            'body': error_body
+            "body": json.dumps({"error": "Internal server error", "details": str(e)})
         }

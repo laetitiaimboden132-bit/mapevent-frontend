@@ -39,8 +39,8 @@ aws lambda update-function-code `
 Write-Host "⏳ Attente de la mise à jour..." -ForegroundColor Yellow
 Start-Sleep -Seconds 5
 
-Write-Host "✅ Déploiement terminé avec succès!" -ForegroundColor Green
-Write-Host "📊 Informations de la fonction:" -ForegroundColor Cyan
+Write-Host "Deploiement termine avec succes!" -ForegroundColor Green
+Write-Host "Informations de la fonction:" -ForegroundColor Cyan
 aws lambda get-function `
     --function-name $FUNCTION_NAME `
     --region $REGION `

@@ -55,3 +55,10 @@ CREATE INDEX IF NOT EXISTS idx_users_username ON users(LOWER(username));
 COMMENT ON TABLE users IS 'Table des utilisateurs MapEvent avec support OAuth complet';
 
 
+
+
+
+
+
+
+

@@ -1,0 +1,17 @@
+VÉRIFIER LES DÉTAILS DE LA RÈGLE
+================================
+
+1. Dans AWS RDS > Security Groups > default
+
+2. Cliquez sur la règle "CIDR/IP - Inbound : 81.13.194.194/32"
+
+3. Vérifiez que :
+   - Type = PostgreSQL (ou Custom TCP)
+   - Port = 5432
+   - Source = 81.13.194.194/32
+
+4. Si ce n'est pas correct, modifiez la règle
+
+5. Si c'est correct, attendez encore 10-20 minutes ou testez sans firewall
+
+
