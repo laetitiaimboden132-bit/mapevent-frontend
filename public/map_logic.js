@@ -2684,6 +2684,41 @@ function updateAuthButtons() {
     // Utilisateur non connecté : afficher les boutons auth, masquer le bouton compte
     authButtons.style.display = 'flex';
     accountBtn.style.display = 'none';
+    
+    // ⚠️⚠️⚠️ CRITIQUE : Réattacher les event listeners au bouton "Connexion" après déconnexion
+    setTimeout(() => {
+      const loginBtn = document.getElementById('login-topbar-btn');
+      if (loginBtn) {
+        // Supprimer tous les anciens listeners en clonant le bouton
+        const newLoginBtn = loginBtn.cloneNode(true);
+        loginBtn.parentNode.replaceChild(newLoginBtn, loginBtn);
+        
+        // Réattacher le listener avec plusieurs fallbacks
+        newLoginBtn.addEventListener('click', function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
+          console.log('[AUTH BUTTONS] Bouton Connexion cliqué');
+          
+          // Essayer plusieurs méthodes pour ouvrir le modal de connexion
+          if (typeof window.openLoginModal === 'function') {
+            window.openLoginModal();
+          } else if (typeof window.openAuthModal === 'function') {
+            window.openAuthModal('login');
+          } else if (typeof openLoginModal === 'function') {
+            openLoginModal();
+          } else if (typeof openAuthModal === 'function') {
+            openAuthModal('login');
+          } else {
+            console.warn('[AUTH BUTTONS] ⚠️ Aucune fonction de connexion disponible, rafraîchissement de la page...');
+            // Dernier recours : rafraîchir la page pour réinitialiser tout
+            window.location.reload();
+          }
+        }, { capture: true });
+        
+        console.log('[AUTH BUTTONS] ✅ Event listener réattaché au bouton Connexion');
+      }
+    }, 50);
   }
 }
 

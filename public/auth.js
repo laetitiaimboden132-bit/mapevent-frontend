@@ -1171,20 +1171,42 @@ async function performLogout(rememberMe) {
   
   // Réinitialiser window.currentUser et currentUser global
   if (typeof window !== 'undefined') {
-    window.currentUser = {
-      isLoggedIn: false,
-      username: '',
-      email: '',
-      profile_photo_url: null
-    };
+    // Utiliser getDefaultUser si disponible pour réinitialiser complètement
+    if (typeof window.getDefaultUser === 'function') {
+      window.currentUser = window.getDefaultUser();
+    } else {
+      window.currentUser = {
+        isLoggedIn: false,
+        username: '',
+        email: '',
+        profile_photo_url: null,
+        favorites: [],
+        agenda: [],
+        likes: [],
+        participating: [],
+        reviews: {},
+        subscription: 'free'
+      };
+    }
   }
   
   // ⚠️⚠️⚠️ CRITIQUE : Mettre à jour currentUser global aussi
   if (typeof currentUser !== 'undefined') {
-    currentUser.isLoggedIn = false;
-    currentUser.username = '';
-    currentUser.email = '';
-    currentUser.profile_photo_url = null;
+    // Utiliser getDefaultUser si disponible
+    if (typeof getDefaultUser === 'function') {
+      currentUser = getDefaultUser();
+    } else {
+      currentUser.isLoggedIn = false;
+      currentUser.username = '';
+      currentUser.email = '';
+      currentUser.profile_photo_url = null;
+      if (!Array.isArray(currentUser.favorites)) currentUser.favorites = [];
+      if (!Array.isArray(currentUser.agenda)) currentUser.agenda = [];
+      if (!Array.isArray(currentUser.likes)) currentUser.likes = [];
+      if (!Array.isArray(currentUser.participating)) currentUser.participating = [];
+      if (!currentUser.reviews || typeof currentUser.reviews !== 'object') currentUser.reviews = {};
+      if (!currentUser.subscription) currentUser.subscription = 'free';
+    }
   }
   
   // Fermer les modals
@@ -1195,11 +1217,11 @@ async function performLogout(rememberMe) {
     closePublishModal();
   }
   
-  // Mettre à jour l'UI
-  if (typeof updateAuthUI === 'function') {
-    updateAuthUI(null);
-  }
+  // ⚠️⚠️⚠️ CRITIQUE : NE PAS appeler updateAuthUI(null) car cela génère une erreur
+  // updateAuthUI nécessite un slimUser valide avec un id
+  // À la place, on met simplement à jour les boutons et le bloc compte
   
+  // Mettre à jour le bloc compte pour le masquer
   if (typeof window !== 'undefined' && typeof window.updateAccountBlockLegitimately === 'function') {
     window.updateAccountBlockLegitimately();
   }
@@ -1211,6 +1233,18 @@ async function performLogout(rememberMe) {
     window.updateAuthButtons();
   }
   
+  // ⚠️⚠️⚠️ FORCER la mise à jour immédiate de l'UI pour masquer le bouton "Compte"
+  setTimeout(() => {
+    const authButtons = document.getElementById('auth-buttons');
+    const accountBtn = document.getElementById('account-topbar-btn');
+    if (authButtons) {
+      authButtons.style.display = 'flex';
+    }
+    if (accountBtn) {
+      accountBtn.style.display = 'none';
+    }
+  }, 0);
+  
   // ⚠️⚠️⚠️ FORCER la mise à jour de l'UI même si les fonctions ne sont pas disponibles
   setTimeout(() => {
     const authButtons = document.getElementById('auth-buttons');
@@ -1218,30 +1252,56 @@ async function performLogout(rememberMe) {
     if (authButtons) {
       authButtons.style.display = 'flex';
       // ⚠️⚠️ CRITIQUE : Réattacher les event listeners après déconnexion pour garantir que le bouton fonctionne
-      const loginBtn = authButtons.querySelector('button');
+      // Essayer d'abord avec l'ID spécifique, puis avec querySelector
+      let loginBtn = document.getElementById('login-topbar-btn');
+      if (!loginBtn) {
+        loginBtn = authButtons.querySelector('button');
+      }
+      
       if (loginBtn) {
-        // Supprimer l'ancien listener s'il existe
+        // Supprimer l'ancien listener s'il existe en clonant le bouton
         const newLoginBtn = loginBtn.cloneNode(true);
         loginBtn.parentNode.replaceChild(newLoginBtn, loginBtn);
-        // Ajouter un nouveau listener
-        newLoginBtn.addEventListener('click', (e) => {
+        
+        // Ajouter un nouveau listener avec plusieurs fallbacks
+        newLoginBtn.addEventListener('click', function(e) {
           e.preventDefault();
           e.stopPropagation();
-          console.log('[LOGOUT] Bouton Connexion cliqué après déconnexion');
+          e.stopImmediatePropagation();
+          console.log('[LOGOUT] ✅ Bouton Connexion cliqué après déconnexion');
+          
+          // Essayer plusieurs méthodes pour ouvrir le modal de connexion
           if (typeof window.openLoginModal === 'function') {
             window.openLoginModal();
           } else if (typeof window.openAuthModal === 'function') {
             window.openAuthModal('login');
+          } else if (typeof openLoginModal === 'function') {
+            openLoginModal();
+          } else if (typeof openAuthModal === 'function') {
+            openAuthModal('login');
           } else {
-            console.error('[LOGOUT] ❌ Aucune fonction de connexion disponible');
-            alert('Erreur: fonction de connexion non disponible. Veuillez recharger la page.');
+            console.warn('[LOGOUT] ⚠️ Aucune fonction de connexion disponible, rafraîchissement de la page...');
+            // Dernier recours : rafraîchir la page pour réinitialiser tout
+            window.location.reload();
           }
         }, { capture: true });
-        console.log('[LOGOUT] ✅ Event listener réattaché au bouton Connexion');
+        
+        console.log('[LOGOUT] ✅✅✅ Event listener réattaché au bouton Connexion avec fallbacks');
+      } else {
+        console.warn('[LOGOUT] ⚠️ Bouton Connexion non trouvé dans auth-buttons');
       }
     }
     if (accountBtn) accountBtn.style.display = 'none';
   }, 100);
+  
+  // ⚠️⚠️⚠️ DOUBLE VÉRIFICATION après un délai supplémentaire pour s'assurer que tout est bien mis à jour
+  setTimeout(() => {
+    if (typeof updateAuthButtons === 'function') {
+      updateAuthButtons();
+    } else if (typeof window !== 'undefined' && typeof window.updateAuthButtons === 'function') {
+      window.updateAuthButtons();
+    }
+  }, 300);
   
   // Notification
   if (typeof showNotification === 'function') {
