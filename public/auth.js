@@ -5031,7 +5031,18 @@ async function createAccountAndSendVerificationEmail(pendingData) {
     
     if (emailResponse.ok) {
       const emailData = await emailResponse.json();
-      // Afficher le message de vérification
+      console.log('[VERIFY] 📧 Réponse envoi email:', emailData);
+      
+      // Vérifier si l'email a vraiment été envoyé
+      if (emailData.dev_mode || emailData.message?.includes('mode développement')) {
+        // Mode développement - afficher le code dans la console et dans le modal
+        console.log(`🔐 CODE DE VÉRIFICATION (DEV ONLY): ${verificationCode}`);
+        if (typeof showNotification === 'function') {
+          showNotification(`⚠️ Mode développement - Code: ${verificationCode} (vérifiez la console)`, "warning");
+        }
+      }
+      
+      // Afficher le message de vérification (SANS lien direct)
       if (modal) {
         modal.innerHTML = `
           <div id="authModal" data-mode="email-sent" style="padding:40px;max-width:500px;margin:0 auto;text-align:center;position:relative;">
@@ -5046,6 +5057,7 @@ async function createAccountAndSendVerificationEmail(pendingData) {
             </div>
             
             <p style="color:var(--ui-text-muted);font-size:13px;margin-bottom:20px;">Un code de vérification à 6 chiffres a été envoyé à votre adresse email.</p>
+            <p style="color:var(--ui-text-muted);font-size:12px;margin-bottom:20px;font-weight:600;">⚠️ Vérifiez votre boîte email (et les spams) pour récupérer le code.</p>
             <p style="color:var(--ui-text-muted);font-size:12px;margin-bottom:20px;">Entrez le code ci-dessous pour vérifier votre compte :</p>
             
             <!-- Formulaire de saisie du code -->
@@ -5062,10 +5074,30 @@ async function createAccountAndSendVerificationEmail(pendingData) {
         `;
       }
     } else {
+      const errorData = await emailResponse.json().catch(() => ({ error: 'Erreur inconnue' }));
+      console.error('[VERIFY] ❌ Erreur envoi email:', errorData);
       if (typeof showNotification === 'function') {
-        showNotification('⚠️ Compte créé mais erreur lors de l\'envoi de l\'email', "warning");
+        showNotification(`⚠️ Compte créé mais erreur lors de l'envoi de l'email: ${errorData.error || 'Erreur inconnue'}`, "error");
       }
-      showVerificationChoice();
+      // Afficher quand même le formulaire de code avec le code généré (mode développement)
+      if (modal) {
+        modal.innerHTML = `
+          <div id="authModal" data-mode="email-error" style="padding:40px;max-width:500px;margin:0 auto;text-align:center;position:relative;">
+            <div style="margin-bottom:32px;">
+              <div style="font-size:64px;margin-bottom:16px;">⚠️</div>
+              <h2 style="margin:0 0 8px;font-size:28px;font-weight:800;color:#fff;">Erreur envoi email</h2>
+              <p style="margin:0;font-size:14px;color:var(--ui-text-muted);">L'email n'a pas pu être envoyé</p>
+            </div>
+            <p style="color:var(--ui-text-muted);font-size:13px;margin-bottom:20px;">Mode développement - Code généré: <strong style="font-family:monospace;font-size:18px;">${verificationCode}</strong></p>
+            <p style="color:var(--ui-text-muted);font-size:12px;margin-bottom:20px;">Entrez ce code pour vérifier votre compte :</p>
+            <div style="margin-bottom:20px;">
+              <input type="text" id="email-verification-code" placeholder="000000" maxlength="6" style="width:100%;padding:14px;border-radius:10px;border:2px solid rgba(255,255,255,0.1);background:rgba(15,23,42,0.5);color:#fff;font-size:24px;font-weight:700;text-align:center;letter-spacing:8px;font-family:monospace;" oninput="this.value=this.value.replace(/[^0-9]/g,'');if(this.value.length===6){verifyEmailCodeAfterRegister('${pendingData.email}',this.value);}">
+              <div id="email-code-feedback" style="margin-top:8px;font-size:12px;color:var(--ui-text-muted);"></div>
+            </div>
+            <button onclick="closeAuthModal()" style="width:100%;padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#00ffc3,#3b82f6);color:#000;font-weight:600;font-size:14px;cursor:pointer;">Fermer</button>
+          </div>
+        `;
+      }
     }
   } catch (error) {
     console.error('[VERIFY] Erreur:', error);
