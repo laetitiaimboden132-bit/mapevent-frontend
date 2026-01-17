@@ -1625,7 +1625,10 @@ function openAuthModal(mode = 'login') {
       </div>
       <div style="margin-bottom:16px;text-align:left;">
         <label style="display:block;font-size:13px;font-weight:600;color:var(--ui-text-main);margin-bottom:8px;">🔒 Mot de passe</label>
-        <input type="password" id="login-password" placeholder="Votre mot de passe" onkeypress="if(event.key==='Enter'&&typeof performLogin==='function')performLogin()" style="width:100%;padding:12px 16px;border-radius:10px;border:2px solid rgba(255,255,255,0.1);background:rgba(15,23,42,0.5);color:var(--ui-text-main);font-size:14px;transition:all 0.3s;" onfocus="this.style.borderColor='rgba(0,255,195,0.5)';this.style.background='rgba(15,23,42,0.8)';" onblur="this.style.borderColor='rgba(255,255,255,0.1)';this.style.background='rgba(15,23,42,0.5)';">
+        <div style="position:relative;">
+          <input type="password" id="login-password" placeholder="Votre mot de passe" onkeypress="if(event.key==='Enter'&&typeof performLogin==='function')performLogin()" style="width:100%;padding:12px 40px 12px 16px;border-radius:10px;border:2px solid rgba(255,255,255,0.1);background:rgba(15,23,42,0.5);color:var(--ui-text-main);font-size:14px;transition:all 0.3s;" onfocus="this.style.borderColor='rgba(0,255,195,0.5)';this.style.background='rgba(15,23,42,0.8)';" onblur="this.style.borderColor='rgba(255,255,255,0.1)';this.style.background='rgba(15,23,42,0.5)';">
+          <button type="button" onclick="const pwd=document.getElementById('login-password');if(pwd.type==='password'){pwd.type='text';this.textContent='🙈';}else{pwd.type='password';this.textContent='👁️';}" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--ui-text-muted);font-size:18px;cursor:pointer;padding:4px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;">👁️</button>
+        </div>
       </div>
       <div style="margin-bottom:24px;text-align:left;">
         <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:var(--ui-text-muted);">
@@ -1705,6 +1708,47 @@ function openAuthModal(mode = 'login') {
   const computedBackdropCheck = window.getComputedStyle(modalBackdrop);
   console.log('[AUTH] ✅✅✅ BACKDROP FORCÉ - display:', computedBackdropCheck.display, 'visibility:', computedBackdropCheck.visibility, 'opacity:', computedBackdropCheck.opacity, 'z-index:', computedBackdropCheck.zIndex);
   console.log('[AUTH] ⚠️⚠️⚠️⚠️⚠️⚠️ FORCAGE IMMÉDIAT DU BACKDROP APRÈS INJECTION HTML - FIN ⚠️⚠️⚠️⚠️⚠️⚠️');
+  
+  // ⚠️⚠️⚠️ FORCER ENCORE UNE FOIS AVEC requestAnimationFrame ET setTimeout pour s'assurer que le navigateur a rendu
+  requestAnimationFrame(() => {
+    setTimeout(() => {
+      const backdropCheck = document.getElementById('publish-modal-backdrop');
+      const modalCheck = document.getElementById('publish-modal');
+      const innerCheck = document.getElementById('publish-modal-inner');
+      
+      if (backdropCheck) {
+        // Supprimer l'onclick qui pourrait fermer le modal
+        backdropCheck.removeAttribute('onclick');
+        
+        const computed = window.getComputedStyle(backdropCheck);
+        console.log('[AUTH] 🔍 VÉRIFICATION RAF - backdrop display:', computed.display, 'visibility:', computed.visibility, 'opacity:', computed.opacity);
+        
+        if (computed.display === 'none' || computed.visibility === 'hidden' || parseFloat(computed.opacity) < 0.1) {
+          console.log('[AUTH] ⚠️⚠️⚠️ BACKDROP TOUJOURS INVISIBLE APRÈS RAF - FORCAGE FINAL AVEC cssText');
+          // Utiliser style.cssText pour remplacer complètement le style
+          backdropCheck.style.cssText = 'display:flex!important;visibility:visible!important;opacity:1!important;z-index:99999!important;position:fixed!important;top:0!important;left:0!important;width:100%!important;height:100%!important;background:rgba(0,0,0,0.8)!important;align-items:center!important;justify-content:center!important;pointer-events:auto!important;';
+          // Aussi forcer avec setAttribute
+          backdropCheck.setAttribute('style', 'display:flex!important;visibility:visible!important;opacity:1!important;z-index:99999!important;position:fixed!important;top:0!important;left:0!important;width:100%!important;height:100%!important;background:rgba(0,0,0,0.8)!important;align-items:center!important;justify-content:center!important;pointer-events:auto!important;');
+        }
+      }
+      
+      if (modalCheck) {
+        modalCheck.style.cssText = 'display:block!important;visibility:visible!important;opacity:1!important;position:relative!important;max-width:500px!important;width:90%!important;max-height:90vh!important;overflow-y:auto!important;';
+        modalCheck.setAttribute('style', 'display:block!important;visibility:visible!important;opacity:1!important;position:relative!important;max-width:500px!important;width:90%!important;max-height:90vh!important;overflow-y:auto!important;');
+      }
+      
+      if (innerCheck) {
+        innerCheck.style.cssText = 'display:block!important;visibility:visible!important;opacity:1!important;';
+        innerCheck.setAttribute('style', 'display:block!important;visibility:visible!important;opacity:1!important;');
+      }
+      
+      // Vérification finale
+      if (backdropCheck) {
+        const finalComputed = window.getComputedStyle(backdropCheck);
+        console.log('[AUTH] ✅✅✅ VÉRIFICATION FINALE RAF - backdrop display:', finalComputed.display, 'visibility:', finalComputed.visibility, 'opacity:', finalComputed.opacity);
+      }
+    }, 50);
+  });
   
   // SOLUTION ULTRA-ROBUSTE : Créer une fonction nommée pour pouvoir la supprimer si elle existe déjà
   // Supprimer l'ancien event listener si il existe
