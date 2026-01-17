@@ -4191,6 +4191,79 @@ function updatePostalAddressRequired() {
   }
 }
 
+// Fonction pour vérifier le code après création de compte
+async function verifyEmailCodeAfterRegister(email, code) {
+  try {
+    const feedbackEl = document.getElementById('email-code-feedback');
+    const codeInput = document.getElementById('email-verification-code');
+    
+    if (!code || code.length !== 6) {
+      if (feedbackEl) {
+        feedbackEl.textContent = '⚠️ Veuillez entrer les 6 chiffres';
+        feedbackEl.style.color = '#ef4444';
+      }
+      return;
+    }
+    
+    if (feedbackEl) {
+      feedbackEl.textContent = '⏳ Vérification en cours...';
+      feedbackEl.style.color = 'var(--ui-text-muted)';
+    }
+    
+    // Vérifier le code via le backend
+    const response = await fetch(`${API_BASE_URL}/user/verify-email`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, code })
+    });
+    
+    const data = await response.json();
+    
+    if (response.ok && data.success) {
+      if (feedbackEl) {
+        feedbackEl.textContent = '✅ Code vérifié avec succès !';
+        feedbackEl.style.color = '#22c55e';
+      }
+      if (codeInput) {
+        codeInput.style.borderColor = '#22c55e';
+        codeInput.style.background = 'rgba(34,197,94,0.1)';
+      }
+      
+      if (typeof showNotification === 'function') {
+        showNotification('✅ Email vérifié ! Connexion en cours...', 'success');
+      }
+      
+      // Connecter l'utilisateur automatiquement après vérification
+      setTimeout(async () => {
+        const pendingData = window.pendingRegisterData;
+        if (pendingData && typeof performLogin === 'function') {
+          await performLogin(pendingData.email, pendingData.password, true);
+          closeAuthModal();
+        }
+      }, 1000);
+    } else {
+      if (feedbackEl) {
+        feedbackEl.textContent = data.error || '❌ Code incorrect';
+        feedbackEl.style.color = '#ef4444';
+      }
+      if (codeInput) {
+        codeInput.style.borderColor = '#ef4444';
+        setTimeout(() => {
+          codeInput.value = '';
+          codeInput.style.borderColor = 'rgba(255,255,255,0.1)';
+        }, 1000);
+      }
+    }
+  } catch (error) {
+    console.error('[VERIFY] Erreur vérification code:', error);
+    const feedbackEl = document.getElementById('email-code-feedback');
+    if (feedbackEl) {
+      feedbackEl.textContent = '❌ Erreur lors de la vérification';
+      feedbackEl.style.color = '#ef4444';
+    }
+  }
+}
+
 // Exposer globalement
 window.startGoogleLogin = startGoogleLogin;
 window.closeAuthModal = closeAuthModal;
@@ -4203,6 +4276,7 @@ window.openLoginModal = openLoginModal;
 window.openRegisterModal = openRegisterModal;
 window.performLogin = performLogin;
 window.performRegister = performRegister;
+window.verifyEmailCodeAfterRegister = verifyEmailCodeAfterRegister;
 window.handleCognitoCallbackIfPresent = handleCognitoCallbackIfPresent;
 window.getAuthToken = getAuthToken;
 window.getRefreshToken = getRefreshToken;
@@ -4933,11 +5007,26 @@ async function createAccountAndSendVerificationEmail(pendingData) {
       return;
     }
     
-    // Envoyer l'email de vérification
-    const emailResponse = await fetch(`${API_BASE_URL}/user/send-verification-link`, {
+    // Générer un code de vérification à 6 chiffres
+    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+    console.log('[VERIFY] 📧 Code de vérification généré:', verificationCode);
+    
+    // Sauvegarder le code dans pendingData pour pouvoir le renvoyer
+    if (!window.pendingRegisterData) {
+      window.pendingRegisterData = pendingData;
+    }
+    window.pendingRegisterData.verificationCode = verificationCode;
+    window.pendingRegisterData.codeSentAt = Date.now();
+    
+    // Envoyer l'email de vérification avec le code
+    const emailResponse = await fetch(`${API_BASE_URL}/user/send-verification-code`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: pendingData.email })
+      body: JSON.stringify({ 
+        email: pendingData.email,
+        username: pendingData.username || 'Utilisateur',
+        code: verificationCode
+      })
     });
     
     if (emailResponse.ok) {
@@ -4956,8 +5045,18 @@ async function createAccountAndSendVerificationEmail(pendingData) {
               <p style="margin:0;font-size:14px;color:var(--ui-text-muted);">Un email a été envoyé à <strong>${pendingData.email}</strong></p>
             </div>
             
-            <p style="color:var(--ui-text-muted);font-size:13px;margin-bottom:20px;">Cliquez sur le lien dans l'email pour vérifier votre compte et vous connecter automatiquement.</p>
-            ${emailData.verification_url ? `<p style="color:var(--ui-text-muted);font-size:12px;margin-bottom:20px;word-break:break-all;">Lien direct: <a href="${emailData.verification_url}" style="color:#00ffc3;">${emailData.verification_url}</a></p>` : ''}
+            <p style="color:var(--ui-text-muted);font-size:13px;margin-bottom:20px;">Un code de vérification à 6 chiffres a été envoyé à votre adresse email.</p>
+            <p style="color:var(--ui-text-muted);font-size:12px;margin-bottom:20px;">Entrez le code ci-dessous pour vérifier votre compte :</p>
+            
+            <!-- Formulaire de saisie du code -->
+            <div style="margin-bottom:20px;">
+              <input type="text" id="email-verification-code" placeholder="000000" maxlength="6" style="width:100%;padding:14px;border-radius:10px;border:2px solid rgba(255,255,255,0.1);background:rgba(15,23,42,0.5);color:#fff;font-size:24px;font-weight:700;text-align:center;letter-spacing:8px;font-family:monospace;" oninput="this.value=this.value.replace(/[^0-9]/g,'');if(this.value.length===6){verifyEmailCodeAfterRegister('${pendingData.email}',this.value);}">
+              <div id="email-code-feedback" style="margin-top:8px;font-size:12px;color:var(--ui-text-muted);"></div>
+            </div>
+            
+            <p style="color:var(--ui-text-muted);font-size:11px;margin-bottom:20px;">Le code est valide pendant 15 minutes.</p>
+            
+            <button onclick="if(typeof createAccountAndSendVerificationEmail==='function'){const pendingData=window.pendingRegisterData;if(pendingData){createAccountAndSendVerificationEmail(pendingData);}}" style="width:100%;padding:12px;border-radius:10px;border:2px solid rgba(255,255,255,0.1);background:transparent;color:var(--ui-text-muted);font-weight:600;font-size:14px;cursor:pointer;margin-bottom:12px;">Renvoyer le code</button>
             <button onclick="closeAuthModal()" style="width:100%;padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#00ffc3,#3b82f6);color:#000;font-weight:600;font-size:14px;cursor:pointer;">Fermer</button>
           </div>
         `;
