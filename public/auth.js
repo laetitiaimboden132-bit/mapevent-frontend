@@ -364,6 +364,20 @@ async function startGoogleLogin() {
     authSave("pkce_verifier", verifier);
     authSave("oauth_state", state);
 
+    // ⚠️⚠️⚠️ CRITIQUE : Déterminer si c'est une première inscription ou une reconnexion
+    // Si window.isRegisteringWithGoogle est true OU si window.pendingRegisterData existe, c'est une première inscription
+    const isFirstTimeRegistration = window.isRegisteringWithGoogle === true || 
+                                     (window.pendingRegisterData && window.pendingRegisterData.email);
+    
+    // ⚠️⚠️⚠️ CRITIQUE : Pour la première inscription, forcer select_account ET consent pour garantir la validation smartphone
+    // Pour les reconnexions, on peut utiliser seulement consent
+    const promptValue = isFirstTimeRegistration 
+      ? 'select_account consent'  // ⚠️⚠️⚠️ PREMIÈRE INSCRIPTION : Forcer sélection compte + consentement = validation smartphone OBLIGATOIRE
+      : 'consent';                 // Reconnexion : consent seulement
+    
+    console.log('[GOOGLE LOGIN] ⚠️⚠️⚠️ Type de connexion:', isFirstTimeRegistration ? 'PREMIÈRE INSCRIPTION' : 'RECONNEXION');
+    console.log('[GOOGLE LOGIN] ⚠️⚠️⚠️ Prompt utilisé:', promptValue);
+
     const authorizeUrl =
       `${COGNITO.domain}/oauth2/authorize` +
       `?client_id=${encodeURIComponent(COGNITO.clientId)}` +
@@ -374,8 +388,9 @@ async function startGoogleLogin() {
       `&code_challenge=${encodeURIComponent(challenge)}` +
       `&code_challenge_method=S256` +
       `&identity_provider=Google` +
-      `&prompt=consent`; // ⚠️⚠️⚠️ CRITIQUE : Forcer Google à demander la validation smartphone à chaque fois
+      `&prompt=${encodeURIComponent(promptValue)}`; // ⚠️⚠️⚠️ CRITIQUE : select_account consent pour première inscription = validation smartphone OBLIGATOIRE
 
+    console.log('[GOOGLE LOGIN] ⚠️⚠️⚠️ URL OAuth générée avec prompt:', promptValue);
     window.location.assign(authorizeUrl);
   } catch (error) {
     console.error('❌ Erreur startGoogleLogin:', error);
@@ -1239,9 +1254,15 @@ async function performLogout(rememberMe) {
     const accountBtn = document.getElementById('account-topbar-btn');
     if (authButtons) {
       authButtons.style.display = 'flex';
+      authButtons.style.visibility = 'visible';
+      authButtons.style.opacity = '1';
+      authButtons.style.pointerEvents = 'auto';
     }
     if (accountBtn) {
       accountBtn.style.display = 'none';
+      accountBtn.style.visibility = 'hidden';
+      accountBtn.style.opacity = '0';
+      accountBtn.style.pointerEvents = 'none';
     }
   }, 0);
   
@@ -1251,24 +1272,39 @@ async function performLogout(rememberMe) {
     const accountBtn = document.getElementById('account-topbar-btn');
     if (authButtons) {
       authButtons.style.display = 'flex';
+      authButtons.style.visibility = 'visible';
+      authButtons.style.opacity = '1';
+      authButtons.style.pointerEvents = 'auto';
+      
       // ⚠️⚠️ CRITIQUE : Réattacher les event listeners après déconnexion pour garantir que le bouton fonctionne
-      // Essayer d'abord avec l'ID spécifique, puis avec querySelector
       let loginBtn = document.getElementById('login-topbar-btn');
-      if (!loginBtn) {
+      if (!loginBtn && authButtons) {
         loginBtn = authButtons.querySelector('button');
       }
       
       if (loginBtn) {
+        console.log('[LOGOUT] ✅ Bouton Connexion trouvé, réattachement des listeners');
+        
+        // ⚠️⚠️⚠️ CRITIQUE : Supprimer l'onclick inline qui peut interférer
+        loginBtn.removeAttribute('onclick');
+        
         // Supprimer l'ancien listener s'il existe en clonant le bouton
         const newLoginBtn = loginBtn.cloneNode(true);
         loginBtn.parentNode.replaceChild(newLoginBtn, loginBtn);
+        
+        // ⚠️⚠️⚠️ S'assurer que le bouton est cliquable
+        newLoginBtn.style.pointerEvents = 'auto';
+        newLoginBtn.style.cursor = 'pointer';
+        newLoginBtn.style.opacity = '1';
+        newLoginBtn.style.display = 'flex';
+        newLoginBtn.style.visibility = 'visible';
         
         // Ajouter un nouveau listener avec plusieurs fallbacks
         newLoginBtn.addEventListener('click', function(e) {
           e.preventDefault();
           e.stopPropagation();
           e.stopImmediatePropagation();
-          console.log('[LOGOUT] ✅ Bouton Connexion cliqué après déconnexion');
+          console.log('[LOGOUT] ✅✅✅ Bouton Connexion cliqué après déconnexion');
           
           // Essayer plusieurs méthodes pour ouvrir le modal de connexion
           if (typeof window.openLoginModal === 'function') {
@@ -1286,12 +1322,22 @@ async function performLogout(rememberMe) {
           }
         }, { capture: true });
         
-        console.log('[LOGOUT] ✅✅✅ Event listener réattaché au bouton Connexion avec fallbacks');
+        console.log('[LOGOUT] ✅✅✅ Event listener réattaché au bouton Connexion avec fallbacks', {
+          display: window.getComputedStyle(newLoginBtn).display,
+          visibility: window.getComputedStyle(newLoginBtn).visibility,
+          pointerEvents: window.getComputedStyle(newLoginBtn).pointerEvents,
+          cursor: window.getComputedStyle(newLoginBtn).cursor
+        });
       } else {
         console.warn('[LOGOUT] ⚠️ Bouton Connexion non trouvé dans auth-buttons');
       }
     }
-    if (accountBtn) accountBtn.style.display = 'none';
+    if (accountBtn) {
+      accountBtn.style.display = 'none';
+      accountBtn.style.visibility = 'hidden';
+      accountBtn.style.opacity = '0';
+      accountBtn.style.pointerEvents = 'none';
+    }
   }, 100);
   
   // ⚠️⚠️⚠️ DOUBLE VÉRIFICATION après un délai supplémentaire pour s'assurer que tout est bien mis à jour
@@ -1313,12 +1359,27 @@ async function performLogout(rememberMe) {
   }
   
   console.log('[LOGOUT] ✅ Déconnexion terminée');
+  
+  // ⚠️⚠️⚠️ CRITIQUE : Si "rester connecté" n'est pas activé, recharger la page pour réinitialiser tout
+  if (!rememberMe) {
+    console.log('[LOGOUT] Rechargement de la page pour réinitialiser complètement...');
+    setTimeout(() => {
+      window.location.reload();
+    }, 500); // Attendre un peu pour que la notification s'affiche
+  }
 }
 
 // Fonction logout publique (appelée depuis le bouton déconnexion)
+// ⚠️⚠️⚠️ FLUX STANDARD : Déconnexion simple sans demander "rester connecté"
+// L'option "rester connecté" est dans les paramètres du compte
 async function logout() {
-  console.log('[LOGOUT] logout() appelée - affichage choix "rester connecté"');
-  askRememberMeOnLogout();
+  console.log('[LOGOUT] logout() appelée - déconnexion simple');
+  
+  // ⚠️⚠️⚠️ Vérifier si "rester connecté" est activé dans les paramètres
+  const rememberMe = localStorage.getItem('rememberMe') === 'true';
+  
+  // Déconnexion directe (sans modal de confirmation)
+  await performLogout(rememberMe);
 }
 
 // ===============================
@@ -1327,6 +1388,7 @@ async function logout() {
 function openAuthModal(mode = 'login') {
   // Log ASCII obligatoire pour debug
   console.log("openAuthModal mode =", mode);
+  console.log('[AUTH] ⚠️⚠️⚠️ DEBUG COMPLET - openAuthModal appelé');
   
   // Si c'est le mode register, utiliser le formulaire complet (showProRegisterForm)
   if (mode === 'register') {
@@ -1344,16 +1406,98 @@ function openAuthModal(mode = 'login') {
   
   const backdrop = document.getElementById('publish-modal-backdrop');
   const modal = document.getElementById('publish-modal-inner');
-
+  const publishModal = document.getElementById('publish-modal');
+  
+  console.log('[AUTH] ⚠️⚠️⚠️ ÉLÉMENTS TROUVÉS:', {
+    backdrop: !!backdrop,
+    modal: !!modal,
+    publishModal: !!publishModal,
+    backdropDisplay: backdrop ? window.getComputedStyle(backdrop).display : 'N/A',
+    backdropVisibility: backdrop ? window.getComputedStyle(backdrop).visibility : 'N/A',
+    backdropOpacity: backdrop ? window.getComputedStyle(backdrop).opacity : 'N/A',
+    backdropZIndex: backdrop ? window.getComputedStyle(backdrop).zIndex : 'N/A'
+  });
+  
   if (!backdrop || !modal) {
-    console.error('[AUTH] Modal elements not found');
+    console.error('[AUTH] ❌❌❌ Modal elements not found');
     console.error('[AUTH] backdrop:', backdrop);
     console.error('[AUTH] modal:', modal);
+    console.error('[AUTH] publishModal:', publishModal);
+    
+    // Essayer de créer les éléments s'ils n'existent pas
+    if (!backdrop) {
+      console.log('[AUTH] ⚠️ Création du backdrop manquant...');
+      const newBackdrop = document.createElement('div');
+      newBackdrop.id = 'publish-modal-backdrop';
+      document.body.appendChild(newBackdrop);
+      console.log('[AUTH] ✅ Backdrop créé');
+    }
+    if (!modal && backdrop) {
+      console.log('[AUTH] ⚠️ Création du modal manquant...');
+      if (!publishModal) {
+        const newPublishModal = document.createElement('div');
+        newPublishModal.id = 'publish-modal';
+        backdrop.appendChild(newPublishModal);
+      }
+      const newModal = document.createElement('div');
+      newModal.id = 'publish-modal-inner';
+      if (publishModal || document.getElementById('publish-modal')) {
+        (publishModal || document.getElementById('publish-modal')).appendChild(newModal);
+      } else {
+        backdrop.appendChild(newModal);
+      }
+      console.log('[AUTH] ✅ Modal créé');
+    }
+    
+    // Réessayer après création
+    const newBackdrop = document.getElementById('publish-modal-backdrop');
+    const newModal = document.getElementById('publish-modal-inner');
+    if (!newBackdrop || !newModal) {
+      console.error('[AUTH] ❌❌❌ Impossible de créer les éléments du modal');
+      return;
+    }
+  }
+  
+  // Récupérer les éléments à nouveau après création éventuelle
+  let finalBackdrop = document.getElementById('publish-modal-backdrop');
+  let finalModal = document.getElementById('publish-modal-inner');
+  let finalPublishModal = document.getElementById('publish-modal');
+  
+  // Si les éléments n'existent toujours pas, les créer
+  if (!finalBackdrop) {
+    console.log('[AUTH] ⚠️ Création du backdrop...');
+    finalBackdrop = document.createElement('div');
+    finalBackdrop.id = 'publish-modal-backdrop';
+    document.body.appendChild(finalBackdrop);
+  }
+  
+  if (!finalPublishModal && finalBackdrop) {
+    console.log('[AUTH] ⚠️ Création du publish-modal...');
+    finalPublishModal = document.createElement('div');
+    finalPublishModal.id = 'publish-modal';
+    finalBackdrop.appendChild(finalPublishModal);
+  }
+  
+  if (!finalModal && (finalPublishModal || finalBackdrop)) {
+    console.log('[AUTH] ⚠️ Création du modal-inner...');
+    finalModal = document.createElement('div');
+    finalModal.id = 'publish-modal-inner';
+    if (finalPublishModal) {
+      finalPublishModal.appendChild(finalModal);
+    } else if (finalBackdrop) {
+      finalBackdrop.appendChild(finalModal);
+    }
+  }
+  
+  // Vérifier une dernière fois
+  if (!finalBackdrop || !finalModal) {
+    console.error('[AUTH] ❌❌❌ Impossible de créer ou trouver les éléments du modal');
+    alert('Erreur : Impossible d\'afficher le modal de connexion. Veuillez rafraîchir la page.');
     return;
   }
   
   // Vérifier aussi avec l'ID authModal après injection
-  console.log('[AUTH] Modal elements found, backdrop:', !!backdrop, 'modal:', !!modal);
+  console.log('[AUTH] ✅ Modal elements found, backdrop:', !!finalBackdrop, 'modal:', !!finalModal, 'publishModal:', !!finalPublishModal);
 
   // Valider le mode
   if (mode !== 'register' && mode !== 'login') {
@@ -1509,25 +1653,58 @@ function openAuthModal(mode = 'login') {
     </div>
   `;
   
-  // Injecter le HTML AVANT de vérifier que le modal existe
-  const modalInner = document.getElementById("publish-modal-inner");
-  const modalBackdrop = document.getElementById("publish-modal-backdrop");
+  // Utiliser les éléments finaux trouvés/créés
+  const modalInner = finalModal;
+  const modalBackdrop = finalBackdrop;
   
   if (!modalInner || !modalBackdrop) {
-    console.error('[AUTH] ERREUR: Elements modal non trouves apres creation HTML');
+    console.error('[AUTH] ❌❌❌ ERREUR: Elements modal non trouves apres creation HTML');
+    console.error('[AUTH] modalInner:', modalInner);
+    console.error('[AUTH] modalBackdrop:', modalBackdrop);
+    alert('Erreur : Impossible d\'afficher le modal de connexion. Veuillez rafraîchir la page.');
     return;
   }
   
-  console.log('[AUTH] Injection HTML dans le modal...');
+  // ⚠️⚠️⚠️ CRITIQUE : Supprimer l'onclick du backdrop qui pourrait fermer le modal immédiatement
+  modalBackdrop.removeAttribute('onclick');
+  console.log('[AUTH] ✅ Attribut onclick supprimé du backdrop');
+  
+  console.log('[AUTH] ✅✅✅ Injection HTML dans le modal...');
   modalInner.innerHTML = html;
-  console.log('[AUTH] HTML injecte, longueur:', html.length);
+  console.log('[AUTH] ✅ HTML injecte, longueur:', html.length);
   
   // Vérifier que modalBackdrop existe toujours après l'injection
-  if (!modalBackdrop) {
-    console.error('[AUTH] ❌ ERREUR: modalBackdrop est null apres injection HTML !');
+  const verifyBackdrop = document.getElementById("publish-modal-backdrop");
+  if (!verifyBackdrop) {
+    console.error('[AUTH] ❌❌❌ ERREUR: modalBackdrop est null apres injection HTML !');
+    alert('Erreur : Le modal a disparu après injection. Veuillez rafraîchir la page.');
     return;
   }
   console.log('[AUTH] ✅ modalBackdrop existe toujours');
+  
+  // ⚠️⚠️⚠️ CRITIQUE : FORCER l'affichage IMMÉDIATEMENT APRÈS l'injection HTML - AVANT TOUT LE RESTE
+  // ⚠️⚠️⚠️ VERSION 2026-01-17 19:00 - CODE DE FORCAGE MODAL
+  console.log('[AUTH] ⚠️⚠️⚠️⚠️⚠️⚠️ FORCAGE IMMÉDIAT DU BACKDROP APRÈS INJECTION HTML - DÉBUT ⚠️⚠️⚠️⚠️⚠️⚠️');
+  console.log('[AUTH] ⚠️⚠️⚠️ SI VOUS VOYEZ CE MESSAGE, LA NOUVELLE VERSION EST CHARGÉE ⚠️⚠️⚠️');
+  console.log('[AUTH] ⚠️⚠️⚠️ modalBackdrop:', !!modalBackdrop, 'modalInner:', !!modalInner);
+  
+  // FORCER IMMÉDIATEMENT SANS TRY-CATCH POUR VOIR LES ERREURS
+  console.log('[AUTH] ⚠️⚠️⚠️ Application setAttribute au backdrop...');
+  modalBackdrop.setAttribute('style', 'display:flex!important;visibility:visible!important;opacity:1!important;z-index:99999!important;position:fixed!important;top:0!important;left:0!important;width:100%!important;height:100%!important;background:rgba(0,0,0,0.8)!important;align-items:center!important;justify-content:center!important;pointer-events:auto!important;');
+  console.log('[AUTH] ✅✅✅ BACKDROP setAttribute APPLIQUÉ');
+  
+  // Réutiliser publishModal déjà déclaré plus haut (ligne 1409)
+  if (publishModal) {
+    publishModal.setAttribute('style', 'display:block!important;visibility:visible!important;opacity:1!important;position:relative!important;max-width:500px!important;width:90%!important;max-height:90vh!important;overflow-y:auto!important;');
+    console.log('[AUTH] ✅✅✅ PUBLISH-MODAL setAttribute APPLIQUÉ');
+  }
+  
+  modalInner.setAttribute('style', 'display:block!important;visibility:visible!important;opacity:1!important;');
+  console.log('[AUTH] ✅✅✅ MODAL-INNER setAttribute APPLIQUÉ');
+  
+  const computedBackdropCheck = window.getComputedStyle(modalBackdrop);
+  console.log('[AUTH] ✅✅✅ BACKDROP FORCÉ - display:', computedBackdropCheck.display, 'visibility:', computedBackdropCheck.visibility, 'opacity:', computedBackdropCheck.opacity, 'z-index:', computedBackdropCheck.zIndex);
+  console.log('[AUTH] ⚠️⚠️⚠️⚠️⚠️⚠️ FORCAGE IMMÉDIAT DU BACKDROP APRÈS INJECTION HTML - FIN ⚠️⚠️⚠️⚠️⚠️⚠️');
   
   // SOLUTION ULTRA-ROBUSTE : Créer une fonction nommée pour pouvoir la supprimer si elle existe déjà
   // Supprimer l'ancien event listener si il existe
@@ -1628,6 +1805,42 @@ function openAuthModal(mode = 'login') {
     }
   };
   
+  // ⚠️⚠️⚠️ CRITIQUE : FORCER l'affichage du backdrop et du modal IMMÉDIATEMENT AVANT l'attachement de l'event listener
+  // ⚠️⚠️⚠️ EXÉCUTION IMMÉDIATE DU CODE DE FORCAGE AVANT LE LOG PROBLÉMATIQUE
+  console.log('[AUTH] ⚠️⚠️⚠️ DÉBUT FORCAGE AFFICHAGE MODAL - IMMÉDIAT (AVANT EVENT LISTENER)');
+  console.log('[AUTH] ⚠️⚠️⚠️ EXÉCUTION DU CODE DE FORCAGE MAINTENANT');
+  console.log('[AUTH] ⚠️⚠️⚠️ modalBackdrop existe:', !!modalBackdrop, 'modalInner existe:', !!modalInner);
+  
+  // FORCER IMMÉDIATEMENT AVANT TOUT LE RESTE - UTILISER setAttribute POUR FORCER
+  console.log('[AUTH] ⚠️⚠️⚠️ FORCAGE IMMÉDIAT DU BACKDROP AVEC setAttribute');
+  if (modalBackdrop) {
+    modalBackdrop.setAttribute('style', 'display:flex!important;visibility:visible!important;opacity:1!important;z-index:99999!important;position:fixed!important;top:0!important;left:0!important;width:100%!important;height:100%!important;background:rgba(0,0,0,0.8)!important;align-items:center!important;justify-content:center!important;pointer-events:auto!important;');
+    console.log('[AUTH] ✅✅✅ BACKDROP FORCÉ AVEC setAttribute');
+  } else {
+    console.error('[AUTH] ❌❌❌ modalBackdrop est NULL !');
+  }
+  
+  const publishModalCheck = document.getElementById('publish-modal');
+  console.log('[AUTH] ⚠️⚠️⚠️ publishModal trouvé:', !!publishModalCheck);
+  if (publishModalCheck) {
+    publishModalCheck.setAttribute('style', 'display:block!important;visibility:visible!important;opacity:1!important;position:relative!important;max-width:500px!important;width:90%!important;max-height:90vh!important;overflow-y:auto!important;');
+    console.log('[AUTH] ✅✅✅ PUBLISH-MODAL FORCÉ AVEC setAttribute');
+  } else {
+    console.error('[AUTH] ❌❌❌ publishModal non trouvé !');
+  }
+  
+  if (modalInner) {
+    modalInner.setAttribute('style', 'display:block!important;visibility:visible!important;opacity:1!important;');
+    console.log('[AUTH] ✅✅✅ MODAL-INNER FORCÉ AVEC setAttribute');
+  } else {
+    console.error('[AUTH] ❌❌❌ modalInner est NULL !');
+  }
+  
+  // VÉRIFICATION IMMÉDIATE APRÈS FORCAGE
+  const computedBackdropCheckFinal = modalBackdrop ? window.getComputedStyle(modalBackdrop) : null;
+  console.log('[AUTH] ⚠️⚠️⚠️ VÉRIFICATION IMMÉDIATE - backdrop display:', computedBackdropCheckFinal ? computedBackdropCheckFinal.display : 'NULL', 'visibility:', computedBackdropCheckFinal ? computedBackdropCheckFinal.visibility : 'NULL', 'opacity:', computedBackdropCheckFinal ? computedBackdropCheckFinal.opacity : 'NULL');
+  console.log('[AUTH] ✅✅✅ FIN FORCAGE AFFICHAGE MODAL - Code exécuté sans erreur');
+  
   // Attacher l'event listener avec useCapture=true pour s'exécuter AVANT tout le monde
   console.log('[AUTH] Attachement de l\'event listener...');
   try {
@@ -1637,11 +1850,225 @@ function openAuthModal(mode = 'login') {
     console.error('[AUTH] ❌ ERREUR lors de l\'attachement de l\'event listener:', err);
   }
   
-  modalBackdrop.style.display = "flex";
-  console.log('[AUTH] Modal affiche, HTML injecte, event delegation configuree sur backdrop');
+  // ⚠️⚠️⚠️ CRITIQUE : FORCER l'affichage du backdrop et du modal IMMÉDIATEMENT APRÈS l'attachement
+  console.log('[AUTH] ⚠️⚠️⚠️ DÉBUT FORCAGE AFFICHAGE MODAL - IMMÉDIAT');
+  console.log('[AUTH] ⚠️⚠️⚠️ EXÉCUTION DU CODE DE FORCAGE MAINTENANT');
+  console.log('[AUTH] ⚠️⚠️⚠️ modalBackdrop existe:', !!modalBackdrop, 'modalInner existe:', !!modalInner);
+  
+  // FORCER IMMÉDIATEMENT AVANT TOUT LE RESTE - UTILISER setAttribute POUR FORCER
+  console.log('[AUTH] ⚠️⚠️⚠️ FORCAGE IMMÉDIAT DU BACKDROP AVEC setAttribute');
+  if (modalBackdrop) {
+    modalBackdrop.setAttribute('style', 'display:flex!important;visibility:visible!important;opacity:1!important;z-index:99999!important;position:fixed!important;top:0!important;left:0!important;width:100%!important;height:100%!important;background:rgba(0,0,0,0.8)!important;align-items:center!important;justify-content:center!important;pointer-events:auto!important;');
+    console.log('[AUTH] ✅✅✅ BACKDROP FORCÉ AVEC setAttribute');
+  } else {
+    console.error('[AUTH] ❌❌❌ modalBackdrop est NULL !');
+  }
+  
+  // Réutiliser publishModal déjà déclaré plus haut (ligne 1409)
+  const publishModalRef = document.getElementById('publish-modal');
+  console.log('[AUTH] ⚠️⚠️⚠️ publishModal trouvé:', !!publishModalRef);
+  if (publishModalRef) {
+    publishModalRef.setAttribute('style', 'display:block!important;visibility:visible!important;opacity:1!important;position:relative!important;max-width:500px!important;width:90%!important;max-height:90vh!important;overflow-y:auto!important;');
+    console.log('[AUTH] ✅✅✅ PUBLISH-MODAL FORCÉ AVEC setAttribute');
+  } else {
+    console.error('[AUTH] ❌❌❌ publishModal non trouvé !');
+  }
+  
+  if (modalInner) {
+    modalInner.setAttribute('style', 'display:block!important;visibility:visible!important;opacity:1!important;');
+    console.log('[AUTH] ✅✅✅ MODAL-INNER FORCÉ AVEC setAttribute');
+  } else {
+    console.error('[AUTH] ❌❌❌ modalInner est NULL !');
+  }
+  
+  // VÉRIFICATION IMMÉDIATE APRÈS FORCAGE (réutiliser computedBackdropCheck déjà déclaré plus haut ligne 1705)
+  const computedBackdropCheck2 = modalBackdrop ? window.getComputedStyle(modalBackdrop) : null;
+  console.log('[AUTH] ⚠️⚠️⚠️ VÉRIFICATION IMMÉDIATE - backdrop display:', computedBackdropCheck2 ? computedBackdropCheck2.display : 'NULL', 'visibility:', computedBackdropCheck2 ? computedBackdropCheck2.visibility : 'NULL', 'opacity:', computedBackdropCheck2 ? computedBackdropCheck2.opacity : 'NULL');
+  
+  try {
+    // ⚠️⚠️⚠️ CRITIQUE : FORCER l'affichage du backdrop et du modal IMMÉDIATEMENT
+    // Le backdrop doit être en flex avec align-items:center et justify-content:center pour centrer le modal
+    console.log('[AUTH] ⚠️⚠️⚠️ Application des styles au backdrop...');
+    modalBackdrop.style.display = "flex";
+  modalBackdrop.style.visibility = "visible";
+  modalBackdrop.style.opacity = "1";
+  modalBackdrop.style.zIndex = "9999";
+  modalBackdrop.style.position = "fixed";
+  modalBackdrop.style.top = "0";
+  modalBackdrop.style.left = "0";
+  modalBackdrop.style.width = "100%";
+  modalBackdrop.style.height = "100%";
+  modalBackdrop.style.background = "rgba(0,0,0,0.8)";
+  modalBackdrop.style.alignItems = "center";
+  modalBackdrop.style.justifyContent = "center";
+  modalBackdrop.style.setProperty('display', 'flex', 'important');
+  console.log('[AUTH] ✅✅✅ Styles appliqués au backdrop');
+  
+  // Vérifier que #publish-modal existe et est visible (c'est le conteneur entre backdrop et inner)
+  // Réutiliser publishModal déjà déclaré plus haut (ligne 1409) - récupérer à nouveau au cas où
+  const publishModalCurrent = document.getElementById('publish-modal');
+  if (publishModalCurrent) {
+    publishModalCurrent.style.display = "block";
+    publishModalCurrent.style.visibility = "visible";
+    publishModalCurrent.style.opacity = "1";
+    publishModalCurrent.style.position = "relative";
+    publishModalCurrent.style.top = "auto";
+    publishModalCurrent.style.right = "auto";
+    publishModalCurrent.style.maxWidth = "500px";
+    publishModalCurrent.style.width = "90%";
+    publishModalCurrent.style.maxHeight = "90vh";
+    publishModalCurrent.style.overflowY = "auto";
+    publishModalCurrent.style.setProperty('display', 'block', 'important');
+  } else {
+    console.error('[AUTH] ❌ ERREUR: #publish-modal non trouvé !');
+  }
+  
+  modalInner.style.display = "block";
+  modalInner.style.visibility = "visible";
+  modalInner.style.opacity = "1";
+  modalInner.style.zIndex = "10000";
+  modalInner.style.setProperty('display', 'block', 'important');
+  
+  // ⚠️⚠️⚠️ LOG IMMÉDIAT pour vérifier les styles appliqués
+  const computedBackdropNow = window.getComputedStyle(modalBackdrop);
+  const computedModalNow = publishModal ? window.getComputedStyle(publishModal) : null;
+  const computedInnerNow = window.getComputedStyle(modalInner);
+  
+  console.log('[AUTH] ⚠️⚠️⚠️ STYLES APPLIQUÉS IMMÉDIATEMENT:', {
+    backdropDisplay: modalBackdrop.style.display,
+    backdropVisibility: modalBackdrop.style.visibility,
+    backdropOpacity: modalBackdrop.style.opacity,
+    backdropZIndex: modalBackdrop.style.zIndex,
+    backdropComputedDisplay: computedBackdropNow.display,
+    backdropComputedVisibility: computedBackdropNow.visibility,
+    backdropComputedOpacity: computedBackdropNow.opacity,
+    backdropComputedZIndex: computedBackdropNow.zIndex,
+    backdropComputedPosition: computedBackdropNow.position,
+    publishModalExists: !!publishModal,
+    publishModalDisplay: publishModal ? publishModal.style.display : 'N/A',
+    publishModalComputedDisplay: publishModal ? computedModalNow.display : 'N/A',
+    innerDisplay: modalInner.style.display,
+    innerComputedDisplay: computedInnerNow.display,
+    backdropRect: modalBackdrop.getBoundingClientRect()
+  });
+  
+  // ⚠️⚠️⚠️ FORCER IMMÉDIATEMENT si le backdrop n'est pas visible
+  if (computedBackdropNow.display === 'none' || computedBackdropNow.visibility === 'hidden' || computedBackdropNow.opacity === '0') {
+    console.error('[AUTH] ❌❌❌ BACKDROP INVISIBLE IMMÉDIATEMENT - FORCAGE ULTIME');
+    modalBackdrop.setAttribute('style', 'display:flex!important;visibility:visible!important;opacity:1!important;z-index:99999!important;position:fixed!important;top:0!important;left:0!important;width:100%!important;height:100%!important;background:rgba(0,0,0,0.8)!important;align-items:center!important;justify-content:center!important;pointer-events:auto!important;');
+    
+    if (publishModal) {
+      publishModal.setAttribute('style', 'display:block!important;visibility:visible!important;opacity:1!important;position:relative!important;max-width:500px!important;width:90%!important;max-height:90vh!important;overflow-y:auto!important;');
+    }
+    
+    modalInner.setAttribute('style', 'display:block!important;visibility:visible!important;opacity:1!important;');
+    
+    // Vérifier à nouveau après forçage
+    const computedBackdropAfter = window.getComputedStyle(modalBackdrop);
+    console.log('[AUTH] ✅✅✅ APRÈS FORCAGE - backdrop display:', computedBackdropAfter.display, 'visibility:', computedBackdropAfter.visibility, 'opacity:', computedBackdropAfter.opacity);
+  }
+  
+  console.log('[AUTH] ✅✅✅ FIN FORCAGE AFFICHAGE MODAL - Code exécuté sans erreur');
+  } catch (err) {
+    console.error('[AUTH] ❌❌❌ ERREUR lors du forçage de l\'affichage:', err);
+    // Essayer quand même de forcer l'affichage avec setAttribute
+    try {
+      modalBackdrop.setAttribute('style', 'display:flex!important;visibility:visible!important;opacity:1!important;z-index:99999!important;position:fixed!important;top:0!important;left:0!important;width:100%!important;height:100%!important;background:rgba(0,0,0,0.8)!important;align-items:center!important;justify-content:center!important;pointer-events:auto!important;');
+      console.log('[AUTH] ✅✅✅ Forçage avec setAttribute réussi');
+    } catch (err2) {
+      console.error('[AUTH] ❌❌❌ ERREUR même avec setAttribute:', err2);
+    }
+  }
+  
+  // ⚠️⚠️⚠️ DOUBLE VÉRIFICATION : Vérifier que tout est bien visible après un court délai
+  setTimeout(() => {
+    console.log('[AUTH] ⚠️⚠️⚠️ VÉRIFICATION FINALE DÉMARRÉE');
+    const computedBackdrop = window.getComputedStyle(modalBackdrop);
+    const computedModal = publishModal ? window.getComputedStyle(publishModal) : null;
+    const computedInner = window.getComputedStyle(modalInner);
+    
+    console.log('[AUTH] ✅✅✅ VÉRIFICATION FINALE - Styles calculés:', {
+      backdropDisplay: computedBackdrop.display,
+      backdropVisibility: computedBackdrop.visibility,
+      backdropOpacity: computedBackdrop.opacity,
+      backdropZIndex: computedBackdrop.zIndex,
+      backdropPosition: computedBackdrop.position,
+      backdropTop: computedBackdrop.top,
+      backdropLeft: computedBackdrop.left,
+      backdropWidth: computedBackdrop.width,
+      backdropHeight: computedBackdrop.height,
+      modalDisplay: computedModal ? computedModal.display : 'N/A',
+      modalVisibility: computedModal ? computedModal.visibility : 'N/A',
+      innerDisplay: computedInner.display,
+      innerVisibility: computedInner.visibility,
+      innerOpacity: computedInner.opacity,
+      backdropRect: modalBackdrop.getBoundingClientRect(),
+      modalRect: publishModal ? publishModal.getBoundingClientRect() : null,
+      innerRect: modalInner.getBoundingClientRect()
+    });
+    
+    // Si le backdrop n'est pas visible, forcer encore plus
+    if (computedBackdrop.display === 'none' || computedBackdrop.visibility === 'hidden' || computedBackdrop.opacity === '0') {
+      console.error('[AUTH] ❌❌❌ BACKDROP TOUJOURS INVISIBLE - FORCAGE ULTIME');
+      modalBackdrop.setAttribute('style', 'display:flex!important;visibility:visible!important;opacity:1!important;z-index:99999!important;position:fixed!important;top:0!important;left:0!important;width:100%!important;height:100%!important;background:rgba(0,0,0,0.8)!important;align-items:center!important;justify-content:center!important;pointer-events:auto!important;');
+      
+      if (publishModal) {
+        publishModal.setAttribute('style', 'display:block!important;visibility:visible!important;opacity:1!important;position:relative!important;max-width:500px!important;width:90%!important;max-height:90vh!important;overflow-y:auto!important;');
+      }
+      
+      modalInner.setAttribute('style', 'display:block!important;visibility:visible!important;opacity:1!important;');
+      
+      // Afficher une alerte pour confirmer que le modal devrait être visible
+      console.log('[AUTH] ⚠️⚠️⚠️ MODAL FORCÉ VISIBLE - Vérifiez visuellement si le modal apparaît maintenant');
+    } else {
+      console.log('[AUTH] ✅✅✅ BACKDROP VISIBLE - Le modal devrait être affiché');
+    }
+  }, 100);
+  
+  console.log('[AUTH] Modal affiche, HTML injecte, event delegation configuree sur backdrop', {
+    backdropDisplay: modalBackdrop.style.display,
+    backdropVisibility: modalBackdrop.style.visibility,
+    backdropOpacity: modalBackdrop.style.opacity,
+    backdropZIndex: modalBackdrop.style.zIndex,
+    backdropAlignItems: modalBackdrop.style.alignItems,
+    backdropJustifyContent: modalBackdrop.style.justifyContent,
+    publishModalExists: !!publishModal,
+    publishModalDisplay: publishModal ? publishModal.style.display : 'N/A',
+    modalDisplay: modalInner.style.display,
+    modalVisibility: modalInner.style.visibility,
+    modalOpacity: modalInner.style.opacity
+  });
   
   // Attacher les event listeners après injection HTML
   setTimeout(() => {
+    // ⚠️⚠️⚠️ CRITIQUE : S'assurer que le bouton Google fonctionne
+    const googleBtn = document.querySelector('button[onclick*="startGoogleLogin"]');
+    if (googleBtn) {
+      console.log('[AUTH] ✅ Bouton Google trouvé, vérification de startGoogleLogin...');
+      // Supprimer l'onclick inline et utiliser addEventListener pour plus de contrôle
+      googleBtn.removeAttribute('onclick');
+      googleBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('[AUTH] ✅✅✅ Bouton Google cliqué');
+        if (typeof window.startGoogleLogin === 'function') {
+          console.log('[AUTH] Appel de window.startGoogleLogin');
+          window.startGoogleLogin();
+        } else if (typeof startGoogleLogin === 'function') {
+          console.log('[AUTH] Appel de startGoogleLogin');
+          startGoogleLogin();
+        } else {
+          console.error('[AUTH] ❌ startGoogleLogin non disponible');
+          if (typeof showNotification === 'function') {
+            showNotification('⚠️ Erreur : fonction Google non disponible', 'error');
+          }
+        }
+      }, { capture: true });
+      console.log('[AUTH] ✅ Event listener attaché au bouton Google');
+    } else {
+      console.warn('[AUTH] ⚠️ Bouton Google non trouvé');
+    }
+    
     const switchBtn = document.getElementById('auth-switch-btn');
     if (switchBtn) {
       const targetMode = switchBtn.getAttribute('data-mode');
@@ -1729,10 +2156,272 @@ function openAuthModal(mode = 'login') {
   }, 100);
 }
 
-// Wrappers pour compatibilité
+// ⚠️⚠️⚠️ NOUVEAU FLUX LEADER MONDIAL : Vérifier si l'email existe avant de proposer inscription ou validation
+async function checkEmailAndProceed(email) {
+  console.log('[AUTH] 🔍 Vérification de l\'email:', email);
+  
+  if (!email || !email.includes('@')) {
+    if (typeof showNotification === 'function') {
+      showNotification('⚠️ Veuillez entrer une adresse email valide', 'warning');
+    }
+    return;
+  }
+  
+  // ⚠️⚠️⚠️ SAUVEGARDER l'email dans sessionStorage pour restauration après F5
+  try {
+    sessionStorage.setItem('lastLoginEmail', email.trim());
+    console.log('[AUTH] ✅ Email sauvegardé dans sessionStorage:', email);
+  } catch (e) {
+    console.warn('[AUTH] ⚠️ Impossible de sauvegarder l\'email:', e);
+  }
+  
+  try {
+    // Vérifier si l'email existe via l'API
+    const response = await fetch(`${API_BASE_URL}/user/exists?email=${encodeURIComponent(email)}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    
+    const data = await response.json();
+    const emailExists = data.exists === true;
+    
+    console.log('[AUTH] ✅ Email existe:', emailExists);
+    
+    if (emailExists) {
+      // ⚠️⚠️⚠️ COMPTE EXISTANT : Proposer directement deux options : Google OU Email/Mot de passe
+      console.log('[AUTH] ✅✅✅ Compte existant détecté - Affichage choix reconnexion');
+      
+      // ⚠️⚠️⚠️ SAUVEGARDER l'email dans sessionStorage pour restauration après F5
+      try {
+        sessionStorage.setItem('lastLoginEmail', email.toLowerCase().trim());
+      } catch (e) {
+        console.warn('[AUTH] ⚠️ Impossible de sauvegarder l\'email:', e);
+      }
+      
+      // Afficher le modal avec deux options : Google OU Email/Mot de passe
+      const backdrop = document.getElementById('publish-modal-backdrop');
+      const modal = document.getElementById('publish-modal-inner');
+      
+      if (!backdrop || !modal) {
+        console.error('[AUTH] Modal elements not found');
+        return;
+      }
+      
+      const html = `
+        <div id="authModal" data-mode="reconnect" style="padding:40px;max-width:450px;margin:0 auto;text-align:center;position:relative;">
+          <!-- Bouton X (croix) pour fermer -->
+          <button onclick="closeAuthModal()" style="position:absolute;top:16px;right:16px;background:none;border:none;color:var(--ui-text-muted);font-size:24px;cursor:pointer;padding:8px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:all 0.2s;z-index:10;" onmouseover="this.style.background='rgba(239,68,68,0.2)';this.style.color='#ef4444';this.style.transform='scale(1.1)';" onmouseout="this.style.background='none';this.style.color='var(--ui-text-muted)';this.style.transform='scale(1)';" title="Fermer">✕</button>
+          
+          <!-- Logo et titre -->
+          <div style="margin-bottom:32px;">
+            <div style="font-size:64px;margin-bottom:16px;">🌍</div>
+            <h2 style="margin:0 0 8px;font-size:28px;font-weight:800;color:#fff;background:linear-gradient(135deg,#00ffc3,#3b82f6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">Connexion</h2>
+            <p style="margin:0;font-size:14px;color:var(--ui-text-muted);">Compte trouvé : ${email}</p>
+          </div>
+          
+          <!-- Deux options de connexion -->
+          <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:24px;">
+            <!-- Option 1 : Google (pas besoin d'info) -->
+            <button id="reconnect-google-btn" onclick="if(typeof window.startGoogleLogin==='function'){window.startGoogleLogin();}" style="width:100%;padding:16px;border-radius:12px;border:2px solid rgba(0,255,195,0.3);background:linear-gradient(135deg,rgba(0,255,195,0.1),rgba(59,130,246,0.1));color:var(--ui-text-main);font-weight:600;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:12px;transition:all 0.3s;" onmouseover="this.style.borderColor='rgba(0,255,195,0.6)';this.style.background='linear-gradient(135deg,rgba(0,255,195,0.2),rgba(59,130,246,0.2))';" onmouseout="this.style.borderColor='rgba(0,255,195,0.3)';this.style.background='linear-gradient(135deg,rgba(0,255,195,0.1),rgba(59,130,246,0.1))';">
+              <svg width="20" height="20" viewBox="0 0 24 24" style="fill:currentColor;">
+                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+              </svg>
+              <span>Continuer avec Google</span>
+            </button>
+            
+            <div style="display:flex;align-items:center;gap:12px;margin:16px 0;">
+              <div style="flex:1;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.1),transparent);"></div>
+              <span style="font-size:12px;color:var(--ui-text-muted);font-weight:500;">ou</span>
+              <div style="flex:1;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.1),transparent);"></div>
+            </div>
+            
+            <!-- Option 2 : Email/Mot de passe -->
+            <div style="margin-bottom:16px;text-align:left;">
+              <label style="display:block;font-size:13px;font-weight:600;color:var(--ui-text-main);margin-bottom:8px;">🔒 Mot de passe</label>
+              <input type="password" id="reconnect-password" placeholder="Votre mot de passe" style="width:100%;padding:12px 16px;border-radius:10px;border:2px solid rgba(255,255,255,0.1);background:rgba(15,23,42,0.5);color:var(--ui-text-main);font-size:14px;transition:all 0.3s;" onfocus="this.style.borderColor='rgba(0,255,195,0.5)';this.style.background='rgba(15,23,42,0.8)';" onblur="this.style.borderColor='rgba(255,255,255,0.1)';this.style.background='rgba(15,23,42,0.5)';" onkeypress="if(event.key==='Enter'){const email='${email}';const password=document.getElementById('reconnect-password').value;if(password&&typeof window.performReconnectLogin==='function'){window.performReconnectLogin(email,password);}}">
+            </div>
+            
+            <button id="reconnect-password-btn" onclick="const email='${email}';const password=document.getElementById('reconnect-password').value.trim();if(password&&typeof window.performReconnectLogin==='function'){window.performReconnectLogin(email,password);}" style="width:100%;padding:14px;border-radius:12px;border:none;background:linear-gradient(135deg,#00ffc3,#3b82f6);color:#000;font-weight:700;font-size:15px;cursor:pointer;transition:all 0.3s;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 20px rgba(0,255,195,0.3)';" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='none';">
+              Se connecter avec mot de passe
+            </button>
+          </div>
+          
+          <button onclick="closeAuthModal()" style="width:100%;padding:12px;border-radius:10px;border:2px solid rgba(255,255,255,0.1);background:transparent;color:var(--ui-text-muted);font-weight:600;font-size:14px;cursor:pointer;transition:all 0.3s;" onmouseover="this.style.borderColor='rgba(255,255,255,0.3)';this.style.color='var(--ui-text-main)';" onmouseout="this.style.borderColor='rgba(255,255,255,0.1)';this.style.color='var(--ui-text-muted)';">
+            Annuler
+          </button>
+        </div>
+      `;
+      
+      backdrop.style.display = 'flex';
+      backdrop.style.visibility = 'visible';
+      backdrop.style.opacity = '1';
+      modal.innerHTML = html;
+      modal.style.display = 'block';
+      
+      // Focus sur le champ mot de passe
+      setTimeout(() => {
+        const passwordInput = document.getElementById('reconnect-password');
+        if (passwordInput) {
+          passwordInput.focus();
+        }
+      }, 100);
+    } else {
+      // ⚠️⚠️⚠️ NOUVEAU COMPTE : Proposer le formulaire d'inscription complet
+      console.log('[AUTH] ✅✅✅ Nouveau compte détecté - Affichage formulaire d\'inscription');
+      
+      // ⚠️⚠️⚠️ SAUVEGARDER l'email dans sessionStorage pour restauration après F5
+      try {
+        sessionStorage.setItem('lastLoginEmail', email.toLowerCase().trim());
+      } catch (e) {
+        console.warn('[AUTH] ⚠️ Impossible de sauvegarder l\'email:', e);
+      }
+      
+      // Afficher le formulaire d'inscription complet
+      if (typeof showProRegisterForm === 'function') {
+        // Pré-remplir l'email dans le formulaire
+        showProRegisterForm();
+        setTimeout(() => {
+          const emailInput = document.getElementById('pro-email');
+          if (emailInput) {
+            emailInput.value = email;
+            emailInput.dispatchEvent(new Event('input', { bubbles: true }));
+          }
+        }, 100);
+      } else if (typeof window.showProRegisterForm === 'function') {
+        window.showProRegisterForm();
+        setTimeout(() => {
+          const emailInput = document.getElementById('pro-email');
+          if (emailInput) {
+            emailInput.value = email;
+            emailInput.dispatchEvent(new Event('input', { bubbles: true }));
+          }
+        }, 100);
+      } else {
+        // Fallback : afficher le formulaire d'inscription simplifié
+        openAuthModal('register');
+      }
+    }
+  } catch (error) {
+    console.error('[AUTH] ❌ Erreur vérification email:', error);
+    // En cas d'erreur, proposer le formulaire d'inscription par défaut
+    if (typeof showNotification === 'function') {
+      showNotification('⚠️ Impossible de vérifier l\'email. Veuillez continuer avec le formulaire.', 'warning');
+    }
+    if (typeof showProRegisterForm === 'function') {
+      showProRegisterForm();
+    } else {
+      openAuthModal('register');
+    }
+  }
+}
+
+// ⚠️⚠️⚠️ FLUX STANDARD : Afficher directement deux options (Google OU Email/Mot de passe)
 function openLoginModal() {
-  console.log('[AUTH] openLoginModal called');
-  openAuthModal('login');
+  console.log('[AUTH] CLICK login - openLoginModal() called');
+  console.log('[AUTH] ⚠️⚠️⚠️ FLUX STANDARD : Deux options directes (Google OU Email/Mot de passe)');
+  
+  const backdrop = document.getElementById('publish-modal-backdrop');
+  const modal = document.getElementById('publish-modal-inner');
+  
+  if (!backdrop || !modal) {
+    console.error('[AUTH] Modal elements not found');
+    return;
+  }
+  
+  // ⚠️⚠️⚠️ Récupérer l'email depuis sessionStorage si disponible
+  let savedEmail = '';
+  try {
+    const emailFromStorage = sessionStorage.getItem('lastLoginEmail');
+    if (emailFromStorage && emailFromStorage.includes('@')) {
+      savedEmail = emailFromStorage;
+      console.log('[AUTH] ✅ Email récupéré depuis sessionStorage:', savedEmail);
+    }
+  } catch (e) {
+    console.warn('[AUTH] ⚠️ Impossible de récupérer l\'email:', e);
+  }
+  
+  // Afficher le modal avec deux options directes
+  const html = `
+    <div id="authModal" data-mode="login" style="padding:40px;max-width:450px;margin:0 auto;text-align:center;position:relative;">
+      <!-- Bouton X (croix) pour fermer -->
+      <button onclick="closeAuthModal()" style="position:absolute;top:16px;right:16px;background:none;border:none;color:var(--ui-text-muted);font-size:24px;cursor:pointer;padding:8px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:all 0.2s;z-index:10;" onmouseover="this.style.background='rgba(239,68,68,0.2)';this.style.color='#ef4444';this.style.transform='scale(1.1)';" onmouseout="this.style.background='none';this.style.color='var(--ui-text-muted)';this.style.transform='scale(1)';" title="Fermer">✕</button>
+      
+      <!-- Logo et titre -->
+      <div style="margin-bottom:32px;">
+        <div style="font-size:64px;margin-bottom:16px;">🌍</div>
+        <h2 style="margin:0 0 8px;font-size:28px;font-weight:800;color:#fff;background:linear-gradient(135deg,#00ffc3,#3b82f6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">Connexion</h2>
+        <p style="margin:0;font-size:14px;color:var(--ui-text-muted);">Choisissez votre méthode de connexion</p>
+      </div>
+      
+      <!-- Option 1 : Google (pas besoin d'info) -->
+      <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:24px;">
+        <button id="login-google-btn" onclick="if(typeof window.startGoogleLogin==='function'){window.startGoogleLogin();}" style="width:100%;padding:16px;border-radius:12px;border:2px solid rgba(0,255,195,0.3);background:linear-gradient(135deg,rgba(0,255,195,0.1),rgba(59,130,246,0.1));color:var(--ui-text-main);font-weight:600;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:12px;transition:all 0.3s;" onmouseover="this.style.borderColor='rgba(0,255,195,0.6)';this.style.background='linear-gradient(135deg,rgba(0,255,195,0.2),rgba(59,130,246,0.2))';" onmouseout="this.style.borderColor='rgba(0,255,195,0.3)';this.style.background='linear-gradient(135deg,rgba(0,255,195,0.1),rgba(59,130,246,0.1))';">
+          <svg width="20" height="20" viewBox="0 0 24 24" style="fill:currentColor;">
+            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+          </svg>
+          <span>Continuer avec Google</span>
+        </button>
+        
+        <div style="display:flex;align-items:center;gap:12px;margin:16px 0;">
+          <div style="flex:1;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.1),transparent);"></div>
+          <span style="font-size:12px;color:var(--ui-text-muted);font-weight:500;">ou</span>
+          <div style="flex:1;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.1),transparent);"></div>
+        </div>
+        
+        <!-- Option 2 : Email/Mot de passe -->
+        <div style="margin-bottom:16px;text-align:left;">
+          <label style="display:block;font-size:13px;font-weight:600;color:var(--ui-text-main);margin-bottom:8px;">📧 Email</label>
+          <input type="email" id="login-email-input" placeholder="votre@email.com" value="${savedEmail}" style="width:100%;padding:12px 16px;border-radius:10px;border:2px solid rgba(255,255,255,0.1);background:rgba(15,23,42,0.5);color:var(--ui-text-main);font-size:14px;transition:all 0.3s;" onfocus="this.style.borderColor='rgba(0,255,195,0.5)';this.style.background='rgba(15,23,42,0.8)';" onblur="this.style.borderColor='rgba(255,255,255,0.1)';this.style.background='rgba(15,23,42,0.5)';" oninput="try{const v=this.value.trim();if(v&&v.includes('@')){sessionStorage.setItem('lastLoginEmail',v);}else{sessionStorage.removeItem('lastLoginEmail');}}catch(e){}">
+        </div>
+        
+        <div style="margin-bottom:16px;text-align:left;">
+          <label style="display:block;font-size:13px;font-weight:600;color:var(--ui-text-main);margin-bottom:8px;">🔒 Mot de passe</label>
+          <input type="password" id="login-password-input" placeholder="Votre mot de passe" style="width:100%;padding:12px 16px;border-radius:10px;border:2px solid rgba(255,255,255,0.1);background:rgba(15,23,42,0.5);color:var(--ui-text-main);font-size:14px;transition:all 0.3s;" onfocus="this.style.borderColor='rgba(0,255,195,0.5)';this.style.background='rgba(15,23,42,0.8)';" onblur="this.style.borderColor='rgba(255,255,255,0.1)';this.style.background='rgba(15,23,42,0.5)';" onkeypress="if(event.key==='Enter'){const email=document.getElementById('login-email-input').value.trim();const password=document.getElementById('login-password-input').value.trim();if(email&&password&&typeof window.performReconnectLogin==='function'){window.performReconnectLogin(email,password);}}">
+        </div>
+        
+        <button id="login-password-btn" onclick="const email=document.getElementById('login-email-input').value.trim();const password=document.getElementById('login-password-input').value.trim();if(email&&password&&typeof window.performReconnectLogin==='function'){window.performReconnectLogin(email,password);}" style="width:100%;padding:14px;border-radius:12px;border:none;background:linear-gradient(135deg,#00ffc3,#3b82f6);color:#000;font-weight:700;font-size:15px;cursor:pointer;transition:all 0.3s;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 20px rgba(0,255,195,0.3)';" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='none';">
+          Se connecter avec mot de passe
+        </button>
+      </div>
+      
+      <button onclick="closeAuthModal()" style="width:100%;padding:12px;border-radius:10px;border:2px solid rgba(255,255,255,0.1);background:transparent;color:var(--ui-text-muted);font-weight:600;font-size:14px;cursor:pointer;transition:all 0.3s;" onmouseover="this.style.borderColor='rgba(255,255,255,0.3)';this.style.color='var(--ui-text-main)';" onmouseout="this.style.borderColor='rgba(255,255,255,0.1)';this.style.color='var(--ui-text-muted)';">
+        Annuler
+      </button>
+    </div>
+  `;
+  
+  backdrop.style.display = 'flex';
+  backdrop.style.visibility = 'visible';
+  backdrop.style.opacity = '1';
+  modal.innerHTML = html;
+  modal.style.display = 'block';
+  
+  // Focus sur le champ approprié
+  setTimeout(() => {
+    const emailInput = document.getElementById('login-email-input');
+    const passwordInput = document.getElementById('login-password-input');
+    if (savedEmail && emailInput) {
+      // Si email pré-rempli, focus sur mot de passe
+      if (passwordInput) {
+        passwordInput.focus();
+      }
+    } else if (emailInput) {
+      // Sinon, focus sur email
+      emailInput.focus();
+    }
+  }, 100);
 }
 
 function openRegisterModal() {
@@ -4571,6 +5260,84 @@ window.askRememberMeAndConnect = askRememberMeAndConnect;
 window.connectUser = connectUser;
 window.handleEmailVerificationCallback = handleEmailVerificationCallback;
 window.checkAndCleanTestAccount = checkAndCleanTestAccount;
+window.checkEmailAndProceed = checkEmailAndProceed; // ⚠️⚠️⚠️ NOUVEAU FLUX LEADER MONDIAL
+
+// ⚠️⚠️⚠️ Fonction pour reconnexion avec email/mot de passe (compte existant)
+async function performReconnectLogin(email, password) {
+  console.log('[AUTH] 🔐 Reconnexion avec email/mot de passe:', email);
+  
+  if (!email || !password) {
+    if (typeof showNotification === 'function') {
+      showNotification('⚠️ Veuillez remplir tous les champs', 'warning');
+    }
+    return;
+  }
+  
+  try {
+    const response = await fetch(`${API_BASE_URL}/user/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        email: email.toLowerCase().trim(),
+        password: password
+      })
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `HTTP ${response.status}`);
+    }
+    
+    const data = await response.json();
+    
+    if (data.accessToken && data.refreshToken) {
+      // Connexion réussie
+      const tokens = {
+        access_token: data.accessToken,
+        refresh_token: data.refreshToken
+      };
+      
+      // Récupérer les données utilisateur
+      const userResponse = await fetch(`${API_BASE_URL}/user/me`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${tokens.access_token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (userResponse.ok) {
+        const userData = await userResponse.json();
+        const user = {
+          id: userData.id,
+          email: userData.email,
+          username: userData.username || userData.email?.split('@')[0] || 'Utilisateur',
+          profile_photo_url: userData.profile_photo_url || null
+        };
+        
+        // Connecter l'utilisateur
+        if (typeof connectUser === 'function') {
+          connectUser(user, tokens, true); // true = rester connecté par défaut
+        } else if (typeof window.connectUser === 'function') {
+          window.connectUser(user, tokens, true);
+        }
+      } else {
+        throw new Error('Impossible de récupérer les données utilisateur');
+      }
+    } else {
+      throw new Error('Tokens non reçus du serveur');
+    }
+  } catch (error) {
+    console.error('[AUTH] ❌ Erreur reconnexion:', error);
+    if (typeof showNotification === 'function') {
+      showNotification(`❌ ${error.message || 'Erreur lors de la connexion'}`, 'error');
+    }
+  }
+}
+
+window.performReconnectLogin = performReconnectLogin; // ⚠️⚠️⚠️ EXPOSER pour CSP
 
 // Exposer les variables globales
 window.isSubmittingProRegister = isSubmittingProRegister;

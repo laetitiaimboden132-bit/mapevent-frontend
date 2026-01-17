@@ -760,6 +760,171 @@ async function handleCognitoCallbackIfPresent() {
           userProfilePhoto: syncData.user?.profile_photo_url ? syncData.user.profile_photo_url.substring(0, 50) + '...' : 'VIDE'
         });
         
+        // ⚠️⚠️⚠️ CRITIQUE : Vérifier si c'est une validation Google après formulaire d'inscription
+        const pendingFormData = localStorage.getItem('pendingRegisterDataForGoogle');
+        if (pendingFormData && window.isRegisteringWithGoogle) {
+          console.log('[OAUTH] ✅ Validation Google après formulaire détectée - Création du compte avec données du formulaire');
+          
+          // Afficher le modal d'attente avec sablier
+          let modal = document.getElementById('authModal');
+          if (!modal) {
+            modal = document.getElementById('publish-modal-inner');
+          }
+          
+          // S'assurer que le backdrop existe et est visible
+          let backdrop = document.getElementById('publish-modal-backdrop');
+          if (!backdrop) {
+            backdrop = document.createElement('div');
+            backdrop.id = 'publish-modal-backdrop';
+            backdrop.style.cssText = 'position:fixed!important;top:0!important;left:0!important;width:100%!important;height:100%!important;background:rgba(0,0,0,0.8)!important;z-index:99999!important;display:flex!important;align-items:center!important;justify-content:center!important;visibility:visible!important;opacity:1!important;';
+            document.body.appendChild(backdrop);
+          }
+          
+          // S'assurer que le modal inner existe
+          if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'publish-modal-inner';
+            modal.style.cssText = 'background:#1e293b!important;border-radius:20px!important;padding:0!important;max-width:600px!important;width:90%!important;max-height:90vh!important;overflow-y:auto!important;';
+            backdrop.appendChild(modal);
+          }
+          
+          // FORCER l'affichage du backdrop
+          if (backdrop) {
+            backdrop.style.display = 'flex';
+            backdrop.style.visibility = 'visible';
+            backdrop.style.opacity = '1';
+            backdrop.style.zIndex = '99999';
+          }
+          
+          // Afficher le modal d'attente avec sablier
+          if (modal) {
+            modal.innerHTML = `
+              <div id="authModal" data-mode="creating" style="padding:40px;max-width:500px;margin:0 auto;text-align:center;position:relative;">
+                <div style="font-size:64px;margin-bottom:20px;animation:spin 2s linear infinite;">⏳</div>
+                <h2 style="margin:0 0 8px;font-size:28px;font-weight:800;color:#fff;background:linear-gradient(135deg,#00ffc3,#3b82f6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">Connexion en cours...</h2>
+                <p style="margin:0;font-size:14px;color:var(--ui-text-muted);">Création de votre compte en cours, veuillez patienter</p>
+              </div>
+              <style>
+                @keyframes spin {
+                  from { transform: rotate(0deg); }
+                  to { transform: rotate(360deg); }
+                }
+              </style>
+            `;
+            modal.style.display = 'block';
+            modal.style.visibility = 'visible';
+            modal.style.opacity = '1';
+          }
+          
+          try {
+            const formData = JSON.parse(pendingFormData);
+            console.log('[OAUTH] Données du formulaire:', {
+              email: formData.email,
+              username: formData.username,
+              firstName: formData.firstName,
+              lastName: formData.lastName,
+              hasPhoto: !!formData.photoData,
+              hasAddresses: formData.addresses && formData.addresses.length > 0
+            });
+            
+            // Préparer le payload pour créer le compte avec les données du formulaire
+            const addresses = formData.addresses || [];
+            if (formData.selectedAddress && !addresses.find(a => a.lat === formData.selectedAddress.lat)) {
+              addresses.push(formData.selectedAddress);
+            }
+            
+            const payload = {
+              email: formData.email || currentUser.email,
+              username: formData.username,
+              password: formData.password || '',
+              firstName: formData.firstName || '',
+              lastName: formData.lastName || '',
+              profilePhoto: formData.photoData || '',
+              addresses: addresses,
+              userId: syncData.user?.id || null,
+              googleSub: currentUser.sub || null,
+              sub: currentUser.sub || null
+            };
+            
+            // Si une adresse postale a été sélectionnée, l'ajouter
+            if (formData.selectedAddress) {
+              payload.postalAddress = formData.selectedAddress.label || formData.selectedAddress.address || '';
+            }
+            
+            console.log('[OAUTH] Création compte avec /user/oauth/google/complete:', {
+              email: payload.email,
+              username: payload.username,
+              hasPhoto: !!payload.profilePhoto,
+              hasAddresses: addresses.length > 0
+            });
+            
+            // Créer le compte avec les données du formulaire
+            const completeResponse = await fetch(`${window.API_BASE_URL}/user/oauth/google/complete`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+            
+            if (completeResponse.ok) {
+              const completeData = await completeResponse.json();
+              console.log('[OAUTH] ✅ Compte créé avec succès après validation Google:', completeData);
+              
+              // Nettoyer les données en attente
+              localStorage.removeItem('pendingRegisterDataForGoogle');
+              window.isRegisteringWithGoogle = false;
+              
+              // Mettre à jour currentUser avec les données du compte créé
+              if (completeData.user) {
+                const slimUser = {
+                  id: completeData.user.id || syncData.user?.id,
+                  email: completeData.user.email || formData.email,
+                  username: completeData.user.username || formData.username,
+                  firstName: completeData.user.firstName || completeData.user.first_name || formData.firstName,
+                  lastName: completeData.user.lastName || completeData.user.last_name || formData.lastName,
+                  role: completeData.user.role || 'user',
+                  subscription: completeData.user.subscription || 'free',
+                  profile_photo_url: completeData.user.profile_photo_url || null,
+                  hasPassword: completeData.user.hasPassword || false,
+                  hasPostalAddress: completeData.user.hasPostalAddress || false,
+                  profileComplete: completeData.user.profileComplete !== undefined ? completeData.user.profileComplete : true,
+                  isLoggedIn: true
+                };
+                
+                currentUser = { ...currentUser, ...slimUser };
+                
+                // Sauvegarder dans localStorage
+                try {
+                  const slimJson = JSON.stringify(slimUser);
+                  localStorage.setItem('currentUser', slimJson);
+                } catch (e) {
+                  try { sessionStorage.setItem('currentUser', slimJson); } catch (e2) {}
+                }
+                
+                // Mettre à jour l'UI
+                if (typeof updateAuthUI === 'function') {
+                  updateAuthUI(slimUser);
+                }
+                
+                showNotification('✅ Compte créé avec succès ! Vous êtes maintenant connecté.', 'success');
+                closeAuthModal();
+                closePublishModal();
+              }
+              
+              window.isGoogleLoginInProgress = false;
+              return; // Sortir ici, le compte est créé
+            } else {
+              const errorData = await completeResponse.json().catch(() => ({ error: 'Erreur lors de la création du compte' }));
+              console.error('[OAUTH] ❌ Erreur création compte:', errorData);
+              showNotification(`❌ Erreur: ${errorData.error || 'Erreur lors de la création du compte'}`, 'error');
+              // Continuer avec le flux normal en cas d'erreur
+            }
+          } catch (error) {
+            console.error('[OAUTH] ❌ Erreur lors de la création du compte après validation Google:', error);
+            showNotification('❌ Erreur lors de la création du compte', 'error');
+            // Continuer avec le flux normal en cas d'erreur
+          }
+        }
+        
         // FLOW INTELLIGENT : Gérer les différents cas selon les données
         if (syncData.ok && syncData.user) {
           const profileComplete = syncData.profileComplete === true;
@@ -2686,39 +2851,114 @@ function updateAuthButtons() {
     accountBtn.style.display = 'none';
     
     // ⚠️⚠️⚠️ CRITIQUE : Réattacher les event listeners au bouton "Connexion" après déconnexion
-    setTimeout(() => {
+    // Utiliser plusieurs tentatives avec délais croissants pour s'assurer que auth.js est chargé
+    const initLoginButton = (attempt = 1) => {
       const loginBtn = document.getElementById('login-topbar-btn');
       if (loginBtn) {
+        // Vérifier que les fonctions sont disponibles avant d'attacher le listener
+        const hasFunctions = typeof window.openLoginModal === 'function' || typeof window.openAuthModal === 'function';
+        
+        if (!hasFunctions && attempt < 10) {
+          console.log('[AUTH BUTTONS] ⚠️ Fonctions non disponibles (tentative', attempt, '), nouvelle tentative dans', attempt * 100, 'ms');
+          setTimeout(() => initLoginButton(attempt + 1), attempt * 100);
+          return;
+        }
+        
+        if (!hasFunctions) {
+          console.error('[AUTH BUTTONS] ❌ Fonctions de connexion non disponibles après 10 tentatives');
+          if (typeof showNotification === 'function') {
+            showNotification('⚠️ Erreur : fonctions de connexion non disponibles. Veuillez rafraîchir la page.', 'error');
+          }
+          return;
+        }
+        
+        console.log('[AUTH BUTTONS] ✅ Bouton Connexion trouvé, réattachement des listeners (tentative', attempt, ')');
+        
+        // ⚠️⚠️⚠️ CRITIQUE : Supprimer l'onclick inline qui peut interférer
+        loginBtn.removeAttribute('onclick');
+        
         // Supprimer tous les anciens listeners en clonant le bouton
         const newLoginBtn = loginBtn.cloneNode(true);
         loginBtn.parentNode.replaceChild(newLoginBtn, loginBtn);
+        
+        // ⚠️⚠️⚠️ S'assurer que le bouton est cliquable (pointer-events, cursor, etc.)
+        newLoginBtn.style.pointerEvents = 'auto';
+        newLoginBtn.style.cursor = 'pointer';
+        newLoginBtn.style.opacity = '1';
         
         // Réattacher le listener avec plusieurs fallbacks
         newLoginBtn.addEventListener('click', function(e) {
           e.preventDefault();
           e.stopPropagation();
           e.stopImmediatePropagation();
-          console.log('[AUTH BUTTONS] Bouton Connexion cliqué');
+          console.log('[AUTH BUTTONS] ✅✅✅ Bouton Connexion cliqué - Ouverture modal');
           
           // Essayer plusieurs méthodes pour ouvrir le modal de connexion
           if (typeof window.openLoginModal === 'function') {
+            console.log('[AUTH BUTTONS] Utilisation window.openLoginModal');
             window.openLoginModal();
           } else if (typeof window.openAuthModal === 'function') {
+            console.log('[AUTH BUTTONS] Utilisation window.openAuthModal');
             window.openAuthModal('login');
           } else if (typeof openLoginModal === 'function') {
+            console.log('[AUTH BUTTONS] Utilisation openLoginModal');
             openLoginModal();
           } else if (typeof openAuthModal === 'function') {
+            console.log('[AUTH BUTTONS] Utilisation openAuthModal');
             openAuthModal('login');
           } else {
-            console.warn('[AUTH BUTTONS] ⚠️ Aucune fonction de connexion disponible, rafraîchissement de la page...');
-            // Dernier recours : rafraîchir la page pour réinitialiser tout
-            window.location.reload();
+            console.error('[AUTH BUTTONS] ❌ Aucune fonction de connexion disponible');
+            if (typeof showNotification === 'function') {
+              showNotification('⚠️ Erreur : fonctions de connexion non disponibles. Veuillez rafraîchir la page.', 'error');
+            }
           }
         }, { capture: true });
         
-        console.log('[AUTH BUTTONS] ✅ Event listener réattaché au bouton Connexion');
+        // ⚠️⚠️⚠️ DOUBLE VÉRIFICATION : S'assurer que le bouton est bien visible et cliquable
+        console.log('[AUTH BUTTONS] ✅✅✅ Event listener réattaché au bouton Connexion', {
+          display: window.getComputedStyle(newLoginBtn).display,
+          visibility: window.getComputedStyle(newLoginBtn).visibility,
+          pointerEvents: window.getComputedStyle(newLoginBtn).pointerEvents,
+          cursor: window.getComputedStyle(newLoginBtn).cursor,
+          opacity: window.getComputedStyle(newLoginBtn).opacity,
+          hasOpenLoginModal: typeof window.openLoginModal === 'function',
+          hasOpenAuthModal: typeof window.openAuthModal === 'function'
+        });
+      } else {
+        if (attempt < 10) {
+          console.log('[AUTH BUTTONS] ⚠️ Bouton login-topbar-btn non trouvé (tentative', attempt, '), nouvelle tentative dans', attempt * 100, 'ms');
+          setTimeout(() => initLoginButton(attempt + 1), attempt * 100);
+        } else {
+          console.warn('[AUTH BUTTONS] ⚠️ Bouton login-topbar-btn non trouvé après 10 tentatives');
+          // Essayer de trouver le bouton dans auth-buttons
+          const authButtons = document.getElementById('auth-buttons');
+          if (authButtons) {
+            const buttons = authButtons.querySelectorAll('button');
+            console.log('[AUTH BUTTONS] Boutons trouvés dans auth-buttons:', buttons.length);
+            buttons.forEach((btn, index) => {
+              if (btn.textContent && btn.textContent.includes('Connexion')) {
+                console.log('[AUTH BUTTONS] Bouton Connexion trouvé par texte:', index);
+                btn.removeAttribute('onclick');
+                btn.style.pointerEvents = 'auto';
+                btn.style.cursor = 'pointer';
+                btn.addEventListener('click', function(e) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (typeof window.openLoginModal === 'function') {
+                    window.openLoginModal();
+                  } else if (typeof window.openAuthModal === 'function') {
+                    window.openAuthModal('login');
+                  }
+                }, { capture: true });
+              }
+            });
+          }
+        }
       }
-    }, 50);
+    };
+    
+    // Démarrer l'initialisation avec plusieurs tentatives
+    setTimeout(() => initLoginButton(1), 100);
   }
 }
 
@@ -2739,6 +2979,75 @@ document.addEventListener("DOMContentLoaded", () => {
     updateAuthButtons();
     console.log('[INIT] Aucun utilisateur connecté');
   }
+  
+  // ⚠️⚠️⚠️ CRITIQUE : S'assurer que le bouton de connexion fonctionne après rechargement
+  // Utiliser plusieurs tentatives avec délais croissants pour s'assurer que auth.js est chargé
+  const initLoginButtonOnLoad = (attempt = 1) => {
+    const loginBtn = document.getElementById('login-topbar-btn');
+    if (loginBtn) {
+      // Vérifier que les fonctions sont disponibles
+      const hasFunctions = typeof window.openLoginModal === 'function' || typeof window.openAuthModal === 'function';
+      
+      if (!hasFunctions && attempt < 10) {
+        console.log('[INIT] ⚠️ Fonctions non disponibles (tentative', attempt, '), nouvelle tentative dans', attempt * 100, 'ms');
+        setTimeout(() => initLoginButtonOnLoad(attempt + 1), attempt * 100);
+        return;
+      }
+      
+      if (!hasFunctions) {
+        console.error('[INIT] ❌ Fonctions de connexion non disponibles après 10 tentatives');
+        return;
+      }
+      
+      console.log('[INIT] ✅ Bouton Connexion trouvé, vérification des fonctions... (tentative', attempt, ')');
+      
+      // Supprimer l'onclick inline pour éviter les conflits
+      loginBtn.removeAttribute('onclick');
+      
+      // Réattacher le listener avec plusieurs fallbacks
+      loginBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        console.log('[INIT] ✅✅✅ Bouton Connexion cliqué après rechargement');
+        
+        // Essayer plusieurs méthodes pour ouvrir le modal de connexion
+        if (typeof window.openLoginModal === 'function') {
+          console.log('[INIT] Utilisation window.openLoginModal');
+          window.openLoginModal();
+        } else if (typeof window.openAuthModal === 'function') {
+          console.log('[INIT] Utilisation window.openAuthModal');
+          window.openAuthModal('login');
+        } else if (typeof openLoginModal === 'function') {
+          console.log('[INIT] Utilisation openLoginModal');
+          openLoginModal();
+        } else if (typeof openAuthModal === 'function') {
+          console.log('[INIT] Utilisation openAuthModal');
+          openAuthModal('login');
+        } else {
+          console.error('[INIT] ❌ Aucune fonction de connexion disponible');
+          if (typeof showNotification === 'function') {
+            showNotification('⚠️ Erreur : fonctions de connexion non disponibles. Veuillez rafraîchir la page.', 'error');
+          }
+        }
+      }, { capture: true });
+      
+      console.log('[INIT] ✅✅✅ Event listener réattaché au bouton Connexion après rechargement', {
+        hasOpenLoginModal: typeof window.openLoginModal === 'function',
+        hasOpenAuthModal: typeof window.openAuthModal === 'function'
+      });
+    } else {
+      if (attempt < 10) {
+        console.log('[INIT] ⚠️ Bouton login-topbar-btn non trouvé (tentative', attempt, '), nouvelle tentative dans', attempt * 100, 'ms');
+        setTimeout(() => initLoginButtonOnLoad(attempt + 1), attempt * 100);
+      } else {
+        console.warn('[INIT] ⚠️ Bouton login-topbar-btn non trouvé après 10 tentatives');
+      }
+    }
+  };
+  
+  // Démarrer l'initialisation avec plusieurs tentatives
+  setTimeout(() => initLoginButtonOnLoad(1), 200);
 
   // Afficher le message de test du site
   setTimeout(() => {
@@ -2802,8 +3111,75 @@ document.addEventListener("DOMContentLoaded", () => {
     topbarObserver.observe(topbarCenter, { childList: true, subtree: true });
   }
   
-  // Charger l'utilisateur sauvegardé
-  loadSavedUser();
+  // Charger l'utilisateur sauvegardé (depuis auth.js)
+  if (window.loadSavedUser) {
+    window.loadSavedUser();
+  }
+  
+  // ⚠️⚠️⚠️ FLUX STANDARD : Reconnexion automatique si "rester connecté" est activé
+  setTimeout(async () => {
+    const rememberMe = localStorage.getItem('rememberMe') === 'true';
+    if (rememberMe) {
+      console.log('[AUTH] ✅ "Rester connecté" activé - Tentative de reconnexion automatique');
+      
+      // Vérifier si on a des tokens valides
+      const accessToken = getAuthToken();
+      if (accessToken) {
+        try {
+          // Vérifier si le token est valide en appelant /api/user/me
+          const apiBaseUrl = window.API_BASE_URL || "https://ctp67u5hgni2rbfr3kp4p74kxa0gxycf.lambda-url.eu-west-1.on.aws/api";
+          const response = await fetch(`${apiBaseUrl}/user/me`, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (response.ok) {
+            const userData = await response.json();
+            console.log('[AUTH] ✅✅✅ Reconnexion automatique réussie:', userData.email);
+            
+            // Reconnecter l'utilisateur silencieusement
+            const user = {
+              id: userData.id,
+              email: userData.email,
+              username: userData.username || userData.email?.split('@')[0] || 'Utilisateur',
+              profile_photo_url: userData.profile_photo_url || null
+            };
+            
+            const tokens = {
+              access_token: accessToken,
+              refresh_token: localStorage.getItem('refreshToken') || sessionStorage.getItem('refreshToken') || ''
+            };
+            
+            // Connecter silencieusement (pas de notification)
+            if (typeof window.connectUser === 'function') {
+              window.connectUser(user, tokens, true);
+              console.log('[AUTH] ✅✅✅ Utilisateur reconnecté automatiquement');
+            } else if (typeof connectUser === 'function') {
+              connectUser(user, tokens, true);
+            }
+          } else {
+            console.log('[AUTH] ⚠️ Token invalide - Reconnexion automatique annulée');
+            // Nettoyer les tokens invalides
+            localStorage.removeItem('rememberMe');
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('refreshToken');
+            sessionStorage.removeItem('accessToken');
+            sessionStorage.removeItem('refreshToken');
+          }
+        } catch (error) {
+          console.error('[AUTH] ❌ Erreur reconnexion automatique:', error);
+          // En cas d'erreur, ne pas reconnecter
+        }
+      } else {
+        console.log('[AUTH] ⚠️ Pas de token disponible - Reconnexion automatique annulée');
+      }
+    } else {
+      console.log('[AUTH] ℹ️ "Rester connecté" désactivé - Pas de reconnexion automatique');
+    }
+  }, 500); // Attendre un peu pour que tout soit chargé
   
   // Attacher l'event listener au bouton compte
   // LISTENER EN CAPTURE pour debug le clic sur bloc compte
@@ -11908,26 +12284,38 @@ window.testOnboarding = function(missingSteps = ['photo', 'address']) {
 // Exposer les fonctions globalement IMMÉDIATEMENT après leur définition
 // REMOVED: openAuthModal est maintenant dans auth.js et exposé via window.openAuthModal
 
-// Wrappers pour compatibilité - utilisent les fonctions de auth.js
+// ⚠️⚠️⚠️ WRAPPER SIMPLIFIÉ : Délègue directement à window.openLoginModal de auth.js
+// ⚠️⚠️⚠️ CRITIQUE : Ne JAMAIS écraser window.openLoginModal ici !
 function openLoginModal() {
-  console.log('[AUTH] openLoginModal (wrapper) called');
-  if (typeof window.openAuthModal === 'function') {
-    return window.openAuthModal('login');
-  } else if (typeof window.openLoginModal === 'function') {
-    // Fallback : utiliser directement window.openLoginModal si disponible
-    return window.openLoginModal();
-  } else {
-    console.error('[AUTH] ERREUR: window.openAuthModal non disponible (auth.js non chargé ?)');
-    // Dernier recours : essayer d'ouvrir le modal manuellement
-    const backdrop = document.getElementById('publish-modal-backdrop');
-    const modal = document.getElementById('publish-modal-inner');
-    if (backdrop && modal) {
-      console.log('[AUTH] Tentative d\'ouverture manuelle du modal');
-      backdrop.style.display = 'flex';
-      modal.style.display = 'block';
+  // ⚠️⚠️⚠️ SIMPLE : Appeler directement window.openLoginModal de auth.js
+  if (typeof window.openLoginModal === 'function') {
+    const authFn = window.openLoginModal;
+    const fnSource = authFn.toString();
+    // ⚠️⚠️⚠️ VÉRIFICATION : Si ce n'est pas le wrapper lui-même, l'appeler
+    if (!fnSource.includes('openLoginModalCalling')) {
+      return authFn();
     }
   }
+  
+  // Si auth.js n'est pas encore chargé, attendre un peu
+  setTimeout(() => {
+    if (typeof window.openLoginModal === 'function') {
+      const authFn = window.openLoginModal;
+      const fnSource = authFn.toString();
+      if (!fnSource.includes('openLoginModalCalling')) {
+        return authFn();
+      }
+    }
+    // Fallback vers openAuthModal si nécessaire
+    if (typeof window.openAuthModal === 'function') {
+      return window.openAuthModal('login');
+    }
+  }, 100);
 }
+
+// ⚠️⚠️⚠️ CRITIQUE : NE JAMAIS faire window.openLoginModal = openLoginModal ici !
+// Cela créerait une récursion infinie car le wrapper s'appellerait lui-même
+// ⚠️⚠️⚠️ SUPPRIMÉ : window.openLoginModal = openLoginModal; (ligne supprimée pour éviter la récursion)
 
 function openRegisterModal() {
   console.log('[AUTH] openRegisterModal (wrapper) called');
@@ -11941,8 +12329,10 @@ function openRegisterModal() {
   }
 }
 
-// ⚠️⚠️⚠️ CRITIQUE : Exposer globalement pour que le HTML puisse les appeler
-window.openLoginModal = openLoginModal;
+// ⚠️⚠️⚠️ CRITIQUE : NE JAMAIS écraser window.openLoginModal ici !
+// Cela créerait une récursion infinie car le wrapper s'appellerait lui-même via window.openLoginModal()
+// window.openLoginModal doit rester la fonction de auth.js uniquement !
+// window.openLoginModal = openLoginModal; // ⚠️⚠️⚠️ SUPPRIMÉ pour éviter la récursion infinie
 window.openRegisterModal = openRegisterModal;
 
 // REMOVED: Les wrappers openLoginModal et openRegisterModal ne doivent PAS être exposés ici
@@ -13912,11 +14302,34 @@ function autoSaveRegistrationForm() {
         timestamp: Date.now()
       };
       
-      // Sauvegarder dans localStorage
-      localStorage.setItem('registerFormDraft', JSON.stringify(formData));
-      
-      // Mettre à jour window.registerData avec les nouvelles valeurs
-      Object.assign(window.registerData, formData);
+      // Sauvegarder dans localStorage avec gestion de quota
+      try {
+        localStorage.setItem('registerFormDraft', JSON.stringify(formData));
+        
+        // Mettre à jour window.registerData avec les nouvelles valeurs
+        Object.assign(window.registerData, formData);
+      } catch (quotaError) {
+        // Si le localStorage est plein, nettoyer les données non essentielles
+        if (quotaError.name === 'QuotaExceededError' || quotaError.message.includes('quota')) {
+          console.warn('[AUTO-SAVE] localStorage plein - nettoyage automatique...');
+          try {
+            // Supprimer les données volumineuses non essentielles
+            localStorage.removeItem('eventsData');
+            localStorage.removeItem('bookingsData');
+            localStorage.removeItem('servicesData');
+            // Réessayer
+            localStorage.setItem('registerFormDraft', JSON.stringify(formData));
+            Object.assign(window.registerData, formData);
+            console.log('[AUTO-SAVE] ✅ Sauvegarde réussie après nettoyage');
+          } catch (e2) {
+            // Si toujours plein, continuer sans sauvegarder (les données sont dans window.registerData)
+            console.warn('[AUTO-SAVE] ⚠️ localStorage toujours plein - continuation sans sauvegarde');
+            Object.assign(window.registerData, formData); // Mettre à jour quand même en mémoire
+          }
+        } else {
+          throw quotaError;
+        }
+      }
       
     } catch (error) {
       console.warn('[AUTO-SAVE] Erreur sauvegarde:', error);
@@ -14590,10 +15003,120 @@ async function handleProRegisterSubmit(event) {
     const photoData = window.registerData.photoData || window.registerData.profilePhoto || null;
     console.log('[REGISTER] photoData FINAL récupéré pour pendingRegisterData:', photoData ? `PRÉSENT (${photoData.length} chars)` : 'NULL');
     
+    // Détecter si c'est un utilisateur Google OAuth (connexion OAuth)
+    const isGoogleUser = currentUser && (
+      currentUser.provider === 'google' || 
+      currentUser.googleValidated === true ||
+      (currentUser.sub && currentUser.email === window.registerData.email) ||
+      (currentUser.email === window.registerData.email && window.registerData.email.includes('@gmail.com'))
+    );
+    
+    // Si c'est un utilisateur Google OAuth, créer directement le compte sans vérification supplémentaire
+    if (isGoogleUser) {
+      console.log('[REGISTER] Utilisateur Google OAuth détecté - création directe du compte');
+      
+      // Préparer le payload pour Google OAuth complete
+      const payload = {
+        email: window.registerData.email,
+        username: window.registerData.username,
+        password: window.registerData.password || '',
+        firstName: window.registerData.firstName || '',
+        lastName: window.registerData.lastName || '',
+        profilePhoto: photoData || '',
+        addresses: addresses || [],
+        userId: currentUser?.id || null,
+        googleSub: currentUser?.sub || null,
+        sub: currentUser?.sub || null
+      };
+      
+      // Si une adresse a été sélectionnée, l'ajouter
+      if (selectedAddress) {
+        payload.postalAddress = selectedAddress.label || window.registerData.postalAddress || '';
+      }
+      
+      console.log('[REGISTER] Création compte Google OAuth avec payload:', {
+        email: payload.email,
+        username: payload.username,
+        hasPhoto: !!payload.profilePhoto,
+        hasAddresses: addresses.length > 0
+      });
+      
+      try {
+        const response = await fetch(`${window.API_BASE_URL}/user/oauth/google/complete`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          console.log('[REGISTER] Compte créé avec succès:', data);
+          
+          // Mettre à jour currentUser avec les données du compte créé
+          if (data.user) {
+            const slimUser = {
+              id: data.user.id || currentUser.id,
+              email: data.user.email || window.registerData.email,
+              username: data.user.username || window.registerData.username,
+              firstName: data.user.firstName || data.user.first_name || window.registerData.firstName,
+              lastName: data.user.lastName || data.user.last_name || window.registerData.lastName,
+              role: data.user.role || 'user',
+              subscription: data.user.subscription || 'free',
+              profile_photo_url: data.user.profile_photo_url || null,
+              hasPassword: data.user.hasPassword || false,
+              hasPostalAddress: data.user.hasPostalAddress || false,
+              profileComplete: data.user.profileComplete !== undefined ? data.user.profileComplete : true,
+              isLoggedIn: true
+            };
+            
+            currentUser = { ...currentUser, ...slimUser };
+            
+            // Sauvegarder dans localStorage
+            try {
+              const slimJson = JSON.stringify(slimUser);
+              localStorage.setItem('currentUser', slimJson);
+            } catch (e) {
+              try { sessionStorage.setItem('currentUser', slimJson); } catch (e2) {}
+            }
+            
+            // Mettre à jour l'UI
+            if (typeof updateAuthUI === 'function') {
+              updateAuthUI(slimUser);
+            }
+            
+            showNotification('✅ Compte créé avec succès ! Vous êtes maintenant connecté.', 'success');
+            closePublishModal();
+          }
+        } else {
+          const errorData = await response.json().catch(() => ({ error: 'Erreur lors de la création du compte' }));
+          console.error('[REGISTER] Erreur création compte:', errorData);
+          showNotification(`❌ Erreur: ${errorData.error || 'Erreur lors de la création du compte'}`, 'error');
+          
+          if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Créer le compte';
+          }
+        }
+      } catch (error) {
+        console.error('[REGISTER] Erreur lors de la création du compte:', error);
+        showNotification('❌ Erreur de connexion. Veuillez réessayer.', 'error');
+        
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Créer le compte';
+        }
+      }
+      
+      return; // Sortir ici pour les utilisateurs Google OAuth
+    }
+    
+    // Pour les utilisateurs normaux (non Google OAuth), utiliser le flux de vérification
     window.pendingRegisterData = {
       email: window.registerData.email,
       username: window.registerData.username,
       password: window.registerData.password,
+      firstName: window.registerData.firstName || '',
+      lastName: window.registerData.lastName || '',
       photoData: photoData, // INCLURE photoData (photo uploadée lors de la création)
       photoLater: false,
       addressLater: !selectedAddress,
@@ -20469,12 +20992,27 @@ function openAccountModal() {
         e.preventDefault();
         e.stopPropagation();
         console.log('[ACCOUNT MODAL] Bouton "Se déconnecter" cliqué');
-        // Utiliser la valeur actuelle du toggle pour la déconnexion
-        const rememberMeValue = rememberMeToggle ? rememberMeToggle.checked : false;
-        if (typeof window.performLogout === 'function') {
-          window.performLogout(rememberMeValue);
-        } else if (typeof window.logout === 'function') {
+        // ⚠️⚠️⚠️ FLUX STANDARD : Déconnexion simple (sans demander "rester connecté")
+        // La valeur du toggle est déjà sauvegardée dans localStorage
+        if (typeof window.logout === 'function') {
           window.logout();
+        } else if (typeof window.performLogout === 'function') {
+          // Utiliser la valeur actuelle du toggle pour la déconnexion
+          const rememberMeValue = rememberMeToggle ? rememberMeToggle.checked : false;
+          console.log('[ACCOUNT MODAL] Déconnexion avec rememberMe:', rememberMeValue);
+          
+          // ⚠️⚠️⚠️ DÉCONNEXION COMPLÈTE : Rafraîchir la page pour réinitialiser tout
+          if (!rememberMeValue) {
+            console.log('[ACCOUNT MODAL] ✅ Déconnexion complète - Rafraîchissement de la page');
+            window.performLogout(false);
+            // Attendre un peu pour que la déconnexion se termine, puis rafraîchir
+            setTimeout(() => {
+              window.location.reload();
+            }, 300);
+          } else {
+            // Déconnexion avec "rester connecté" activé - pas de rafraîchissement
+            window.performLogout(true);
+          }
         } else {
           console.error('[ACCOUNT MODAL] ❌ Fonction logout non trouvée');
           alert('Erreur: fonction de déconnexion non disponible');

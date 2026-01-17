@@ -49,9 +49,12 @@ Write-Host "   Bucket: s3://$S3_BUCKET" -ForegroundColor Gray
 Write-Host "   Dossier: $PUBLIC_FOLDER" -ForegroundColor Gray
 
 try {
-    # Uploader map_logic.js et mapevent.html en priorite
+    # Uploader map_logic.js, auth.js et mapevent.html en priorite
     Write-Host "   Upload map_logic.js..." -ForegroundColor Gray
     aws s3 cp "$PUBLIC_FOLDER\map_logic.js" "s3://$S3_BUCKET/map_logic.js" --region $REGION --content-type "application/javascript" --cache-control "no-cache, no-store, must-revalidate"
+    
+    Write-Host "   Upload auth.js..." -ForegroundColor Gray
+    aws s3 cp "$PUBLIC_FOLDER\auth.js" "s3://$S3_BUCKET/auth.js" --region $REGION --content-type "application/javascript" --cache-control "no-cache, no-store, must-revalidate"
     
     Write-Host "   Upload mapevent.html..." -ForegroundColor Gray
     aws s3 cp "$PUBLIC_FOLDER\mapevent.html" "s3://$S3_BUCKET/mapevent.html" --region $REGION --content-type "text/html" --cache-control "no-cache, no-store, must-revalidate"
@@ -80,6 +83,8 @@ try {
     $paths = @(
         "/map_logic.js",
         "/map_logic.js*",
+        "/auth.js",
+        "/auth.js*",
         "/mapevent.html",
         "/mapevent.html*",
         "/index.html",
@@ -94,7 +99,7 @@ try {
     # Creer l'invalidation
     $invalidationId = aws cloudfront create-invalidation `
         --distribution-id $CLOUDFRONT_DISTRIBUTION_ID `
-        --paths "/map_logic.js" "/map_logic.js*" "/mapevent.html" "/mapevent.html*" "/index.html" "/index.html*" `
+        --paths "/map_logic.js" "/map_logic.js*" "/auth.js" "/auth.js*" "/mapevent.html" "/mapevent.html*" "/index.html" "/index.html*" `
         --query "Invalidation.Id" `
         --output text
     
