@@ -776,7 +776,7 @@ async function handleCognitoCallbackIfPresent() {
           if (!backdrop) {
             backdrop = document.createElement('div');
             backdrop.id = 'publish-modal-backdrop';
-            backdrop.style.cssText = 'position:fixed!important;top:0!important;left:0!important;width:100%!important;height:100%!important;background:rgba(0,0,0,0.8)!important;z-index:99999!important;display:flex!important;align-items:center!important;justify-content:center!important;visibility:visible!important;opacity:1!important;';
+            backdrop.style.cssText = 'position:fixed!important;top:0!important;left:0!important;width:100%!important;height:100%!important;background:rgba(0,0,0,0.8)!important;z-index:99999!important;display:flex!important;align-items:center!important;justify-content:center!important;visibility:visible!important;opacity:1!important;padding-top:40px!important;padding-bottom:40px!important;box-sizing:border-box!important;';
             document.body.appendChild(backdrop);
           }
           
@@ -1092,7 +1092,7 @@ async function handleCognitoCallbackIfPresent() {
               console.log('[OAUTH] 📦 Création backdrop (n\'existe pas)');
               backdrop = document.createElement('div');
               backdrop.id = 'publish-modal-backdrop';
-              backdrop.style.cssText = 'position:fixed!important;top:0!important;left:0!important;width:100%!important;height:100%!important;background:rgba(0,0,0,0.8)!important;z-index:99999!important;display:flex!important;align-items:center!important;justify-content:center!important;visibility:visible!important;opacity:1!important;';
+              backdrop.style.cssText = 'position:fixed!important;top:0!important;left:0!important;width:100%!important;height:100%!important;background:rgba(0,0,0,0.8)!important;z-index:99999!important;display:flex!important;align-items:center!important;justify-content:center!important;visibility:visible!important;opacity:1!important;padding-top:40px!important;padding-bottom:40px!important;box-sizing:border-box!important;';
               document.body.appendChild(backdrop);
             }
             
@@ -2752,7 +2752,7 @@ function openPopupModal(content, item) {
     backdrop = document.createElement("div");
     backdrop.id = "popup-modal-backdrop";
     // z-index très élevé pour être devant tout + pointer-events pour bloquer Leaflet
-    backdrop.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;z-index:99999;backdrop-filter:blur(2px);pointer-events:auto;";
+    backdrop.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;z-index:99999;backdrop-filter:blur(2px);pointer-events:auto;padding-top:40px;padding-bottom:40px;box-sizing:border-box;";
     backdrop.onclick = (e) => {
       if (e.target === backdrop) closePopupModal();
     };
@@ -7021,7 +7021,7 @@ function openPopupFromList(type, id) {
     backdrop = document.createElement("div");
     backdrop.id = "popup-modal-backdrop";
     // z-index très élevé pour être devant la liste (qui est à z-index normal)
-    backdrop.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;z-index:99999;backdrop-filter:blur(2px);";
+    backdrop.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;z-index:99999;backdrop-filter:blur(2px);padding-top:40px;padding-bottom:40px;box-sizing:border-box;";
     backdrop.onclick = (e) => {
       if (e.target === backdrop) closePopupModal();
     };
@@ -10558,7 +10558,17 @@ function inviteFriendsToEvent(type, id) {
   `;
   
   document.getElementById("publish-modal-inner").innerHTML = html;
-  document.getElementById("publish-modal-backdrop").style.display = "flex";
+  const backdrop = document.getElementById("publish-modal-backdrop");
+  if (backdrop) {
+    backdrop.setAttribute('data-auth-modal', 'true');
+    backdrop.style.display = "flex";
+    backdrop.style.paddingTop = "40px";
+    backdrop.style.paddingBottom = "40px";
+    backdrop.style.boxSizing = "border-box";
+    backdrop.style.paddingTop = "40px";
+    backdrop.style.paddingBottom = "40px";
+    backdrop.style.boxSizing = "border-box";
+  }
 
   // L'event listener pour le bouton d'inscription est maintenant attaché dans openLoginModal après la création du HTML
 }
@@ -10744,7 +10754,17 @@ function openUserProfile(userId = null) {
   `;
   
   document.getElementById("publish-modal-inner").innerHTML = html;
-  document.getElementById("publish-modal-backdrop").style.display = "flex";
+  const backdrop = document.getElementById("publish-modal-backdrop");
+  if (backdrop) {
+    backdrop.setAttribute('data-auth-modal', 'true');
+    backdrop.style.display = "flex";
+    backdrop.style.paddingTop = "40px";
+    backdrop.style.paddingBottom = "40px";
+    backdrop.style.boxSizing = "border-box";
+    backdrop.style.paddingTop = "40px";
+    backdrop.style.paddingBottom = "40px";
+    backdrop.style.boxSizing = "border-box";
+  }
 }
 
 // Modifier le profil
@@ -16067,7 +16087,17 @@ function showRegisterStep2() {
   
   console.log('🎯 showRegisterStep2 - setting HTML, length:', html.length);
   document.getElementById("publish-modal-inner").innerHTML = html;
-  document.getElementById("publish-modal-backdrop").style.display = "flex";
+  const backdrop = document.getElementById("publish-modal-backdrop");
+  if (backdrop) {
+    backdrop.setAttribute('data-auth-modal', 'true');
+    backdrop.style.display = "flex";
+    backdrop.style.paddingTop = "40px";
+    backdrop.style.paddingBottom = "40px";
+    backdrop.style.boxSizing = "border-box";
+    backdrop.style.paddingTop = "40px";
+    backdrop.style.paddingBottom = "40px";
+    backdrop.style.boxSizing = "border-box";
+  }
   console.log('🎯 showRegisterStep2 - HTML set successfully and modal displayed');
 
   // Attacher les event listeners pour les avatars (éviter CSP)
@@ -17019,6 +17049,14 @@ function showRegisterStep3() {
   `;
   
   document.getElementById("publish-modal-inner").innerHTML = html;
+  const backdrop = document.getElementById("publish-modal-backdrop");
+  if (backdrop) {
+    backdrop.setAttribute('data-auth-modal', 'true');
+    backdrop.style.display = "flex";
+    backdrop.style.paddingTop = "40px";
+    backdrop.style.paddingBottom = "40px";
+    backdrop.style.boxSizing = "border-box";
+  }
 }
 
 function addAddressField() {
@@ -17583,7 +17621,17 @@ function openReviewModal(type, id) {
   `;
   
   document.getElementById("publish-modal-inner").innerHTML = html;
-  document.getElementById("publish-modal-backdrop").style.display = "flex";
+  const backdrop = document.getElementById("publish-modal-backdrop");
+  if (backdrop) {
+    backdrop.setAttribute('data-auth-modal', 'true');
+    backdrop.style.display = "flex";
+    backdrop.style.paddingTop = "40px";
+    backdrop.style.paddingBottom = "40px";
+    backdrop.style.boxSizing = "border-box";
+    backdrop.style.paddingTop = "40px";
+    backdrop.style.paddingBottom = "40px";
+    backdrop.style.boxSizing = "border-box";
+  }
   
   // Stocker les données pour la pagination
   window.reviewsData = { key, reviews, currentPage: 1, reviewsPerPage };
@@ -17977,7 +18025,17 @@ function openDiscussionModal(type, id) {
   `;
   
   document.getElementById("publish-modal-inner").innerHTML = html;
-  document.getElementById("publish-modal-backdrop").style.display = "flex";
+  const backdrop = document.getElementById("publish-modal-backdrop");
+  if (backdrop) {
+    backdrop.setAttribute('data-auth-modal', 'true');
+    backdrop.style.display = "flex";
+    backdrop.style.paddingTop = "40px";
+    backdrop.style.paddingBottom = "40px";
+    backdrop.style.boxSizing = "border-box";
+    backdrop.style.paddingTop = "40px";
+    backdrop.style.paddingBottom = "40px";
+    backdrop.style.boxSizing = "border-box";
+  }
   
   // Focus sur le textarea
   setTimeout(() => {
@@ -18569,7 +18627,17 @@ function openReportModal(type, id, parentType = null, parentId = null) {
   `;
   
   document.getElementById("publish-modal-inner").innerHTML = html;
-  document.getElementById("publish-modal-backdrop").style.display = "flex";
+  const backdrop = document.getElementById("publish-modal-backdrop");
+  if (backdrop) {
+    backdrop.setAttribute('data-auth-modal', 'true');
+    backdrop.style.display = "flex";
+    backdrop.style.paddingTop = "40px";
+    backdrop.style.paddingBottom = "40px";
+    backdrop.style.boxSizing = "border-box";
+    backdrop.style.paddingTop = "40px";
+    backdrop.style.paddingBottom = "40px";
+    backdrop.style.boxSizing = "border-box";
+  }
 }
 
 async function submitReport(type, id, parentType = null, parentId = null) {
@@ -18685,7 +18753,17 @@ function openPaymentModal(type, id, action) {
   `;
   
   document.getElementById("publish-modal-inner").innerHTML = html;
-  document.getElementById("publish-modal-backdrop").style.display = "flex";
+  const backdrop = document.getElementById("publish-modal-backdrop");
+  if (backdrop) {
+    backdrop.setAttribute('data-auth-modal', 'true');
+    backdrop.style.display = "flex";
+    backdrop.style.paddingTop = "40px";
+    backdrop.style.paddingBottom = "40px";
+    backdrop.style.boxSizing = "border-box";
+    backdrop.style.paddingTop = "40px";
+    backdrop.style.paddingBottom = "40px";
+    backdrop.style.boxSizing = "border-box";
+  }
 }
 
 // Son de paiement
@@ -18761,7 +18839,13 @@ function openCartModal() {
       </div>
     `;
     document.getElementById("publish-modal-inner").innerHTML = html;
-    document.getElementById("publish-modal-backdrop").style.display = "flex";
+    const backdrop = document.getElementById("publish-modal-backdrop");
+  if (backdrop) {
+    backdrop.style.display = "flex";
+    backdrop.style.paddingTop = "40px";
+    backdrop.style.paddingBottom = "40px";
+    backdrop.style.boxSizing = "border-box";
+  }
     return;
   }
   
@@ -18818,7 +18902,17 @@ function openCartModal() {
   `;
   
   document.getElementById("publish-modal-inner").innerHTML = html;
-  document.getElementById("publish-modal-backdrop").style.display = "flex";
+  const backdrop = document.getElementById("publish-modal-backdrop");
+  if (backdrop) {
+    backdrop.setAttribute('data-auth-modal', 'true');
+    backdrop.style.display = "flex";
+    backdrop.style.paddingTop = "40px";
+    backdrop.style.paddingBottom = "40px";
+    backdrop.style.boxSizing = "border-box";
+    backdrop.style.paddingTop = "40px";
+    backdrop.style.paddingBottom = "40px";
+    backdrop.style.boxSizing = "border-box";
+  }
 }
 
 async function processCartCheckout() {
@@ -19070,7 +19164,17 @@ window.openPhotoViewer = function(photoUrl) {
     </div>
   `;
   document.getElementById("publish-modal-inner").innerHTML = html;
-  document.getElementById("publish-modal-backdrop").style.display = "flex";
+  const backdrop = document.getElementById("publish-modal-backdrop");
+  if (backdrop) {
+    backdrop.setAttribute('data-auth-modal', 'true');
+    backdrop.style.display = "flex";
+    backdrop.style.paddingTop = "40px";
+    backdrop.style.paddingBottom = "40px";
+    backdrop.style.boxSizing = "border-box";
+    backdrop.style.paddingTop = "40px";
+    backdrop.style.paddingBottom = "40px";
+    backdrop.style.boxSizing = "border-box";
+  }
 };
 
 window.openPhotoUploader = function() {
@@ -19093,7 +19197,17 @@ window.openPhotoUploader = function() {
     </div>
   `;
   document.getElementById("publish-modal-inner").innerHTML = html;
-  document.getElementById("publish-modal-backdrop").style.display = "flex";
+  const backdrop = document.getElementById("publish-modal-backdrop");
+  if (backdrop) {
+    backdrop.setAttribute('data-auth-modal', 'true');
+    backdrop.style.display = "flex";
+    backdrop.style.paddingTop = "40px";
+    backdrop.style.paddingBottom = "40px";
+    backdrop.style.boxSizing = "border-box";
+    backdrop.style.paddingTop = "40px";
+    backdrop.style.paddingBottom = "40px";
+    backdrop.style.boxSizing = "border-box";
+  }
 };
 
 window.handlePhotoUpload = function(event) {
@@ -19205,7 +19319,17 @@ function openAgendaModal() {
   `;
   
   document.getElementById("publish-modal-inner").innerHTML = html;
-  document.getElementById("publish-modal-backdrop").style.display = "flex";
+  const backdrop = document.getElementById("publish-modal-backdrop");
+  if (backdrop) {
+    backdrop.setAttribute('data-auth-modal', 'true');
+    backdrop.style.display = "flex";
+    backdrop.style.paddingTop = "40px";
+    backdrop.style.paddingBottom = "40px";
+    backdrop.style.boxSizing = "border-box";
+    backdrop.style.paddingTop = "40px";
+    backdrop.style.paddingBottom = "40px";
+    backdrop.style.boxSizing = "border-box";
+  }
   
   // Stocker les items complets pour la pagination
   window.agendaItemsFull = agendaItems;
@@ -19393,7 +19517,17 @@ function openAddAlarmModal(source, eventId = null) {
   `;
   
   document.getElementById("publish-modal-inner").innerHTML = html;
-  document.getElementById("publish-modal-backdrop").style.display = "flex";
+  const backdrop = document.getElementById("publish-modal-backdrop");
+  if (backdrop) {
+    backdrop.setAttribute('data-auth-modal', 'true');
+    backdrop.style.display = "flex";
+    backdrop.style.paddingTop = "40px";
+    backdrop.style.paddingBottom = "40px";
+    backdrop.style.boxSizing = "border-box";
+    backdrop.style.paddingTop = "40px";
+    backdrop.style.paddingBottom = "40px";
+    backdrop.style.boxSizing = "border-box";
+  }
   
   // Mettre à jour les options selon le type
   document.getElementById("alarm-type").addEventListener('change', function() {
@@ -19867,7 +20001,17 @@ function openSubscriptionModal() {
   `;
   
   document.getElementById("publish-modal-inner").innerHTML = html;
-  document.getElementById("publish-modal-backdrop").style.display = "flex";
+  const backdrop = document.getElementById("publish-modal-backdrop");
+  if (backdrop) {
+    backdrop.setAttribute('data-auth-modal', 'true');
+    backdrop.style.display = "flex";
+    backdrop.style.paddingTop = "40px";
+    backdrop.style.paddingBottom = "40px";
+    backdrop.style.boxSizing = "border-box";
+    backdrop.style.paddingTop = "40px";
+    backdrop.style.paddingBottom = "40px";
+    backdrop.style.boxSizing = "border-box";
+  }
 }
 
 function createAlert() {
@@ -19971,7 +20115,17 @@ function openPremiumPaymentModal(plan = 'full-premium', price = 25) {
   `;
   
   document.getElementById("publish-modal-inner").innerHTML = html;
-  document.getElementById("publish-modal-backdrop").style.display = "flex";
+  const backdrop = document.getElementById("publish-modal-backdrop");
+  if (backdrop) {
+    backdrop.setAttribute('data-auth-modal', 'true');
+    backdrop.style.display = "flex";
+    backdrop.style.paddingTop = "40px";
+    backdrop.style.paddingBottom = "40px";
+    backdrop.style.boxSizing = "border-box";
+    backdrop.style.paddingTop = "40px";
+    backdrop.style.paddingBottom = "40px";
+    backdrop.style.boxSizing = "border-box";
+  }
 }
 
 async function processSubscriptionPayment(plan = 'full-premium', price = 25) {
@@ -20149,7 +20303,17 @@ function openAboutModal() {
   `;
   
   document.getElementById("publish-modal-inner").innerHTML = html;
-  document.getElementById("publish-modal-backdrop").style.display = "flex";
+  const backdrop = document.getElementById("publish-modal-backdrop");
+  if (backdrop) {
+    backdrop.setAttribute('data-auth-modal', 'true');
+    backdrop.style.display = "flex";
+    backdrop.style.paddingTop = "40px";
+    backdrop.style.paddingBottom = "40px";
+    backdrop.style.boxSizing = "border-box";
+    backdrop.style.paddingTop = "40px";
+    backdrop.style.paddingBottom = "40px";
+    backdrop.style.boxSizing = "border-box";
+  }
 }
 
 // ============================================
@@ -20266,7 +20430,17 @@ function openFriendsModal() {
   `;
   
   document.getElementById("publish-modal-inner").innerHTML = html;
-  document.getElementById("publish-modal-backdrop").style.display = "flex";
+  const backdrop = document.getElementById("publish-modal-backdrop");
+  if (backdrop) {
+    backdrop.setAttribute('data-auth-modal', 'true');
+    backdrop.style.display = "flex";
+    backdrop.style.paddingTop = "40px";
+    backdrop.style.paddingBottom = "40px";
+    backdrop.style.boxSizing = "border-box";
+    backdrop.style.paddingTop = "40px";
+    backdrop.style.paddingBottom = "40px";
+    backdrop.style.boxSizing = "border-box";
+  }
 }
 
 // Ouvrir le modal des groupes
@@ -20350,7 +20524,17 @@ function openGroupsModal() {
   `;
   
   document.getElementById("publish-modal-inner").innerHTML = html;
-  document.getElementById("publish-modal-backdrop").style.display = "flex";
+  const backdrop = document.getElementById("publish-modal-backdrop");
+  if (backdrop) {
+    backdrop.setAttribute('data-auth-modal', 'true');
+    backdrop.style.display = "flex";
+    backdrop.style.paddingTop = "40px";
+    backdrop.style.paddingBottom = "40px";
+    backdrop.style.boxSizing = "border-box";
+    backdrop.style.paddingTop = "40px";
+    backdrop.style.paddingBottom = "40px";
+    backdrop.style.boxSizing = "border-box";
+  }
 }
 
 // Mettre à jour la fonction globale avec l'implémentation complète
@@ -22032,7 +22216,17 @@ function showAccountModalTab(tab) {
   `;
   
   document.getElementById("publish-modal-inner").innerHTML = html;
-  document.getElementById("publish-modal-backdrop").style.display = "flex";
+  const backdrop = document.getElementById("publish-modal-backdrop");
+  if (backdrop) {
+    backdrop.setAttribute('data-auth-modal', 'true');
+    backdrop.style.display = "flex";
+    backdrop.style.paddingTop = "40px";
+    backdrop.style.paddingBottom = "40px";
+    backdrop.style.boxSizing = "border-box";
+    backdrop.style.paddingTop = "40px";
+    backdrop.style.paddingBottom = "40px";
+    backdrop.style.boxSizing = "border-box";
+  }
 }
 
 // Modal Paramètres
@@ -22616,7 +22810,17 @@ function openFavoritesModal() {
   `;
   
   document.getElementById("publish-modal-inner").innerHTML = html;
-  document.getElementById("publish-modal-backdrop").style.display = "flex";
+  const backdrop = document.getElementById("publish-modal-backdrop");
+  if (backdrop) {
+    backdrop.setAttribute('data-auth-modal', 'true');
+    backdrop.style.display = "flex";
+    backdrop.style.paddingTop = "40px";
+    backdrop.style.paddingBottom = "40px";
+    backdrop.style.boxSizing = "border-box";
+    backdrop.style.paddingTop = "40px";
+    backdrop.style.paddingBottom = "40px";
+    backdrop.style.boxSizing = "border-box";
+  }
   
   // Stocker les favoris complets pour la pagination
   window.favoritesFull = favorites;
@@ -23470,7 +23674,17 @@ function showReactionPicker(channelId, messageIndex) {
   `;
   
   document.getElementById("publish-modal-inner").innerHTML = html;
-  document.getElementById("publish-modal-backdrop").style.display = "flex";
+  const backdrop = document.getElementById("publish-modal-backdrop");
+  if (backdrop) {
+    backdrop.setAttribute('data-auth-modal', 'true');
+    backdrop.style.display = "flex";
+    backdrop.style.paddingTop = "40px";
+    backdrop.style.paddingBottom = "40px";
+    backdrop.style.boxSizing = "border-box";
+    backdrop.style.paddingTop = "40px";
+    backdrop.style.paddingBottom = "40px";
+    backdrop.style.boxSizing = "border-box";
+  }
 }
 
 // Ajouter une réaction à un message
@@ -24654,7 +24868,17 @@ function openEcoMissionModal() {
   `;
   
   document.getElementById("publish-modal-inner").innerHTML = html;
-  document.getElementById("publish-modal-backdrop").style.display = "flex";
+  const backdrop = document.getElementById("publish-modal-backdrop");
+  if (backdrop) {
+    backdrop.setAttribute('data-auth-modal', 'true');
+    backdrop.style.display = "flex";
+    backdrop.style.paddingTop = "40px";
+    backdrop.style.paddingBottom = "40px";
+    backdrop.style.boxSizing = "border-box";
+    backdrop.style.paddingTop = "40px";
+    backdrop.style.paddingBottom = "40px";
+    backdrop.style.boxSizing = "border-box";
+  }
 }
 
 function makeDonation(amount) {
@@ -25191,7 +25415,7 @@ function showStatusChangeNotifications() {
   if (!backdrop) {
     backdrop = document.createElement("div");
     backdrop.id = "status-change-notification-backdrop";
-    backdrop.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;z-index:99999;backdrop-filter:blur(2px);";
+    backdrop.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;z-index:99999;backdrop-filter:blur(2px);padding-top:40px;padding-bottom:40px;box-sizing:border-box;";
     document.body.appendChild(backdrop);
   }
   

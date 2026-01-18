@@ -336,6 +336,15 @@
             z-index:60;
             pointer-events:auto; /* Permet d'interagir avec le modal */
             backdrop-filter: none; /* Pas de blur pour que le filtre soit net */
+            box-sizing:border-box;
+        }
+        /* Centrage pour les modales d'authentification */
+        #publish-modal-backdrop[data-auth-modal="true"],
+        #publish-modal-backdrop:has(#authModal) {
+            align-items:center !important;
+            justify-content:center !important;
+            padding-top:40px !important;
+            padding-bottom:40px !important;
         }
         #publish-modal {
             position:absolute;
@@ -2405,7 +2414,7 @@
     <!-- SCRIPT DE FALLBACK SUPPRIMÉ - Le formulaire s'affiche uniquement dans le callback OAuth après validation Google -->
     
     <!-- Module AUTH (fonctions d'authentification) -->
-    <script src="auth.js?v=20260117-203000-PASSWORD-TOGGLE-BACKDROP-FIX"></script>
+    <script src="auth.js?v=20260117-231500-DATA-AUTH-MODAL-ATTR"></script>
     <!-- Logique principale de la carte -->
     <script src="map_logic.js?v=20260116-223000-BUTTON-FIX"></script>
     <!-- Script pour mettre à jour les métadonnées Open Graph immédiatement au chargement -->

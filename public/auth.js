@@ -426,6 +426,9 @@ function showGoogleLoginLoading() {
       justify-content: center;
       flex-direction: column;
       pointer-events: all;
+      padding-top: 40px;
+      padding-bottom: 40px;
+      box-sizing: border-box;
     `;
     document.body.appendChild(overlay);
   }
@@ -453,6 +456,18 @@ function hideGoogleLoginLoading() {
   if (overlay) {
     overlay.style.display = 'none';
     overlay.remove();
+  }
+}
+
+// ===============================
+// UTILITAIRE CENTRAGE MODAL
+// ===============================
+function centerModalBackdrop() {
+  const backdrop = document.getElementById('publish-modal-backdrop');
+  if (backdrop) {
+    backdrop.style.paddingTop = '40px';
+    backdrop.style.paddingBottom = '40px';
+    backdrop.style.boxSizing = 'border-box';
   }
 }
 
@@ -1030,6 +1045,9 @@ function askRememberMeOnLogout() {
     backdrop.style.visibility = 'visible';
     backdrop.style.opacity = '1';
     backdrop.style.zIndex = '9999';
+    backdrop.style.paddingTop = '40px';
+    backdrop.style.paddingBottom = '40px';
+    backdrop.style.boxSizing = 'border-box';
   }
   
   modal.style.display = 'block';
@@ -1693,7 +1711,9 @@ function openAuthModal(mode = 'login') {
   
   // FORCER IMMÉDIATEMENT SANS TRY-CATCH POUR VOIR LES ERREURS
   console.log('[AUTH] ⚠️⚠️⚠️ Application setAttribute au backdrop...');
-  modalBackdrop.setAttribute('style', 'display:flex!important;visibility:visible!important;opacity:1!important;z-index:99999!important;position:fixed!important;top:0!important;left:0!important;width:100%!important;height:100%!important;background:rgba(0,0,0,0.8)!important;align-items:center!important;justify-content:center!important;pointer-events:auto!important;');
+  // Marquer le backdrop comme modal d'authentification pour le CSS
+  modalBackdrop.setAttribute('data-auth-modal', 'true');
+  modalBackdrop.setAttribute('style', 'display:flex!important;visibility:visible!important;opacity:1!important;z-index:99999!important;position:fixed!important;top:0!important;left:0!important;width:100%!important;height:100%!important;background:rgba(0,0,0,0.8)!important;align-items:center!important;justify-content:center!important;pointer-events:auto!important;padding-top:40px!important;padding-bottom:40px!important;box-sizing:border-box!important;');
   console.log('[AUTH] ✅✅✅ BACKDROP setAttribute APPLIQUÉ');
   
   // Réutiliser publishModal déjà déclaré plus haut (ligne 1409)
@@ -1726,9 +1746,9 @@ function openAuthModal(mode = 'login') {
         if (computed.display === 'none' || computed.visibility === 'hidden' || parseFloat(computed.opacity) < 0.1) {
           console.log('[AUTH] ⚠️⚠️⚠️ BACKDROP TOUJOURS INVISIBLE APRÈS RAF - FORCAGE FINAL AVEC cssText');
           // Utiliser style.cssText pour remplacer complètement le style
-          backdropCheck.style.cssText = 'display:flex!important;visibility:visible!important;opacity:1!important;z-index:99999!important;position:fixed!important;top:0!important;left:0!important;width:100%!important;height:100%!important;background:rgba(0,0,0,0.8)!important;align-items:center!important;justify-content:center!important;pointer-events:auto!important;';
+          backdropCheck.style.cssText = 'display:flex!important;visibility:visible!important;opacity:1!important;z-index:99999!important;position:fixed!important;top:0!important;left:0!important;width:100%!important;height:100%!important;background:rgba(0,0,0,0.8)!important;align-items:center!important;justify-content:center!important;pointer-events:auto!important;padding-top:40px!important;padding-bottom:40px!important;box-sizing:border-box!important;';
           // Aussi forcer avec setAttribute
-          backdropCheck.setAttribute('style', 'display:flex!important;visibility:visible!important;opacity:1!important;z-index:99999!important;position:fixed!important;top:0!important;left:0!important;width:100%!important;height:100%!important;background:rgba(0,0,0,0.8)!important;align-items:center!important;justify-content:center!important;pointer-events:auto!important;');
+          backdropCheck.setAttribute('style', 'display:flex!important;visibility:visible!important;opacity:1!important;z-index:99999!important;position:fixed!important;top:0!important;left:0!important;width:100%!important;height:100%!important;background:rgba(0,0,0,0.8)!important;align-items:center!important;justify-content:center!important;pointer-events:auto!important;padding-top:40px!important;padding-bottom:40px!important;box-sizing:border-box!important;');
         }
       }
       
@@ -1858,7 +1878,7 @@ function openAuthModal(mode = 'login') {
   // FORCER IMMÉDIATEMENT AVANT TOUT LE RESTE - UTILISER setAttribute POUR FORCER
   console.log('[AUTH] ⚠️⚠️⚠️ FORCAGE IMMÉDIAT DU BACKDROP AVEC setAttribute');
   if (modalBackdrop) {
-    modalBackdrop.setAttribute('style', 'display:flex!important;visibility:visible!important;opacity:1!important;z-index:99999!important;position:fixed!important;top:0!important;left:0!important;width:100%!important;height:100%!important;background:rgba(0,0,0,0.8)!important;align-items:center!important;justify-content:center!important;pointer-events:auto!important;');
+    modalBackdrop.setAttribute('style', 'display:flex!important;visibility:visible!important;opacity:1!important;z-index:99999!important;position:fixed!important;top:0!important;left:0!important;width:100%!important;height:100%!important;background:rgba(0,0,0,0.8)!important;align-items:center!important;justify-content:center!important;pointer-events:auto!important;padding-top:40px!important;padding-bottom:40px!important;box-sizing:border-box!important;');
     console.log('[AUTH] ✅✅✅ BACKDROP FORCÉ AVEC setAttribute');
   } else {
     console.error('[AUTH] ❌❌❌ modalBackdrop est NULL !');
@@ -1902,7 +1922,7 @@ function openAuthModal(mode = 'login') {
   // FORCER IMMÉDIATEMENT AVANT TOUT LE RESTE - UTILISER setAttribute POUR FORCER
   console.log('[AUTH] ⚠️⚠️⚠️ FORCAGE IMMÉDIAT DU BACKDROP AVEC setAttribute');
   if (modalBackdrop) {
-    modalBackdrop.setAttribute('style', 'display:flex!important;visibility:visible!important;opacity:1!important;z-index:99999!important;position:fixed!important;top:0!important;left:0!important;width:100%!important;height:100%!important;background:rgba(0,0,0,0.8)!important;align-items:center!important;justify-content:center!important;pointer-events:auto!important;');
+    modalBackdrop.setAttribute('style', 'display:flex!important;visibility:visible!important;opacity:1!important;z-index:99999!important;position:fixed!important;top:0!important;left:0!important;width:100%!important;height:100%!important;background:rgba(0,0,0,0.8)!important;align-items:center!important;justify-content:center!important;pointer-events:auto!important;padding-top:40px!important;padding-bottom:40px!important;box-sizing:border-box!important;');
     console.log('[AUTH] ✅✅✅ BACKDROP FORCÉ AVEC setAttribute');
   } else {
     console.error('[AUTH] ❌❌❌ modalBackdrop est NULL !');
@@ -1933,6 +1953,8 @@ function openAuthModal(mode = 'login') {
     // ⚠️⚠️⚠️ CRITIQUE : FORCER l'affichage du backdrop et du modal IMMÉDIATEMENT
     // Le backdrop doit être en flex avec align-items:center et justify-content:center pour centrer le modal
     console.log('[AUTH] ⚠️⚠️⚠️ Application des styles au backdrop...');
+    // Marquer comme modal d'authentification pour activer le CSS de centrage
+    modalBackdrop.setAttribute('data-auth-modal', 'true');
     modalBackdrop.style.display = "flex";
   modalBackdrop.style.visibility = "visible";
   modalBackdrop.style.opacity = "1";
@@ -1945,6 +1967,9 @@ function openAuthModal(mode = 'login') {
   modalBackdrop.style.background = "rgba(0,0,0,0.8)";
   modalBackdrop.style.alignItems = "center";
   modalBackdrop.style.justifyContent = "center";
+  modalBackdrop.style.paddingTop = "40px";
+  modalBackdrop.style.paddingBottom = "40px";
+  modalBackdrop.style.boxSizing = "border-box";
   modalBackdrop.style.setProperty('display', 'flex', 'important');
   console.log('[AUTH] ✅✅✅ Styles appliqués au backdrop');
   
@@ -1999,7 +2024,9 @@ function openAuthModal(mode = 'login') {
   // ⚠️⚠️⚠️ FORCER IMMÉDIATEMENT si le backdrop n'est pas visible
   if (computedBackdropNow.display === 'none' || computedBackdropNow.visibility === 'hidden' || computedBackdropNow.opacity === '0') {
     console.error('[AUTH] ❌❌❌ BACKDROP INVISIBLE IMMÉDIATEMENT - FORCAGE ULTIME');
-    modalBackdrop.setAttribute('style', 'display:flex!important;visibility:visible!important;opacity:1!important;z-index:99999!important;position:fixed!important;top:0!important;left:0!important;width:100%!important;height:100%!important;background:rgba(0,0,0,0.8)!important;align-items:center!important;justify-content:center!important;pointer-events:auto!important;');
+    // Marquer comme modal d'authentification pour activer le CSS de centrage
+    modalBackdrop.setAttribute('data-auth-modal', 'true');
+    modalBackdrop.setAttribute('style', 'display:flex!important;visibility:visible!important;opacity:1!important;z-index:99999!important;position:fixed!important;top:0!important;left:0!important;width:100%!important;height:100%!important;background:rgba(0,0,0,0.8)!important;align-items:center!important;justify-content:center!important;pointer-events:auto!important;padding-top:40px!important;padding-bottom:40px!important;box-sizing:border-box!important;');
     
     if (publishModal) {
       publishModal.setAttribute('style', 'display:block!important;visibility:visible!important;opacity:1!important;position:relative!important;max-width:500px!important;width:90%!important;max-height:90vh!important;overflow-y:auto!important;');
@@ -2017,7 +2044,9 @@ function openAuthModal(mode = 'login') {
     console.error('[AUTH] ❌❌❌ ERREUR lors du forçage de l\'affichage:', err);
     // Essayer quand même de forcer l'affichage avec setAttribute
     try {
-      modalBackdrop.setAttribute('style', 'display:flex!important;visibility:visible!important;opacity:1!important;z-index:99999!important;position:fixed!important;top:0!important;left:0!important;width:100%!important;height:100%!important;background:rgba(0,0,0,0.8)!important;align-items:center!important;justify-content:center!important;pointer-events:auto!important;');
+      // Marquer comme modal d'authentification pour activer le CSS de centrage
+      modalBackdrop.setAttribute('data-auth-modal', 'true');
+      modalBackdrop.setAttribute('style', 'display:flex!important;visibility:visible!important;opacity:1!important;z-index:99999!important;position:fixed!important;top:0!important;left:0!important;width:100%!important;height:100%!important;background:rgba(0,0,0,0.8)!important;align-items:center!important;justify-content:center!important;pointer-events:auto!important;padding-top:40px!important;padding-bottom:40px!important;box-sizing:border-box!important;');
       console.log('[AUTH] ✅✅✅ Forçage avec setAttribute réussi');
     } catch (err2) {
       console.error('[AUTH] ❌❌❌ ERREUR même avec setAttribute:', err2);
@@ -2054,7 +2083,9 @@ function openAuthModal(mode = 'login') {
     // Si le backdrop n'est pas visible, forcer encore plus
     if (computedBackdrop.display === 'none' || computedBackdrop.visibility === 'hidden' || computedBackdrop.opacity === '0') {
       console.error('[AUTH] ❌❌❌ BACKDROP TOUJOURS INVISIBLE - FORCAGE ULTIME');
-      modalBackdrop.setAttribute('style', 'display:flex!important;visibility:visible!important;opacity:1!important;z-index:99999!important;position:fixed!important;top:0!important;left:0!important;width:100%!important;height:100%!important;background:rgba(0,0,0,0.8)!important;align-items:center!important;justify-content:center!important;pointer-events:auto!important;');
+      // Marquer comme modal d'authentification pour activer le CSS de centrage
+      modalBackdrop.setAttribute('data-auth-modal', 'true');
+      modalBackdrop.setAttribute('style', 'display:flex!important;visibility:visible!important;opacity:1!important;z-index:99999!important;position:fixed!important;top:0!important;left:0!important;width:100%!important;height:100%!important;background:rgba(0,0,0,0.8)!important;align-items:center!important;justify-content:center!important;pointer-events:auto!important;padding-top:40px!important;padding-bottom:40px!important;box-sizing:border-box!important;');
       
       if (publishModal) {
         publishModal.setAttribute('style', 'display:block!important;visibility:visible!important;opacity:1!important;position:relative!important;max-width:500px!important;width:90%!important;max-height:90vh!important;overflow-y:auto!important;');
@@ -2308,6 +2339,9 @@ async function checkEmailAndProceed(email) {
       backdrop.style.display = 'flex';
       backdrop.style.visibility = 'visible';
       backdrop.style.opacity = '1';
+      backdrop.style.paddingTop = '40px';
+      backdrop.style.paddingBottom = '40px';
+      backdrop.style.boxSizing = 'border-box';
       modal.innerHTML = html;
       modal.style.display = 'block';
       
@@ -2381,6 +2415,14 @@ function openLoginModal() {
     return;
   }
   
+  // Centrer le modal avec padding vertical
+  backdrop.style.display = 'flex';
+  backdrop.style.visibility = 'visible';
+  backdrop.style.opacity = '1';
+  backdrop.style.paddingTop = '40px';
+  backdrop.style.paddingBottom = '40px';
+  backdrop.style.boxSizing = 'border-box';
+  
   // ⚠️⚠️⚠️ Récupérer l'email depuis sessionStorage si disponible
   let savedEmail = '';
   try {
@@ -2446,9 +2488,13 @@ function openLoginModal() {
     </div>
   `;
   
+  backdrop.setAttribute('data-auth-modal', 'true');
   backdrop.style.display = 'flex';
   backdrop.style.visibility = 'visible';
   backdrop.style.opacity = '1';
+  backdrop.style.paddingTop = '40px';
+  backdrop.style.paddingBottom = '40px';
+  backdrop.style.boxSizing = 'border-box';
   modal.innerHTML = html;
   modal.style.display = 'block';
   
@@ -4662,12 +4708,14 @@ function showVerificationChoice() {
   }
   console.log('[VERIFY] Données d\'inscription trouvées:', pendingData);
   
-  // S'assurer que le backdrop est visible
+  // S'assurer que le backdrop est visible et centré verticalement
   const backdrop = document.getElementById('publish-modal-backdrop');
   if (backdrop) {
+    backdrop.setAttribute('data-auth-modal', 'true');
     backdrop.style.display = 'flex';
     backdrop.style.visibility = 'visible';
     backdrop.style.opacity = '1';
+    centerModalBackdrop();
   }
   
   // ⚠️⚠️⚠️ CRITIQUE : Vérifier que le modal existe avant injection
@@ -5078,12 +5126,41 @@ async function createAccountAndSendVerificationEmail(pendingData) {
       console.log('[VERIFY] 📧 Réponse envoi email:', emailData);
       
       // Vérifier si l'email a vraiment été envoyé
-      if (emailData.dev_mode || emailData.message?.includes('mode développement')) {
-        // Mode développement - afficher le code dans la console et dans le modal
+      if (emailData.email_sent === false || emailData.dev_mode) {
+        // Email non envoyé ou mode développement - afficher le code dans la console et dans le modal
+        console.error('[VERIFY] ❌ Email non envoyé - Mode développement');
         console.log(`🔐 CODE DE VÉRIFICATION (DEV ONLY): ${verificationCode}`);
         if (typeof showNotification === 'function') {
-          showNotification(`⚠️ Mode développement - Code: ${verificationCode} (vérifiez la console)`, "warning");
+          showNotification(`⚠️ Email non envoyé - Code: ${verificationCode} (vérifiez la console)`, "warning");
         }
+        
+        // Afficher le formulaire avec le code en mode développement
+        if (modal) {
+          modal.innerHTML = `
+            <div id="authModal" data-mode="email-error" style="padding:40px;max-width:500px;margin:0 auto;text-align:center;position:relative;">
+              <div style="margin-bottom:32px;">
+                <div style="font-size:64px;margin-bottom:16px;">⚠️</div>
+                <h2 style="margin:0 0 8px;font-size:28px;font-weight:800;color:#fff;">Email non envoyé</h2>
+                <p style="margin:0;font-size:14px;color:var(--ui-text-muted);">Mode développement - Code généré</p>
+              </div>
+              <p style="color:var(--ui-text-muted);font-size:13px;margin-bottom:20px;">Code de vérification: <strong style="font-family:monospace;font-size:24px;color:#00ffc3;">${verificationCode}</strong></p>
+              <p style="color:var(--ui-text-muted);font-size:12px;margin-bottom:20px;">Entrez ce code pour vérifier votre compte :</p>
+              <div style="margin-bottom:20px;">
+                <input type="text" id="email-verification-code" placeholder="000000" maxlength="6" style="width:100%;padding:14px;border-radius:10px;border:2px solid rgba(255,255,255,0.1);background:rgba(15,23,42,0.5);color:#fff;font-size:24px;font-weight:700;text-align:center;letter-spacing:8px;font-family:monospace;" oninput="this.value=this.value.replace(/[^0-9]/g,'');if(this.value.length===6){verifyEmailCodeAfterRegister('${pendingData.email}',this.value);}">
+                <div id="email-code-feedback" style="margin-top:8px;font-size:12px;color:var(--ui-text-muted);"></div>
+              </div>
+              <button onclick="if(typeof createAccountAndSendVerificationEmail==='function'){const pendingData=window.pendingRegisterData;if(pendingData){createAccountAndSendVerificationEmail(pendingData);}}" style="width:100%;padding:12px;border-radius:10px;border:2px solid rgba(255,255,255,0.1);background:transparent;color:var(--ui-text-muted);font-weight:600;font-size:14px;cursor:pointer;margin-bottom:12px;">Réessayer l'envoi</button>
+              <button onclick="closeAuthModal()" style="width:100%;padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#00ffc3,#3b82f6);color:#000;font-weight:600;font-size:14px;cursor:pointer;">Fermer</button>
+            </div>
+          `;
+        }
+        return;
+      }
+      
+      // Email envoyé avec succès
+      console.log('[VERIFY] ✅ Email envoyé avec succès');
+      if (typeof showNotification === 'function') {
+        showNotification('✅ Email de vérification envoyé ! Vérifiez votre boîte email.', "success");
       }
       
       // Afficher le message de vérification (SANS lien direct)
@@ -5100,19 +5177,17 @@ async function createAccountAndSendVerificationEmail(pendingData) {
               <p style="margin:0;font-size:14px;color:var(--ui-text-muted);">Un email a été envoyé à <strong>${pendingData.email}</strong></p>
             </div>
             
-            <p style="color:var(--ui-text-muted);font-size:13px;margin-bottom:20px;">Un code de vérification à 6 chiffres a été envoyé à votre adresse email.</p>
-            <p style="color:var(--ui-text-muted);font-size:12px;margin-bottom:20px;font-weight:600;">⚠️ Vérifiez votre boîte email (et les spams) pour récupérer le code.</p>
-            <p style="color:var(--ui-text-muted);font-size:12px;margin-bottom:20px;">Entrez le code ci-dessous pour vérifier votre compte :</p>
+            <p style="color:var(--ui-text-muted);font-size:13px;margin-bottom:20px;">Un email de vérification a été envoyé à votre adresse email.</p>
+            <p style="color:var(--ui-text-muted);font-size:12px;margin-bottom:20px;font-weight:600;">⚠️ Vérifiez votre boîte email (et les spams) pour récupérer le lien de vérification.</p>
+            <p style="color:var(--ui-text-muted);font-size:12px;margin-bottom:20px;">Cliquez sur le lien dans l'email pour vérifier votre compte.</p>
             
-            <!-- Formulaire de saisie du code -->
-            <div style="margin-bottom:20px;">
-              <input type="text" id="email-verification-code" placeholder="000000" maxlength="6" style="width:100%;padding:14px;border-radius:10px;border:2px solid rgba(255,255,255,0.1);background:rgba(15,23,42,0.5);color:#fff;font-size:24px;font-weight:700;text-align:center;letter-spacing:8px;font-family:monospace;" oninput="this.value=this.value.replace(/[^0-9]/g,'');if(this.value.length===6){verifyEmailCodeAfterRegister('${pendingData.email}',this.value);}">
-              <div id="email-code-feedback" style="margin-top:8px;font-size:12px;color:var(--ui-text-muted);"></div>
+            <div style="background:rgba(0,255,195,0.1);border:1px solid rgba(0,255,195,0.3);border-radius:12px;padding:16px;margin-bottom:20px;">
+              <p style="color:var(--ui-text-muted);font-size:12px;margin:0;line-height:1.6;">
+                <strong style="color:#00ffc3;">💡 Important :</strong> Le lien de vérification est valide pendant 24 heures. Si vous ne recevez pas l'email, vérifiez votre dossier spam.
+              </p>
             </div>
             
-            <p style="color:var(--ui-text-muted);font-size:11px;margin-bottom:20px;">Le code est valide pendant 15 minutes.</p>
-            
-            <button onclick="if(typeof createAccountAndSendVerificationEmail==='function'){const pendingData=window.pendingRegisterData;if(pendingData){createAccountAndSendVerificationEmail(pendingData);}}" style="width:100%;padding:12px;border-radius:10px;border:2px solid rgba(255,255,255,0.1);background:transparent;color:var(--ui-text-muted);font-weight:600;font-size:14px;cursor:pointer;margin-bottom:12px;">Renvoyer le code</button>
+            <button onclick="if(typeof createAccountAndSendVerificationEmail==='function'){const pendingData=window.pendingRegisterData;if(pendingData){createAccountAndSendVerificationEmail(pendingData);}}" style="width:100%;padding:12px;border-radius:10px;border:2px solid rgba(255,255,255,0.1);background:transparent;color:var(--ui-text-muted);font-weight:600;font-size:14px;cursor:pointer;margin-bottom:12px;">Renvoyer l'email</button>
             <button onclick="closeAuthModal()" style="width:100%;padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#00ffc3,#3b82f6);color:#000;font-weight:600;font-size:14px;cursor:pointer;">Fermer</button>
           </div>
         `;
@@ -5120,10 +5195,15 @@ async function createAccountAndSendVerificationEmail(pendingData) {
     } else {
       const errorData = await emailResponse.json().catch(() => ({ error: 'Erreur inconnue' }));
       console.error('[VERIFY] ❌ Erreur envoi email:', errorData);
+      
+      // Récupérer le code si disponible dans la réponse d'erreur (mode développement)
+      const devCode = errorData.code || verificationCode;
+      
       if (typeof showNotification === 'function') {
         showNotification(`⚠️ Compte créé mais erreur lors de l'envoi de l'email: ${errorData.error || 'Erreur inconnue'}`, "error");
       }
-      // Afficher quand même le formulaire de code avec le code généré (mode développement)
+      
+      // Afficher le formulaire de code avec le code généré (mode développement)
       if (modal) {
         modal.innerHTML = `
           <div id="authModal" data-mode="email-error" style="padding:40px;max-width:500px;margin:0 auto;text-align:center;position:relative;">
@@ -5132,12 +5212,13 @@ async function createAccountAndSendVerificationEmail(pendingData) {
               <h2 style="margin:0 0 8px;font-size:28px;font-weight:800;color:#fff;">Erreur envoi email</h2>
               <p style="margin:0;font-size:14px;color:var(--ui-text-muted);">L'email n'a pas pu être envoyé</p>
             </div>
-            <p style="color:var(--ui-text-muted);font-size:13px;margin-bottom:20px;">Mode développement - Code généré: <strong style="font-family:monospace;font-size:18px;">${verificationCode}</strong></p>
+            <p style="color:var(--ui-text-muted);font-size:13px;margin-bottom:20px;">Mode développement - Code généré: <strong style="font-family:monospace;font-size:24px;color:#00ffc3;">${devCode}</strong></p>
             <p style="color:var(--ui-text-muted);font-size:12px;margin-bottom:20px;">Entrez ce code pour vérifier votre compte :</p>
             <div style="margin-bottom:20px;">
               <input type="text" id="email-verification-code" placeholder="000000" maxlength="6" style="width:100%;padding:14px;border-radius:10px;border:2px solid rgba(255,255,255,0.1);background:rgba(15,23,42,0.5);color:#fff;font-size:24px;font-weight:700;text-align:center;letter-spacing:8px;font-family:monospace;" oninput="this.value=this.value.replace(/[^0-9]/g,'');if(this.value.length===6){verifyEmailCodeAfterRegister('${pendingData.email}',this.value);}">
               <div id="email-code-feedback" style="margin-top:8px;font-size:12px;color:var(--ui-text-muted);"></div>
             </div>
+            <button onclick="if(typeof createAccountAndSendVerificationEmail==='function'){const pendingData=window.pendingRegisterData;if(pendingData){createAccountAndSendVerificationEmail(pendingData);}}" style="width:100%;padding:12px;border-radius:10px;border:2px solid rgba(255,255,255,0.1);background:transparent;color:var(--ui-text-muted);font-weight:600;font-size:14px;cursor:pointer;margin-bottom:12px;">Réessayer l'envoi</button>
             <button onclick="closeAuthModal()" style="width:100%;padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#00ffc3,#3b82f6);color:#000;font-weight:600;font-size:14px;cursor:pointer;">Fermer</button>
           </div>
         `;
