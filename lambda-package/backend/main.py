@@ -1331,12 +1331,17 @@ def create_app():
                         return jsonify({
                             'success': True,
                             'message': 'Lien de vérification envoyé avec succès',
-                            'expires_in': 86400  # 24 heures
+                            'expires_in': 86400,  # 24 heures
+                            'email_sent': True
                         }), 200
+                    else:
+                        logger.error(f"❌ Échec envoi email à {email}")
+                        # Continuer pour stocker le token même si l'email n'a pas été envoyé
                 except Exception as email_error:
-                    logger.error(f"Erreur envoi email: {email_error}")
+                    logger.error(f"❌ Erreur envoi email: {email_error}")
                     import traceback
                     logger.error(traceback.format_exc())
+                    # Continuer pour stocker le token même si l'email échoue
             
             # Si Redis n'est pas disponible, stocker le token en base de données comme fallback
             if not redis_conn:
@@ -1372,14 +1377,33 @@ def create_app():
             logger.info(f"   Email: {email}")
             logger.info(f"   Token: {token}")
             
-            # Retourner le lien si SendGrid n'est pas configuré ou si l'email n'a pas pu être envoyé
-            return jsonify({
-                'success': True,
-                'message': 'Lien de vérification généré',
-                'expires_in': 86400,
-                'dev_mode': not sendgrid_configured or not email_sent,
-                'verification_url': verification_url if (not sendgrid_configured or not email_sent) else None
-            }), 200
+            # Retourner le résultat avec email_sent pour que le frontend sache si l'email a été envoyé
+            if not sendgrid_configured:
+                logger.warning("⚠️ SENDGRID_API_KEY non configurée - email non envoyé")
+                return jsonify({
+                    'success': False,
+                    'error': 'SENDGRID_API_KEY non configurée. Impossible d\'envoyer l\'email.',
+                    'email_sent': False,
+                    'dev_mode': True,
+                    'verification_url': verification_url  # Retourner le lien en mode dev
+                }), 500
+            elif not email_sent:
+                logger.error(f"❌ Échec envoi email à {email}")
+                return jsonify({
+                    'success': False,
+                    'error': 'Impossible d\'envoyer l\'email. Vérifiez votre configuration SendGrid.',
+                    'email_sent': False,
+                    'dev_mode': True,
+                    'verification_url': verification_url  # Retourner le lien en mode dev
+                }), 500
+            else:
+                # Email envoyé avec succès
+                return jsonify({
+                    'success': True,
+                    'message': 'Lien de vérification envoyé avec succès',
+                    'expires_in': 86400,
+                    'email_sent': True
+                }), 200
             
         except Exception as e:
             logger.error(f"Erreur send_verification_link: {e}")
@@ -1443,26 +1467,32 @@ def create_app():
                     return jsonify({
                         'success': True,
                         'message': 'Code envoyé avec succès',
-                        'expires_in': 900  # 15 minutes en secondes
+                        'expires_in': 900,  # 15 minutes en secondes
+                        'email_sent': True
                     }), 200
                 else:
-                    logger.warn(f"Échec envoi email à {email}, mode développement")
+                    logger.error(f"❌ Échec envoi email à {email}")
+                    # Retourner une erreur si l'email n'a pas pu être envoyé
+                    return jsonify({
+                        'success': False,
+                        'error': 'Impossible d\'envoyer l\'email. Vérifiez votre configuration SendGrid.',
+                        'email_sent': False,
+                        'dev_mode': True,
+                        'code': code  # En mode dev, retourner le code pour debug
+                    }), 500
                     
             except Exception as email_error:
-                logger.error(f"Erreur envoi email: {email_error}")
+                logger.error(f"❌ Erreur envoi email: {email_error}")
                 import traceback
                 logger.error(traceback.format_exc())
-                # En mode développement, continuer même si l'email échoue
-            
-            # Si l'email n'a pas pu être envoyé, retourner quand même un succès
-            # Le code est stocké dans Redis et peut être vérifié
-            logger.info(f"✅ Code de vérification généré pour {email} (mode développement)")
-            return jsonify({
-                'success': True,
-                'message': 'Code généré (mode développement - vérifiez Redis)',
-                'expires_in': 900,
-                'dev_mode': True
-            }), 200
+                # Retourner une erreur avec le code en mode développement
+                return jsonify({
+                    'success': False,
+                    'error': f'Erreur lors de l\'envoi de l\'email: {str(email_error)}',
+                    'email_sent': False,
+                    'dev_mode': True,
+                    'code': code  # En mode dev, retourner le code pour debug
+                }), 500
             
         except Exception as e:
             logger.error(f"Erreur send_verification_code: {e}")

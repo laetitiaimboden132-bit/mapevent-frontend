@@ -246,7 +246,10 @@ def send_translated_email(
         
         # Envoyer l'email
         if not SENDGRID_API_KEY:
-            logger.error("SENDGRID_API_KEY non configurée")
+            logger.error("❌ SENDGRID_API_KEY non configurée - Vérifiez les variables d'environnement Lambda")
+            logger.error(f"   SENDGRID_API_KEY vide: {not SENDGRID_API_KEY}")
+            logger.error(f"   SENDGRID_FROM_EMAIL: {SENDGRID_FROM_EMAIL}")
+            logger.error(f"   SENDGRID_FROM_NAME: {SENDGRID_FROM_NAME}")
             return False
         
         logger.info(f"Tentative d'envoi email à {to_email} avec SendGrid")

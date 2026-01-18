@@ -2026,6 +2026,10 @@ function openAuthModal(mode = 'login') {
     console.error('[AUTH] ❌❌❌ BACKDROP INVISIBLE IMMÉDIATEMENT - FORCAGE ULTIME');
     // Marquer comme modal d'authentification pour activer le CSS de centrage
     modalBackdrop.setAttribute('data-auth-modal', 'true');
+    // Supprimer l'onclick qui pourrait fermer le modal
+    modalBackdrop.removeAttribute('onclick');
+    // Forcer avec style.cssText ET setAttribute pour être sûr
+    modalBackdrop.style.cssText = 'display:flex!important;visibility:visible!important;opacity:1!important;z-index:99999!important;position:fixed!important;top:0!important;left:0!important;width:100%!important;height:100%!important;background:rgba(0,0,0,0.8)!important;align-items:center!important;justify-content:center!important;pointer-events:auto!important;padding-top:40px!important;padding-bottom:40px!important;box-sizing:border-box!important;';
     modalBackdrop.setAttribute('style', 'display:flex!important;visibility:visible!important;opacity:1!important;z-index:99999!important;position:fixed!important;top:0!important;left:0!important;width:100%!important;height:100%!important;background:rgba(0,0,0,0.8)!important;align-items:center!important;justify-content:center!important;pointer-events:auto!important;padding-top:40px!important;padding-bottom:40px!important;box-sizing:border-box!important;');
     
     if (publishModal) {
@@ -2034,9 +2038,20 @@ function openAuthModal(mode = 'login') {
     
     modalInner.setAttribute('style', 'display:block!important;visibility:visible!important;opacity:1!important;');
     
-    // Vérifier à nouveau après forçage
+    // Forcer à nouveau après un court délai avec requestAnimationFrame
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        modalBackdrop.style.cssText = 'display:flex!important;visibility:visible!important;opacity:1!important;z-index:99999!important;position:fixed!important;top:0!important;left:0!important;width:100%!important;height:100%!important;background:rgba(0,0,0,0.8)!important;align-items:center!important;justify-content:center!important;pointer-events:auto!important;padding-top:40px!important;padding-bottom:40px!important;box-sizing:border-box!important;';
+        modalBackdrop.setAttribute('data-auth-modal', 'true');
+        modalBackdrop.removeAttribute('onclick');
+        const computedBackdropAfter = window.getComputedStyle(modalBackdrop);
+        console.log('[AUTH] ✅✅✅ APRÈS RAF+SETTIMEOUT - backdrop display:', computedBackdropAfter.display, 'visibility:', computedBackdropAfter.visibility, 'opacity:', computedBackdropAfter.opacity, 'paddingTop:', computedBackdropAfter.paddingTop);
+      }, 50);
+    });
+    
+    // Vérifier à nouveau après forçage immédiat
     const computedBackdropAfter = window.getComputedStyle(modalBackdrop);
-    console.log('[AUTH] ✅✅✅ APRÈS FORCAGE - backdrop display:', computedBackdropAfter.display, 'visibility:', computedBackdropAfter.visibility, 'opacity:', computedBackdropAfter.opacity);
+    console.log('[AUTH] ✅✅✅ APRÈS FORCAGE IMMÉDIAT - backdrop display:', computedBackdropAfter.display, 'visibility:', computedBackdropAfter.visibility, 'opacity:', computedBackdropAfter.opacity, 'paddingTop:', computedBackdropAfter.paddingTop);
   }
   
   console.log('[AUTH] ✅✅✅ FIN FORCAGE AFFICHAGE MODAL - Code exécuté sans erreur');
@@ -5099,64 +5114,26 @@ async function createAccountAndSendVerificationEmail(pendingData) {
       return;
     }
     
-    // Générer un code de vérification à 6 chiffres
-    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
-    console.log('[VERIFY] 📧 Code de vérification généré:', verificationCode);
-    
-    // Sauvegarder le code dans pendingData pour pouvoir le renvoyer
+    // Sauvegarder les données pour pouvoir renvoyer l'email
     if (!window.pendingRegisterData) {
       window.pendingRegisterData = pendingData;
     }
-    window.pendingRegisterData.verificationCode = verificationCode;
-    window.pendingRegisterData.codeSentAt = Date.now();
     
-    // Envoyer l'email de vérification avec le code
-    const emailResponse = await fetch(`${API_BASE_URL}/user/send-verification-code`, {
+    // Envoyer l'email de vérification avec un lien (pas de code)
+    console.log('[VERIFY] 📧 Envoi de l\'email de vérification avec lien...');
+    const emailResponse = await fetch(`${API_BASE_URL}/user/send-verification-link`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
         email: pendingData.email,
-        username: pendingData.username || 'Utilisateur',
-        code: verificationCode
+        username: pendingData.username || 'Utilisateur'
       })
     });
     
-    if (emailResponse.ok) {
-      const emailData = await emailResponse.json();
-      console.log('[VERIFY] 📧 Réponse envoi email:', emailData);
-      
-      // Vérifier si l'email a vraiment été envoyé
-      if (emailData.email_sent === false || emailData.dev_mode) {
-        // Email non envoyé ou mode développement - afficher le code dans la console et dans le modal
-        console.error('[VERIFY] ❌ Email non envoyé - Mode développement');
-        console.log(`🔐 CODE DE VÉRIFICATION (DEV ONLY): ${verificationCode}`);
-        if (typeof showNotification === 'function') {
-          showNotification(`⚠️ Email non envoyé - Code: ${verificationCode} (vérifiez la console)`, "warning");
-        }
-        
-        // Afficher le formulaire avec le code en mode développement
-        if (modal) {
-          modal.innerHTML = `
-            <div id="authModal" data-mode="email-error" style="padding:40px;max-width:500px;margin:0 auto;text-align:center;position:relative;">
-              <div style="margin-bottom:32px;">
-                <div style="font-size:64px;margin-bottom:16px;">⚠️</div>
-                <h2 style="margin:0 0 8px;font-size:28px;font-weight:800;color:#fff;">Email non envoyé</h2>
-                <p style="margin:0;font-size:14px;color:var(--ui-text-muted);">Mode développement - Code généré</p>
-              </div>
-              <p style="color:var(--ui-text-muted);font-size:13px;margin-bottom:20px;">Code de vérification: <strong style="font-family:monospace;font-size:24px;color:#00ffc3;">${verificationCode}</strong></p>
-              <p style="color:var(--ui-text-muted);font-size:12px;margin-bottom:20px;">Entrez ce code pour vérifier votre compte :</p>
-              <div style="margin-bottom:20px;">
-                <input type="text" id="email-verification-code" placeholder="000000" maxlength="6" style="width:100%;padding:14px;border-radius:10px;border:2px solid rgba(255,255,255,0.1);background:rgba(15,23,42,0.5);color:#fff;font-size:24px;font-weight:700;text-align:center;letter-spacing:8px;font-family:monospace;" oninput="this.value=this.value.replace(/[^0-9]/g,'');if(this.value.length===6){verifyEmailCodeAfterRegister('${pendingData.email}',this.value);}">
-                <div id="email-code-feedback" style="margin-top:8px;font-size:12px;color:var(--ui-text-muted);"></div>
-              </div>
-              <button onclick="if(typeof createAccountAndSendVerificationEmail==='function'){const pendingData=window.pendingRegisterData;if(pendingData){createAccountAndSendVerificationEmail(pendingData);}}" style="width:100%;padding:12px;border-radius:10px;border:2px solid rgba(255,255,255,0.1);background:transparent;color:var(--ui-text-muted);font-weight:600;font-size:14px;cursor:pointer;margin-bottom:12px;">Réessayer l'envoi</button>
-              <button onclick="closeAuthModal()" style="width:100%;padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#00ffc3,#3b82f6);color:#000;font-weight:600;font-size:14px;cursor:pointer;">Fermer</button>
-            </div>
-          `;
-        }
-        return;
-      }
-      
+    const emailData = await emailResponse.json().catch(() => ({ error: 'Erreur lors de la lecture de la réponse' }));
+    console.log('[VERIFY] 📧 Réponse envoi email:', emailData);
+    
+    if (emailResponse.ok && emailData.email_sent === true) {
       // Email envoyé avec succès
       console.log('[VERIFY] ✅ Email envoyé avec succès');
       if (typeof showNotification === 'function') {
@@ -5188,6 +5165,35 @@ async function createAccountAndSendVerificationEmail(pendingData) {
             </div>
             
             <button onclick="if(typeof createAccountAndSendVerificationEmail==='function'){const pendingData=window.pendingRegisterData;if(pendingData){createAccountAndSendVerificationEmail(pendingData);}}" style="width:100%;padding:12px;border-radius:10px;border:2px solid rgba(255,255,255,0.1);background:transparent;color:var(--ui-text-muted);font-weight:600;font-size:14px;cursor:pointer;margin-bottom:12px;">Renvoyer l'email</button>
+            <button onclick="closeAuthModal()" style="width:100%;padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#00ffc3,#3b82f6);color:#000;font-weight:600;font-size:14px;cursor:pointer;">Fermer</button>
+          </div>
+        `;
+      }
+    } else {
+      // Email non envoyé ou erreur
+      console.error('[VERIFY] ❌ Email non envoyé ou erreur');
+      console.error('[VERIFY] Détails:', emailData);
+      
+      // Email non envoyé ou erreur - afficher un message d'erreur
+      const errorMessage = emailData.error || 'Impossible d\'envoyer l\'email. Vérifiez votre configuration SendGrid.';
+      console.error('[VERIFY] ❌ Email non envoyé:', errorMessage);
+      if (typeof showNotification === 'function') {
+        showNotification(`⚠️ Erreur: ${errorMessage}`, "error");
+      }
+      
+      // Afficher un message d'erreur avec possibilité de réessayer
+      if (modal) {
+        modal.innerHTML = `
+          <div id="authModal" data-mode="email-error" style="padding:40px;max-width:500px;margin:0 auto;text-align:center;position:relative;">
+            <div style="margin-bottom:32px;">
+              <div style="font-size:64px;margin-bottom:16px;">⚠️</div>
+              <h2 style="margin:0 0 8px;font-size:28px;font-weight:800;color:#fff;">Erreur envoi email</h2>
+              <p style="margin:0;font-size:14px;color:var(--ui-text-muted);">L'email n'a pas pu être envoyé</p>
+            </div>
+            <p style="color:var(--ui-text-muted);font-size:13px;margin-bottom:20px;">${errorMessage}</p>
+            <p style="color:var(--ui-text-muted);font-size:12px;margin-bottom:20px;">Veuillez réessayer ou contacter le support si le problème persiste.</p>
+            ${emailData.verification_url ? `<p style="color:var(--ui-text-muted);font-size:11px;margin-bottom:20px;word-break:break-all;">Lien de vérification (mode dev): <a href="${emailData.verification_url}" style="color:#00ffc3;">${emailData.verification_url}</a></p>` : ''}
+            <button onclick="if(typeof createAccountAndSendVerificationEmail==='function'){const pendingData=window.pendingRegisterData;if(pendingData){createAccountAndSendVerificationEmail(pendingData);}}" style="width:100%;padding:12px;border-radius:10px;border:2px solid rgba(255,255,255,0.1);background:transparent;color:var(--ui-text-muted);font-weight:600;font-size:14px;cursor:pointer;margin-bottom:12px;">Réessayer l'envoi</button>
             <button onclick="closeAuthModal()" style="width:100%;padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#00ffc3,#3b82f6);color:#000;font-weight:600;font-size:14px;cursor:pointer;">Fermer</button>
           </div>
         `;
