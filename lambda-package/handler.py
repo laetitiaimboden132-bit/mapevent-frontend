@@ -63,6 +63,19 @@ if backend_path_str not in sys.path:
 create_app_func = None
 app = None
 
+# =============================================================================
+# CORS : Géré UNIQUEMENT par AWS Function URL (pas de headers ici)
+# IMPORTANT: Ne PAS ajouter Access-Control-Allow-Origin ici sinon doublon !
+# La config AWS Function URL doit avoir: Allow origin = https://mapevent.world
+# =============================================================================
+
+def _cors_response(status_code, body="", as_json=True, headers=None):
+    """Réponse SANS headers CORS (AWS Function URL les ajoute)."""
+    h = {"Content-Type": "application/json"} if body else {}
+    payload = json.dumps(body) if as_json and body and not isinstance(body, str) else body
+    return {"statusCode": status_code, "headers": h, "body": payload or ""}
+
+
 def lambda_handler(event, context):
     """
     Handler Lambda avec routage Flask complet (DB + JWT)
@@ -85,51 +98,12 @@ def lambda_handler(event, context):
         # Gérer /health AVANT tout import Flask
         if path == "/health" or path == "/api/health":
             logger.info("lambda_handler: /health endpoint - returning 200")
-            headers = event.get("headers", {}) or {}
-            headers_lower = {k.lower(): v for k, v in headers.items()}
-            origin = headers_lower.get("origin", "")
-            allowed_origins = ["https://mapevent.world", "http://localhost:8000", "http://127.0.0.1:8000"]
-            cors_origin = origin if origin in allowed_origins else "https://mapevent.world"
-            
-            return {
-                "statusCode": 200,
-                "headers": {
-                    "Content-Type": "application/json",
-                    "Access-Control-Allow-Origin": cors_origin
-                },
-                "body": json.dumps({"ok": True})
-            }
-        
-        # Gérer OPTIONS pour CORS
+            return _cors_response(200, {"ok": True})
+
+        # Gérer OPTIONS pour CORS (AWS Function URL ajoute les headers CORS)
         if method == "OPTIONS":
-            logger.info("lambda_handler: OPTIONS request - returning CORS headers")
-            headers = event.get("headers", {}) or {}
-            headers_lower = {k.lower(): v for k, v in headers.items()}
-            origin = headers_lower.get("origin", "")
-            
-            # Whitelist des origines autorisées
-            allowed_origins = ["https://mapevent.world", "http://localhost:8000", "http://127.0.0.1:8000"]
-            
-            # Autoriser mapevent.world explicitement
-            if origin in allowed_origins:
-                allowed_origin = origin
-            else:
-                # En production, ne pas autoriser "*" - seulement les origines whitelistées
-                allowed_origin = "https://mapevent.world" if origin else "*"
-            
-            logger.info(f"lambda_handler: OPTIONS - origin={origin}, allowed_origin={allowed_origin}")
-            
-            return {
-                "statusCode": 200,
-                "headers": {
-                    "Access-Control-Allow-Origin": allowed_origin,  # UNE SEULE valeur, jamais "origin1, *"
-                    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
-                    "Access-Control-Allow-Headers": "Content-Type, Authorization, Origin, X-Requested-With, Accept",
-                    "Access-Control-Max-Age": "3600",
-                    "Access-Control-Allow-Credentials": "false"
-                },
-                "body": ""
-            }
+            logger.info("lambda_handler: OPTIONS request - returning 200 (CORS via AWS Function URL)")
+            return {"statusCode": 200, "headers": {}, "body": ""}
         
         # Pour les autres routes, créer l'app Flask si nécessaire
         global app, create_app_func
@@ -147,14 +121,7 @@ def lambda_handler(event, context):
                     logger.info("lambda_handler: create_app imported successfully from backend.main")
                 except ImportError as e2:
                     logger.error(f"lambda_handler: Import from backend.main failed: {e2}")
-                    return {
-                        "statusCode": 500,
-                        "headers": {
-                            "Content-Type": "application/json",
-                            "Access-Control-Allow-Origin": "*"
-                        },
-                        "body": json.dumps({"error": "Failed to import create_app", "details": str(e2)})
-                    }
+                    return _cors_response(500, {"error": "Failed to import create_app", "details": str(e2)})
         
         # Créer l'app Flask si nécessaire
         if app is None:
@@ -166,20 +133,7 @@ def lambda_handler(event, context):
                 logger.error(f"lambda_handler: Failed to create Flask app: {e}")
                 import traceback
                 logger.error(f"lambda_handler: Traceback = {traceback.format_exc()}")
-                headers = event.get("headers", {}) or {}
-                headers_lower = {k.lower(): v for k, v in headers.items()}
-                origin = headers_lower.get("origin", "")
-                allowed_origins = ["https://mapevent.world", "http://localhost:8000", "http://127.0.0.1:8000"]
-                cors_origin = origin if origin in allowed_origins else "https://mapevent.world"
-                
-                return {
-                    "statusCode": 500,
-                    "headers": {
-                        "Content-Type": "application/json",
-                        "Access-Control-Allow-Origin": cors_origin
-                    },
-                    "body": json.dumps({"error": "Failed to create Flask app", "details": str(e)})
-                }
+                return _cors_response(500, {"error": "Failed to create Flask app", "details": str(e)})
         
         # Utiliser Flask test client pour router les requêtes
         logger.info("lambda_handler: Using Flask test client for routing")
@@ -227,91 +181,28 @@ def lambda_handler(event, context):
                 logger.error(f"lambda_handler: Flask routing error: {flask_error}")
                 import traceback
                 logger.error(f"lambda_handler: Traceback = {traceback.format_exc()}")
-                headers = event.get("headers", {}) or {}
-                headers_lower = {k.lower(): v for k, v in headers.items()}
-                origin = headers_lower.get("origin", "")
-                allowed_origins = ["https://mapevent.world", "http://localhost:8000", "http://127.0.0.1:8000"]
-                cors_origin = origin if origin in allowed_origins else "https://mapevent.world"
-                
-                return {
-                    "statusCode": 500,
-                    "headers": {
-                        "Content-Type": "application/json",
-                        "Access-Control-Allow-Origin": cors_origin
-                    },
-                    "body": json.dumps({"error": "Flask routing error", "details": str(flask_error)})
-                }
+                return _cors_response(500, {"error": "Flask routing error", "details": str(flask_error)})
             
             # Récupérer le body de la réponse
             body_content = response.get_data(as_text=True)
             if not body_content:
                 body_content = '{}'
-            
-            # Headers CORS - IMPORTANT: Ne jamais créer "origin1, *"
-            origin = headers_lower.get('origin', '')
-            allowed_origins = ['https://mapevent.world', 'http://localhost:8000', 'http://127.0.0.1:8000']
-            
-            # Autoriser mapevent.world explicitement
-            if origin in allowed_origins:
-                cors_origin = origin
-            else:
-                # En production, ne pas autoriser "*" - seulement les origines whitelistées
-                cors_origin = "https://mapevent.world" if origin else "*"
-            
-            logger.info(f"lambda_handler: Response CORS - origin={origin}, cors_origin={cors_origin}, status={response.status_code}")
-            
-            # Construire les headers finaux
-            # IMPORTANT: Supprimer TOUS les headers CORS de Flask
-            # Lambda Function URL ajoute automatiquement les headers CORS basé sur sa configuration
-            # Si Flask les ajoute aussi, on aura des doublons
-            final_headers = {}
-            cors_headers_to_ignore = ['access-control-allow-origin', 'access-control-allow-methods', 
-                                     'access-control-allow-headers', 'access-control-max-age', 
-                                     'access-control-allow-credentials', 'access-control-expose-headers']
-            
-            # Supprimer tous les headers CORS de Flask - Lambda Function URL les ajoutera automatiquement
-            for key, value in response.headers:
-                key_lower = key.lower()
-                if key_lower not in cors_headers_to_ignore:
-                    # Éviter les doublons : si la clé existe déjà, ne pas l'ajouter
-                    if key not in final_headers:
-                        final_headers[key] = value
-            
-            # IMPORTANT: Lambda Function URL NE gère PAS automatiquement CORS pour les réponses
-            # Il faut ajouter les headers CORS manuellement
-            if 'Content-Type' not in final_headers:
-                final_headers['Content-Type'] = 'application/json'
-            
-            # NE PAS ajouter les headers CORS ici - Lambda Function URL les ajoute automatiquement
-            # basé sur sa configuration CORS (AllowOrigins: ["https://mapevent.world", ...])
-            # Si on les ajoute ici, Lambda Function URL les ajoute aussi, créant des doublons
-            # comme "https://mapevent.world, https://mapevent.world"
-            # 
-            # Lambda Function URL gère automatiquement CORS pour toutes les réponses
-            # basé sur la configuration de la Function URL
-            logger.info(f"lambda_handler: CORS géré automatiquement par Lambda Function URL - origin={origin}, cors_origin={cors_origin}")
-            
+
+            # PAS de headers CORS ici : AWS Function URL les ajoute
+            logger.info(f"lambda_handler: Response status={response.status_code}")
             return {
-                'statusCode': response.status_code,
-                'headers': final_headers,
-                'body': body_content
+                "statusCode": response.status_code,
+                "headers": {"Content-Type": "application/json"},
+                "body": body_content,
             }
         
     except Exception as e:
         logger.error(f"lambda_handler: Exception = {str(e)}")
         import traceback
         logger.error(f"lambda_handler: Traceback = {traceback.format_exc()}")
-        headers = event.get("headers", {}) or {}
-        headers_lower = {k.lower(): v for k, v in headers.items()}
-        origin = headers_lower.get("origin", "")
-        allowed_origins = ["https://mapevent.world", "http://localhost:8000", "http://127.0.0.1:8000"]
-        cors_origin = origin if origin in allowed_origins else "https://mapevent.world"
-        
+        # PAS de headers CORS ici : AWS Function URL les ajoute
         return {
             "statusCode": 500,
-            "headers": {
-                "Content-Type": "application/json",
-                "Access-Control-Allow-Origin": cors_origin
-            },
+            "headers": {"Content-Type": "application/json"},
             "body": json.dumps({"error": "Internal server error", "details": str(e)})
         }

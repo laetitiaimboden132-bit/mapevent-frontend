@@ -4,6 +4,25 @@
 console.log("BUILD_ID", "onboarding-v1", new Date().toISOString(), location.href);
 
 // ===============================
+// STUB POUR updateAccountBlockLegitimately
+// Cette fonction sera remplacée par la vraie version dans DOMContentLoaded
+// Permet à auth.js de l'appeler même avant que DOMContentLoaded soit exécuté
+// ===============================
+window._pendingAccountBlockUpdates = [];
+window.updateAccountBlockLegitimately = function() {
+  // La vraie fonction n'est pas encore chargée, mettre en file d'attente
+  console.log('[STUB] updateAccountBlockLegitimately appelée avant DOMContentLoaded - mise en file d\'attente');
+  window._pendingAccountBlockUpdates.push(Date.now());
+  // Réessayer après un court délai
+  setTimeout(() => {
+    if (window._realUpdateAccountBlockLegitimately) {
+      window._realUpdateAccountBlockLegitimately();
+    }
+  }, 100);
+};
+window.updateAccountBlock = window.updateAccountBlockLegitimately;
+
+// ===============================
 // GESTION D'ERREURS GLOBALE - Protection contre écran noir
 // ===============================
 window.addEventListener('error', function(e) {
@@ -29,6 +48,64 @@ window.addEventListener('error', function(e) {
 window.addEventListener('unhandledrejection', function(e) {
   console.error('❌ PROMISE REJECTION NON GÉRÉE:', e.reason);
 });
+
+// ===============================
+// PERSISTANCE DES DONNÉES DU FORMULAIRE DE PUBLICATION
+// Les données sont conservées jusqu'à la publication ou fermeture explicite
+// ===============================
+window._publishFormData = null;
+
+// Fonction pour sauvegarder les données du formulaire
+window.savePublishFormData = function() {
+  const formData = {
+    title: document.getElementById("pub-title")?.value || '',
+    mainCategory: document.getElementById("pub-main-category")?.value || '',
+    address: document.getElementById("pub-address")?.value || '',
+    phone: document.getElementById("pub-phone")?.value || '',
+    email: document.getElementById("pub-email")?.value || '',
+    description: document.getElementById("pub-description")?.value || '',
+    ticketUrl: document.getElementById("pub-ticket")?.value || '',
+    socialLinks: document.getElementById("pub-social")?.value || '',
+    dateStart: document.getElementById("pub-date-start")?.value || '',
+    dateEnd: document.getElementById("pub-date-end")?.value || '',
+    timeStart: document.getElementById("pub-time-start")?.value || '',
+    timeEnd: document.getElementById("pub-time-end")?.value || ''
+  };
+  window._publishFormData = formData;
+  console.log('[PUBLISH] Données du formulaire sauvegardées:', formData);
+  return formData;
+};
+
+// Fonction pour restaurer les données du formulaire
+window.restorePublishFormData = function() {
+  if (!window._publishFormData) return;
+  
+  const data = window._publishFormData;
+  console.log('[PUBLISH] Restauration des données du formulaire:', data);
+  
+  // Délai pour s'assurer que le DOM est prêt
+  setTimeout(() => {
+    if (data.title) { const el = document.getElementById("pub-title"); if (el) el.value = data.title; }
+    if (data.mainCategory) { const el = document.getElementById("pub-main-category"); if (el) el.value = data.mainCategory; }
+    if (data.address) { const el = document.getElementById("pub-address"); if (el) el.value = data.address; }
+    if (data.phone) { const el = document.getElementById("pub-phone"); if (el) el.value = data.phone; }
+    if (data.email) { const el = document.getElementById("pub-email"); if (el) el.value = data.email; }
+    if (data.description) { const el = document.getElementById("pub-description"); if (el) el.value = data.description; }
+    if (data.ticketUrl) { const el = document.getElementById("pub-ticket"); if (el) el.value = data.ticketUrl; }
+    if (data.socialLinks) { const el = document.getElementById("pub-social"); if (el) el.value = data.socialLinks; }
+    if (data.dateStart) { const el = document.getElementById("pub-date-start"); if (el) el.value = data.dateStart; }
+    if (data.dateEnd) { const el = document.getElementById("pub-date-end"); if (el) el.value = data.dateEnd; }
+    if (data.timeStart) { const el = document.getElementById("pub-time-start"); if (el) el.value = data.timeStart; }
+    if (data.timeEnd) { const el = document.getElementById("pub-time-end"); if (el) el.value = data.timeEnd; }
+    console.log('[PUBLISH] Données du formulaire restaurées');
+  }, 100);
+};
+
+// Fonction pour effacer les données du formulaire (après publication réussie)
+window.clearPublishFormData = function() {
+  window._publishFormData = null;
+  console.log('[PUBLISH] Données du formulaire effacées');
+};
 
 // ===============================
 // CONFIGURATION API - Lambda Function URL
@@ -132,8 +209,31 @@ function saveUserSlim(userObj) {
 // Fonction pour mettre à jour l'UI "logged-in" (remplace le bloc "Connexion" par "Compte")
 function updateAuthUI(slimUser) {
   if (!slimUser || !slimUser.id) {
-    console.warn('[UPDATE AUTH UI] slimUser invalide');
-    return;
+    console.warn('[UPDATE AUTH UI] slimUser invalide', { 
+      id: slimUser?.id, 
+      email: slimUser?.email,
+      hasWindowCurrentUser: !!(typeof window !== 'undefined' && window.currentUser)
+    });
+    // ⚠️ Même si slimUser est invalide, essayer de mettre à jour l'UI avec window.currentUser
+    if (typeof window !== 'undefined' && window.currentUser && window.currentUser.isLoggedIn && window.currentUser.id) {
+      console.log('[UPDATE AUTH UI] ⚠️ Fallback sur window.currentUser');
+      slimUser = {
+        id: window.currentUser.id,
+        email: window.currentUser.email,
+        username: window.currentUser.username || 'Utilisateur',
+        firstName: window.currentUser.firstName || '',
+        lastName: window.currentUser.lastName || '',
+        profile_photo_url: window.currentUser.profile_photo_url || null,
+        photoData: window.currentUser.photoData || null,
+        isLoggedIn: true
+      };
+    } else {
+      // Toujours appeler updateAuthButtons pour mettre à jour le bouton Publier
+      if (typeof updateAuthButtons === 'function') {
+        updateAuthButtons();
+      }
+      return;
+    }
   }
   
   console.log('[UPDATE AUTH UI] Mise à jour UI avec slimUser:', { id: slimUser.id, email: slimUser.email, username: slimUser.username });
@@ -188,6 +288,28 @@ function updateAuthUI(slimUser) {
   // Exposer globalement pour fallback
   window.currentUser = currentUser;
   
+  // ⚠️⚠️⚠️ FORCER L'AFFICHAGE DU BOUTON PUBLIER IMMÉDIATEMENT ⚠️⚠️⚠️
+  // Ne pas attendre updateAuthButtons qui peut avoir des problèmes de timing
+  const publishBtn = document.getElementById('map-publish-btn');
+  if (publishBtn) {
+    publishBtn.style.display = 'flex';
+    publishBtn.style.visibility = 'visible';
+    publishBtn.style.opacity = '1';
+    console.log('[UPDATE AUTH UI] ✅✅✅ Bouton PUBLIER forcé visible');
+  } else {
+    console.warn('[UPDATE AUTH UI] ⚠️ Bouton Publier non trouvé - tentative après délai');
+    // Réessayer après un court délai si le bouton n'est pas encore dans le DOM
+    setTimeout(() => {
+      const retryPublishBtn = document.getElementById('map-publish-btn');
+      if (retryPublishBtn) {
+        retryPublishBtn.style.display = 'flex';
+        retryPublishBtn.style.visibility = 'visible';
+        retryPublishBtn.style.opacity = '1';
+        console.log('[UPDATE AUTH UI] ✅✅✅ Bouton PUBLIER forcé visible (après délai)');
+      }
+    }, 500);
+  }
+  
   // Mettre à jour les boutons auth
   if (typeof updateAuthButtons === 'function') {
     updateAuthButtons();
@@ -200,6 +322,9 @@ function updateAuthUI(slimUser) {
   
   console.log('[UPDATE AUTH UI] UI mise à jour - bouton "Connexion" → "Compte"');
 }
+
+// Exposer updateAuthUI globalement pour auth.js
+window.updateAuthUI = updateAuthUI;
 
 // Fonction pour récupérer le token d'authentification
 // Vérifie localStorage si "Rester connecté" est coché, sinon sessionStorage
@@ -1062,6 +1187,54 @@ async function handleCognitoCallbackIfPresent() {
               username: slimUser.username,
               profile_photo_url: slimUser.profile_photo_url ? slimUser.profile_photo_url.substring(0, 50) + '...' : 'null'
             });
+            
+            // ⚠️⚠️⚠️ SYNC DB : Synchroniser le username du formulaire vers la base de données
+            const backendUsernameOAuth = syncData.user.username || '';
+            const syncFailedKeyOAuth = `username_sync_failed_${savedUsernameFromForm}`;
+            const previousSyncFailedOAuth = localStorage.getItem(syncFailedKeyOAuth) === 'true';
+            
+            if (savedUsernameFromForm && savedUsernameFromForm !== backendUsernameOAuth && slimUser.id && !previousSyncFailedOAuth) {
+              console.log('[OAUTH] 🔄 Synchronisation username du FORMULAIRE vers la DB:', savedUsernameFromForm);
+              try {
+                const cognitoTokensStr = localStorage.getItem('cognito_tokens');
+                let tokenForSync = null;
+                if (cognitoTokensStr) {
+                  const cognitoTokensObj = JSON.parse(cognitoTokensStr);
+                  tokenForSync = cognitoTokensObj.access_token || cognitoTokensObj.accessToken;
+                }
+                if (tokenForSync) {
+                  fetch(`${window.API_BASE_URL}/user/profile`, {
+                    method: 'PUT',
+                    headers: {
+                      'Authorization': `Bearer ${tokenForSync}`,
+                      'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                      userId: slimUser.id,
+                      username: savedUsernameFromForm
+                    })
+                  }).then(async resp => {
+                    if (resp.ok) {
+                      console.log('[OAUTH] ✅✅✅ Username du FORMULAIRE synchronisé dans la DB:', savedUsernameFromForm);
+                      localStorage.removeItem(syncFailedKeyOAuth);
+                    } else if (resp.status === 409) {
+                      // ⚠️ ERREUR 409 : Le username est déjà pris par un autre utilisateur
+                      console.warn('[OAUTH] ⚠️⚠️⚠️ Username "' + savedUsernameFromForm + '" déjà pris par un autre compte!');
+                      console.warn('[OAUTH] ℹ️ Le username sera affiché localement mais ne sera pas sauvegardé.');
+                      localStorage.setItem(syncFailedKeyOAuth, 'true');
+                    } else {
+                      console.warn('[OAUTH] ⚠️ Échec sync username (code:', resp.status, ')');
+                    }
+                  }).catch(err => {
+                    console.warn('[OAUTH] ⚠️ Erreur sync username:', err);
+                  });
+                }
+              } catch (e) {
+                console.warn('[OAUTH] ⚠️ Exception sync username:', e);
+              }
+            } else if (previousSyncFailedOAuth) {
+              console.log('[OAUTH] ℹ️ Sync username ignorée (échec précédent 409 - username déjà pris)');
+            }
             
             // ⚠️⚠️⚠️ CRITIQUE : Utiliser connectUser comme "Continuer sans vérifier" pour éviter les erreurs de popup
             // Forcer le username et photoData dans currentUser AVANT connectUser
@@ -2177,6 +2350,14 @@ function isLoggedIn() {
 // Initialiser currentUser avec getDefaultUser() (jamais null)
 let currentUser = getDefaultUser();
 
+// Synchroniser la variable locale currentUser avec window.currentUser (appelé par auth.js après connectUser/OAuth)
+window.syncCurrentUser = function(user) {
+  if (!user) return;
+  currentUser = { ...getDefaultUser(), ...currentUser, ...user, isLoggedIn: user.isLoggedIn === true };
+  if (typeof window !== 'undefined') window.currentUser = currentUser;
+  console.log('[SYNC] currentUser synchronisé depuis auth (isLoggedIn:', currentUser.isLoggedIn, ')');
+};
+
 // Contacts payés (permanent, ne disparaît jamais)
 let paidContacts = [];
 
@@ -2833,13 +3014,30 @@ function openPopupModal(content, item) {
 
 // Fonction pour mettre à jour l'affichage des boutons auth
 // Définie avant DOMContentLoaded pour être accessible dès l'initialisation
+// Fallback : si un bloc "Mes annonces" ou autre a changé la structure, chercher dans la topbar
 function updateAuthButtons() {
-  const authButtons = document.getElementById("auth-buttons");
-  const accountBtn = document.getElementById("account-topbar-btn");
+  let authButtons = document.getElementById("auth-buttons");
+  let accountBtn = document.getElementById("account-topbar-btn");
+  if (!authButtons) {
+    authButtons = document.querySelector(".topbar-right #auth-buttons") || document.querySelector("#auth-buttons");
+  }
+  if (!accountBtn) {
+    accountBtn = document.querySelector(".topbar-right #account-topbar-btn") || document.querySelector("#account-topbar-btn");
+  }
+  if (!authButtons || !accountBtn) {
+    console.warn("[AUTH BUTTONS] Éléments auth-buttons ou account-topbar-btn introuvables (vérifier qu’un bloc « Mes annonces » n’a pas masqué ou dupliqué ces id)");
+    return;
+  }
   
-  if (!authButtons || !accountBtn) return;
+  // Utiliser window.currentUser en secours (auth.js met à jour window.currentUser avant d'appeler updateAuthButtons)
+  const effectiveUser = (typeof window !== 'undefined' && window.currentUser && window.currentUser.isLoggedIn) ? window.currentUser : currentUser;
+  const isLoggedIn = effectiveUser && effectiveUser.isLoggedIn;
   
-  const isLoggedIn = currentUser && currentUser.isLoggedIn;
+  // Bouton Publier : visible seulement si connecté
+  const publishBtn = document.getElementById('map-publish-btn');
+  if (publishBtn) {
+    publishBtn.style.display = isLoggedIn ? 'flex' : 'none';
+  }
   
   if (isLoggedIn) {
     // Utilisateur connecté : masquer les boutons auth, afficher le bouton compte
@@ -2853,7 +3051,10 @@ function updateAuthButtons() {
     // ⚠️⚠️⚠️ CRITIQUE : Réattacher les event listeners au bouton "Connexion" après déconnexion
     // Utiliser plusieurs tentatives avec délais croissants pour s'assurer que auth.js est chargé
     const initLoginButton = (attempt = 1) => {
-      const loginBtn = document.getElementById('login-topbar-btn');
+      let loginBtn = document.getElementById('login-topbar-btn');
+      if (!loginBtn && authButtons) {
+        loginBtn = authButtons.querySelector('#login-topbar-btn') || authButtons.querySelector('button');
+      }
       if (loginBtn) {
         // Vérifier que les fonctions sont disponibles avant d'attacher le listener
         const hasFunctions = typeof window.openLoginModal === 'function' || typeof window.openAuthModal === 'function';
@@ -2983,7 +3184,11 @@ document.addEventListener("DOMContentLoaded", () => {
   // ⚠️⚠️⚠️ CRITIQUE : S'assurer que le bouton de connexion fonctionne après rechargement
   // Utiliser plusieurs tentatives avec délais croissants pour s'assurer que auth.js est chargé
   const initLoginButtonOnLoad = (attempt = 1) => {
-    const loginBtn = document.getElementById('login-topbar-btn');
+    let loginBtn = document.getElementById('login-topbar-btn');
+    if (!loginBtn) {
+      const authButtons = document.getElementById('auth-buttons') || document.querySelector('.topbar-right #auth-buttons');
+      if (authButtons) loginBtn = authButtons.querySelector('#login-topbar-btn') || authButtons.querySelector('button');
+    }
     if (loginBtn) {
       // Vérifier que les fonctions sont disponibles
       const hasFunctions = typeof window.openLoginModal === 'function' || typeof window.openAuthModal === 'function';
@@ -3137,14 +3342,113 @@ document.addEventListener("DOMContentLoaded", () => {
           });
           
           if (response.ok) {
-            const userData = await response.json();
+            const responseData = await response.json();
+            // Le backend répond { user: { id, email, ... } }
+            const userData = responseData.user || responseData;
+            
+            // ⚠️⚠️⚠️ VALIDATION CRITIQUE : S'assurer que id et email existent
+            if (!userData || !userData.id || !userData.email) {
+              console.warn('[AUTH] ⚠️ Données utilisateur incomplètes depuis /api/user/me:', { 
+                hasUserData: !!userData, 
+                id: userData?.id, 
+                email: userData?.email 
+              });
+              // Essayer de récupérer depuis localStorage en fallback
+              const savedUser = localStorage.getItem('currentUser');
+              if (savedUser) {
+                try {
+                  const parsedSaved = JSON.parse(savedUser);
+                  if (!userData.id && parsedSaved.id) userData.id = parsedSaved.id;
+                  if (!userData.email && parsedSaved.email) userData.email = parsedSaved.email;
+                  console.log('[AUTH] ℹ️ Données récupérées depuis localStorage:', { id: userData.id, email: userData.email });
+                } catch (e) { /* ignore */ }
+              }
+            }
+            
             console.log('[AUTH] ✅✅✅ Reconnexion automatique réussie:', userData.email);
+            
+            // ⚠️ PRIORITÉ : Récupérer le username du localStorage (choisi par l'utilisateur)
+            let savedUsername = null;
+            try {
+              // 1. Vérifier d'abord pendingRegisterDataForGoogle (données du formulaire d'inscription)
+              const pendingData = localStorage.getItem('pendingRegisterDataForGoogle');
+              if (pendingData) {
+                const parsedPending = JSON.parse(pendingData);
+                if (parsedPending.username && parsedPending.username !== 'null' && !parsedPending.username.includes('@')) {
+                  savedUsername = parsedPending.username;
+                  console.log('[AUTH] ✅✅✅ Username récupéré depuis pendingRegisterDataForGoogle:', savedUsername);
+                }
+              }
+              
+              // 2. Si pas trouvé, vérifier currentUser
+              if (!savedUsername) {
+                const savedCurrentUser = localStorage.getItem('currentUser');
+                if (savedCurrentUser) {
+                  const parsed = JSON.parse(savedCurrentUser);
+                  if (parsed.username && parsed.username !== 'null' && !parsed.username.includes('@')) {
+                    savedUsername = parsed.username;
+                    console.log('[AUTH] ✅ Username récupéré depuis currentUser:', savedUsername);
+                  }
+                }
+              }
+            } catch (e) { /* ignore */ }
+            
+            // ⚠️⚠️⚠️ SYNC BASE DE DONNÉES : Si le username local est différent du backend, le synchroniser
+            const backendUsername = userData.username || '';
+            const finalUsername = savedUsername || backendUsername || userData.email?.split('@')[0] || 'Utilisateur';
+            
+            // ⚠️ SYNC USERNAME : Vérifier si on n'a pas déjà eu une erreur 409 pour ce username
+            const syncFailedKey = `username_sync_failed_${savedUsername}`;
+            const previousSyncFailed = localStorage.getItem(syncFailedKey) === 'true';
+            
+            if (savedUsername && savedUsername !== backendUsername && userData.id && !previousSyncFailed) {
+              console.log('[AUTH] 🔄 Synchronisation username vers la base de données:', savedUsername);
+              try {
+                fetch(`${apiBaseUrl}/user/profile`, {
+                  method: 'PUT',
+                  headers: {
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify({
+                    userId: userData.id,
+                    username: savedUsername
+                  })
+                }).then(async resp => {
+                  if (resp.ok) {
+                    console.log('[AUTH] ✅✅✅ Username synchronisé dans la base de données:', savedUsername);
+                    // Supprimer le flag d'échec si existant
+                    localStorage.removeItem(syncFailedKey);
+                  } else if (resp.status === 409) {
+                    // ⚠️ ERREUR 409 : Le username est déjà pris par un autre utilisateur
+                    console.warn('[AUTH] ⚠️⚠️⚠️ Username "' + savedUsername + '" déjà pris par un autre compte!');
+                    console.warn('[AUTH] ℹ️ Le username sera affiché localement mais ne sera pas sauvegardé dans la base de données.');
+                    console.warn('[AUTH] ℹ️ Pour résoudre: choisissez un autre username dans votre profil.');
+                    // Marquer l'échec pour ne pas réessayer
+                    localStorage.setItem(syncFailedKey, 'true');
+                  } else {
+                    console.warn('[AUTH] ⚠️ Échec synchronisation username (code:', resp.status, ')');
+                  }
+                }).catch(err => {
+                  console.warn('[AUTH] ⚠️ Erreur synchronisation username:', err);
+                });
+              } catch (e) {
+                console.warn('[AUTH] ⚠️ Exception synchronisation username:', e);
+              }
+            } else if (previousSyncFailed) {
+              console.log('[AUTH] ℹ️ Synchronisation username ignorée (échec précédent 409 - username déjà pris)');
+            }
             
             // Reconnecter l'utilisateur silencieusement
             const user = {
               id: userData.id,
               email: userData.email,
-              username: userData.username || userData.email?.split('@')[0] || 'Utilisateur',
+              // PRIORITÉ : localStorage > backend > email
+              username: finalUsername,
+              firstName: userData.first_name || userData.firstName || '',
+              lastName: userData.last_name || userData.lastName || '',
+              role: userData.role || 'user',
+              subscription: userData.subscription || 'free',
               profile_photo_url: userData.profile_photo_url || null
             };
             
@@ -3847,13 +4151,13 @@ document.addEventListener("DOMContentLoaded", () => {
     updateAccountBlockLegitimately();
     updateAuthButtons();
   }, 500);
-  // Réduire la fréquence de vérification : toutes les 5 secondes au lieu de 1 seconde
+  // Réduire la fréquence de vérification : toutes les 30 secondes (éviter spam console)
   // updateAccountBlockLegitimately vérifie maintenant si quelque chose a changé avant de mettre à jour
   setInterval(() => {
     protectAccountBlock();
     updateAccountBlockLegitimately(); // Ne mettra à jour que si quelque chose a changé
     updateAuthButtons();
-  }, 5000); // 5 secondes au lieu de 1 seconde
+  }, 30000); // 30 secondes
   
   // Mettre à jour le bloc compte quand l'utilisateur se connecte
   const originalSetItem = localStorage.setItem;
@@ -3883,8 +4187,18 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
   
-  // Exposer la fonction globalement pour debug
+  // Exposer la fonction globalement pour debug ET pour auth.js
+  // Remplace le stub défini au début du fichier
+  window._realUpdateAccountBlockLegitimately = updateAccountBlockLegitimately;
   window.updateAccountBlock = updateAccountBlockLegitimately;
+  window.updateAccountBlockLegitimately = updateAccountBlockLegitimately;
+  
+  // Traiter les appels en file d'attente (si auth.js a appelé avant DOMContentLoaded)
+  if (window._pendingAccountBlockUpdates && window._pendingAccountBlockUpdates.length > 0) {
+    console.log('[INIT] Traitement de', window._pendingAccountBlockUpdates.length, 'appels en attente pour updateAccountBlockLegitimately');
+    updateAccountBlockLegitimately();
+    window._pendingAccountBlockUpdates = [];
+  }
   
   // Détecter les paramètres URL pour mettre à jour les métadonnées Open Graph IMMÉDIATEMENT
   // Cela doit être fait AVANT que les scrapers des réseaux sociaux ne lisent la page
@@ -7811,18 +8125,21 @@ function buildColumn(colBox, node, level) {
 
 // Toggle une catégorie (cocher/décocher)
 function toggleCategory(cat) {
+  const publishModal = document.getElementById("publish-modal-backdrop");
+  const categoryInput = document.getElementById("pub-main-category");
+  const isPublishFormOpen = publishModal && publishModal.style.display === "flex" && categoryInput;
+  
+  // ⚠️ Si formulaire Publier ouvert : le filtre sert UNIQUEMENT à remplir le formulaire (pas de filtre carte)
+  if (isPublishFormOpen) {
+    categoryInput.value = cat;
+    console.log('[PUBLISH] ✅ Catégorie écrite dans le formulaire depuis le filtre:', cat);
+    return;
+  }
+  
   if (selectedCategories.includes(cat)) {
     selectedCategories = selectedCategories.filter(c => c !== cat);
   } else {
     selectedCategories.push(cat);
-    
-    // ⚠️⚠️⚠️ NOUVEAU : Si le modal Publier est ouvert, remplir le champ catégorie avec la première sélection
-    const publishModal = document.getElementById("publish-modal-backdrop");
-    const categoryInput = document.getElementById("pub-main-category");
-    if (publishModal && publishModal.style.display === "flex" && categoryInput && !categoryInput.value.trim()) {
-      categoryInput.value = cat;
-      console.log('[PUBLISH] ✅ Catégorie sélectionnée depuis le filtre:', cat);
-    }
   }
   renderSelectedTags();
   applyExplorerFilter();
@@ -8642,10 +8959,62 @@ function buildPublishFormHtml() {
 }
 
 function openPublishModal() {
+  console.log('[PUBLISH] ✅ openPublishModal appelée');
   const backdrop = document.getElementById("publish-modal-backdrop");
   const inner = document.getElementById("publish-modal-inner");
+  const modal = document.getElementById("publish-modal");
+  
+  if (!backdrop || !inner) {
+    console.error('[PUBLISH] ❌ Éléments manquants:', { backdrop: !!backdrop, inner: !!inner });
+    return;
+  }
+  
+  // Marquer que le modal de publication est ouvert (pour empêcher fermeture accidentelle)
+  window._publishModalOpen = true;
+  
+  console.log('[PUBLISH] ✅ Construction du formulaire...');
   inner.innerHTML = buildPublishFormHtml();
+  
+  // ⚠️⚠️⚠️ FORCER L'AFFICHAGE avec styles inline pour contourner les problèmes CSS
   backdrop.style.display = "flex";
+  backdrop.style.visibility = "visible";
+  backdrop.style.opacity = "1";
+  backdrop.style.zIndex = "50"; // Z-index modéré pour ne pas passer par-dessus le filtre
+  backdrop.style.position = "fixed";
+  backdrop.style.inset = "0";
+  backdrop.style.background = "transparent"; // Transparent pour voir la carte en dessous
+  backdrop.style.alignItems = "flex-start";
+  backdrop.style.justifyContent = "flex-end"; // À droite
+  backdrop.style.pointerEvents = "none"; // Ne pas bloquer les clics sur la carte/filtre
+  backdrop.style.paddingRight = "20px";
+  backdrop.style.paddingTop = "80px"; // Espace pour la topbar
+  
+  // Forcer le modal aussi - POSITIONNEMENT À DROITE
+  if (modal) {
+    modal.style.display = "block";
+    modal.style.visibility = "visible";
+    modal.style.opacity = "1";
+    modal.style.pointerEvents = "auto"; // Permettre les clics sur le modal lui-même
+    modal.style.maxWidth = "400px";
+    modal.style.maxHeight = "calc(100vh - 100px)";
+    modal.style.overflowY = "auto";
+    modal.style.background = "var(--ui-card-bg, #fff)";
+    modal.style.borderRadius = "12px";
+    modal.style.boxShadow = "0 4px 20px rgba(0,0,0,0.3)";
+  }
+  
+  // Forcer le inner aussi
+  if (inner) {
+    inner.style.pointerEvents = "auto";
+  }
+  
+  console.log('[PUBLISH] ✅ Modal affiché à droite');
+  
+  // ⚠️⚠️⚠️ RESTAURER LES DONNÉES SAUVEGARDÉES
+  if (window._publishFormData) {
+    console.log('[PUBLISH] ✅ Restauration des données précédentes');
+    window.restorePublishFormData();
+  }
   
   // ⚠️⚠️⚠️ NOUVEAU : Ouvrir automatiquement le filtre de catégories
   if (!explorerOpen) {
@@ -8782,20 +9151,15 @@ function setupCategoryInputWithFilter() {
   categoryInput.focus();
 }
 
-// ⚠️⚠️⚠️ NOUVEAU : Sélectionner une catégorie depuis les suggestions
+// ⚠️ Sélectionner une catégorie depuis les suggestions → écrit UNIQUEMENT dans le formulaire (pas dans le filtre carte)
 function selectCategoryForPublish(category) {
   const categoryInput = document.getElementById("pub-main-category");
   const suggestionsDiv = document.getElementById("pub-category-suggestions");
   
   if (categoryInput) {
-    // Extraire juste le nom de la catégorie finale (après le dernier >)
     const finalCategory = category.split(">").pop().trim();
     categoryInput.value = finalCategory;
-    
-    // Cocher la catégorie dans le filtre si elle existe
-    if (!selectedCategories.includes(finalCategory)) {
-      toggleCategory(finalCategory);
-    }
+    console.log('[PUBLISH] ✅ Catégorie écrite dans le formulaire depuis les suggestions:', finalCategory);
   }
   
   if (suggestionsDiv) {
@@ -8936,15 +9300,38 @@ window.fermerModalAuth = function() {
   }
 };
 
-function closePublishModal(e) {
-  console.log('🚪 closePublishModal called', e?.type || 'direct call', e?.target?.id || 'no target');
+function closePublishModal(e, forceClose = false) {
+  console.log('🚪 closePublishModal called', e?.type || 'direct call', e?.target?.id || 'no target', 'forceClose:', forceClose);
   
-  // ⚠️⚠️⚠️ NOUVEAU : Si c'est un clic sur le bouton de fermeture (croix), fermer directement
+  // ⚠️⚠️⚠️ SI LE MODAL DE PUBLICATION EST OUVERT, NE FERMER QUE VIA LA CROIX ⚠️⚠️⚠️
+  if (window._publishModalOpen && !forceClose) {
+    // Vérifier si c'est un clic sur le bouton de fermeture (croix ou Annuler)
+    const isCloseButton = e && e.target && (
+      e.target.textContent === '✕' || 
+      e.target.textContent?.includes('Annuler') ||
+      e.target.closest('button[onclick*="closePublishModal"]') ||
+      e.target.closest('button[onclick*="fermerModalAuth"]')
+    );
+    
+    if (!isCloseButton) {
+      console.log('🚪 [GUARD] Modal de publication ouvert - fermeture bloquée (utilisez la croix)');
+      return; // Ne pas fermer
+    }
+    
+    // C'est bien la croix, sauvegarder les données avant de fermer
+    console.log('🚪 Fermeture via croix - sauvegarde des données');
+    if (typeof window.savePublishFormData === 'function') {
+      window.savePublishFormData();
+    }
+  }
+  
+  // ⚠️⚠️⚠️ Si c'est un clic sur le bouton de fermeture (croix), fermer directement
   if (e && e.target && (e.target.textContent === '✕' || e.target.onclick || e.target.closest('button[onclick*="closePublishModal"]'))) {
     e.stopPropagation();
     const backdrop = document.getElementById("publish-modal-backdrop");
     if (backdrop) {
       backdrop.style.display = "none";
+      window._publishModalOpen = false;
       console.log('🚪 Modal fermé via bouton croix');
       return;
     }
@@ -9089,6 +9476,17 @@ function closePublishModal(e) {
     return;
   }
   
+  // ⚠️ Si formulaire Publier ouvert : ne pas fermer quand on clique sur le filtre (remplir le formulaire uniquement)
+  const backdropVisible = backdrop && (backdrop.style.display === 'flex' || (typeof getComputedStyle !== 'undefined' && getComputedStyle(backdrop).display === 'flex'));
+  if (e && e.target && backdropVisible) {
+    const target = e.target;
+    const isFilterOrSuggestions = target.closest && (target.closest('#left-panel') || target.closest('#explorer-columns') || target.closest('#pub-category-suggestions'));
+    if (isFilterOrSuggestions) {
+      console.log('🚪 [GUARD] Clic sur filtre/suggestions - IGNORÉ (formulaire Publier ouvert, pas de fermeture)');
+      return;
+    }
+  }
+  
   if (e && e.target && e.target.id !== "publish-modal-backdrop") {
     const modal = document.getElementById("publish-modal");
     const modalInner = document.getElementById("publish-modal-inner");
@@ -9099,6 +9497,7 @@ function closePublishModal(e) {
   // Réutiliser la variable backdrop déjà déclarée plus haut
   if (backdrop) {
     backdrop.style.display = "none";
+    window._publishModalOpen = false;
     console.log('🚪 Modal closed - backdrop display set to none');
   }
 }
@@ -9292,8 +9691,13 @@ async function onSubmitPublishForm(e) {
     // Continuer même si le backend échoue (sauvegarde locale)
   }
   
+  // ⚠️⚠️⚠️ EFFACER LES DONNÉES SAUVEGARDÉES APRÈS PUBLICATION RÉUSSIE
+  if (typeof window.clearPublishFormData === 'function') {
+    window.clearPublishFormData();
+  }
+  
   // Fermer le modal et rafraîchir
-  closePublishModal();
+  closePublishModal(null, true); // forceClose = true
   refreshMarkers();
   refreshListView();
   
@@ -20858,18 +21262,33 @@ function openGroupDetails(groupId) {
 let accountModalActiveTab = 'agenda';
 
 function openAccountModal() {
+  // ⚠️⚠️⚠️ UTILISER window.currentUser comme fallback car auth.js met à jour window.currentUser
+  const effectiveUser = (window.currentUser && window.currentUser.isLoggedIn) ? window.currentUser : currentUser;
+  
   console.log('[ACCOUNT MODAL] openAccountModal appelée', {
     currentUser: currentUser ? { isLoggedIn: currentUser.isLoggedIn, email: currentUser.email } : null,
+    windowCurrentUser: window.currentUser ? { isLoggedIn: window.currentUser.isLoggedIn, email: window.currentUser.email } : null,
+    effectiveUser: effectiveUser ? { isLoggedIn: effectiveUser.isLoggedIn, email: effectiveUser.email } : null,
     getUserDisplayName: typeof getUserDisplayName,
-    getUserAvatar: typeof getUserAvatar,
-    windowGetUserDisplayName: typeof window.getUserDisplayName,
-    windowGetUserAvatar: typeof window.getUserAvatar
+    getUserAvatar: typeof getUserAvatar
   });
   
-  if (!currentUser || !currentUser.isLoggedIn) {
+  // ⚠️⚠️⚠️ Synchroniser currentUser avec window.currentUser si nécessaire
+  if (window.currentUser && window.currentUser.isLoggedIn && (!currentUser || !currentUser.isLoggedIn)) {
+    console.log('[ACCOUNT MODAL] ⚠️ Synchronisation currentUser depuis window.currentUser');
+    currentUser = { ...window.currentUser };
+  }
+  
+  if (!effectiveUser || !effectiveUser.isLoggedIn) {
     console.log('[ACCOUNT MODAL] Utilisateur non connecté, ouverture modal login');
     openAuthModal('login');
     return;
+  }
+  
+  // ⚠️⚠️⚠️ Utiliser effectiveUser pour le reste de la fonction
+  // Mettre à jour currentUser pour être sûr
+  if (effectiveUser !== currentUser) {
+    currentUser = { ...effectiveUser };
   }
   
   const backdrop = document.getElementById('publish-modal-backdrop');
@@ -27040,23 +27459,48 @@ async function requestUserLocation() {
   }
   
   // REMOVED: Les fonctions AUTH sont maintenant dans auth.js et exposées globalement
-  // Vérification que les fonctions sont bien chargées depuis auth.js
+  // Vérification que les fonctions sont bien chargées depuis auth.js + fallbacks si auth.js a échoué ou chargé après
   if (typeof window.openAuthModal === 'function') {
     console.log('[AUTH] ✅ openAuthModal chargée depuis auth.js');
   } else {
-    console.error('[AUTH] ❌ ERREUR: window.openAuthModal n\'est pas disponible (auth.js non chargé ?)');
+    console.warn('[AUTH] ⚠️ window.openAuthModal n\'est pas disponible (auth.js non chargé ?) - fallback installé');
+    window.openAuthModal = function(mode) {
+      if (typeof window.openLoginModal === 'function') { window.openLoginModal(); return; }
+      if (typeof window.showNotification === 'function') {
+        window.showNotification('Veuillez recharger la page pour afficher la connexion.', 'error');
+      } else {
+        alert('Veuillez recharger la page pour afficher la connexion.');
+      }
+    };
   }
-  
+
   if (typeof window.openLoginModal === 'function') {
     console.log('[AUTH] ✅ openLoginModal chargée depuis auth.js');
   } else {
     console.warn('[AUTH] ⚠️ window.openLoginModal non disponible (utilisera wrapper local)');
+    window.openLoginModal = function() {
+      if (typeof window.openAuthModal === 'function') { window.openAuthModal('login'); return; }
+      if (typeof window.showNotification === 'function') {
+        window.showNotification('Veuillez recharger la page pour afficher la connexion.', 'error');
+      } else {
+        alert('Veuillez recharger la page pour afficher la connexion.');
+      }
+    };
   }
-  
+
   if (typeof window.openRegisterModal === 'function') {
     console.log('[AUTH] ✅ openRegisterModal chargée depuis auth.js');
   } else {
     console.warn('[AUTH] ⚠️ window.openRegisterModal non disponible (utilisera wrapper local)');
+    window.openRegisterModal = function() {
+      if (typeof window.openAuthModal === 'function') { window.openAuthModal('register'); return; }
+      if (typeof window.openLoginModal === 'function') { window.openLoginModal(); return; }
+      if (typeof window.showNotification === 'function') {
+        window.showNotification('Veuillez recharger la page pour afficher l\'inscription.', 'error');
+      } else {
+        alert('Veuillez recharger la page pour afficher l\'inscription.');
+      }
+    };
   }
   
   // showRegisterStep1 peut rester ici si elle n'est pas dans auth.js
@@ -27070,11 +27514,12 @@ async function requestUserLocation() {
     // Créer une fonction de fallback seulement si elle n'existe pas
     if (typeof window.showRegisterStep1 !== 'function') {
       window.showRegisterStep1 = function() {
-        console.warn('[AUTH] showRegisterStep1 non disponible, redirection vers openAuthModal("register")');
         if (typeof window.openAuthModal === 'function') {
           window.openAuthModal('register');
+        } else if (typeof window.showNotification === 'function') {
+          window.showNotification('Veuillez recharger la page pour afficher l\'inscription.', 'error');
         } else {
-          console.error('[AUTH] ERREUR: window.openAuthModal n\'est pas disponible');
+          alert('Veuillez recharger la page pour afficher l\'inscription.');
         }
       };
       console.log('[AUTH] showRegisterStep1 (fallback) cree et expose');
@@ -27109,6 +27554,16 @@ async function requestUserLocation() {
     console.log('[ONBOARDING] ✅ checkProfileCompleteness déjà chargée');
   } else {
     console.warn('[ONBOARDING] checkProfileCompleteness non disponible');
+  }
+  
+  // ⚠️⚠️⚠️ NOUVEAU : Exposer openPublishModal globalement pour auth.js
+  if (typeof openPublishModal === 'function' && typeof window.openPublishModal !== 'function') {
+    window.openPublishModal = openPublishModal;
+    console.log('[PUBLISH] ✅ openPublishModal exposée globalement');
+  } else if (typeof window.openPublishModal === 'function') {
+    console.log('[PUBLISH] ✅ openPublishModal déjà exposée');
+  } else {
+    console.warn('[PUBLISH] ⚠️ openPublishModal non disponible');
   }
   
   // Vérification finale avec logs ASCII

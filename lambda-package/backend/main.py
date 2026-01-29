@@ -2400,6 +2400,7 @@ def create_app():
             user_id = request.user_id
             user_email = request.user_email
             user_role = request.user_role
+            is_cognito = getattr(request, 'cognito_token', False)
             
             conn = get_db_connection()
             if not conn:
@@ -2418,20 +2419,66 @@ def create_app():
             except Exception as alter_error:
                 logger.debug(f"Colonnes privacy déjà existantes ou erreur: {alter_error}")
             
-            # Récupérer les données utilisateur complètes depuis PostgreSQL (incluant les nouvelles colonnes d'adresse et privacy)
-            cursor.execute("""
-                SELECT id, email, username, first_name, last_name, subscription, role,
-                       avatar_emoji, avatar_description, profile_photo_url, postal_address,
-                       postal_city, postal_zip, postal_country,
-                       address_label, address_lat, address_lng, address_country_code,
-                       address_city, address_postcode, address_street, address_verified,
-                       profile_public, show_name, show_photo, show_city_country_only,
-                       created_at, updated_at
-                FROM users 
-                WHERE id = %s
-            """, (user_id,))
+            # CORRECTION COGNITO: Pour les tokens Cognito, chercher par google_sub puis par email
+            # car user_id contient le Cognito sub, pas l'ID de la base de données
+            user_row = None
             
-            user_row = cursor.fetchone()
+            if is_cognito:
+                # Priorité 1: Chercher par google_sub (le Cognito sub)
+                logger.info(f"[USER_ME] Token Cognito détecté, recherche par google_sub: {user_id}")
+                cursor.execute("""
+                    SELECT id, email, username, first_name, last_name, subscription, role,
+                           avatar_emoji, avatar_description, profile_photo_url, postal_address,
+                           postal_city, postal_zip, postal_country,
+                           address_label, address_lat, address_lng, address_country_code,
+                           address_city, address_postcode, address_street, address_verified,
+                           profile_public, show_name, show_photo, show_city_country_only,
+                           created_at, updated_at
+                    FROM users 
+                    WHERE google_sub = %s
+                """, (user_id,))
+                user_row = cursor.fetchone()
+                
+                # Priorité 2: Si non trouvé par google_sub, chercher par email
+                if not user_row and user_email:
+                    logger.info(f"[USER_ME] Non trouvé par google_sub, recherche par email: {user_email}")
+                    email_canonical = normalize_email(user_email) if user_email else None
+                    cursor.execute("""
+                        SELECT id, email, username, first_name, last_name, subscription, role,
+                               avatar_emoji, avatar_description, profile_photo_url, postal_address,
+                               postal_city, postal_zip, postal_country,
+                               address_label, address_lat, address_lng, address_country_code,
+                               address_city, address_postcode, address_street, address_verified,
+                               profile_public, show_name, show_photo, show_city_country_only,
+                               created_at, updated_at
+                        FROM users 
+                        WHERE LOWER(TRIM(email)) = %s OR email_canonical = %s
+                    """, (user_email.lower().strip(), email_canonical))
+                    user_row = cursor.fetchone()
+                    
+                    # Si trouvé par email, mettre à jour google_sub pour les prochaines fois
+                    if user_row:
+                        logger.info(f"[USER_ME] Utilisateur trouvé par email, mise à jour google_sub: {user_id}")
+                        try:
+                            cursor.execute("UPDATE users SET google_sub = %s WHERE id = %s", (user_id, user_row[0]))
+                            conn.commit()
+                        except Exception as update_err:
+                            logger.warning(f"[USER_ME] Impossible de mettre à jour google_sub: {update_err}")
+            else:
+                # Token standard (non Cognito): chercher par id
+                logger.info(f"[USER_ME] Token standard, recherche par id: {user_id}")
+                cursor.execute("""
+                    SELECT id, email, username, first_name, last_name, subscription, role,
+                           avatar_emoji, avatar_description, profile_photo_url, postal_address,
+                           postal_city, postal_zip, postal_country,
+                           address_label, address_lat, address_lng, address_country_code,
+                           address_city, address_postcode, address_street, address_verified,
+                           profile_public, show_name, show_photo, show_city_country_only,
+                           created_at, updated_at
+                    FROM users 
+                    WHERE id = %s
+                """, (user_id,))
+                user_row = cursor.fetchone()
             
             if not user_row:
                 cursor.close()
@@ -2447,6 +2494,7 @@ def create_app():
              created_at, updated_at) = user_row
             
             # Récupérer le statut d'abonnement Stripe depuis la table subscriptions (si elle existe)
+            # IMPORTANT: utiliser user_id_db (l'ID de la base de données), pas user_id (qui peut être le Cognito sub)
             subscription_status = None
             subscription_plan = None
             try:
@@ -2454,7 +2502,7 @@ def create_app():
                     SELECT plan, status FROM subscriptions 
                     WHERE user_id = %s AND status = 'active'
                     ORDER BY created_at DESC LIMIT 1
-                """, (user_id,))
+                """, (user_id_db,))
                 subscription_row = cursor.fetchone()
                 if subscription_row:
                     subscription_plan, subscription_status = subscription_row
@@ -2499,11 +2547,16 @@ def create_app():
             # PRIORITY HOTFIX: Retourner payload MINIMAL par défaut pour /api/user/me
             # Champs essentiels uniquement: id, email, username, profileComplete, profile_photo_url
             # Les autres données peuvent être chargées à la demande via d'autres endpoints
+            # 
+            # CORRECTION 2026-01-28: profileComplete = True si l'utilisateur a un id, email, ET username
+            # On ne bloque plus les utilisateurs Google qui ont un username = début de l'email
+            has_valid_username = bool(username and username.strip() and len(username.strip()) > 0)
+            has_valid_email = bool(email and email.strip() and '@' in email)
             user_data_minimal = {
                 'id': user_id_db,
                 'email': email,
                 'username': username,
-                'profileComplete': bool(username and username.strip() and username != email.split('@')[0][:20]),  # Profil complet si username personnalisé
+                'profileComplete': bool(has_valid_username and has_valid_email),  # Profil complet si username ET email valides
                 'profile_photo_url': avatar_url,  # URL de la photo de profil
                 'role': final_role,
                 'subscription': final_subscription
@@ -6114,6 +6167,137 @@ def create_app():
                 conn.rollback()
                 cursor.close()
                 conn.close()
+            return jsonify({'error': str(e)}), 500
+    
+    # ⚠️⚠️⚠️ ENDPOINT DE DIAGNOSTIC ET CORRECTION USERNAME
+    @app.route('/api/admin/fix-username', methods=['POST'])
+    def admin_fix_username():
+        """
+        Endpoint pour diagnostiquer et corriger les problèmes de username.
+        Permet de :
+        1. Voir qui possède un username donné
+        2. Forcer un username pour un utilisateur (en libérant le username si nécessaire)
+        """
+        try:
+            data = request.get_json()
+            target_email = data.get('email', '').strip().lower()
+            target_username = data.get('username', '').strip()
+            action = data.get('action', 'diagnose')  # 'diagnose' ou 'fix'
+            
+            if not target_email or not target_username:
+                return jsonify({'error': 'email et username requis'}), 400
+            
+            conn = get_db_connection()
+            if not conn:
+                return jsonify({'error': 'Database connection failed'}), 500
+            
+            cursor = conn.cursor()
+            
+            # 1. Trouver l'utilisateur cible (par email)
+            cursor.execute("""
+                SELECT id, email, username, first_name, last_name, created_at
+                FROM users WHERE LOWER(email) = LOWER(%s)
+            """, (target_email,))
+            target_user = cursor.fetchone()
+            
+            # 2. Trouver qui possède actuellement le username
+            cursor.execute("""
+                SELECT id, email, username, first_name, last_name, created_at
+                FROM users WHERE LOWER(username) = LOWER(%s)
+            """, (target_username,))
+            username_owner = cursor.fetchone()
+            
+            result = {
+                'target_user': {
+                    'id': target_user[0] if target_user else None,
+                    'email': target_user[1] if target_user else None,
+                    'current_username': target_user[2] if target_user else None,
+                    'name': f"{target_user[3] or ''} {target_user[4] or ''}".strip() if target_user else None,
+                    'created_at': str(target_user[5]) if target_user else None
+                } if target_user else None,
+                'username_owner': {
+                    'id': username_owner[0] if username_owner else None,
+                    'email': username_owner[1] if username_owner else None,
+                    'username': username_owner[2] if username_owner else None,
+                    'name': f"{username_owner[3] or ''} {username_owner[4] or ''}".strip() if username_owner else None,
+                    'created_at': str(username_owner[5]) if username_owner else None
+                } if username_owner else None,
+                'conflict': username_owner is not None and target_user is not None and username_owner[0] != target_user[0],
+                'same_user': username_owner is not None and target_user is not None and username_owner[0] == target_user[0]
+            }
+            
+            if action == 'diagnose':
+                cursor.close()
+                conn.close()
+                return jsonify({
+                    'action': 'diagnose',
+                    'result': result,
+                    'recommendation': 'Utilisez action=fix pour corriger' if result['conflict'] else 'Pas de conflit ou username libre'
+                }), 200
+            
+            elif action == 'fix':
+                if not target_user:
+                    cursor.close()
+                    conn.close()
+                    return jsonify({'error': f'Utilisateur {target_email} non trouvé'}), 404
+                
+                target_user_id = target_user[0]
+                
+                # Si le username appartient à un autre utilisateur, le libérer
+                if username_owner and username_owner[0] != target_user_id:
+                    other_user_id = username_owner[0]
+                    other_user_email = username_owner[1]
+                    
+                    # Générer un nouveau username pour l'autre utilisateur (basé sur son email)
+                    new_username_for_other = other_user_email.split('@')[0] + '_' + str(int(datetime.now().timestamp()))[-6:]
+                    
+                    logger.info(f"[FIX-USERNAME] Libération du username '{target_username}' de {other_user_email} -> {new_username_for_other}")
+                    
+                    cursor.execute("""
+                        UPDATE users SET username = %s, updated_at = CURRENT_TIMESTAMP
+                        WHERE id = %s
+                    """, (new_username_for_other, other_user_id))
+                    
+                    result['freed_from'] = {
+                        'user_id': other_user_id,
+                        'email': other_user_email,
+                        'new_username': new_username_for_other
+                    }
+                
+                # Attribuer le username à l'utilisateur cible
+                cursor.execute("""
+                    UPDATE users SET username = %s, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = %s
+                """, (target_username, target_user_id))
+                
+                conn.commit()
+                
+                # Vérifier le résultat
+                cursor.execute("SELECT username FROM users WHERE id = %s", (target_user_id,))
+                updated_username = cursor.fetchone()
+                
+                cursor.close()
+                conn.close()
+                
+                logger.info(f"[FIX-USERNAME] Username '{target_username}' attribué à {target_email}")
+                
+                return jsonify({
+                    'action': 'fix',
+                    'success': True,
+                    'result': result,
+                    'new_username': updated_username[0] if updated_username else None,
+                    'message': f"Username '{target_username}' attribué avec succès à {target_email}"
+                }), 200
+            
+            else:
+                cursor.close()
+                conn.close()
+                return jsonify({'error': 'action doit être "diagnose" ou "fix"'}), 400
+                
+        except Exception as e:
+            logger.error(f"Erreur admin_fix_username: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
             return jsonify({'error': str(e)}), 500
     
     return app

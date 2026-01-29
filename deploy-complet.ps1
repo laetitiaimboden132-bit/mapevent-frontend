@@ -57,7 +57,8 @@ if (Test-Path "backend\requirements.txt") {
             Remove-Item Env:\PIP_ONLY_BINARY -ErrorAction SilentlyContinue
         }
         # Vérifier que les packages critiques sont installés
-        $criticalPackages = @("flask", "bcrypt", "werkzeug", "psycopg2")
+        # NOTE: psycopg2 et bcrypt viennent des Lambda Layers (version Linux), pas du package local
+        $criticalPackages = @("flask", "werkzeug")
         $missingPackages = @()
         foreach ($pkg in $criticalPackages) {
             $found = Get-ChildItem -Path $TEMP_DIR -Filter "$pkg*" -Directory -ErrorAction SilentlyContinue | Where-Object { $_.Name -like "$pkg*" }
@@ -75,6 +76,44 @@ if (Test-Path "backend\requirements.txt") {
             }
             Write-Host "    OK: Packages manquants installes" -ForegroundColor Green
         }
+        
+        # IMPORTANT: Supprimer psycopg2, bcrypt ET cryptography du package
+        # - psycopg2/bcrypt viennent des Lambda Layers Linux (version Windows incompatible)
+        # - cryptography doit aussi venir du Layer pour éviter les conflits de version avec bcrypt
+        # - cffi et _cffi sont des dépendances de cryptography qui doivent aussi être supprimées
+        Write-Host "    Suppression des packages Windows (psycopg2, bcrypt, cryptography, cffi)..." -ForegroundColor Gray
+        
+        # Supprimer tous les packages binaires incompatibles avec Lambda Linux
+        $packagesToRemove = @(
+            "psycopg2*",
+            "bcrypt*",
+            "cryptography*",
+            "_cffi*",
+            "cffi*",
+            "_rust*",
+            "rust*"
+        )
+        
+        foreach ($pattern in $packagesToRemove) {
+            $found = Get-ChildItem -Path $TEMP_DIR -Filter $pattern -ErrorAction SilentlyContinue
+            if ($found) {
+                $found | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+                Write-Host "      Supprime: $pattern" -ForegroundColor DarkGray
+            }
+        }
+        
+        # Recherche et suppression récursive pour les sous-dossiers
+        Get-ChildItem -Path $TEMP_DIR -Recurse -Directory -ErrorAction SilentlyContinue | Where-Object { 
+            $_.Name -match "^(cryptography|cffi|_cffi|bcrypt|psycopg2)" 
+        } | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+        
+        # Supprimer les .dist-info de ces packages
+        Get-ChildItem -Path $TEMP_DIR -Filter "*cryptography*.dist-info" -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+        Get-ChildItem -Path $TEMP_DIR -Filter "*cffi*.dist-info" -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+        Get-ChildItem -Path $TEMP_DIR -Filter "*bcrypt*.dist-info" -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+        Get-ChildItem -Path $TEMP_DIR -Filter "*psycopg2*.dist-info" -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+        
+        Write-Host "    OK: Packages Windows supprimes (Layers Linux utilises)" -ForegroundColor Green
     } catch {
         Write-Host "    ATTENTION: Erreur lors de l'installation: $_" -ForegroundColor Yellow
         Write-Host "    Continuons quand meme..." -ForegroundColor Gray
@@ -139,8 +178,9 @@ Start-Sleep -Seconds 30
 
 Write-Host "Deploiement termine!" -ForegroundColor Green
 Write-Host ""
-Write-Host "Vous pouvez maintenant tester avec:" -ForegroundColor Cyan
-Write-Host "  .\supprimer-comptes-api.ps1 -Confirm 'OUI'" -ForegroundColor White
+Write-Host "Backend Lambda deploye. Teste le site: https://mapevent.world" -ForegroundColor Cyan
+Write-Host "  (Recharge la page: Ctrl+Shift+R)" -ForegroundColor Gray
+Write-Host ""
 
 # Retourner au dossier parent
 Set-Location ..

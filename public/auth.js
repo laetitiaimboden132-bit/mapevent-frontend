@@ -4515,9 +4515,17 @@ function connectUser(user, tokens, rememberMe) {
   
   // Mettre à jour l'UI - CRÉER UN OBJET SLIM POUR updateAuthUI
   // ⚠️⚠️⚠️ CRITIQUE : Utiliser finalUsername et normalizedPhotoData (priorité formulaire)
+  // ⚠️⚠️⚠️ CRITIQUE : S'assurer que id et email sont présents (requis par updateAuthUI)
+  const userId = user.id || window.currentUser?.id;
+  const userEmail = user.email || window.currentUser?.email;
+  
+  if (!userId || !userEmail) {
+    console.warn('[CONNECT] ⚠️ id ou email manquant dans user:', { id: userId, email: userEmail });
+  }
+  
   const slimUser = {
-    id: user.id,
-    email: user.email,
+    id: userId,
+    email: userEmail,
     username: finalUsername || user.username || 'Utilisateur', // ⚠️⚠️⚠️ PRIORITÉ au username du formulaire
     firstName: user.firstName || '',
     lastName: user.lastName || '',
@@ -4527,6 +4535,8 @@ function connectUser(user, tokens, rememberMe) {
   };
   
   console.log('[CONNECT] ✅✅✅ slimUser créé pour updateAuthUI:', {
+    id: slimUser.id,
+    email: slimUser.email,
     username: slimUser.username,
     photoData: slimUser.photoData ? `PRÉSENT (${slimUser.photoData.length} chars)` : 'NULL'
   });
@@ -4670,6 +4680,44 @@ function connectUser(user, tokens, rememberMe) {
     window.isGoogleLoginInProgress = false;
   }
   hideGoogleLoginLoading();
+  
+  // ⚠️⚠️⚠️ FORCER L'AFFICHAGE DU BOUTON PUBLIER ⚠️⚠️⚠️
+  // Double sécurité : forcer ici aussi en plus de updateAuthUI
+  const publishBtn = document.getElementById('map-publish-btn');
+  if (publishBtn) {
+    publishBtn.style.display = 'flex';
+    publishBtn.style.visibility = 'visible';
+    publishBtn.style.opacity = '1';
+    console.log('[CONNECT] ✅✅✅ Bouton PUBLIER forcé visible depuis connectUser');
+  }
+  
+  // ⚠️⚠️⚠️ OUVRIR LE MODAL DE COMPTE APRÈS CONNEXION ⚠️⚠️⚠️
+  // Cela permet à l'utilisateur de voir qu'il est bien connecté
+  // Délai augmenté à 1500ms pour laisser le temps à la synchronisation
+  setTimeout(() => {
+    // Forcer à nouveau l'affichage du bouton Publier (au cas où)
+    const retryPublishBtn = document.getElementById('map-publish-btn');
+    if (retryPublishBtn) {
+      retryPublishBtn.style.display = 'flex';
+      retryPublishBtn.style.visibility = 'visible';
+      retryPublishBtn.style.opacity = '1';
+    }
+    
+    console.log('[CONNECT] ✅✅✅ Ouverture automatique du modal de COMPTE');
+    console.log('[CONNECT] window.currentUser:', window.currentUser ? { isLoggedIn: window.currentUser.isLoggedIn, email: window.currentUser.email } : null);
+    
+    if (typeof window.openAccountModal === 'function') {
+      window.openAccountModal();
+    } else if (typeof openAccountModal === 'function') {
+      openAccountModal();
+    } else {
+      console.warn('[CONNECT] ⚠️ openAccountModal non disponible');
+      // Fallback : afficher une notification
+      if (typeof showNotification === 'function') {
+        showNotification('✅ Connecté ! Cliquez sur votre avatar pour voir votre compte.', 'success');
+      }
+    }
+  }, 1500);
 }
 
 // ===============================
@@ -5198,7 +5246,9 @@ async function createAccountAndSendVerificationEmail(pendingData) {
           </div>
         `;
       }
-    } else {
+    }
+    // Cas réponse non-ok : afficher formulaire code dev si disponible
+    if (!emailResponse.ok) {
       const errorData = await emailResponse.json().catch(() => ({ error: 'Erreur inconnue' }));
       console.error('[VERIFY] ❌ Erreur envoi email:', errorData);
       

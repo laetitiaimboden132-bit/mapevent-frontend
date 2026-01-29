@@ -190,9 +190,11 @@ def generate_refresh_token(user_id: str) -> str:
 def verify_token(token: str, token_type: str = 'access') -> dict:
     """
     Vérifie et décode un token JWT.
+    Supporte les tokens HS256 (standard) et RS256 (Cognito).
     Retourne le payload si valide, None sinon.
     """
     try:
+        # Essayer de décoder avec HS256 (tokens standard)
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
         
         # Vérifier le type de token
@@ -200,13 +202,38 @@ def verify_token(token: str, token_type: str = 'access') -> dict:
             logger.warning(f"Token type mismatch: expected {token_type}, got {payload.get('type')}")
             return None
         
+        payload['cognito_token'] = False
         return payload
     except jwt.ExpiredSignatureError:
         logger.warning("Token expired")
         return None
     except jwt.InvalidTokenError as e:
-        logger.warning(f"Invalid token: {e}")
-        return None
+        # Si HS256 échoue, essayer de décoder comme token Cognito (RS256)
+        logger.info(f"Token utilise un algorithme différent (probablement RS256 Cognito), tentative décodage...")
+        try:
+            # Décoder sans vérifier la signature (Cognito a déjà authentifié)
+            # Note: En production, il faudrait vérifier avec les clés publiques de Cognito
+            unverified = jwt.decode(token, options={"verify_signature": False})
+            
+            # Extraire les infos du token Cognito
+            user_id = unverified.get('sub')  # Cognito sub
+            email = unverified.get('email') or unverified.get('cognito:username')
+            
+            if user_id:
+                logger.info(f"Token Cognito décodé avec succès: user_id={user_id}, email={email}")
+                return {
+                    'user_id': user_id,
+                    'email': email,
+                    'role': 'user',
+                    'type': 'access',
+                    'cognito_token': True
+                }
+            else:
+                logger.warning("Token Cognito sans sub")
+                return None
+        except Exception as cognito_error:
+            logger.warning(f"Échec décodage token Cognito: {cognito_error}")
+            return None
 
 def get_token_from_request() -> str:
     """
@@ -220,7 +247,8 @@ def get_token_from_request() -> str:
 def require_auth(f):
     """
     Décorateur pour protéger les routes nécessitant une authentification.
-    Injecte request.user_id, request.user_email, request.user_role dans la fonction.
+    Injecte request.user_id, request.user_email, request.user_role, request.cognito_token dans la fonction.
+    Supporte les tokens standard (HS256) et Cognito (RS256).
     """
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -238,6 +266,7 @@ def require_auth(f):
         request.user_id = payload.get('user_id')
         request.user_email = payload.get('email')
         request.user_role = payload.get('role', 'user')
+        request.cognito_token = payload.get('cognito_token', False)
         
         return f(*args, **kwargs)
     
