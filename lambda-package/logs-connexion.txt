@@ -1,0 +1,8 @@
+﻿aws : 
+Au caractère C:\Users\Laeti\.cursor\worktrees\frontend\vpf\voir-logs-connexion.ps1:46 : 5
++     aws logs tail $LOG_GROUP --since "${Minutes}m" --region $REGION - ...
++     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+Failed to connect to proxy URL: "http://127.0.0.1:9"

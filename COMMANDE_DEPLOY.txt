@@ -1,0 +1,21 @@
+========================================
+ DÉPLOIEMENT EN 2 COPIER-COLLER
+========================================
+
+Ouvrez PowerShell, puis :
+
+--- 1) FRONTEND (auth.js, map_logic.js, mapevent.html) ---
+
+cd C:\Users\Laeti\.cursor\worktrees\frontend\vpf
+.\deploy-frontend.ps1
+
+--- 2) LAMBDA (handler.py, CORS) ---
+
+cd C:\Users\Laeti\.cursor\worktrees\frontend\vpf\lambda-package
+.\deploy-lambda.ps1
+
+========================================
+Si "credentials AWS" : faites d'abord
+   aws configure
+puis réessayez.
+========================================

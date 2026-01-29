@@ -5463,46 +5463,129 @@ function buildMarkerIcon(item) {
   
   switch(boost) {
     case "platinum":
-      // Système Top 10 par région avec enchères
+      // ⚠️⚠️⚠️ SYSTÈME TOP 20 PAR RÉGION AVEC ENCHÈRES
       markerClass = `marker-platinum marker-platinum-rank-${platinumRank}`;
       
-      // Plus le rang est haut, plus le marqueur est visible
+      // Hiérarchie visuelle TOP 20 → TOP 1
       if (platinumRank === 1) {
-        // TOP 1 : Le plus grand, avec couronne et double halo
-        size = { w: 52, h: 62 };
-        borderWidth = 4;
-        fontSize = 24;
+        // 👑 TOP 1 : LÉGENDAIRE - Effet WOW maximum !
+        size = { w: 62, h: 72 };
+        borderWidth = 5;
+        fontSize = 28;
         showHalo = true;
         showCrown = true;
+        extraStyles = `
+          background: linear-gradient(145deg, #1a0a0a, #2d1515, #1a0a0a);
+          border: ${borderWidth}px solid #ff0000;
+          box-shadow: 
+            0 0 20px rgba(255,0,0,0.8),
+            0 0 40px rgba(255,0,0,0.5),
+            0 0 60px rgba(255,0,0,0.3),
+            inset 0 0 15px rgba(255,0,0,0.3);
+          animation: pulse-legendary 1.5s ease-in-out infinite;
+        `;
       } else if (platinumRank === 2) {
-        // TOP 2 : Grand avec halo
-        size = { w: 48, h: 58 };
+        // TOP 2 : Très grand avec couronne + halo
+        size = { w: 56, h: 66 };
+        borderWidth = 4.5;
+        fontSize = 25;
+        showHalo = true;
+        showCrown = true;
+        extraStyles = `
+          background: linear-gradient(145deg, #1a0a0a, #2d1212);
+          border: ${borderWidth}px solid #ef4444;
+          box-shadow: 0 0 15px rgba(239,68,68,0.7), 0 0 30px rgba(239,68,68,0.4);
+        `;
+      } else if (platinumRank === 3) {
+        // TOP 3 : Grand avec couronne + halo
+        size = { w: 52, h: 62 };
+        borderWidth = 4;
+        fontSize = 23;
+        showHalo = true;
+        showCrown = true;
+        extraStyles = `
+          background: linear-gradient(145deg, #1a0a0a, #251010);
+          border: ${borderWidth}px solid #ef4444;
+          box-shadow: 0 0 12px rgba(239,68,68,0.6), 0 0 25px rgba(239,68,68,0.35);
+        `;
+      } else if (platinumRank === 4) {
+        // TOP 4 : Halo rouge + bordure, assez grand
+        size = { w: 50, h: 60 };
         borderWidth = 3.5;
         fontSize = 22;
         showHalo = true;
-      } else if (platinumRank === 3) {
-        // TOP 3 : Moyen-grand avec halo léger
-        size = { w: 46, h: 56 };
-        borderWidth = 3;
+        extraStyles = `
+          background: linear-gradient(145deg, #1a1a1a, #2d2020);
+          border: ${borderWidth}px solid #ef4444;
+          box-shadow: 0 0 10px rgba(239,68,68,0.5), 0 0 20px rgba(239,68,68,0.3);
+        `;
+      } else if (platinumRank === 5) {
+        // TOP 5 : Halo rouge + bordure
+        size = { w: 48, h: 58 };
+        borderWidth = 3.5;
         fontSize = 21;
         showHalo = true;
-      } else if (platinumRank <= 5) {
-        // TOP 4-5 : Moyen
-        size = { w: 44, h: 54 };
-        borderWidth = 2.5;
+        extraStyles = `
+          background: linear-gradient(145deg, #1a1a1a, #2a1c1c);
+          border: ${borderWidth}px solid #ef4444;
+          box-shadow: 0 0 8px rgba(239,68,68,0.45), 0 0 18px rgba(239,68,68,0.25);
+        `;
+      } else if (platinumRank === 6) {
+        // TOP 6 : Halo rouge léger + bordure
+        size = { w: 46, h: 56 };
+        borderWidth = 3;
         fontSize = 20;
-      } else {
-        // TOP 6-10 : Standard platinum
-        size = { w: 42, h: 52 };
-        borderWidth = 2;
+        showHalo = true;
+        extraStyles = `
+          background: linear-gradient(145deg, #1a1a1a, #261a1a);
+          border: ${borderWidth}px solid #ef4444;
+          box-shadow: 0 0 6px rgba(239,68,68,0.4), 0 0 15px rgba(239,68,68,0.2);
+        `;
+      } else if (platinumRank === 7) {
+        // TOP 7 : Halo rouge apparaît + bordure
+        size = { w: 45, h: 55 };
+        borderWidth = 3;
+        fontSize = 20;
+        showHalo = true;
+        extraStyles = `
+          background: linear-gradient(145deg, #1a1a1a, #231818);
+          border: ${borderWidth}px solid #ef4444;
+          box-shadow: 0 0 5px rgba(239,68,68,0.35), 0 0 12px rgba(239,68,68,0.15);
+        `;
+      } else if (platinumRank === 8) {
+        // TOP 8 : Pas de halo, bordure rouge, un peu plus grand
+        size = { w: 43, h: 53 };
+        borderWidth = 2.5;
         fontSize = 19;
+        showHalo = false;
+        extraStyles = `
+          background: linear-gradient(145deg, #1a1a1a, #201515);
+          border: ${borderWidth}px solid #ef4444;
+          box-shadow: 0 3px 10px rgba(239,68,68,0.3);
+        `;
+      } else if (platinumRank === 9) {
+        // TOP 9 : Pas de halo, bordure rouge, légèrement plus grand
+        size = { w: 41, h: 51 };
+        borderWidth = 2.5;
+        fontSize = 19;
+        showHalo = false;
+        extraStyles = `
+          background: linear-gradient(145deg, #1a1a1a, #1e1313);
+          border: ${borderWidth}px solid #ef4444;
+          box-shadow: 0 3px 8px rgba(239,68,68,0.25);
+        `;
+      } else {
+        // TOP 10 : Pas de halo, bordure rouge (rang 10 ou défaut)
+        size = { w: 40, h: 50 };
+        borderWidth = 2.5;
+        fontSize = 18;
+        showHalo = false;
+        extraStyles = `
+          background: linear-gradient(145deg, #1a1a1a, #1c1111);
+          border: ${borderWidth}px solid #ef4444;
+          box-shadow: 0 3px 6px rgba(239,68,68,0.2);
+        `;
       }
-      
-      extraStyles = `
-        background: linear-gradient(145deg, #1a1a1a, #2d2d2d);
-        border: ${borderWidth}px solid ${borderColorBoost};
-        box-shadow: 0 4px 12px rgba(239,68,68,0.4);
-      `;
       break;
       
     case "gold":
@@ -5596,34 +5679,28 @@ function buildMarkerIcon(item) {
     ">👑</div>
   ` : "";
 
+  // Pointeurs RONDS - taille carrée pour cercle parfait
+  const circleSize = Math.max(size.w, size.h) - 10;
+  
   const html = `
     <div class="${markerClass}" style="position:relative;">
       ${haloHtml}
       ${crownHtml}
       <div style="
         ${extraStyles}
-        border-radius:16px;
-        padding:${boost === "platinum" ? "6px 14px" : boost === "gold" ? "5px 12px" : "4px 10px"};
+        border-radius:50%;
+        width:${circleSize}px;
+        height:${circleSize}px;
         color:#fff;
         font-size:${fontSize}px;
         display:flex;
         align-items:center;
         justify-content:center;
-        gap:4px;
         position:relative;
         z-index:2;
       ">
         <span>${emoji}</span>
       </div>
-      <div style="
-        width:0;height:0;
-        border-left:${boost === "platinum" && platinumRank <= 3 ? 10 : 8}px solid transparent;
-        border-right:${boost === "platinum" && platinumRank <= 3 ? 10 : 8}px solid transparent;
-        border-top:${boost === "platinum" && platinumRank <= 3 ? 14 : 12}px solid ${borderColorBoost};
-        margin:0 auto;
-        position:relative;
-        z-index:2;
-      "></div>
     </div>
   `;
 
@@ -8838,15 +8915,99 @@ function buildPublishFormHtml() {
     `
       : "";
 
+  // ⚠️⚠️⚠️ SYSTÈME DE TARIFICATION DYNAMIQUE
   const paymentBlock = `
-    <div style="margin-top:6px;padding:8px;border-radius:10px;border:1px dashed var(--ui-card-border);font-size:12px;color:var(--ui-text-muted);">
-      <div style="font-weight:600;margin-bottom:4px;">${window.t("visibility_choice")}</div>
-      <ul style="padding-left:18px;margin:0;">
-        <li><b>${window.t("standard_point")}</b></li>
-        <li><b>${window.t("bronze_boost")}</b></li>
-        <li><b>${window.t("silver_boost")}</b></li>
-        <li><b>${window.t("platinum_boost")}</b></li>
-      </ul>
+    <div style="margin-top:12px;padding:12px;border-radius:12px;background:linear-gradient(135deg,rgba(15,23,42,0.9),rgba(30,41,59,0.8));border:1px solid rgba(0,255,195,0.2);">
+      
+      <!-- SECTION BOOST -->
+      <div style="margin-bottom:12px;">
+        <div style="font-weight:700;font-size:13px;margin-bottom:8px;color:#00ffc3;">🚀 Boost de visibilité</div>
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px;">
+          <label class="boost-option" style="display:flex;align-items:center;padding:8px;border-radius:8px;border:2px solid rgba(255,255,255,0.1);cursor:pointer;transition:all 0.2s;" onclick="selectBoost('basic')">
+            <input type="radio" name="pub-boost" value="basic" checked style="margin-right:8px;">
+            <div>
+              <div style="font-weight:600;font-size:12px;color:#fff;">📍 Standard</div>
+              <div style="font-size:10px;color:#a0a0a0;">1.- CHF</div>
+            </div>
+          </label>
+          <label class="boost-option" style="display:flex;align-items:center;padding:8px;border-radius:8px;border:2px solid rgba(205,127,50,0.3);cursor:pointer;transition:all 0.2s;" onclick="selectBoost('bronze')">
+            <input type="radio" name="pub-boost" value="bronze" style="margin-right:8px;">
+            <div>
+              <div style="font-weight:600;font-size:12px;color:#cd7f32;">🥉 Bronze</div>
+              <div style="font-size:10px;color:#a0a0a0;">5.- CHF</div>
+            </div>
+          </label>
+          <label class="boost-option" style="display:flex;align-items:center;padding:8px;border-radius:8px;border:2px solid rgba(192,192,192,0.3);cursor:pointer;transition:all 0.2s;" onclick="selectBoost('silver')">
+            <input type="radio" name="pub-boost" value="silver" style="margin-right:8px;">
+            <div>
+              <div style="font-weight:600;font-size:12px;color:#c0c0c0;">🥈 Argent</div>
+              <div style="font-size:10px;color:#a0a0a0;">10.- CHF</div>
+            </div>
+          </label>
+          <label class="boost-option" style="display:flex;align-items:center;padding:8px;border-radius:8px;border:2px solid rgba(255,215,0,0.3);cursor:pointer;transition:all 0.2s;" onclick="selectBoost('gold')">
+            <input type="radio" name="pub-boost" value="gold" style="margin-right:8px;">
+            <div>
+              <div style="font-weight:600;font-size:12px;color:#ffd700;">🥇 Or</div>
+              <div style="font-size:10px;color:#a0a0a0;">15.- CHF</div>
+            </div>
+          </label>
+        </div>
+        <!-- PLATINUM SPÉCIAL - ENCHÈRES TOP 10 -->
+        <label class="boost-option platinum-option" style="display:flex;align-items:center;padding:10px;margin-top:6px;border-radius:8px;border:2px solid rgba(239,68,68,0.5);background:linear-gradient(135deg,rgba(239,68,68,0.15),rgba(220,38,38,0.1));cursor:pointer;transition:all 0.2s;" onclick="selectBoost('platinum')">
+          <input type="radio" name="pub-boost" value="platinum" style="margin-right:8px;">
+          <div style="flex:1;">
+            <div style="font-weight:700;font-size:13px;color:#ef4444;">💎 Platinum - TOP 10 Régional</div>
+            <div style="font-size:10px;color:#a0a0a0;">Enchères dès 20.- CHF • Visibilité maximale</div>
+          </div>
+          <span style="font-size:18px;">👑</span>
+        </label>
+      </div>
+      
+      <!-- SECTION RÉPÉTITION -->
+      <div style="margin-bottom:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.1);">
+        <div style="font-weight:700;font-size:13px;margin-bottom:8px;color:#00ffc3;">🔄 Fréquence de publication</div>
+        <div style="display:flex;gap:6px;">
+          <label class="repeat-option" style="flex:1;display:flex;align-items:center;justify-content:center;padding:10px;border-radius:8px;border:2px solid rgba(0,255,195,0.3);cursor:pointer;transition:all 0.2s;background:rgba(0,255,195,0.1);" onclick="selectRepeatPayment('single')">
+            <input type="radio" name="pub-repeat-payment" value="single" checked style="display:none;">
+            <div style="text-align:center;">
+              <div style="font-weight:600;font-size:12px;color:#fff;">Unique</div>
+              <div style="font-size:10px;color:#00ffc3;">Inclus</div>
+            </div>
+          </label>
+          <label class="repeat-option" style="flex:1;display:flex;align-items:center;justify-content:center;padding:10px;border-radius:8px;border:2px solid rgba(255,255,255,0.1);cursor:pointer;transition:all 0.2s;" onclick="selectRepeatPayment('weekly')">
+            <input type="radio" name="pub-repeat-payment" value="weekly" style="display:none;">
+            <div style="text-align:center;">
+              <div style="font-weight:600;font-size:12px;color:#fff;">Hebdo</div>
+              <div style="font-size:10px;color:#fbbf24;">+15 CHF</div>
+            </div>
+          </label>
+          <label class="repeat-option" style="flex:1;display:flex;align-items:center;justify-content:center;padding:10px;border-radius:8px;border:2px solid rgba(255,255,255,0.1);cursor:pointer;transition:all 0.2s;" onclick="selectRepeatPayment('monthly')">
+            <input type="radio" name="pub-repeat-payment" value="monthly" style="display:none;">
+            <div style="text-align:center;">
+              <div style="font-weight:600;font-size:12px;color:#fff;">Mensuel</div>
+              <div style="font-size:10px;color:#22c55e;">+5 CHF</div>
+            </div>
+          </label>
+        </div>
+      </div>
+      
+      <!-- RÉSUMÉ PRIX -->
+      <div id="price-summary" style="padding:12px;border-radius:8px;background:rgba(0,0,0,0.3);border:1px solid rgba(0,255,195,0.2);">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <div style="font-size:11px;color:#a0a0a0;">Total à payer</div>
+            <div id="total-price-display" style="font-size:24px;font-weight:800;color:#00ffc3;">GRATUIT</div>
+          </div>
+          <div id="price-breakdown" style="text-align:right;font-size:10px;color:#a0a0a0;">
+            <div>Boost: <span id="boost-price-text">Gratuit</span></div>
+            <div>Répétition: <span id="repeat-multiplier-text">+0 CHF</span></div>
+          </div>
+        </div>
+        <div id="price-details" style="margin-top:8px;padding-top:8px;border-top:1px dashed rgba(255,255,255,0.1);font-size:10px;color:#64748b;display:none;">
+          <!-- Détails du calcul affichés dynamiquement -->
+        </div>
+      </div>
+      
     </div>
   `;
 
@@ -8866,10 +9027,22 @@ function buildPublishFormHtml() {
       ${categoriesBlock}
       ${datesBlock}
 
-      <div style="margin-bottom:10px;">
-        <label style="font-size:12px;font-weight:600;">${window.t("full_address")} *</label>
-        <input id="pub-address" required
-               style="width:100%;padding:6px;border-radius:8px;border:1px solid var(--ui-card-border);background:transparent;color:var(--ui-text-main);font-size:13px;">
+      <div style="margin-bottom:10px;position:relative;">
+        <label style="font-size:12px;font-weight:600;">${window.t("full_address")} * <span style="font-weight:400;color:var(--ui-text-muted);font-size:10px;">(avec numéro de rue)</span></label>
+        <div style="position:relative;">
+          <input id="pub-address" required autocomplete="off"
+                 placeholder="Ex: 15 Rue de la Paix, Paris"
+                 style="width:100%;padding:6px 32px 6px 6px;border-radius:8px;border:1px solid var(--ui-card-border);background:transparent;color:var(--ui-text-main);font-size:13px;transition:border-color 0.3s;">
+          <span id="pub-address-status" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:16px;display:none;"></span>
+        </div>
+        <div id="pub-address-suggestions-wrapper" style="display:none;position:relative;z-index:1000;margin-top:4px;">
+          <div id="pub-address-suggestions" style="background:#0f172a;border:1px solid rgba(0,255,195,0.3);border-radius:8px;max-height:200px;overflow-y:auto;"></div>
+        </div>
+        <input type="hidden" id="pub-address-lat" value="">
+        <input type="hidden" id="pub-address-lng" value="">
+        <input type="hidden" id="pub-address-validated" value="">
+        <input type="hidden" id="pub-address-house-number" value="">
+        <div id="pub-address-error" style="display:none;color:#ef4444;font-size:11px;margin-top:4px;"></div>
       </div>
 
       <div style="display:flex;gap:8px;margin-bottom:10px;">
@@ -9038,6 +9211,11 @@ function openPublishModal() {
   setTimeout(() => {
     setupCategoryInputWithFilter();
   }, 200);
+  
+  // ⚠️⚠️⚠️ NOUVEAU : Configurer l'autocomplete d'adresse avec validation numéro de rue
+  setTimeout(() => {
+    setupPublishAddressAutocomplete();
+  }, 300);
 }
 
 // ⚠️⚠️⚠️ NOUVEAU : Fonction pour ouvrir le filtre depuis le bouton Publier
@@ -9051,6 +9229,544 @@ function openFilterForPublish() {
     }
   }
 }
+
+// ⚠️⚠️⚠️ NOUVEAU : Autocomplete d'adresse pour le formulaire de publication
+// Validation OBLIGATOIRE du numéro de rue - Recherche MONDIALE via Nominatim
+function setupPublishAddressAutocomplete() {
+  const input = document.getElementById('pub-address');
+  const suggestionsWrapper = document.getElementById('pub-address-suggestions-wrapper');
+  const suggestionsDiv = document.getElementById('pub-address-suggestions');
+  const statusIcon = document.getElementById('pub-address-status');
+  const errorDiv = document.getElementById('pub-address-error');
+  const latInput = document.getElementById('pub-address-lat');
+  const lngInput = document.getElementById('pub-address-lng');
+  const validatedInput = document.getElementById('pub-address-validated');
+  const houseNumberInput = document.getElementById('pub-address-house-number');
+  
+  if (!input || !suggestionsDiv) {
+    console.error('[PUBLISH ADDRESS] ❌ Éléments manquants');
+    return;
+  }
+  
+  console.log('[PUBLISH ADDRESS] ✅ Initialisation autocomplete adresse mondiale');
+  
+  let searchTimeout = null;
+  
+  // Réinitialiser la validation quand l'utilisateur tape
+  function resetValidation() {
+    if (latInput) latInput.value = '';
+    if (lngInput) lngInput.value = '';
+    if (validatedInput) validatedInput.value = '';
+    if (houseNumberInput) houseNumberInput.value = '';
+    if (statusIcon) {
+      statusIcon.style.display = 'none';
+      statusIcon.textContent = '';
+    }
+    if (errorDiv) errorDiv.style.display = 'none';
+    input.style.borderColor = 'var(--ui-card-border)';
+  }
+  
+  // Marquer comme validé avec succès
+  function markAsValid(hasHouseNumber) {
+    if (statusIcon) {
+      statusIcon.style.display = 'inline';
+      statusIcon.textContent = '✅';
+      statusIcon.title = hasHouseNumber ? 'Adresse complète validée' : 'Adresse validée (sans numéro)';
+    }
+    input.style.borderColor = hasHouseNumber ? '#00ffc3' : '#fbbf24';
+    if (errorDiv) errorDiv.style.display = 'none';
+  }
+  
+  // Marquer comme invalide
+  function markAsInvalid(message) {
+    if (statusIcon) {
+      statusIcon.style.display = 'inline';
+      statusIcon.textContent = '⚠️';
+      statusIcon.title = message;
+    }
+    input.style.borderColor = '#fbbf24';
+    if (errorDiv) {
+      errorDiv.textContent = message;
+      errorDiv.style.display = 'block';
+    }
+  }
+  
+  // Écouter la saisie
+  input.addEventListener('input', function(e) {
+    const query = e.target.value.trim();
+    
+    if (searchTimeout) clearTimeout(searchTimeout);
+    
+    resetValidation();
+    
+    if (!query || query.length < 3) {
+      suggestionsWrapper.style.display = 'none';
+      return;
+    }
+    
+    // Rechercher après 400ms
+    searchTimeout = setTimeout(() => {
+      searchAddressForPublish(query);
+    }, 400);
+  });
+  
+  // Recherche Nominatim MONDIALE
+  async function searchAddressForPublish(query) {
+    try {
+      console.log('[PUBLISH ADDRESS] 🔍 Recherche:', query);
+      
+      const langCode = (navigator.language || 'fr').split('-')[0];
+      
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=8&addressdetails=1&accept-language=${langCode},en`,
+        {
+          headers: {
+            'User-Agent': 'MapEventAI/1.0',
+            'Accept-Language': `${langCode},en,fr`
+          }
+        }
+      );
+      
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      
+      const results = await response.json();
+      console.log('[PUBLISH ADDRESS] ✅', results.length, 'résultats');
+      
+      if (results.length === 0) {
+        suggestionsWrapper.style.display = 'block';
+        suggestionsDiv.innerHTML = '<div style="padding:12px;color:#a0a0a0;font-size:12px;">Aucune adresse trouvée. Essayez avec plus de détails.</div>';
+        return;
+      }
+      
+      suggestionsWrapper.style.display = 'block';
+      suggestionsDiv.innerHTML = results.map((result, index) => {
+        const addr = result.address || {};
+        const houseNumber = addr.house_number || '';
+        const street = addr.road || addr.street || addr.pedestrian || '';
+        const city = addr.city || addr.town || addr.village || addr.municipality || '';
+        const country = addr.country || '';
+        const postcode = addr.postcode || '';
+        const displayName = result.display_name || '';
+        
+        // Indicateur si l'adresse a un numéro de rue
+        const hasNumber = !!houseNumber;
+        const numberIcon = hasNumber ? '✅' : '⚠️';
+        const numberStyle = hasNumber ? 'color:#00ffc3;' : 'color:#fbbf24;';
+        
+        return `
+          <div class="pub-address-suggestion" data-index="${index}"
+               data-lat="${result.lat}" data-lng="${result.lon}"
+               data-house="${houseNumber}" data-street="${street}"
+               data-city="${city}" data-country="${country}" data-postcode="${postcode}"
+               style="padding:10px 12px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.1);transition:background 0.2s;font-size:12px;"
+               onmouseover="this.style.background='rgba(0,255,195,0.15)'"
+               onmouseout="this.style.background='transparent'">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <span style="font-weight:500;color:#fff;flex:1;">${displayName.substring(0, 80)}${displayName.length > 80 ? '...' : ''}</span>
+              <span style="${numberStyle}font-size:14px;margin-left:8px;" title="${hasNumber ? 'Numéro de rue présent' : 'Sans numéro de rue'}">${numberIcon}</span>
+            </div>
+            ${!hasNumber ? '<div style="font-size:10px;color:#fbbf24;margin-top:4px;">⚠️ Adresse sans numéro de rue</div>' : ''}
+          </div>
+        `;
+      }).join('');
+      
+      // Attacher les événements de clic
+      document.querySelectorAll('.pub-address-suggestion').forEach(el => {
+        el.addEventListener('click', function() {
+          selectPublishAddress(this);
+        });
+      });
+      
+    } catch (error) {
+      console.error('[PUBLISH ADDRESS] ❌ Erreur:', error);
+      suggestionsWrapper.style.display = 'block';
+      suggestionsDiv.innerHTML = '<div style="padding:12px;color:#ef4444;font-size:12px;">Erreur de recherche. Réessayez.</div>';
+    }
+  }
+  
+  // Sélection d'une adresse
+  function selectPublishAddress(element) {
+    const lat = element.dataset.lat;
+    const lng = element.dataset.lng;
+    const houseNumber = element.dataset.house;
+    const street = element.dataset.street;
+    const city = element.dataset.city;
+    const country = element.dataset.country;
+    const postcode = element.dataset.postcode;
+    
+    // Construire l'adresse complète
+    let fullAddress = '';
+    if (houseNumber) fullAddress += houseNumber + ' ';
+    if (street) fullAddress += street;
+    if (city) fullAddress += (fullAddress ? ', ' : '') + city;
+    if (postcode) fullAddress += ' ' + postcode;
+    if (country) fullAddress += ', ' + country;
+    
+    // Remplir le champ
+    input.value = fullAddress || element.querySelector('span').textContent;
+    
+    // Sauvegarder les données
+    if (latInput) latInput.value = lat;
+    if (lngInput) lngInput.value = lng;
+    if (houseNumberInput) houseNumberInput.value = houseNumber;
+    if (validatedInput) validatedInput.value = 'true';
+    
+    // Masquer les suggestions
+    suggestionsWrapper.style.display = 'none';
+    
+    // Feedback visuel
+    const hasHouseNumber = !!houseNumber;
+    markAsValid(hasHouseNumber);
+    
+    if (!hasHouseNumber) {
+      markAsInvalid('⚠️ Adresse sans numéro de rue - ajoutez le numéro pour une localisation précise');
+    }
+    
+    console.log('[PUBLISH ADDRESS] ✅ Adresse sélectionnée:', {
+      address: fullAddress,
+      lat, lng,
+      houseNumber,
+      hasHouseNumber
+    });
+  }
+  
+  // Fermer les suggestions quand on clique ailleurs
+  document.addEventListener('click', function(e) {
+    if (!input.contains(e.target) && !suggestionsWrapper.contains(e.target)) {
+      suggestionsWrapper.style.display = 'none';
+    }
+  });
+}
+
+// ⚠️⚠️⚠️ SYSTÈME DE TARIFICATION - BOOSTS & RÉPÉTITIONS
+// Prix des boosts en CHF
+const BOOST_PRICES = {
+  basic: 1,       // 1.- Point standard
+  bronze: 5,      // 5.- Boost Bronze
+  silver: 10,     // 10.- Boost Silver
+  gold: 15,       // 15.- Boost Or
+  platinum: 20    // TOP 20 - Enchères minimum 20.-
+};
+
+// Prix ADDITIONNELS pour la répétition (en CHF)
+const REPEAT_PRICES = {
+  single: 0,      // Unique = pas de supplément
+  weekly: 15,     // Hebdo = +15 CHF
+  monthly: 5      // Mensuel = +5 CHF
+};
+
+// État actuel de la sélection
+window.currentPricing = {
+  boost: 'basic',
+  repeat: 'single',
+  platinumAuctionAmount: 20
+};
+
+// Sélection d'un boost
+function selectBoost(boostType) {
+  const previousBoost = window.currentPricing.boost;
+  window.currentPricing.boost = boostType;
+  
+  // Mettre à jour les styles visuels
+  document.querySelectorAll('.boost-option').forEach(opt => {
+    opt.style.background = 'transparent';
+    opt.style.boxShadow = 'none';
+  });
+  
+  const selectedInput = document.querySelector(`input[name="pub-boost"][value="${boostType}"]`);
+  if (selectedInput) {
+    selectedInput.checked = true;
+    const label = selectedInput.closest('label');
+    if (label) {
+      label.style.background = 'rgba(0,255,195,0.15)';
+      label.style.boxShadow = '0 0 10px rgba(0,255,195,0.3)';
+    }
+  }
+  
+  // Si Platinum sélectionné, ouvrir le modal d'enchères
+  if (boostType === 'platinum') {
+    openPlatinumAuctionModal();
+  }
+  
+  updatePriceDisplay();
+  
+  // Afficher une notification si le boost change
+  const boostPrice = BOOST_PRICES[boostType] || 1;
+  const boostNames = { basic: 'Standard', bronze: 'Bronze', silver: 'Argent', gold: 'Or', platinum: 'Platinum' };
+  const boostEmojis = { basic: '📍', bronze: '🥉', silver: '🥈', gold: '🥇', platinum: '💎' };
+  
+  if (boostType !== previousBoost) {
+    showNotification(`${boostEmojis[boostType] || '📍'} Boost ${boostNames[boostType] || boostType}: ${boostPrice}.- CHF`, 'info');
+  }
+  
+  console.log('[PRICING] Boost sélectionné:', boostType, boostPrice + ' CHF');
+}
+
+// Sélection de la répétition
+function selectRepeatPayment(repeatType) {
+  const previousRepeat = window.currentPricing.repeat;
+  window.currentPricing.repeat = repeatType;
+  
+  // Mettre à jour les styles visuels
+  document.querySelectorAll('.repeat-option').forEach(opt => {
+    opt.style.background = 'transparent';
+    opt.style.borderColor = 'rgba(255,255,255,0.1)';
+  });
+  
+  const selectedInput = document.querySelector(`input[name="pub-repeat-payment"][value="${repeatType}"]`);
+  if (selectedInput) {
+    selectedInput.checked = true;
+    const label = selectedInput.closest('label');
+    if (label) {
+      label.style.background = 'rgba(0,255,195,0.1)';
+      label.style.borderColor = 'rgba(0,255,195,0.3)';
+    }
+  }
+  
+  updatePriceDisplay();
+  
+  // Afficher une notification si le prix change
+  const repeatPrice = REPEAT_PRICES[repeatType] || 0;
+  const repeatNames = { single: 'Unique', weekly: 'Hebdomadaire', monthly: 'Mensuel' };
+  
+  if (repeatPrice > 0 && repeatType !== previousRepeat) {
+    showNotification(`🔄 ${repeatNames[repeatType]}: +${repeatPrice} CHF ajouté au total`, 'info');
+  } else if (repeatType === 'single' && previousRepeat !== 'single') {
+    showNotification(`🔄 Publication unique sélectionnée`, 'info');
+  }
+  
+  console.log('[PRICING] Répétition sélectionnée:', repeatType, '+' + repeatPrice + ' CHF');
+}
+
+// Calculer et afficher le prix
+function updatePriceDisplay() {
+  const boost = window.currentPricing.boost;
+  const repeat = window.currentPricing.repeat;
+  
+  let boostPrice = BOOST_PRICES[boost] || 1;
+  
+  // Pour Platinum, utiliser le montant d'enchère
+  if (boost === 'platinum') {
+    boostPrice = window.currentPricing.platinumAuctionAmount || 50;
+  }
+  
+  // Prix de la répétition (addition, pas multiplication)
+  const repeatPrice = REPEAT_PRICES[repeat] || 0;
+  const totalPrice = boostPrice + repeatPrice;
+  
+  // Mettre à jour l'affichage
+  const totalDisplay = document.getElementById('total-price-display');
+  const boostText = document.getElementById('boost-price-text');
+  const repeatText = document.getElementById('repeat-multiplier-text');
+  
+  if (totalDisplay) {
+    totalDisplay.textContent = `${totalPrice}.- CHF`;
+    totalDisplay.style.color = boost === 'platinum' ? '#ef4444' : boost === 'gold' ? '#ffd700' : '#00ffc3';
+  }
+  
+  if (boostText) {
+    boostText.textContent = `${boostPrice}.- CHF`;
+  }
+  
+  if (repeatText) {
+    repeatText.textContent = repeatPrice === 0 ? '+0.-' : `+${repeatPrice}.-`;
+  }
+  
+  // Sauvegarder pour la soumission
+  window.currentPricing.totalPrice = totalPrice;
+  window.currentPricing.boostPrice = boostPrice;
+  window.currentPricing.repeatPrice = repeatPrice;
+  
+  console.log('[PRICING] Prix calculé:', { boost, repeat, boostPrice, repeatPrice, totalPrice });
+}
+
+// Modal d'enchères Platinum - TOP 10 Régional
+function openPlatinumAuctionModal() {
+  // Créer le modal d'enchères
+  const existingModal = document.getElementById('platinum-auction-modal');
+  if (existingModal) existingModal.remove();
+  
+  // Simuler les données du Top 10 (en production, charger depuis le backend)
+  const top10Data = generateMockTop10();
+  
+  const modal = document.createElement('div');
+  modal.id = 'platinum-auction-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:10000;';
+  
+  modal.innerHTML = `
+    <div style="background:linear-gradient(135deg,#0f172a,#1e293b);border-radius:16px;padding:24px;max-width:500px;width:90%;max-height:80vh;overflow-y:auto;border:2px solid rgba(239,68,68,0.5);box-shadow:0 0 40px rgba(239,68,68,0.3);">
+      
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <h2 style="margin:0;font-size:20px;color:#ef4444;">💎 Enchères Platinum - TOP 10</h2>
+        <button onclick="closePlatinumAuctionModal()" style="background:none;border:none;color:#a0a0a0;font-size:24px;cursor:pointer;">✕</button>
+      </div>
+      
+      <p style="color:#a0a0a0;font-size:12px;margin-bottom:16px;">
+        Les positions Platinum garantissent une visibilité maximale dans le <strong style="color:#ef4444;">TOP 10</strong> de votre région.
+        <br>Si vous êtes dépassé par d'autres enchères, vous restez dans le TOP 10 (pas plus bas).
+      </p>
+      
+      <!-- Sélection de région -->
+      <div style="margin-bottom:16px;">
+        <label style="font-size:12px;font-weight:600;color:#fff;display:block;margin-bottom:6px;">🌍 Votre région</label>
+        <select id="platinum-region" onchange="updateTop10Display()" style="width:100%;padding:10px;border-radius:8px;background:#1e293b;border:1px solid rgba(239,68,68,0.3);color:#fff;font-size:13px;">
+          <option value="geneve">Genève</option>
+          <option value="lausanne">Lausanne</option>
+          <option value="zurich">Zürich</option>
+          <option value="bern">Bern</option>
+          <option value="basel">Basel</option>
+          <option value="paris">Paris</option>
+          <option value="lyon">Lyon</option>
+          <option value="london">London</option>
+          <option value="berlin">Berlin</option>
+          <option value="other">Autre région</option>
+        </select>
+      </div>
+      
+      <!-- Top 10 actuel -->
+      <div style="margin-bottom:16px;">
+        <div style="font-size:12px;font-weight:600;color:#fff;margin-bottom:8px;">🏆 TOP 10 actuel - <span id="region-name">Genève</span></div>
+        <div id="top10-list" style="background:rgba(0,0,0,0.3);border-radius:8px;padding:8px;max-height:200px;overflow-y:auto;">
+          ${top10Data.map((item, i) => `
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;border-bottom:1px solid rgba(255,255,255,0.05);${i < 3 ? 'background:rgba(255,215,0,0.1);' : ''}">
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span style="font-weight:700;color:${i === 0 ? '#ffd700' : i === 1 ? '#c0c0c0' : i === 2 ? '#cd7f32' : '#a0a0a0'};width:24px;font-size:11px;">#${i + 1}</span>
+                <span style="color:#fff;font-size:11px;">${item.name}</span>
+              </div>
+              <span style="color:#ef4444;font-weight:600;font-size:11px;">${item.bid}.-</span>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+      
+      <!-- Enchère -->
+      <div style="margin-bottom:16px;">
+        <label style="font-size:12px;font-weight:600;color:#fff;display:block;margin-bottom:6px;">💰 Votre enchère (minimum: 20.- CHF)</label>
+        <div style="display:flex;gap:8px;">
+          <input type="number" id="platinum-bid-amount" value="20" min="20" step="5"
+                 onchange="updateBidPreview()"
+                 style="flex:1;padding:12px;border-radius:8px;background:#1e293b;border:2px solid rgba(239,68,68,0.5);color:#fff;font-size:16px;font-weight:700;">
+          <span style="display:flex;align-items:center;color:#a0a0a0;font-size:14px;">CHF</span>
+        </div>
+        <div id="bid-preview" style="margin-top:8px;padding:8px;border-radius:6px;background:rgba(239,68,68,0.1);font-size:11px;color:#ef4444;">
+          Avec 20.- CHF, vous seriez en position #10
+        </div>
+      </div>
+      
+      <!-- Boutons -->
+      <div style="display:flex;gap:8px;">
+        <button onclick="closePlatinumAuctionModal()" style="flex:1;padding:12px;border-radius:8px;background:transparent;border:1px solid rgba(255,255,255,0.2);color:#a0a0a0;cursor:pointer;font-size:13px;">
+          Annuler
+        </button>
+        <button onclick="confirmPlatinumAuction()" style="flex:2;padding:12px;border-radius:8px;background:linear-gradient(135deg,#ef4444,#dc2626);border:none;color:#fff;cursor:pointer;font-weight:700;font-size:13px;">
+          💎 Confirmer l'enchère
+        </button>
+      </div>
+      
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+  
+  // Fermer en cliquant sur le fond
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) closePlatinumAuctionModal();
+  });
+}
+
+// Générer des données simulées pour le TOP 10
+function generateMockTop10() {
+  const names = [
+    'Festival d\'été', 'Concert Rock', 'Expo Art', 'Marché nocturne', 'DJ Night',
+    'Spectacle', 'Vernissage', 'Soirée Techno', 'Food Festival', 'Open Air'
+  ];
+  const bids = [120, 85, 65, 55, 48, 42, 38, 32, 26, 20];
+  return names.map((name, i) => ({ name, bid: bids[i] }));
+}
+
+// Mettre à jour l'affichage du TOP 10 selon la région
+function updateTop10Display() {
+  const region = document.getElementById('platinum-region')?.value || 'geneve';
+  const regionNames = {
+    geneve: 'Genève', lausanne: 'Lausanne', zurich: 'Zürich', bern: 'Bern',
+    basel: 'Basel', paris: 'Paris', lyon: 'Lyon', london: 'London', berlin: 'Berlin', other: 'Autre'
+  };
+  const regionName = document.getElementById('region-name');
+  if (regionName) regionName.textContent = regionNames[region] || region;
+  
+  // En production: charger le vrai TOP 10 depuis le backend
+  console.log('[PLATINUM] Région changée:', region);
+}
+
+// Prévisualiser la position avec l'enchère
+function updateBidPreview() {
+  const bidInput = document.getElementById('platinum-bid-amount');
+  const preview = document.getElementById('bid-preview');
+  const bidAmount = parseInt(bidInput?.value) || 20;
+  
+  // Simuler la position (en production: calculer depuis le backend)
+  const top10 = generateMockTop10();
+  let position = 10;
+  for (let i = 0; i < top10.length; i++) {
+    if (bidAmount > top10[i].bid) {
+      position = i + 1;
+      break;
+    }
+  }
+  
+  if (preview) {
+    if (position === 1) {
+      preview.innerHTML = `👑 Avec <strong>${bidAmount}.- CHF</strong>, vous seriez <strong style="color:#ff0000;">TOP 1 LÉGENDAIRE</strong> ! 🔥`;
+      preview.style.background = 'rgba(255,0,0,0.2)';
+    } else if (position <= 3) {
+      preview.innerHTML = `🏆 Avec <strong>${bidAmount}.- CHF</strong>, vous seriez <strong style="color:#ffd700;">#${position}</strong> avec couronne !`;
+      preview.style.background = 'rgba(255,215,0,0.15)';
+    } else if (position <= 7) {
+      preview.innerHTML = `✨ Avec <strong>${bidAmount}.- CHF</strong>, vous seriez <strong style="color:#ef4444;">#${position}</strong> avec halo rouge !`;
+      preview.style.background = 'rgba(239,68,68,0.15)';
+    } else {
+      preview.innerHTML = `⭐ Avec <strong>${bidAmount}.- CHF</strong>, vous seriez <strong style="color:#ef4444;">#${position}</strong>`;
+      preview.style.background = 'rgba(239,68,68,0.1)';
+    }
+  }
+  
+  window.currentPricing.platinumAuctionAmount = bidAmount;
+}
+
+// Confirmer l'enchère Platinum
+function confirmPlatinumAuction() {
+  const bidAmount = parseInt(document.getElementById('platinum-bid-amount')?.value) || 20;
+  
+  if (bidAmount < 20) {
+    showNotification('⚠️ L\'enchère minimum est de 20.- CHF', 'warning');
+    return;
+  }
+  
+  window.currentPricing.platinumAuctionAmount = bidAmount;
+  window.currentPricing.boost = 'platinum';
+  
+  closePlatinumAuctionModal();
+  updatePriceDisplay();
+  
+  showNotification(`💎 Enchère Platinum confirmée: ${bidAmount}.- CHF`, 'success');
+  console.log('[PLATINUM] Enchère confirmée:', bidAmount);
+}
+
+// Fermer le modal d'enchères
+function closePlatinumAuctionModal() {
+  const modal = document.getElementById('platinum-auction-modal');
+  if (modal) modal.remove();
+}
+
+// Exposer les fonctions globalement
+window.selectBoost = selectBoost;
+window.selectRepeatPayment = selectRepeatPayment;
+window.updatePriceDisplay = updatePriceDisplay;
+window.openPlatinumAuctionModal = openPlatinumAuctionModal;
+window.closePlatinumAuctionModal = closePlatinumAuctionModal;
+window.updateTop10Display = updateTop10Display;
+window.updateBidPreview = updateBidPreview;
+window.confirmPlatinumAuction = confirmPlatinumAuction;
 
 // ⚠️⚠️⚠️ NOUVEAU : Configuration du champ catégorie avec autocomplétion et recherche
 function setupCategoryInputWithFilter() {
@@ -9568,28 +10284,62 @@ async function onSubmitPublishForm(e) {
     return false;
   }
   
-  // Géocoder l'adresse
-  showNotification("🔍 Recherche de l'adresse...", "info");
-  
+  // ⚠️⚠️⚠️ VALIDATION ADRESSE - Vérifier si pré-validée ou géocoder
   let lat = null, lng = null, city = "";
-  try {
-    const geoResponse = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`, {
-      headers: { 'User-Agent': 'MapEventAI/1.0' }
-    });
-    const geoData = await geoResponse.json();
+  
+  // Récupérer les données pré-validées (si l'utilisateur a sélectionné depuis les suggestions)
+  const preValidatedLat = document.getElementById("pub-address-lat")?.value;
+  const preValidatedLng = document.getElementById("pub-address-lng")?.value;
+  const preValidatedHouseNumber = document.getElementById("pub-address-house-number")?.value;
+  const addressValidated = document.getElementById("pub-address-validated")?.value === 'true';
+  
+  if (addressValidated && preValidatedLat && preValidatedLng) {
+    // Utiliser les coordonnées pré-validées
+    lat = parseFloat(preValidatedLat);
+    lng = parseFloat(preValidatedLng);
+    city = address.split(',')[1]?.trim() || address.split(',')[0]?.trim() || '';
     
-    if (geoData.length > 0) {
-      lat = parseFloat(geoData[0].lat);
-      lng = parseFloat(geoData[0].lon);
-      city = geoData[0].display_name.split(',')[0];
-    } else {
-      showNotification("⚠️ Adresse introuvable. Vérifiez et réessayez.", "warning");
+    // Avertir si pas de numéro de rue mais continuer
+    if (!preValidatedHouseNumber) {
+      console.warn('[PUBLISH] ⚠️ Adresse sans numéro de rue, mais autorisée');
+    }
+    
+    console.log('[PUBLISH] ✅ Adresse pré-validée utilisée:', { lat, lng, houseNumber: preValidatedHouseNumber });
+    showNotification("✅ Adresse validée", "success");
+    
+  } else {
+    // Géocoder l'adresse si pas pré-validée
+    showNotification("🔍 Vérification de l'adresse...", "info");
+    
+    try {
+      const geoResponse = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1&addressdetails=1`, {
+        headers: { 'User-Agent': 'MapEventAI/1.0' }
+      });
+      const geoData = await geoResponse.json();
+      
+      if (geoData.length > 0) {
+        lat = parseFloat(geoData[0].lat);
+        lng = parseFloat(geoData[0].lon);
+        city = geoData[0].address?.city || geoData[0].address?.town || geoData[0].address?.village || geoData[0].display_name.split(',')[0];
+        
+        // Vérifier si l'adresse a un numéro de rue
+        const hasHouseNumber = !!geoData[0].address?.house_number;
+        if (!hasHouseNumber) {
+          // Avertir mais ne pas bloquer
+          showNotification("⚠️ Adresse validée mais sans numéro de rue précis", "warning");
+          console.warn('[PUBLISH] ⚠️ Adresse sans house_number:', geoData[0].address);
+        }
+      } else {
+        showNotification("⚠️ Adresse introuvable. Sélectionnez une adresse depuis les suggestions.", "warning");
+        // Mettre le focus sur le champ adresse
+        document.getElementById("pub-address")?.focus();
+        return false;
+      }
+    } catch (error) {
+      console.error('[PUBLISH] ❌ Erreur géocodage:', error);
+      showNotification("❌ Erreur de vérification d'adresse. Réessayez.", "error");
       return false;
     }
-  } catch (error) {
-    console.error('Erreur géocodage:', error);
-    showNotification("❌ Erreur de géocodage. Réessayez.", "error");
-    return false;
   }
   
   // Créer l'objet selon le mode
@@ -9691,6 +10441,35 @@ async function onSubmitPublishForm(e) {
     // Continuer même si le backend échoue (sauvegarde locale)
   }
   
+  // ⚠️⚠️⚠️ CALCUL DU PRIX FINAL
+  const pricing = window.currentPricing || { boost: 'basic', repeat: 'single', totalPrice: 0 };
+  const totalPrice = pricing.totalPrice || 0;
+  
+  console.log('[PUBLISH] 💰 Prix final:', totalPrice, 'CHF', pricing);
+  
+  // Si le prix est > 0, rediriger vers Stripe
+  if (totalPrice > 0) {
+    // Sauvegarder les données en attente de paiement
+    window.pendingPublishData = {
+      newItem,
+      mode: currentMode,
+      pricing: pricing,
+      eventsData: currentMode === 'event' ? [...eventsData] : null,
+      bookingsData: currentMode === 'booking' ? [...bookingsData] : null,
+      servicesData: currentMode === 'service' ? [...servicesData] : null
+    };
+    
+    showNotification(`💳 Redirection vers le paiement de ${totalPrice} CHF...`, "info");
+    
+    // Ouvrir Stripe Checkout
+    setTimeout(() => {
+      openStripeCheckout(totalPrice, pricing.boost, pricing.repeat, newItem);
+    }, 1000);
+    
+    return false;
+  }
+  
+  // Si gratuit (basic), publier directement
   // ⚠️⚠️⚠️ EFFACER LES DONNÉES SAUVEGARDÉES APRÈS PUBLICATION RÉUSSIE
   if (typeof window.clearPublishFormData === 'function') {
     window.clearPublishFormData();
@@ -9706,19 +10485,346 @@ async function onSubmitPublishForm(e) {
     map.setView([lat, lng], 14);
   }
   
-  // Message de succès
-  if (boost !== 'basic') {
-    showNotification(`✅ ${currentMode === 'event' ? 'Événement' : currentMode === 'booking' ? 'Booking' : 'Service'} publié avec boost ${boost} ! Redirection vers le paiement...`, "success");
-    // Ici, vous pourriez rediriger vers Stripe pour le paiement du boost
-    setTimeout(() => {
-      openSubscriptionModal();
-    }, 2000);
-  } else {
-    showNotification(`✅ ${currentMode === 'event' ? 'Événement' : currentMode === 'booking' ? 'Booking' : 'Service'} publié avec succès !`, "success");
-  }
+  showNotification(`✅ ${currentMode === 'event' ? 'Événement' : currentMode === 'booking' ? 'Booking' : 'Service'} publié avec succès !`, "success");
   
   return false;
 }
+
+// ⚠️⚠️⚠️ STRIPE CHECKOUT - Paiement des boosts
+async function openStripeCheckout(amount, boostType, repeatType, itemData) {
+  console.log('[STRIPE] 🚀 Ouverture Checkout pour:', { amount, boostType, repeatType });
+  
+  // Vérifier que Stripe est chargé
+  if (typeof Stripe === 'undefined') {
+    showNotification('❌ Erreur: Stripe non disponible', 'error');
+    console.error('[STRIPE] Stripe.js non chargé');
+    return;
+  }
+  
+  try {
+    // Créer une session Stripe côté serveur
+    const response = await fetch(`${window.API_BASE_URL}/create-checkout-session`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        amount: Math.round(amount * 100), // Stripe utilise les centimes
+        currency: 'chf',
+        boostType: boostType,
+        repeatType: repeatType,
+        itemTitle: itemData.title,
+        itemId: itemData.id,
+        userId: currentUser?.id || 'anonymous',
+        successUrl: `${window.location.origin}${window.location.pathname}?payment=success&session_id={CHECKOUT_SESSION_ID}`,
+        cancelUrl: `${window.location.origin}${window.location.pathname}?payment=cancelled`
+      })
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Erreur serveur: ${response.status}`);
+    }
+    
+    const session = await response.json();
+    
+    if (session.url) {
+      // Rediriger vers Stripe Checkout
+      window.location.href = session.url;
+    } else if (session.sessionId) {
+      // Utiliser Stripe.js pour rediriger
+      const stripe = Stripe(window.STRIPE_PUBLISHABLE_KEY || 'pk_test_...');
+      await stripe.redirectToCheckout({ sessionId: session.sessionId });
+    } else {
+      throw new Error('Session Stripe invalide');
+    }
+    
+  } catch (error) {
+    console.error('[STRIPE] ❌ Erreur:', error);
+    
+    // Fallback: afficher un modal de paiement manuel
+    showStripePaymentModal(amount, boostType, repeatType, itemData);
+  }
+}
+
+// Modal de paiement Stripe (fallback si le backend n'est pas configuré)
+function showStripePaymentModal(amount, boostType, repeatType, itemData) {
+  const existingModal = document.getElementById('stripe-payment-modal');
+  if (existingModal) existingModal.remove();
+  
+  const boostNames = {
+    basic: 'Standard', bronze: 'Bronze', silver: 'Argent', gold: 'Or', platine: 'Platine'
+  };
+  const repeatNames = {
+    single: 'Unique', weekly: 'Hebdomadaire', monthly: 'Mensuel'
+  };
+  
+  const modal = document.createElement('div');
+  modal.id = 'stripe-payment-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;z-index:10000;';
+  
+  modal.innerHTML = `
+    <div style="background:linear-gradient(135deg,#0f172a,#1e293b);border-radius:16px;padding:24px;max-width:420px;width:90%;border:2px solid rgba(0,255,195,0.3);box-shadow:0 0 40px rgba(0,255,195,0.2);">
+      
+      <div style="text-align:center;margin-bottom:20px;">
+        <div style="font-size:48px;margin-bottom:8px;">💳</div>
+        <h2 style="margin:0;font-size:20px;color:#fff;">Paiement sécurisé</h2>
+        <p style="color:#a0a0a0;font-size:12px;margin-top:8px;">Powered by Stripe</p>
+      </div>
+      
+      <!-- Récapitulatif -->
+      <div style="background:rgba(0,0,0,0.3);border-radius:12px;padding:16px;margin-bottom:20px;">
+        <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+          <span style="color:#a0a0a0;font-size:12px;">Publication</span>
+          <span style="color:#fff;font-size:12px;font-weight:500;">${itemData.title}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+          <span style="color:#a0a0a0;font-size:12px;">Boost</span>
+          <span style="color:#ffd700;font-size:12px;font-weight:500;">${boostNames[boostType] || boostType}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:12px;">
+          <span style="color:#a0a0a0;font-size:12px;">Fréquence</span>
+          <span style="color:#00ffc3;font-size:12px;font-weight:500;">${repeatNames[repeatType] || repeatType}</span>
+        </div>
+        <div style="border-top:1px solid rgba(255,255,255,0.1);padding-top:12px;display:flex;justify-content:space-between;align-items:center;">
+          <span style="color:#fff;font-size:14px;font-weight:600;">Total</span>
+          <span style="color:#00ffc3;font-size:24px;font-weight:800;">${amount} CHF</span>
+        </div>
+      </div>
+      
+      <!-- Formulaire carte -->
+      <div id="stripe-card-element" style="background:#1e293b;border:1px solid rgba(255,255,255,0.2);border-radius:8px;padding:14px;margin-bottom:16px;">
+        <div style="color:#a0a0a0;font-size:12px;text-align:center;">
+          Chargement du formulaire de paiement...
+        </div>
+      </div>
+      
+      <div id="stripe-card-errors" style="color:#ef4444;font-size:11px;margin-bottom:12px;display:none;"></div>
+      
+      <!-- Boutons -->
+      <div style="display:flex;gap:8px;">
+        <button onclick="closeStripePaymentModal()" style="flex:1;padding:14px;border-radius:8px;background:transparent;border:1px solid rgba(255,255,255,0.2);color:#a0a0a0;cursor:pointer;font-size:13px;">
+          Annuler
+        </button>
+        <button id="stripe-pay-button" onclick="processStripePayment(${amount})" style="flex:2;padding:14px;border-radius:8px;background:linear-gradient(135deg,#00ffc3,#00d4a8);border:none;color:#0f172a;cursor:pointer;font-weight:700;font-size:14px;">
+          💳 Payer ${amount} CHF
+        </button>
+      </div>
+      
+      <div style="text-align:center;margin-top:16px;">
+        <img src="https://stripe.com/img/v3/home/twitter.png" alt="Stripe" style="height:20px;opacity:0.5;" onerror="this.style.display='none'">
+        <div style="font-size:10px;color:#64748b;margin-top:4px;">Paiement 100% sécurisé</div>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+  
+  // Initialiser Stripe Elements si disponible
+  initStripeElements();
+  
+  // Fermer en cliquant sur le fond
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) closeStripePaymentModal();
+  });
+}
+
+// Initialiser Stripe Elements
+function initStripeElements() {
+  if (typeof Stripe === 'undefined' || !window.STRIPE_PUBLISHABLE_KEY) {
+    console.warn('[STRIPE] Stripe.js non configuré - mode démo');
+    const cardElement = document.getElementById('stripe-card-element');
+    if (cardElement) {
+      cardElement.innerHTML = `
+        <div style="color:#fbbf24;font-size:11px;text-align:center;">
+          ⚠️ Mode démo - Stripe non configuré<br>
+          <span style="color:#a0a0a0;">Le paiement sera simulé</span>
+        </div>
+      `;
+    }
+    return;
+  }
+  
+  try {
+    const stripe = Stripe(window.STRIPE_PUBLISHABLE_KEY);
+    const elements = stripe.elements();
+    const cardElement = elements.create('card', {
+      style: {
+        base: {
+          color: '#fff',
+          fontFamily: 'system-ui, sans-serif',
+          fontSize: '14px',
+          '::placeholder': { color: '#64748b' }
+        },
+        invalid: { color: '#ef4444' }
+      }
+    });
+    
+    cardElement.mount('#stripe-card-element');
+    window.stripeCardElement = cardElement;
+    window.stripeInstance = stripe;
+    
+    cardElement.on('change', (event) => {
+      const errorsDiv = document.getElementById('stripe-card-errors');
+      if (event.error && errorsDiv) {
+        errorsDiv.textContent = event.error.message;
+        errorsDiv.style.display = 'block';
+      } else if (errorsDiv) {
+        errorsDiv.style.display = 'none';
+      }
+    });
+    
+  } catch (error) {
+    console.error('[STRIPE] Erreur init Elements:', error);
+  }
+}
+
+// Traiter le paiement Stripe
+async function processStripePayment(amount) {
+  const payButton = document.getElementById('stripe-pay-button');
+  if (payButton) {
+    payButton.disabled = true;
+    payButton.innerHTML = '⏳ Traitement...';
+  }
+  
+  // Mode démo si Stripe non configuré
+  if (!window.stripeInstance || !window.stripeCardElement) {
+    console.log('[STRIPE] Mode démo - simulation paiement');
+    setTimeout(() => {
+      finalizePublishAfterPayment(true);
+    }, 2000);
+    return;
+  }
+  
+  try {
+    // Créer un PaymentIntent côté serveur
+    const response = await fetch(`${window.API_BASE_URL}/create-payment-intent`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        amount: Math.round(amount * 100),
+        currency: 'chf'
+      })
+    });
+    
+    const { clientSecret } = await response.json();
+    
+    // Confirmer le paiement
+    const { error, paymentIntent } = await window.stripeInstance.confirmCardPayment(clientSecret, {
+      payment_method: {
+        card: window.stripeCardElement
+      }
+    });
+    
+    if (error) {
+      throw error;
+    }
+    
+    if (paymentIntent.status === 'succeeded') {
+      finalizePublishAfterPayment(true);
+    }
+    
+  } catch (error) {
+    console.error('[STRIPE] Erreur paiement:', error);
+    const errorsDiv = document.getElementById('stripe-card-errors');
+    if (errorsDiv) {
+      errorsDiv.textContent = error.message || 'Erreur de paiement';
+      errorsDiv.style.display = 'block';
+    }
+    
+    if (payButton) {
+      payButton.disabled = false;
+      payButton.innerHTML = `💳 Payer ${amount} CHF`;
+    }
+  }
+}
+
+// Finaliser la publication après paiement réussi
+function finalizePublishAfterPayment(success) {
+  closeStripePaymentModal();
+  
+  if (!success) {
+    showNotification('❌ Paiement annulé', 'error');
+    return;
+  }
+  
+  const pending = window.pendingPublishData;
+  if (!pending) {
+    showNotification('❌ Données de publication perdues', 'error');
+    return;
+  }
+  
+  // Ajouter l'élément aux données locales
+  if (pending.mode === 'event' && pending.newItem) {
+    eventsData.push(pending.newItem);
+  } else if (pending.mode === 'booking' && pending.newItem) {
+    bookingsData.push(pending.newItem);
+  } else if (pending.mode === 'service' && pending.newItem) {
+    servicesData.push(pending.newItem);
+  }
+  
+  // Nettoyer
+  window.pendingPublishData = null;
+  if (typeof window.clearPublishFormData === 'function') {
+    window.clearPublishFormData();
+  }
+  
+  // Rafraîchir l'interface
+  closePublishModal(null, true);
+  refreshMarkers();
+  refreshListView();
+  
+  // Centrer sur le nouveau point
+  if (map && pending.newItem?.lat && pending.newItem?.lng) {
+    map.setView([pending.newItem.lat, pending.newItem.lng], 14);
+  }
+  
+  const boostNames = {
+    basic: 'Standard', bronze: 'Bronze', silver: 'Argent', gold: 'Or', platine: 'Platine'
+  };
+  const boostName = boostNames[pending.pricing?.boost] || 'Standard';
+  
+  showNotification(`✅ Publication réussie avec boost ${boostName} ! Paiement confirmé.`, 'success');
+  console.log('[PUBLISH] ✅ Publication finalisée après paiement');
+}
+
+// Fermer le modal Stripe
+function closeStripePaymentModal() {
+  const modal = document.getElementById('stripe-payment-modal');
+  if (modal) modal.remove();
+}
+
+// Gérer le retour de Stripe Checkout
+function handleStripeReturn() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const paymentStatus = urlParams.get('payment');
+  const sessionId = urlParams.get('session_id');
+  
+  if (paymentStatus === 'success' && sessionId) {
+    console.log('[STRIPE] ✅ Retour paiement réussi:', sessionId);
+    finalizePublishAfterPayment(true);
+    
+    // Nettoyer l'URL
+    window.history.replaceState({}, document.title, window.location.pathname);
+  } else if (paymentStatus === 'cancelled') {
+    console.log('[STRIPE] ❌ Paiement annulé');
+    showNotification('❌ Paiement annulé', 'warning');
+    
+    // Nettoyer l'URL
+    window.history.replaceState({}, document.title, window.location.pathname);
+  }
+}
+
+// Appeler au chargement de la page
+if (typeof window !== 'undefined') {
+  window.addEventListener('load', handleStripeReturn);
+}
+
+// Exposer les fonctions globalement
+window.openStripeCheckout = openStripeCheckout;
+window.showStripePaymentModal = showStripePaymentModal;
+window.closeStripePaymentModal = closeStripePaymentModal;
+window.processStripePayment = processStripePayment;
+window.finalizePublishAfterPayment = finalizePublishAfterPayment;
 
 // ============================================
 // THÈMES UI + MAP

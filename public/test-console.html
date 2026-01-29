@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>Test console avant déploiement</title>
+  <style>
+    body { font-family: system-ui, sans-serif; padding: 1.5rem; max-width: 42rem; }
+    h1 { font-size: 1.2rem; }
+    .out { background: #1e1e1e; color: #d4d4d4; padding: 0.75rem; border-radius: 6px; font-family: Consolas, monospace; font-size: 13px; white-space: pre-wrap; }
+    .ok { color: #4ec9b0; }
+    .ko { color: #f48771; }
+    p { margin: 0.5rem 0; }
+  </style>
+</head>
+<body>
+  <h1>Test console avant déploiement</h1>
+  <p>Ouvre la console (F12 → Console) pour voir les logs. Résumé ci‑dessous.</p>
+  <button id="run">Lancer le test</button>
+  <div id="log" class="out" style="margin-top:1rem;"></div>
+
+  <script>
+    const API = 'https://ctp67u5hgni2rbfr3kp4p74kxa0gxycf.lambda-url.eu-west-1.on.aws/api';
+    const logEl = document.getElementById('log');
+    const log = (msg, type) => {
+      const line = typeof msg === 'string' ? msg : JSON.stringify(msg, null, 2);
+      console.log('[test-avant-deploy]', line);
+      const span = document.createElement('span');
+      span.className = type || '';
+      span.textContent = line + '\n';
+      span.style.display = 'block';
+      logEl.appendChild(span);
+    };
+
+    document.getElementById('run').onclick = async () => {
+      logEl.innerHTML = '';
+      log('=== Test GET /api/health ===');
+      try {
+        const r = await fetch(API + '/health');
+        const ok = r.ok && r.status === 200;
+        log('Status: ' + r.status + (ok ? ' OK' : ' KO'), ok ? 'ok' : 'ko');
+        const data = await r.json().catch(() => ({}));
+        log(data);
+        if (ok) log('=> API OK, tu peux déployer.', 'ok');
+        else log('=> Vérifier Lambda / CORS avant déploiement.', 'ko');
+      } catch (e) {
+        log('Erreur: ' + e.message, 'ko');
+        log('=> Pas de déploiement sans API OK.', 'ko');
+      }
+    };
+  </script>
+</body>
+</html>
