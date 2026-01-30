@@ -297,9 +297,15 @@ def create_app():
     app.config['REDIS_PORT'] = os.getenv('REDIS_PORT', '6379')
     
     # Configuration Stripe
-    stripe.api_key = os.getenv('STRIPE_SECRET_KEY', '')
+    stripe_key = os.getenv('STRIPE_SECRET_KEY', '')
+    stripe.api_key = stripe_key
     app.config['STRIPE_PUBLIC_KEY'] = os.getenv('STRIPE_PUBLIC_KEY', '')
     app.config['STRIPE_WEBHOOK_SECRET'] = os.getenv('STRIPE_WEBHOOK_SECRET', '')
+    
+    # Debug Stripe
+    print(f"[STRIPE] API Key configurée: {'OUI (' + stripe_key[:10] + '...)' if stripe_key else 'NON - MANQUANTE!'}")
+    print(f"[STRIPE] stripe.api_key set: {bool(stripe.api_key)}")
+    print(f"[STRIPE] stripe.checkout disponible: {hasattr(stripe, 'checkout') and stripe.checkout is not None}")
     
     # Connexions
     def get_db_connection():
@@ -4279,6 +4285,11 @@ def create_app():
     def create_checkout_session():
         """Crée une session Stripe Checkout pour paiement ou abonnement."""
         try:
+            # ⚠️ CRITIQUE : Vérifier que Stripe est configuré
+            if not stripe.api_key:
+                logger.error("STRIPE_SECRET_KEY non configurée!")
+                return jsonify({'error': 'Stripe non configuré. Vérifiez STRIPE_SECRET_KEY dans les variables d\'environnement Lambda.'}), 500
+            
             data = request.get_json()
             user_id = data.get('userId')
             payment_type = data.get('paymentType')  # 'contact', 'subscription', 'cart', 'donation'

@@ -6393,11 +6393,6 @@ function buildBookingPopup(b) {
           </div>
         `}
         ${actionsRow}
-        ${!hasPaidContact ? `
-          <button onclick="onBuyContact('booking', ${b.id})" style="margin-top:10px;width:100%;padding:12px;border-radius:999px;border:none;cursor:pointer;font-size:14px;font-weight:700;background:var(--btn-main-bg);color:var(--btn-main-text);box-shadow:var(--btn-main-shadow);">
-            💳 Débloquer contact + sons – CHF 1.–
-        </button>
-        ` : ''}
       </div>
     </div>
   `;
@@ -6536,11 +6531,6 @@ function buildServicePopup(s) {
           </div>
         `}
         ${actionsRow}
-        ${!hasPaidContact ? `
-          <button onclick="onBuyContact('service', ${s.id})" style="margin-top:10px;width:100%;padding:12px;border-radius:999px;border:none;cursor:pointer;font-size:14px;font-weight:700;background:var(--btn-main-bg);color:var(--btn-main-text);box-shadow:var(--btn-main-shadow);">
-            💳 Débloquer contact + site – CHF 1.–
-        </button>
-        ` : ''}
       </div>
     </div>
   `;
@@ -7889,7 +7879,8 @@ function renderExplorer() {
   const panel = document.getElementById("left-panel");
   panel.style.width = "480px";
   panel.style.maxHeight = "calc(100vh - 100px)";
-  panel.style.overflow = "hidden";
+  panel.style.overflowY = "auto";
+  panel.style.overflowX = "hidden";
   panel.style.display = "block";
 
   const dateControls =
@@ -8884,16 +8875,17 @@ function buildPublishFormHtml() {
     `
     : "";
 
-  const audioBlock =
-    currentMode === "booking"
-      ? `
+  // 🎵 LIENS SONS - Affichés pour TOUS les modes (musiciens, événements, etc.)
+  const audioBlock = `
       <div style="margin-bottom:10px;">
-        <label style="font-size:12px;font-weight:600;">${window.t("sound_links")}</label>
+        <label style="font-size:12px;font-weight:600;">🎵 ${window.t("sound_links")}</label>
         <textarea id="pub-audio" rows="2" placeholder="${window.t("paste_sound_links")}"
                   style="width:100%;padding:6px;border-radius:8px;border:1px solid var(--ui-card-border);background:transparent;color:var(--ui-text-main);"></textarea>
+        <div style="font-size:10px;color:var(--ui-text-muted);margin-top:4px;">
+          ▶️ Les liens seront jouables directement (SoundCloud, Spotify, YouTube Music...)
+        </div>
       </div>
-    `
-      : "";
+    `;
 
   const bookingLevel =
     currentMode === "booking"
@@ -8963,43 +8955,23 @@ function buildPublishFormHtml() {
         </label>
       </div>
       
-      <!-- SECTION RÉPÉTITION -->
-      <div style="margin-bottom:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.1);">
-        <div style="font-weight:700;font-size:13px;margin-bottom:8px;color:#00ffc3;">🔄 Fréquence de publication</div>
-        <div style="display:flex;gap:6px;">
-          <label class="repeat-option" style="flex:1;display:flex;align-items:center;justify-content:center;padding:10px;border-radius:8px;border:2px solid rgba(0,255,195,0.3);cursor:pointer;transition:all 0.2s;background:rgba(0,255,195,0.1);" onclick="selectRepeatPayment('single')">
-            <input type="radio" name="pub-repeat-payment" value="single" checked style="display:none;">
-            <div style="text-align:center;">
-              <div style="font-weight:600;font-size:12px;color:#fff;">Unique</div>
-              <div style="font-size:10px;color:#00ffc3;">Inclus</div>
-            </div>
-          </label>
-          <label class="repeat-option" style="flex:1;display:flex;align-items:center;justify-content:center;padding:10px;border-radius:8px;border:2px solid rgba(255,255,255,0.1);cursor:pointer;transition:all 0.2s;" onclick="selectRepeatPayment('weekly')">
-            <input type="radio" name="pub-repeat-payment" value="weekly" style="display:none;">
-            <div style="text-align:center;">
-              <div style="font-weight:600;font-size:12px;color:#fff;">Hebdo</div>
-              <div style="font-size:10px;color:#fbbf24;">+15 CHF</div>
-            </div>
-          </label>
-          <label class="repeat-option" style="flex:1;display:flex;align-items:center;justify-content:center;padding:10px;border-radius:8px;border:2px solid rgba(255,255,255,0.1);cursor:pointer;transition:all 0.2s;" onclick="selectRepeatPayment('monthly')">
-            <input type="radio" name="pub-repeat-payment" value="monthly" style="display:none;">
-            <div style="text-align:center;">
-              <div style="font-weight:600;font-size:12px;color:#fff;">Mensuel</div>
-              <div style="font-size:10px;color:#22c55e;">+5 CHF</div>
-            </div>
-          </label>
+      <!-- INFO RÉPÉTITION (calculé depuis les options du formulaire) -->
+      <div id="repeat-pricing-info" style="display:none;margin-bottom:12px;padding:8px 12px;border-radius:8px;background:rgba(0,255,195,0.1);border:1px solid rgba(0,255,195,0.2);">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-size:11px;color:#a0a0a0;">🔄 Répétition activée</span>
+          <span id="repeat-multiplier-badge" style="font-size:12px;font-weight:600;color:#00ffc3;">×1.5</span>
         </div>
       </div>
       
-      <!-- RÉSUMÉ PRIX -->
+      <!-- RÉSUMÉ PRIX - MINIMUM 1.- CHF -->
       <div id="price-summary" style="padding:12px;border-radius:8px;background:rgba(0,0,0,0.3);border:1px solid rgba(0,255,195,0.2);">
         <div style="display:flex;justify-content:space-between;align-items:center;">
           <div>
             <div style="font-size:11px;color:#a0a0a0;">Total à payer</div>
-            <div id="total-price-display" style="font-size:24px;font-weight:800;color:#00ffc3;">GRATUIT</div>
+            <div id="total-price-display" style="font-size:24px;font-weight:800;color:#00ffc3;">1.- CHF</div>
           </div>
           <div id="price-breakdown" style="text-align:right;font-size:10px;color:#a0a0a0;">
-            <div>Boost: <span id="boost-price-text">Gratuit</span></div>
+            <div>Boost: <span id="boost-price-text">Standard 1.-</span></div>
             <div>Répétition: <span id="repeat-multiplier-text">+0 CHF</span></div>
           </div>
         </div>
@@ -9441,25 +9413,22 @@ function setupPublishAddressAutocomplete() {
 // ⚠️⚠️⚠️ SYSTÈME DE TARIFICATION - BOOSTS & RÉPÉTITIONS
 // Prix des boosts en CHF
 const BOOST_PRICES = {
-  basic: 1,       // 1.- Point standard
+  basic: 1,       // 1.- Point standard (MINIMUM)
   bronze: 5,      // 5.- Boost Bronze
   silver: 10,     // 10.- Boost Silver
   gold: 15,       // 15.- Boost Or
-  platinum: 20    // TOP 20 - Enchères minimum 20.-
+  platinum: 20    // TOP 10 - Enchères minimum 20.-
 };
 
-// Prix ADDITIONNELS pour la répétition (en CHF)
-const REPEAT_PRICES = {
-  single: 0,      // Unique = pas de supplément
-  weekly: 15,     // Hebdo = +15 CHF
-  monthly: 5      // Mensuel = +5 CHF
-};
+// Prix par répétition (additif)
+const REPEAT_PRICE_PER_OCCURRENCE = 0.50; // +0.50 CHF par répétition
 
 // État actuel de la sélection
 window.currentPricing = {
   boost: 'basic',
-  repeat: 'single',
-  platinumAuctionAmount: 20
+  repeatCount: 0,           // Nombre d'occurrences de répétition
+  platinumAuctionAmount: 20,
+  totalPrice: 1             // Minimum 1.- CHF
 };
 
 // Sélection d'un boost
@@ -9502,57 +9471,50 @@ function selectBoost(boostType) {
   console.log('[PRICING] Boost sélectionné:', boostType, boostPrice + ' CHF');
 }
 
-// Sélection de la répétition
-function selectRepeatPayment(repeatType) {
-  const previousRepeat = window.currentPricing.repeat;
-  window.currentPricing.repeat = repeatType;
+// Mise à jour du prix de répétition (appelé quand les options de répétition changent)
+// +0.50 CHF par occurrence de répétition
+function updateRepeatPricing() {
+  const repeatEnabled = document.getElementById('pub-repeat-enabled')?.checked;
+  const repeatCount = parseInt(document.getElementById('pub-repeat-count')?.value || '0', 10);
   
-  // Mettre à jour les styles visuels
-  document.querySelectorAll('.repeat-option').forEach(opt => {
-    opt.style.background = 'transparent';
-    opt.style.borderColor = 'rgba(255,255,255,0.1)';
-  });
+  const repeatInfo = document.getElementById('repeat-pricing-info');
+  const repeatBadge = document.getElementById('repeat-multiplier-badge');
   
-  const selectedInput = document.querySelector(`input[name="pub-repeat-payment"][value="${repeatType}"]`);
-  if (selectedInput) {
-    selectedInput.checked = true;
-    const label = selectedInput.closest('label');
-    if (label) {
-      label.style.background = 'rgba(0,255,195,0.1)';
-      label.style.borderColor = 'rgba(0,255,195,0.3)';
-    }
+  if (repeatEnabled && repeatCount > 0) {
+    window.currentPricing.repeatCount = repeatCount;
+    const repeatCost = repeatCount * REPEAT_PRICE_PER_OCCURRENCE;
+    
+    if (repeatInfo) repeatInfo.style.display = 'block';
+    if (repeatBadge) repeatBadge.textContent = `+${repeatCost.toFixed(2)} CHF (${repeatCount}×0.50)`;
+    
+    console.log('[PRICING] Répétition activée:', repeatCount, 'occurrences = +' + repeatCost + ' CHF');
+  } else {
+    window.currentPricing.repeatCount = 0;
+    if (repeatInfo) repeatInfo.style.display = 'none';
+    console.log('[PRICING] Répétition désactivée');
   }
   
   updatePriceDisplay();
-  
-  // Afficher une notification si le prix change
-  const repeatPrice = REPEAT_PRICES[repeatType] || 0;
-  const repeatNames = { single: 'Unique', weekly: 'Hebdomadaire', monthly: 'Mensuel' };
-  
-  if (repeatPrice > 0 && repeatType !== previousRepeat) {
-    showNotification(`🔄 ${repeatNames[repeatType]}: +${repeatPrice} CHF ajouté au total`, 'info');
-  } else if (repeatType === 'single' && previousRepeat !== 'single') {
-    showNotification(`🔄 Publication unique sélectionnée`, 'info');
-  }
-  
-  console.log('[PRICING] Répétition sélectionnée:', repeatType, '+' + repeatPrice + ' CHF');
 }
 
-// Calculer et afficher le prix
+// Calculer et afficher le prix - MINIMUM 1.- CHF
 function updatePriceDisplay() {
   const boost = window.currentPricing.boost;
-  const repeat = window.currentPricing.repeat;
+  const repeatCount = window.currentPricing.repeatCount || 0;
   
+  // Prix de base du boost (minimum 1.-)
   let boostPrice = BOOST_PRICES[boost] || 1;
   
   // Pour Platinum, utiliser le montant d'enchère
   if (boost === 'platinum') {
-    boostPrice = window.currentPricing.platinumAuctionAmount || 50;
+    boostPrice = window.currentPricing.platinumAuctionAmount || 20;
   }
   
-  // Prix de la répétition (addition, pas multiplication)
-  const repeatPrice = REPEAT_PRICES[repeat] || 0;
-  const totalPrice = boostPrice + repeatPrice;
+  // Coût des répétitions : +0.50 CHF par occurrence
+  const repeatCost = repeatCount * REPEAT_PRICE_PER_OCCURRENCE;
+  
+  // Prix total = boost + répétitions (MINIMUM 1.-)
+  const totalPrice = Math.max(1, boostPrice + repeatCost);
   
   // Mettre à jour l'affichage
   const totalDisplay = document.getElementById('total-price-display');
@@ -9560,24 +9522,25 @@ function updatePriceDisplay() {
   const repeatText = document.getElementById('repeat-multiplier-text');
   
   if (totalDisplay) {
-    totalDisplay.textContent = `${totalPrice}.- CHF`;
+    totalDisplay.textContent = `${totalPrice.toFixed(2).replace('.00', '.-')} CHF`;
     totalDisplay.style.color = boost === 'platinum' ? '#ef4444' : boost === 'gold' ? '#ffd700' : '#00ffc3';
   }
   
   if (boostText) {
-    boostText.textContent = `${boostPrice}.- CHF`;
+    const boostNames = { basic: 'Standard', bronze: 'Bronze', silver: 'Argent', gold: 'Or', platinum: 'Platinum' };
+    boostText.textContent = `${boostNames[boost] || boost} ${boostPrice}.-`;
   }
   
   if (repeatText) {
-    repeatText.textContent = repeatPrice === 0 ? '+0.-' : `+${repeatPrice}.-`;
+    repeatText.textContent = repeatCount > 0 ? `+${repeatCost.toFixed(2)} CHF (${repeatCount}×0.50)` : '+0 CHF';
   }
   
   // Sauvegarder pour la soumission
   window.currentPricing.totalPrice = totalPrice;
   window.currentPricing.boostPrice = boostPrice;
-  window.currentPricing.repeatPrice = repeatPrice;
+  window.currentPricing.repeatCost = repeatCost;
   
-  console.log('[PRICING] Prix calculé:', { boost, repeat, boostPrice, repeatPrice, totalPrice });
+  console.log('[PRICING] Prix calculé:', { boost, boostPrice, repeatCount, repeatCost, totalPrice });
 }
 
 // Modal d'enchères Platinum - TOP 10 Régional
@@ -9760,7 +9723,7 @@ function closePlatinumAuctionModal() {
 
 // Exposer les fonctions globalement
 window.selectBoost = selectBoost;
-window.selectRepeatPayment = selectRepeatPayment;
+window.updateRepeatPricing = updateRepeatPricing;
 window.updatePriceDisplay = updatePriceDisplay;
 window.openPlatinumAuctionModal = openPlatinumAuctionModal;
 window.closePlatinumAuctionModal = closePlatinumAuctionModal;
@@ -9891,6 +9854,10 @@ function toggleRepeatOptions() {
     options.style.display = checkbox.checked ? "block" : "none";
     if (checkbox.checked) {
       updateRepeatPreview();
+    } else {
+      // Réinitialiser le prix si répétition désactivée
+      window.currentPricing.repeatCount = 0;
+      updatePriceDisplay();
     }
   }
 }
@@ -9928,7 +9895,17 @@ function updateRepeatPreview() {
     previewText += ` (${count} occurrence${count > 1 ? "s" : ""})`;
   }
   
+  // Ajouter le coût des répétitions (+0.50 par occurrence)
+  const repeatCount = parseInt(count || '0', 10);
+  if (repeatCount > 0) {
+    const repeatCost = repeatCount * REPEAT_PRICE_PER_OCCURRENCE;
+    previewText += ` → +${repeatCost.toFixed(2)} CHF`;
+  }
+  
   preview.innerHTML = `<span style="color:#00ffc3;">📅 ${previewText}</span>`;
+  
+  // ⚠️ CRITIQUE : Mettre à jour le prix total quand les répétitions changent
+  updateRepeatPricing();
 }
 
 function toggleAdvancedOptions() {
@@ -10415,61 +10392,121 @@ async function onSubmitPublishForm(e) {
       }));
     }
     
+    // Ne pas ajouter maintenant - attendre après paiement si nécessaire
+  }
+  
+  // ⚠️⚠️⚠️ CALCUL DU PRIX FINAL (calculer frais ici pour être sûr)
+  const selectedBoost = document.querySelector('input[name="pub-boost"]:checked')?.value || 'basic';
+  const selectedRepeat = document.querySelector('input[name="pub-repeat-payment"]:checked')?.value || 'single';
+  
+  const boostPrices = { basic: 1, bronze: 5, silver: 10, gold: 15, platinum: 20 };
+  const repeatPrices = { single: 0, weekly: 15, monthly: 5 };
+  
+  let boostPrice = boostPrices[selectedBoost] || 1;
+  if (selectedBoost === 'platinum' && window.currentPricing?.platinumAuctionAmount) {
+    boostPrice = window.currentPricing.platinumAuctionAmount;
+  }
+  const repeatPrice = repeatPrices[selectedRepeat] || 0;
+  const totalPrice = boostPrice + repeatPrice;
+  
+  const pricing = {
+    boost: selectedBoost,
+    repeat: selectedRepeat,
+    boostPrice: boostPrice,
+    repeatPrice: repeatPrice,
+    totalPrice: totalPrice
+  };
+  
+  console.log('[PUBLISH] 💰 Prix calculé:', pricing);
+  
+  // TOUJOURS passer par Stripe (même basic = 1 CHF)
+  // Sauvegarder les données en attente de paiement
+  window.pendingPublishData = {
+    newItem,
+    mode: currentMode,
+    pricing: pricing
+  };
+  
+  showNotification(`💳 Redirection vers le paiement de ${totalPrice}.- CHF...`, "info");
+  
+  // Ouvrir Stripe Checkout
+  setTimeout(() => {
+    openStripeCheckout(totalPrice, pricing.boost, pricing.repeat, newItem);
+  }, 1000);
+  
+  return false;
+}
+
+// Fonction pour finaliser la publication après paiement (appelée par Stripe callback)
+async function savePublishedItem(newItem, mode) {
+  // Ajouter aux données locales
+  if (mode === "event") {
     eventsData.push(newItem);
-  } else if (currentMode === "booking") {
-    newItem.audioLinks = audioLinks ? audioLinks.split('\n').filter(l => l.trim()) : [];
-    newItem.level = level;
-    newItem.priceEstimate = priceEstimate;
+  } else if (mode === "booking") {
     bookingsData.push(newItem);
-  } else if (currentMode === "service") {
-    newItem.priceEstimate = priceEstimate;
+  } else if (mode === "service") {
     servicesData.push(newItem);
   }
   
+  // Déterminer le bon endpoint selon le mode
+  const endpoints = {
+    event: '/events/publish',
+    booking: '/bookings/publish',
+    service: '/services/publish'
+  };
+  const endpoint = endpoints[mode] || '/events/publish';
+  
   // Sauvegarder dans le backend
+  // Mapper les champs frontend vers backend (address->location, lat->latitude, lng->longitude)
+  console.log('[PUBLISH] 📦 newItem reçu:', JSON.stringify(newItem, null, 2));
+  
+  const backendData = {
+    title: newItem.title || newItem.name || 'Sans titre',
+    name: newItem.name || newItem.title || 'Sans titre',
+    description: newItem.description || '',
+    location: newItem.address || newItem.location || newItem.city || 'Adresse non spécifiée',
+    latitude: parseFloat(newItem.lat) || parseFloat(newItem.latitude) || 0,
+    longitude: parseFloat(newItem.lng) || parseFloat(newItem.longitude) || 0,
+    date: newItem.date || newItem.startDate || null,
+    time: newItem.time || null,
+    categories: newItem.categories || [],
+    userId: currentUser ? (currentUser.id || currentUser.cognitoSub) : null,
+    mode: mode
+  };
+  
+  console.log('[PUBLISH] 📤 Données envoyées au backend:', JSON.stringify(backendData, null, 2));
+  
+  // Vérifier que les coordonnées sont valides
+  if (!backendData.latitude || !backendData.longitude || backendData.latitude === 0 || backendData.longitude === 0) {
+    console.error('[PUBLISH] ❌ Coordonnées manquantes:', { lat: backendData.latitude, lng: backendData.longitude });
+    showNotification('⚠️ Coordonnées manquantes - l\'annonce est visible localement uniquement', 'warning');
+    return;
+  }
+  
   try {
-    await fetch(`${window.API_BASE_URL}/${currentMode}s`, {
+    const response = await fetch(`${window.API_BASE_URL}${endpoint}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        ...newItem,
-        userId: currentUser.id
-      })
+      body: JSON.stringify(backendData)
     });
+    
+    if (response.ok) {
+      const result = await response.json();
+      console.log('[PUBLISH] ✅ Sauvegardé dans le backend:', result);
+      // Mettre à jour l'ID si retourné par le serveur
+      if (result.id) {
+        newItem.id = result.id;
+      }
+    } else {
+      const errorText = await response.text();
+      console.error('[PUBLISH] ❌ Erreur serveur:', response.status, errorText);
+      showNotification('⚠️ Erreur de sauvegarde serveur - l\'annonce est visible localement uniquement', 'warning');
+    }
   } catch (error) {
-    console.error('Erreur sauvegarde backend:', error);
-    // Continuer même si le backend échoue (sauvegarde locale)
+    console.error('[PUBLISH] ❌ Erreur sauvegarde backend:', error);
+    showNotification('⚠️ Erreur réseau - l\'annonce est visible localement uniquement', 'warning');
   }
   
-  // ⚠️⚠️⚠️ CALCUL DU PRIX FINAL
-  const pricing = window.currentPricing || { boost: 'basic', repeat: 'single', totalPrice: 0 };
-  const totalPrice = pricing.totalPrice || 0;
-  
-  console.log('[PUBLISH] 💰 Prix final:', totalPrice, 'CHF', pricing);
-  
-  // Si le prix est > 0, rediriger vers Stripe
-  if (totalPrice > 0) {
-    // Sauvegarder les données en attente de paiement
-    window.pendingPublishData = {
-      newItem,
-      mode: currentMode,
-      pricing: pricing,
-      eventsData: currentMode === 'event' ? [...eventsData] : null,
-      bookingsData: currentMode === 'booking' ? [...bookingsData] : null,
-      servicesData: currentMode === 'service' ? [...servicesData] : null
-    };
-    
-    showNotification(`💳 Redirection vers le paiement de ${totalPrice} CHF...`, "info");
-    
-    // Ouvrir Stripe Checkout
-    setTimeout(() => {
-      openStripeCheckout(totalPrice, pricing.boost, pricing.repeat, newItem);
-    }, 1000);
-    
-    return false;
-  }
-  
-  // Si gratuit (basic), publier directement
   // ⚠️⚠️⚠️ EFFACER LES DONNÉES SAUVEGARDÉES APRÈS PUBLICATION RÉUSSIE
   if (typeof window.clearPublishFormData === 'function') {
     window.clearPublishFormData();
@@ -10481,11 +10518,11 @@ async function onSubmitPublishForm(e) {
   refreshListView();
   
   // Centrer la carte sur le nouveau point
-  if (map && lat && lng) {
-    map.setView([lat, lng], 14);
+  if (map && newItem && newItem.lat && newItem.lng) {
+    map.setView([newItem.lat, newItem.lng], 14);
   }
   
-  showNotification(`✅ ${currentMode === 'event' ? 'Événement' : currentMode === 'booking' ? 'Booking' : 'Service'} publié avec succès !`, "success");
+  showNotification('✅ ' + (mode === 'event' ? 'Événement' : mode === 'booking' ? 'Booking' : 'Service') + ' publié avec succès !', "success");
   
   return false;
 }
@@ -10502,44 +10539,75 @@ async function openStripeCheckout(amount, boostType, repeatType, itemData) {
   }
   
   try {
-    // Créer une session Stripe côté serveur
-    const response = await fetch(`${window.API_BASE_URL}/create-checkout-session`, {
+    // Créer une session Stripe côté serveur (endpoint Lambda)
+    // Utilise paymentType 'donation' pour les paiements de boost (montant libre)
+    const response = await fetch(`${window.API_BASE_URL}/payments/create-checkout-session`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        amount: Math.round(amount * 100), // Stripe utilise les centimes
-        currency: 'chf',
+        userId: currentUser?.id || currentUser?.cognitoSub || 'anonymous',
+        paymentType: 'donation',  // Type accepté par le Lambda pour paiement unique
+        amount: amount,           // En CHF
+        currency: 'CHF',
+        email: currentUser?.email || null,
+        // Metadata pour le suivi
         boostType: boostType,
         repeatType: repeatType,
         itemTitle: itemData.title,
-        itemId: itemData.id,
-        userId: currentUser?.id || 'anonymous',
-        successUrl: `${window.location.origin}${window.location.pathname}?payment=success&session_id={CHECKOUT_SESSION_ID}`,
-        cancelUrl: `${window.location.origin}${window.location.pathname}?payment=cancelled`
+        itemId: String(itemData.id)
       })
     });
     
     if (!response.ok) {
-      throw new Error(`Erreur serveur: ${response.status}`);
+      const errorText = await response.text();
+      console.error('[STRIPE] Réponse erreur:', errorText);
+      let errorMessage = `Erreur serveur: ${response.status}`;
+      try {
+        const errorData = JSON.parse(errorText);
+        errorMessage = errorData.error || errorMessage;
+      } catch (e) {}
+      throw new Error(errorMessage);
     }
     
     const session = await response.json();
+    console.log('[STRIPE] Session créée:', session);
     
-    if (session.url) {
-      // Rediriger vers Stripe Checkout
-      window.location.href = session.url;
-    } else if (session.sessionId) {
-      // Utiliser Stripe.js pour rediriger
-      const stripe = Stripe(window.STRIPE_PUBLISHABLE_KEY || 'pk_test_...');
-      await stripe.redirectToCheckout({ sessionId: session.sessionId });
+    if (session.url || session.sessionId) {
+      // ⚠️ CRITIQUE : Sauvegarder les données AVANT la redirection Stripe
+      // Car la page va se recharger et window.pendingPublishData sera perdu
+      if (window.pendingPublishData) {
+        try {
+          const dataToSave = JSON.stringify(window.pendingPublishData);
+          console.log('[STRIPE] 📦 Données à sauvegarder:', window.pendingPublishData);
+          console.log('[STRIPE] 📦 newItem.address:', window.pendingPublishData.newItem?.address);
+          console.log('[STRIPE] 📦 newItem.lat:', window.pendingPublishData.newItem?.lat);
+          console.log('[STRIPE] 📦 newItem.lng:', window.pendingPublishData.newItem?.lng);
+          localStorage.setItem('pendingPublishDataForStripe', dataToSave);
+          console.log('[STRIPE] ✅ Données sauvegardées dans localStorage avant redirection (' + dataToSave.length + ' bytes)');
+        } catch (e) {
+          console.error('[STRIPE] ❌ Erreur sauvegarde localStorage:', e);
+        }
+      } else {
+        console.error('[STRIPE] ❌ pendingPublishData est vide!');
+      }
+      
+      if (session.url) {
+        // Rediriger vers Stripe Checkout
+        window.location.href = session.url;
+      } else {
+        // Utiliser Stripe.js pour rediriger
+        const stripe = Stripe(window.STRIPE_PUBLISHABLE_KEY);
+        await stripe.redirectToCheckout({ sessionId: session.sessionId });
+      }
     } else {
       throw new Error('Session Stripe invalide');
     }
     
   } catch (error) {
     console.error('[STRIPE] ❌ Erreur:', error);
+    showNotification(`❌ Erreur paiement: ${error.message}`, 'error');
     
     // Fallback: afficher un modal de paiement manuel
     showStripePaymentModal(amount, boostType, repeatType, itemData);
@@ -10739,7 +10807,7 @@ async function processStripePayment(amount) {
 }
 
 // Finaliser la publication après paiement réussi
-function finalizePublishAfterPayment(success) {
+async function finalizePublishAfterPayment(success) {
   closeStripePaymentModal();
   
   if (!success) {
@@ -10753,14 +10821,8 @@ function finalizePublishAfterPayment(success) {
     return;
   }
   
-  // Ajouter l'élément aux données locales
-  if (pending.mode === 'event' && pending.newItem) {
-    eventsData.push(pending.newItem);
-  } else if (pending.mode === 'booking' && pending.newItem) {
-    bookingsData.push(pending.newItem);
-  } else if (pending.mode === 'service' && pending.newItem) {
-    servicesData.push(pending.newItem);
-  }
+  // Sauvegarder via la fonction dédiée
+  await savePublishedItem(pending.newItem, pending.mode);
   
   // Nettoyer
   window.pendingPublishData = null;
@@ -10779,7 +10841,7 @@ function finalizePublishAfterPayment(success) {
   }
   
   const boostNames = {
-    basic: 'Standard', bronze: 'Bronze', silver: 'Argent', gold: 'Or', platine: 'Platine'
+    basic: 'Standard', bronze: 'Bronze', silver: 'Argent', gold: 'Or', platinum: 'Platinum'
   };
   const boostName = boostNames[pending.pricing?.boost] || 'Standard';
   
@@ -10801,18 +10863,128 @@ function handleStripeReturn() {
   
   if (paymentStatus === 'success' && sessionId) {
     console.log('[STRIPE] ✅ Retour paiement réussi:', sessionId);
+    
+    // Récupérer les données depuis localStorage
+    try {
+      const savedData = localStorage.getItem('pendingPublishDataForStripe');
+      console.log('[STRIPE] 📥 Données brutes depuis localStorage:', savedData ? savedData.substring(0, 200) + '...' : 'VIDE');
+      if (savedData) {
+        window.pendingPublishData = JSON.parse(savedData);
+        console.log('[STRIPE] ✅ Données récupérées depuis localStorage');
+        console.log('[STRIPE] 📥 newItem.address:', window.pendingPublishData.newItem?.address);
+        console.log('[STRIPE] 📥 newItem.lat:', window.pendingPublishData.newItem?.lat);
+        console.log('[STRIPE] 📥 newItem.lng:', window.pendingPublishData.newItem?.lng);
+        localStorage.removeItem('pendingPublishDataForStripe');
+      } else {
+        console.error('[STRIPE] ❌ Aucune donnée dans localStorage!');
+      }
+    } catch (e) {
+      console.error('[STRIPE] Erreur récupération localStorage:', e);
+    }
+    
+    // Finaliser et afficher popup de confirmation
     finalizePublishAfterPayment(true);
+    showPaymentSuccessModal(sessionId);
     
     // Nettoyer l'URL
     window.history.replaceState({}, document.title, window.location.pathname);
-  } else if (paymentStatus === 'cancelled') {
+  } else if (paymentStatus === 'cancelled' || paymentStatus === 'canceled') {
     console.log('[STRIPE] ❌ Paiement annulé');
-    showNotification('❌ Paiement annulé', 'warning');
+    showNotification('❌ Paiement annulé - Votre annonce n\'a pas été publiée', 'warning');
+    
+    // Nettoyer localStorage
+    localStorage.removeItem('pendingPublishDataForStripe');
     
     // Nettoyer l'URL
     window.history.replaceState({}, document.title, window.location.pathname);
   }
 }
+
+// ✅ Popup de confirmation après paiement réussi
+function showPaymentSuccessModal(sessionId) {
+  const existingModal = document.getElementById('payment-success-modal');
+  if (existingModal) existingModal.remove();
+  
+  // 🔊 Jouer le son de succès "Poopopopopopoooo"
+  try {
+    const successSound = new Audio('assets/popopo.m4a');
+    successSound.volume = 0.7;
+    successSound.play().catch(function(e) { console.log('[STRIPE] Son non joué:', e.message); });
+  } catch (e) {
+    console.log('[STRIPE] Erreur audio:', e);
+  }
+  
+  const pending = window.pendingPublishData;
+  const itemTitle = pending && pending.newItem ? pending.newItem.title : 'Votre annonce';
+  const boostType = pending && pending.pricing ? pending.pricing.boost : 'basic';
+  const totalPrice = pending && pending.pricing ? pending.pricing.totalPrice : 1;
+  
+  const boostNames = { basic: 'Standard', bronze: 'Bronze', silver: 'Argent', gold: 'Or', platinum: 'Platinum' };
+  const boostEmojis = { basic: '📍', bronze: '🥉', silver: '🥈', gold: '🥇', platinum: '💎' };
+  const boostColor = boostType === 'platinum' ? '#ef4444' : boostType === 'gold' ? '#ffd700' : '#00ffc3';
+  const boostEmoji = boostEmojis[boostType] || '📍';
+  const boostName = boostNames[boostType] || 'Standard';
+  const sessionRef = sessionId ? sessionId.substring(0, 20) + '...' : 'N/A';
+  
+  const modal = document.createElement('div');
+  modal.id = 'payment-success-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;z-index:100000;';
+  
+  modal.innerHTML = '<div style="background:linear-gradient(135deg,#0f172a,#1e293b);border-radius:20px;padding:32px;max-width:420px;width:90%;text-align:center;border:2px solid #00ffc3;box-shadow:0 0 60px rgba(0,255,195,0.4);">' +
+    '<div style="font-size:64px;margin-bottom:16px;">🎉</div>' +
+    '<h2 style="margin:0 0 8px;font-size:24px;color:#00ffc3;">Paiement réussi !</h2>' +
+    '<p style="color:#a0a0a0;font-size:14px;margin-bottom:20px;">Votre annonce a été publiée avec succès</p>' +
+    '<div style="background:rgba(0,255,195,0.1);border:1px solid rgba(0,255,195,0.3);border-radius:12px;padding:16px;margin-bottom:20px;">' +
+      '<div style="font-size:16px;font-weight:700;color:#fff;margin-bottom:8px;">' + escapeHtml(itemTitle) + '</div>' +
+      '<div style="display:flex;justify-content:center;gap:16px;font-size:13px;">' +
+        '<span style="color:#a0a0a0;">Boost: <strong style="color:' + boostColor + ';">' + boostEmoji + ' ' + boostName + '</strong></span>' +
+        '<span style="color:#a0a0a0;">Prix: <strong style="color:#00ffc3;">' + totalPrice + '.- CHF</strong></span>' +
+      '</div>' +
+    '</div>' +
+    '<div style="font-size:11px;color:#64748b;margin-bottom:20px;">Référence: ' + sessionRef + '</div>' +
+    '<button id="payment-success-view-btn" style="width:100%;padding:14px;border-radius:12px;border:none;background:linear-gradient(135deg,#00ffc3,#00d9a6);color:#000;font-weight:700;font-size:15px;cursor:pointer;margin-bottom:10px;">👁️ Voir mon annonce</button>' +
+    '<button id="payment-success-close-btn" style="width:100%;padding:12px;border-radius:10px;border:1px solid rgba(255,255,255,0.2);background:transparent;color:#a0a0a0;font-size:13px;cursor:pointer;">Continuer à explorer</button>' +
+  '</div>';
+  
+  document.body.appendChild(modal);
+  
+  // Attacher les event listeners
+  document.getElementById('payment-success-view-btn').addEventListener('click', function() {
+    closePaymentSuccessModal();
+    if (window.pendingPublishData && window.pendingPublishData.newItem) {
+      var item = window.pendingPublishData.newItem;
+      // Centrer la map sur l'annonce
+      if (map && item.lat && item.lng) {
+        map.setView([item.lat, item.lng], 16);
+      }
+      // Ouvrir la popup de l'annonce
+      if (typeof openEventPopupFromDeepLink === 'function') {
+        openEventPopupFromDeepLink(item);
+      } else if (typeof window.openEventPopupFromDeepLink === 'function') {
+        window.openEventPopupFromDeepLink(item);
+      } else {
+        showNotification('📍 Annonce publiée !', 'success');
+      }
+    }
+  });
+  
+  document.getElementById('payment-success-close-btn').addEventListener('click', function() {
+    closePaymentSuccessModal();
+  });
+  
+  // Fermer en cliquant sur le fond
+  modal.addEventListener('click', function(e) {
+    if (e.target === modal) closePaymentSuccessModal();
+  });
+}
+
+function closePaymentSuccessModal() {
+  const modal = document.getElementById('payment-success-modal');
+  if (modal) modal.remove();
+}
+
+window.showPaymentSuccessModal = showPaymentSuccessModal;
+window.closePaymentSuccessModal = closePaymentSuccessModal;
 
 // Appeler au chargement de la page
 if (typeof window !== 'undefined') {
@@ -22614,6 +22786,16 @@ function openAccountModal() {
           <div style="font-size:32px;margin-bottom:8px;">✏️</div>
           <div style="font-weight:600;font-size:14px;color:#fff;">Modifier mon profil</div>
         </div>
+        
+        <div onclick="openAccountWindow('mes-annonces')" style="padding:24px;border-radius:16px;background:rgba(15,23,42,0.5);border:2px solid rgba(139,92,246,0.3);cursor:pointer;transition:all 0.3s;" onmouseover="this.style.borderColor='rgba(139,92,246,0.6)';this.style.background='rgba(139,92,246,0.15)';this.style.transform='translateY(-2px)';" onmouseout="this.style.borderColor='rgba(139,92,246,0.3)';this.style.background='rgba(15,23,42,0.5)';this.style.transform='translateY(0)';">
+          <div style="font-size:32px;margin-bottom:8px;">📢</div>
+          <div style="font-weight:600;font-size:14px;color:#fff;">Mes annonces</div>
+        </div>
+        
+        <div onclick="openAccountWindow('abonnements')" style="padding:24px;border-radius:16px;background:rgba(15,23,42,0.5);border:2px solid rgba(255,215,0,0.3);cursor:pointer;transition:all 0.3s;" onmouseover="this.style.borderColor='rgba(255,215,0,0.6)';this.style.background='rgba(255,215,0,0.1)';this.style.transform='translateY(-2px)';" onmouseout="this.style.borderColor='rgba(255,215,0,0.3)';this.style.background='rgba(15,23,42,0.5)';this.style.transform='translateY(0)';">
+          <div style="font-size:32px;margin-bottom:8px;">💳</div>
+          <div style="font-weight:600;font-size:14px;color:#fff;">Abonnements</div>
+        </div>
       </div>
       
       <!-- Zone de contenu - Option "Rester connecté" -->
@@ -22883,28 +23065,9 @@ function openAccountWindow(blockType) {
   let windowContent = '';
   
   if (blockType === 'agenda') {
-    const agendaItems = (currentUser.agenda || []).map(key => {
-      const [type, id] = key.split(":");
-      const data = type === "event" ? eventsData : type === "booking" ? bookingsData : servicesData;
-      return data.find(i => i.id === parseInt(id));
-    }).filter(Boolean);
-    
-    windowContent = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Mon Agenda - MapEvent</title>
-        <style>
-          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: #fff; margin: 0; padding: 20px; }
-          h1 { margin: 0 0 20px; font-size: 24px; }
-        </style>
-      </head>
-      <body>
-        <h1>📅 Mon Agenda</h1>
-        ${agendaItems.length === 0 ? '<p>Votre agenda est vide</p>' : agendaItems.map(item => `<div style="padding:12px;margin-bottom:8px;background:rgba(15,23,42,0.5);border-radius:8px;">${escapeHtml(item.title || item.name || 'Sans titre')}</div>`).join('')}
-      </body>
-      </html>
-    `;
+    // ✅ AGENDA - Afficher dans un modal cliquable au lieu d'une fenêtre popup
+    showAgendaModal();
+    return;
   } else if (blockType === 'notifications') {
     windowContent = `
       <!DOCTYPE html>
@@ -22947,6 +23110,18 @@ function openAccountWindow(blockType) {
       showNotification('⚠️ Fonctionnalité en cours de développement', 'info');
       return;
     }
+  } else if (blockType === 'mes-annonces') {
+    // ✅ MES ANNONCES - Afficher dans un modal au lieu d'une fenêtre popup
+    showMesAnnoncesModal();
+    return;
+  } else if (blockType === 'abonnements') {
+    // Ouvrir le modal d'abonnements
+    if (typeof openSubscriptionModal === 'function') {
+      openSubscriptionModal();
+    } else {
+      showNotification('⚠️ Fonctionnalité en cours de développement', 'info');
+    }
+    return;
   } else {
     // Pour les autres blocs, utiliser showAccountBlockContent dans une nouvelle fenêtre
     windowContent = `
@@ -22980,6 +23155,243 @@ function openAccountWindow(blockType) {
     alert('Erreur lors de l\'ouverture de la fenêtre: ' + e.message);
   }
 }
+
+// ✅ MODAL "MES ANNONCES" - Affiche les annonces de l'utilisateur
+function showMesAnnoncesModal() {
+  const modal = document.getElementById('publish-modal-inner');
+  const backdrop = document.getElementById('publish-modal-backdrop');
+  
+  if (!modal || !backdrop) {
+    console.error('[MES ANNONCES] Modal non trouvé');
+    return;
+  }
+  
+  // Récupérer les annonces de l'utilisateur (depuis eventsData, bookingsData, servicesData)
+  const userId = currentUser ? (currentUser.id || currentUser.cognitoSub) : null;
+  const userAnnonces = [];
+  
+  // Chercher dans eventsData
+  eventsData.filter(function(e) { return e.userId === userId || e.createdBy === userId; }).forEach(function(e) {
+    userAnnonces.push({ id: e.id, title: e.title, name: e.name, address: e.address, location: e.location, lat: e.lat, lng: e.lng, type: 'event', emoji: '🎉' });
+  });
+  
+  // Chercher dans bookingsData
+  bookingsData.filter(function(b) { return b.userId === userId || b.createdBy === userId; }).forEach(function(b) {
+    userAnnonces.push({ id: b.id, title: b.title, name: b.name, address: b.address, location: b.location, lat: b.lat, lng: b.lng, type: 'booking', emoji: '🎤' });
+  });
+  
+  // Chercher dans servicesData
+  servicesData.filter(function(s) { return s.userId === userId || s.createdBy === userId; }).forEach(function(s) {
+    userAnnonces.push({ id: s.id, title: s.title, name: s.name, address: s.address, location: s.location, lat: s.lat, lng: s.lng, type: 'service', emoji: '🔧' });
+  });
+  
+  var html = '<div style="padding:24px;max-width:600px;margin:0 auto;position:relative;">' +
+    '<button id="mes-annonces-back-btn" style="position:absolute;top:16px;left:16px;background:rgba(255,255,255,0.1);border:none;color:#fff;font-size:14px;cursor:pointer;padding:8px 16px;border-radius:8px;display:flex;align-items:center;gap:8px;">← Retour</button>' +
+    '<button id="mes-annonces-close-btn" style="position:absolute;top:16px;right:16px;background:none;border:none;color:var(--ui-text-muted);font-size:24px;cursor:pointer;padding:8px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:50%;" title="Fermer">✕</button>' +
+    '<h2 style="text-align:center;margin:0 0 24px;font-size:24px;color:#fff;">📢 Mes annonces</h2>';
+  
+  if (userAnnonces.length === 0) {
+    html += '<div style="text-align:center;padding:40px;color:var(--ui-text-muted);">' +
+      '<div style="font-size:48px;margin-bottom:16px;">📭</div>' +
+      '<p>Vous n\'avez pas encore d\'annonces</p>' +
+      '<button id="mes-annonces-publish-btn" style="margin-top:16px;padding:12px 24px;border-radius:12px;border:none;background:#00ffc3;color:#000;font-weight:600;cursor:pointer;">+ Publier une annonce</button>' +
+    '</div>';
+  } else {
+    html += '<div id="mes-annonces-list" style="display:flex;flex-direction:column;gap:12px;">';
+    userAnnonces.forEach(function(item, idx) {
+      html += '<div class="annonce-item" data-type="' + item.type + '" data-id="' + item.id + '" style="display:flex;align-items:center;gap:16px;padding:16px;border-radius:12px;background:rgba(15,23,42,0.5);border:1px solid rgba(255,255,255,0.1);cursor:pointer;transition:all 0.2s;">' +
+        '<div style="font-size:32px;">' + item.emoji + '</div>' +
+        '<div style="flex:1;">' +
+          '<div style="font-weight:600;font-size:14px;color:#fff;margin-bottom:4px;">' + escapeHtml(item.title || item.name || 'Sans titre') + '</div>' +
+          '<div style="font-size:12px;color:var(--ui-text-muted);">' + escapeHtml(item.address || item.location || '') + '</div>' +
+        '</div>' +
+        '<div style="color:#00ffc3;font-size:20px;">→</div>' +
+      '</div>';
+    });
+    html += '</div>';
+  }
+  html += '</div>';
+  
+  modal.innerHTML = html;
+  modal.style.display = 'block';
+  modal.style.visibility = 'visible';
+  modal.style.opacity = '1';
+  backdrop.style.display = 'flex';
+  backdrop.style.visibility = 'visible';
+  backdrop.style.opacity = '1';
+  backdrop.style.zIndex = '9999';
+  
+  // Attacher les event listeners
+  setTimeout(function() {
+    var backBtn = document.getElementById('mes-annonces-back-btn');
+    var closeBtn = document.getElementById('mes-annonces-close-btn');
+    var publishBtn = document.getElementById('mes-annonces-publish-btn');
+    
+    if (backBtn) backBtn.addEventListener('click', function() { openAccountModal(); });
+    if (closeBtn) closeBtn.addEventListener('click', function() { closePublishModal(); });
+    if (publishBtn) publishBtn.addEventListener('click', function() { closePublishModal(); setTimeout(function() { openPublishModal(); }, 200); });
+    
+    // Items cliquables
+    var items = document.querySelectorAll('.annonce-item');
+    items.forEach(function(item) {
+      item.addEventListener('click', function() {
+        var type = this.getAttribute('data-type');
+        var id = this.getAttribute('data-id');
+        closePublishModal();
+        focusOnMapItem(type, parseInt(id));
+      });
+      item.addEventListener('mouseover', function() {
+        this.style.borderColor = 'rgba(0,255,195,0.5)';
+        this.style.background = 'rgba(0,255,195,0.1)';
+      });
+      item.addEventListener('mouseout', function() {
+        this.style.borderColor = 'rgba(255,255,255,0.1)';
+        this.style.background = 'rgba(15,23,42,0.5)';
+      });
+    });
+  }, 50);
+}
+
+// Fonction pour centrer la map sur un item et ouvrir sa popup
+function focusOnMapItem(type, id) {
+  var data = type === 'event' ? eventsData : type === 'booking' ? bookingsData : servicesData;
+  var item = data.find(function(i) { return i.id === parseInt(id); });
+  
+  if (item && item.lat && item.lng) {
+    // Changer le mode si nécessaire
+    if (currentMode !== type) {
+      setMode(type);
+    }
+    
+    // Centrer la carte
+    if (map) {
+      map.setView([item.lat, item.lng], 16);
+    }
+    
+    // Ouvrir la popup de l'item après un court délai
+    setTimeout(function() {
+      if (typeof openEventCard === 'function') {
+        openEventCard(item);
+      }
+    }, 500);
+    
+    showNotification('📍 ' + (item.title || item.name), 'info');
+  } else {
+    showNotification('❌ Impossible de localiser cette annonce', 'error');
+  }
+}
+
+window.showMesAnnoncesModal = showMesAnnoncesModal;
+window.focusOnMapItem = focusOnMapItem;
+
+// ✅ MODAL AGENDA - Affiche les événements de l'agenda avec items cliquables
+function showAgendaModal() {
+  var modal = document.getElementById('publish-modal-inner');
+  var backdrop = document.getElementById('publish-modal-backdrop');
+  
+  if (!modal || !backdrop) {
+    console.error('[AGENDA] Modal non trouvé');
+    return;
+  }
+  
+  // Récupérer les items de l'agenda
+  var agendaKeys = currentUser && currentUser.agenda ? currentUser.agenda : [];
+  var agendaItems = [];
+  
+  agendaKeys.forEach(function(key) {
+    var parts = key.split(":");
+    var type = parts[0];
+    var id = parts[1];
+    var data = type === "event" ? eventsData : type === "booking" ? bookingsData : servicesData;
+    var item = data.find(function(i) { return i.id === parseInt(id); });
+    if (item) {
+      agendaItems.push({
+        id: item.id,
+        title: item.title,
+        name: item.name,
+        address: item.address,
+        location: item.location,
+        date: item.date,
+        lat: item.lat,
+        lng: item.lng,
+        type: type,
+        emoji: type === 'event' ? '🎉' : type === 'booking' ? '🎤' : '🔧'
+      });
+    }
+  });
+  
+  var html = '<div style="padding:24px;max-width:600px;margin:0 auto;position:relative;">' +
+    '<button id="agenda-back-btn" style="position:absolute;top:16px;left:16px;background:rgba(255,255,255,0.1);border:none;color:#fff;font-size:14px;cursor:pointer;padding:8px 16px;border-radius:8px;display:flex;align-items:center;gap:8px;">← Retour</button>' +
+    '<button id="agenda-close-btn" style="position:absolute;top:16px;right:16px;background:none;border:none;color:var(--ui-text-muted);font-size:24px;cursor:pointer;padding:8px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:50%;" title="Fermer">✕</button>' +
+    '<h2 style="text-align:center;margin:0 0 24px;font-size:24px;color:#fff;">📅 Mon Agenda</h2>';
+  
+  if (agendaItems.length === 0) {
+    html += '<div style="text-align:center;padding:40px;color:var(--ui-text-muted);">' +
+      '<div style="font-size:48px;margin-bottom:16px;">📭</div>' +
+      '<p>Votre agenda est vide</p>' +
+      '<p style="font-size:12px;margin-top:8px;">Ajoutez des événements à votre agenda en cliquant sur le bouton 📅 sur les fiches événements</p>' +
+    '</div>';
+  } else {
+    html += '<div id="agenda-list" style="display:flex;flex-direction:column;gap:12px;">';
+    agendaItems.forEach(function(item) {
+      var dateStr = '';
+      if (item.date) {
+        try {
+          dateStr = new Date(item.date).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
+        } catch(e) {}
+      }
+      html += '<div class="agenda-item" data-type="' + item.type + '" data-id="' + item.id + '" style="display:flex;align-items:center;gap:16px;padding:16px;border-radius:12px;background:rgba(15,23,42,0.5);border:1px solid rgba(255,255,255,0.1);cursor:pointer;transition:all 0.2s;">' +
+        '<div style="font-size:32px;">' + item.emoji + '</div>' +
+        '<div style="flex:1;">' +
+          '<div style="font-weight:600;font-size:14px;color:#fff;margin-bottom:4px;">' + escapeHtml(item.title || item.name || 'Sans titre') + '</div>' +
+          '<div style="font-size:12px;color:var(--ui-text-muted);">' + dateStr + ' ' + escapeHtml(item.address || item.location || '') + '</div>' +
+        '</div>' +
+        '<div style="color:#00ffc3;font-size:20px;">📍</div>' +
+      '</div>';
+    });
+    html += '</div>';
+  }
+  html += '</div>';
+  
+  modal.innerHTML = html;
+  modal.style.display = 'block';
+  modal.style.visibility = 'visible';
+  modal.style.opacity = '1';
+  backdrop.style.display = 'flex';
+  backdrop.style.visibility = 'visible';
+  backdrop.style.opacity = '1';
+  backdrop.style.zIndex = '9999';
+  
+  // Attacher les event listeners
+  setTimeout(function() {
+    var backBtn = document.getElementById('agenda-back-btn');
+    var closeBtn = document.getElementById('agenda-close-btn');
+    
+    if (backBtn) backBtn.addEventListener('click', function() { openAccountModal(); });
+    if (closeBtn) closeBtn.addEventListener('click', function() { closePublishModal(); });
+    
+    // Items cliquables
+    var items = document.querySelectorAll('.agenda-item');
+    items.forEach(function(item) {
+      item.addEventListener('click', function() {
+        var type = this.getAttribute('data-type');
+        var id = this.getAttribute('data-id');
+        closePublishModal();
+        focusOnMapItem(type, parseInt(id));
+      });
+      item.addEventListener('mouseover', function() {
+        this.style.borderColor = 'rgba(0,255,195,0.5)';
+        this.style.background = 'rgba(0,255,195,0.1)';
+      });
+      item.addEventListener('mouseout', function() {
+        this.style.borderColor = 'rgba(255,255,255,0.1)';
+        this.style.background = 'rgba(15,23,42,0.5)';
+      });
+    });
+  }, 50);
+}
+
+window.showAgendaModal = showAgendaModal;
 
 // Fonction pour demander "rester connecté" avant déconnexion
 function askRememberMeBeforeLogout() {
