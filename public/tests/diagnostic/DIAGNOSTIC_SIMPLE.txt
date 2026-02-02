@@ -1,0 +1,138 @@
+// ============================================
+// DIAGNOSTIC USERNAME - VERSION SIMPLE
+// ============================================
+// Copiez-collez TOUT ce code dans la console (F12)
+
+console.log('%c🔍 DIAGNOSTIC USERNAME', 'color: #00ffc3; font-size: 16px; font-weight: bold;');
+
+// localStorage
+const pendingLS = localStorage.getItem('pendingRegisterDataForGoogle');
+const currentUserLS = localStorage.getItem('currentUser');
+console.log('\n📦 LOCALSTORAGE:');
+if (pendingLS) {
+  const p = JSON.parse(pendingLS);
+  console.log('  pendingRegisterDataForGoogle.username:', p.username || '❌ MANQUANT');
+} else {
+  console.log('  pendingRegisterDataForGoogle: ❌ NON TROUVÉ');
+}
+if (currentUserLS) {
+  const c = JSON.parse(currentUserLS);
+  console.log('  currentUser.username:', c.username || '❌ MANQUANT');
+} else {
+  console.log('  currentUser: ❌ NON TROUVÉ');
+}
+
+// sessionStorage
+const pendingSS = sessionStorage.getItem('pendingRegisterDataForGoogle');
+const currentUserSS = sessionStorage.getItem('currentUser');
+console.log('\n📦 SESSIONSTORAGE:');
+if (pendingSS) {
+  const p = JSON.parse(pendingSS);
+  console.log('  pendingRegisterDataForGoogle.username:', p.username || '❌ MANQUANT');
+} else {
+  console.log('  pendingRegisterDataForGoogle: ❌ NON TROUVÉ');
+}
+if (currentUserSS) {
+  const c = JSON.parse(currentUserSS);
+  console.log('  currentUser.username:', c.username || '❌ MANQUANT');
+} else {
+  console.log('  currentUser: ❌ NON TROUVÉ');
+}
+
+// window.currentUser
+console.log('\n🌐 WINDOW.CURRENTUSER:');
+if (window.currentUser) {
+  console.log('  username:', window.currentUser.username || '❌ MANQUANT');
+  console.log('  email:', window.currentUser.email || '❌ MANQUANT');
+  const isValid = window.currentUser.username && 
+                  window.currentUser.username !== 'null' && 
+                  window.currentUser.username !== '' &&
+                  !window.currentUser.username.includes('@');
+  console.log('  isValid:', isValid ? '✅' : '❌');
+} else {
+  console.log('  ❌ N\'EXISTE PAS');
+}
+
+// window.pendingRegisterData
+console.log('\n🌐 WINDOW.PENDINGREGISTERDATA:');
+if (window.pendingRegisterData) {
+  console.log('  username:', window.pendingRegisterData.username || '❌ MANQUANT');
+} else {
+  console.log('  ❌ N\'EXISTE PAS');
+}
+
+// getUserDisplayName
+console.log('\n👤 GETUSERDISPLAYNAME:');
+if (typeof getUserDisplayName === 'function' && window.currentUser) {
+  const displayName = getUserDisplayName(window.currentUser);
+  console.log('  Résultat:', displayName);
+} else {
+  console.log('  ❌ FONCTION NON DISPONIBLE');
+}
+
+// Bloc compte
+console.log('\n📱 BLOC COMPTE:');
+const accountName = document.getElementById('account-name');
+if (accountName) {
+  console.log('  Texte affiché:', accountName.textContent);
+} else {
+  console.log('  ❌ ÉLÉMENT NON TROUVÉ');
+}
+
+// Résumé
+console.log('\n📊 RÉSUMÉ:');
+let found = false;
+let source = '';
+let value = '';
+
+if (pendingLS) {
+  const p = JSON.parse(pendingLS);
+  if (p.username && p.username !== 'null' && p.username !== '' && !p.username.includes('@')) {
+    found = true;
+    source = 'localStorage';
+    value = p.username;
+  }
+}
+
+if (!found && pendingSS) {
+  const p = JSON.parse(pendingSS);
+  if (p.username && p.username !== 'null' && p.username !== '' && !p.username.includes('@')) {
+    found = true;
+    source = 'sessionStorage';
+    value = p.username;
+  }
+}
+
+if (!found && window.pendingRegisterData) {
+  if (window.pendingRegisterData.username && 
+      window.pendingRegisterData.username !== 'null' && 
+      window.pendingRegisterData.username !== '' &&
+      !window.pendingRegisterData.username.includes('@')) {
+    found = true;
+    source = 'window.pendingRegisterData';
+    value = window.pendingRegisterData.username;
+  }
+}
+
+if (!found && window.currentUser) {
+  if (window.currentUser.username && 
+      window.currentUser.username !== 'null' && 
+      window.currentUser.username !== '' &&
+      !window.currentUser.username.includes('@')) {
+    found = true;
+    source = 'window.currentUser';
+    value = window.currentUser.username;
+  }
+}
+
+if (found) {
+  console.log('  ✅ Username trouvé:', value, 'dans', source);
+} else {
+  console.log('  ❌ Aucun username valide trouvé');
+}
+
+if (accountName) {
+  console.log('  📱 Affiché:', accountName.textContent);
+}
+
+console.log('\n✅ Diagnostic terminé');

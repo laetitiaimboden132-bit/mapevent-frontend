@@ -1,0 +1,126 @@
+// ============================================
+// DIAGNOSTIC USERNAME - RETOURNE UN OBJET
+// ============================================
+// Copiez-collez ce code dans la console
+// Le résultat sera dans la variable "diagnostic"
+
+var diagnostic = (function() {
+  const pendingLS = localStorage.getItem('pendingRegisterDataForGoogle');
+  const currentUserLS = localStorage.getItem('currentUser');
+  const pendingSS = sessionStorage.getItem('pendingRegisterDataForGoogle');
+  const currentUserSS = sessionStorage.getItem('currentUser');
+  const accountName = document.getElementById('account-name');
+  
+  let pendingLS_parsed = null;
+  let currentUserLS_parsed = null;
+  let pendingSS_parsed = null;
+  let currentUserSS_parsed = null;
+  
+  try { if (pendingLS) pendingLS_parsed = JSON.parse(pendingLS); } catch(e) {}
+  try { if (currentUserLS) currentUserLS_parsed = JSON.parse(currentUserLS); } catch(e) {}
+  try { if (pendingSS) pendingSS_parsed = JSON.parse(pendingSS); } catch(e) {}
+  try { if (currentUserSS) currentUserSS_parsed = JSON.parse(currentUserSS); } catch(e) {}
+  
+  let found = false;
+  let source = '';
+  let value = '';
+  
+  if (pendingLS_parsed?.username && pendingLS_parsed.username !== 'null' && !pendingLS_parsed.username.includes('@')) {
+    found = true;
+    source = 'localStorage';
+    value = pendingLS_parsed.username;
+  } else if (pendingSS_parsed?.username && pendingSS_parsed.username !== 'null' && !pendingSS_parsed.username.includes('@')) {
+    found = true;
+    source = 'sessionStorage';
+    value = pendingSS_parsed.username;
+  } else if (window.pendingRegisterData?.username && window.pendingRegisterData.username !== 'null' && !window.pendingRegisterData.username.includes('@')) {
+    found = true;
+    source = 'window.pendingRegisterData';
+    value = window.pendingRegisterData.username;
+  } else if (window.currentUser?.username && window.currentUser.username !== 'null' && !window.currentUser.username.includes('@')) {
+    found = true;
+    source = 'window.currentUser';
+    value = window.currentUser.username;
+  }
+  
+  const result = {
+    localStorage: {
+      pendingRegisterDataForGoogle: {
+        exists: !!pendingLS,
+        username: pendingLS_parsed?.username || null,
+        full: pendingLS_parsed
+      },
+      currentUser: {
+        exists: !!currentUserLS,
+        username: currentUserLS_parsed?.username || null,
+        email: currentUserLS_parsed?.email || null,
+        full: currentUserLS_parsed
+      }
+    },
+    sessionStorage: {
+      pendingRegisterDataForGoogle: {
+        exists: !!pendingSS,
+        username: pendingSS_parsed?.username || null,
+        full: pendingSS_parsed
+      },
+      currentUser: {
+        exists: !!currentUserSS,
+        username: currentUserSS_parsed?.username || null,
+        email: currentUserSS_parsed?.email || null,
+        full: currentUserSS_parsed
+      }
+    },
+    window: {
+      currentUser: window.currentUser || null,
+      pendingRegisterData: window.pendingRegisterData || null
+    },
+    dom: {
+      accountName: accountName ? accountName.textContent : null,
+      accountBtn: document.getElementById('account-topbar-btn') ? document.getElementById('account-topbar-btn').textContent : null
+    },
+    functions: {
+      getUserDisplayName: typeof getUserDisplayName === 'function' && window.currentUser ? getUserDisplayName(window.currentUser) : null,
+      updateAccountBlockLegitimately: typeof window.updateAccountBlockLegitimately === 'function'
+    },
+    summary: {
+      found: found,
+      source: source,
+      value: value,
+      displayed: accountName ? accountName.textContent : null,
+      match: found && accountName ? (accountName.textContent === value) : false
+    }
+  };
+  
+  console.log('%c🔍 DIAGNOSTIC USERNAME - RÉSULTATS', 'color: #00ffc3; font-size: 16px; font-weight: bold;');
+  console.log('='.repeat(80));
+  console.log('📦 localStorage.pendingRegisterDataForGoogle.username:', result.localStorage.pendingRegisterDataForGoogle.username || '❌ MANQUANT');
+  console.log('📦 localStorage.currentUser.username:', result.localStorage.currentUser.username || '❌ MANQUANT');
+  console.log('📦 sessionStorage.pendingRegisterDataForGoogle.username:', result.sessionStorage.pendingRegisterDataForGoogle.username || '❌ MANQUANT');
+  console.log('📦 sessionStorage.currentUser.username:', result.sessionStorage.currentUser.username || '❌ MANQUANT');
+  console.log('🌐 window.currentUser.username:', result.window.currentUser?.username || '❌ MANQUANT');
+  console.log('🌐 window.pendingRegisterData.username:', result.window.pendingRegisterData?.username || '❌ MANQUANT');
+  console.log('👤 getUserDisplayName():', result.functions.getUserDisplayName || '❌ NON DISPONIBLE');
+  console.log('📱 Bloc compte (affiché):', result.dom.accountName || '❌ NON TROUVÉ');
+  console.log('='.repeat(80));
+  console.log('📊 RÉSUMÉ:');
+  if (result.summary.found) {
+    console.log('  ✅ Username trouvé:', result.summary.value, 'dans', result.summary.source);
+  } else {
+    console.log('  ❌ Aucun username valide trouvé');
+  }
+  console.log('  📱 Affiché:', result.summary.displayed);
+  if (result.summary.found && result.summary.displayed) {
+    if (result.summary.match) {
+      console.log('  ✅ Le username affiché correspond à celui trouvé');
+    } else {
+      console.log('  ⚠️ PROBLÈME: Le username trouvé ne correspond pas à celui affiché !');
+      console.log('     Trouvé:', result.summary.value);
+      console.log('     Affiché:', result.summary.displayed);
+    }
+  }
+  console.log('='.repeat(80));
+  console.log('%c💡 Tapez "diagnostic" pour voir l\'objet complet', 'color: #8b5cf6; font-weight: bold;');
+  console.log('%c✅ Diagnostic terminé', 'color: #22c55e; font-weight: bold;');
+  
+  return result;
+})();

@@ -1,0 +1,108 @@
+// ============================================
+// DIAGNOSTIC USERNAME - RÉSUMÉ VISIBLE
+// ============================================
+// Copiez-collez ce code dans la console
+
+(function() {
+  const pendingLS = localStorage.getItem('pendingRegisterDataForGoogle');
+  const currentUserLS = localStorage.getItem('currentUser');
+  const pendingSS = sessionStorage.getItem('pendingRegisterDataForGoogle');
+  const currentUserSS = sessionStorage.getItem('currentUser');
+  const accountName = document.getElementById('account-name');
+  
+  let pendingLS_parsed = null;
+  let currentUserLS_parsed = null;
+  let pendingSS_parsed = null;
+  let currentUserSS_parsed = null;
+  
+  try { if (pendingLS) pendingLS_parsed = JSON.parse(pendingLS); } catch(e) {}
+  try { if (currentUserLS) currentUserLS_parsed = JSON.parse(currentUserLS); } catch(e) {}
+  try { if (pendingSS) pendingSS_parsed = JSON.parse(pendingSS); } catch(e) {}
+  try { if (currentUserSS) currentUserSS_parsed = JSON.parse(currentUserSS); } catch(e) {}
+  
+  // Trouver le username
+  let found = false;
+  let source = '';
+  let value = '';
+  
+  if (pendingLS_parsed?.username && pendingLS_parsed.username !== 'null' && !pendingLS_parsed.username.includes('@')) {
+    found = true;
+    source = 'localStorage';
+    value = pendingLS_parsed.username;
+  } else if (pendingSS_parsed?.username && pendingSS_parsed.username !== 'null' && !pendingSS_parsed.username.includes('@')) {
+    found = true;
+    source = 'sessionStorage';
+    value = pendingSS_parsed.username;
+  } else if (window.pendingRegisterData?.username && window.pendingRegisterData.username !== 'null' && !window.pendingRegisterData.username.includes('@')) {
+    found = true;
+    source = 'window.pendingRegisterData';
+    value = window.pendingRegisterData.username;
+  } else if (window.currentUser?.username && window.currentUser.username !== 'null' && !window.currentUser.username.includes('@')) {
+    found = true;
+    source = 'window.currentUser';
+    value = window.currentUser.username;
+  }
+  
+  const displayed = accountName ? accountName.textContent : null;
+  const displayName = typeof getUserDisplayName === 'function' && window.currentUser ? getUserDisplayName(window.currentUser) : null;
+  
+  // Afficher un résumé très visible
+  console.log('\n\n');
+  console.log('%c' + '═'.repeat(80), 'color: #00ffc3;');
+  console.log('%c🔍 DIAGNOSTIC USERNAME - RÉSUMÉ', 'color: #00ffc3; font-size: 18px; font-weight: bold;');
+  console.log('%c' + '═'.repeat(80), 'color: #00ffc3;');
+  console.log('');
+  
+  console.log('%c1. USERNAME TROUVÉ:', 'color: #3b82f6; font-weight: bold;');
+  if (found) {
+    console.log('   ✅ OUI:', value);
+    console.log('   📍 Source:', source);
+  } else {
+    console.log('   ❌ NON - Aucun username valide trouvé');
+  }
+  
+  console.log('');
+  console.log('%c2. USERNAME AFFICHÉ:', 'color: #3b82f6; font-weight: bold;');
+  console.log('   📱 Dans le bloc compte:', displayed || '❌ NON TROUVÉ');
+  console.log('   👤 getUserDisplayName():', displayName || '❌ NON DISPONIBLE');
+  
+  console.log('');
+  console.log('%c3. DÉTAILS:', 'color: #3b82f6; font-weight: bold;');
+  console.log('   localStorage.pendingRegisterDataForGoogle.username:', pendingLS_parsed?.username || '❌ MANQUANT');
+  console.log('   localStorage.currentUser.username:', currentUserLS_parsed?.username || '❌ MANQUANT');
+  console.log('   sessionStorage.pendingRegisterDataForGoogle.username:', pendingSS_parsed?.username || '❌ MANQUANT');
+  console.log('   window.currentUser.username:', window.currentUser?.username || '❌ MANQUANT');
+  console.log('   window.pendingRegisterData.username:', window.pendingRegisterData?.username || '❌ MANQUANT');
+  
+  console.log('');
+  console.log('%c4. PROBLÈME DÉTECTÉ:', 'color: #3b82f6; font-weight: bold;');
+  if (found && displayed && displayed !== value) {
+    console.log('   ⚠️ OUI - Le username trouvé ne correspond pas à celui affiché !');
+    console.log('      Trouvé:', value);
+    console.log('      Affiché:', displayed);
+    console.log('      getUserDisplayName():', displayName);
+  } else if (found && displayed && displayed === value) {
+    console.log('   ✅ NON - Tout est correct');
+  } else if (!found) {
+    console.log('   ⚠️ OUI - Aucun username valide trouvé, le système utilise probablement l\'email');
+  } else {
+    console.log('   ❓ Impossible de déterminer');
+  }
+  
+  console.log('');
+  console.log('%c' + '═'.repeat(80), 'color: #00ffc3;');
+  console.log('%c✅ Diagnostic terminé', 'color: #22c55e; font-weight: bold;');
+  console.log('%c' + '═'.repeat(80), 'color: #00ffc3;');
+  console.log('\n\n');
+  
+  // Retourner un objet pour inspection
+  return {
+    found: found,
+    source: source,
+    value: value,
+    displayed: displayed,
+    displayName: displayName,
+    match: found && displayed ? (displayed === value) : false,
+    problem: found && displayed && displayed !== value
+  };
+})();

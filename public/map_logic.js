@@ -563,6 +563,8 @@ async function startGoogleLogin() {
     authSave("pkce_verifier", verifier);
     authSave("oauth_state", state);
 
+    // ⚠️ COMPORTEMENT PRO : prompt=select_account pour TOUJOURS afficher le choix du compte Google
+    // Cela permet à l'utilisateur de choisir quel compte utiliser à chaque connexion
     const authorizeUrl =
       `${window.COGNITO.domain}/oauth2/authorize` +
       `?client_id=${encodeURIComponent(window.COGNITO.clientId)}` +
@@ -572,8 +574,10 @@ async function startGoogleLogin() {
       `&state=${encodeURIComponent(state)}` +
       `&code_challenge=${encodeURIComponent(challenge)}` +
       `&code_challenge_method=S256` +
-      `&identity_provider=Google`;
+      `&identity_provider=Google` +
+      `&prompt=select_account`;
 
+    console.log('[GOOGLE LOGIN] URL avec sélection de compte forcée');
     window.location.assign(authorizeUrl);
     // Note: isGoogleLoginInProgress sera réinitialisé au retour du callback
   } catch (error) {
@@ -2229,6 +2233,25 @@ function isLoggedIn() {
 // Initialiser currentUser avec getDefaultUser() (jamais null)
 let currentUser = getDefaultUser();
 
+// ⚠️⚠️⚠️ SYNCHRONISATION CRITIQUE : Fonction pour synchroniser currentUser depuis auth.js
+// auth.js met à jour window.currentUser, cette fonction synchronise la variable locale
+function syncCurrentUser(newUser) {
+  if (newUser && typeof newUser === 'object') {
+    currentUser = { ...currentUser, ...newUser };
+    console.log('[SYNC] currentUser synchronisé depuis auth.js:', { 
+      isLoggedIn: currentUser.isLoggedIn, 
+      username: currentUser.username 
+    });
+  }
+}
+window.syncCurrentUser = syncCurrentUser;
+
+// Synchroniser automatiquement si window.currentUser existe déjà (rechargement page)
+if (window.currentUser && window.currentUser.isLoggedIn) {
+  currentUser = { ...currentUser, ...window.currentUser };
+  console.log('[SYNC] currentUser synchronisé depuis window au chargement');
+}
+
 // Contacts payés (permanent, ne disparaît jamais)
 let paidContacts = [];
 
@@ -3156,10 +3179,9 @@ document.addEventListener("DOMContentLoaded", () => {
   // Démarrer l'initialisation avec plusieurs tentatives
   setTimeout(() => initLoginButtonOnLoad(1), 200);
 
-  // Afficher le message de test du site
-  setTimeout(() => {
-    alert('⚠️ Attention : site encore en test mais vous pouvez voir les avancées just for fun :) popopopopo');
-  }, 1000);
+  // Popup d'accueil gérée par le script PWA dans mapevent.html
+  // (message: "Site actif sauf abos et social à venir" + bouton installation mobile)
+  
   // FORCER "ABOS" IMMÉDIATEMENT au chargement (avant tout autre code)
   const forceABOS = () => {
     const label = document.getElementById("subscription-label");
@@ -3507,20 +3529,27 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     
     // ⚠️⚠️⚠️ CRITIQUE : Vérifier aussi dans localStorage (pendingRegisterDataForGoogle) - pour Google OAuth
+    // MAIS SEULEMENT si les données correspondent à l'utilisateur connecté (même email)
     if (!photoData) {
       try {
         const savedPendingData = localStorage.getItem('pendingRegisterDataForGoogle');
         if (savedPendingData) {
           const parsedPendingData = JSON.parse(savedPendingData);
-          if (parsedPendingData.photoData && parsedPendingData.photoData !== 'null' && parsedPendingData.photoData !== 'undefined' && parsedPendingData.photoData.length > 100) {
+          // ⚠️⚠️⚠️ FIX BUG : Vérifier que les données appartiennent à l'utilisateur connecté
+          const pendingEmail = parsedPendingData.email?.toLowerCase?.() || '';
+          const currentEmail = currentUser.email?.toLowerCase?.() || '';
+          const emailMatches = pendingEmail && currentEmail && pendingEmail === currentEmail;
+          
+          if (emailMatches && parsedPendingData.photoData && parsedPendingData.photoData !== 'null' && parsedPendingData.photoData !== 'undefined' && parsedPendingData.photoData.length > 100) {
             photoData = parsedPendingData.photoData;
-            console.log('[AVATAR UI] ✅✅✅ photoData récupéré depuis localStorage (pendingRegisterDataForGoogle) - longueur:', photoData.length);
-            // Mettre à jour currentUser immédiatement
+            console.log('[AVATAR UI] ✅ photoData récupéré depuis pendingRegisterDataForGoogle (même email)');
             currentUser.photoData = photoData;
-            // Restaurer aussi dans window.pendingRegisterData pour utilisation ultérieure
             if (!window.pendingRegisterData) {
               window.pendingRegisterData = parsedPendingData;
             }
+          } else if (parsedPendingData.photoData && !emailMatches) {
+            console.log('[AVATAR UI] ⚠️ pendingRegisterDataForGoogle ignoré (email différent)');
+            localStorage.removeItem('pendingRegisterDataForGoogle');
           }
         }
       } catch (e) {
@@ -3529,15 +3558,26 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     
     // ⚠️⚠️⚠️ CRITIQUE : Vérifier aussi dans localStorage (registerFormDraft)
+    // MAIS SEULEMENT si le draft correspond à l'utilisateur connecté (même email)
     if (!photoData) {
       try {
         const draft = localStorage.getItem('registerFormDraft');
         if (draft) {
           const parsedDraft = JSON.parse(draft);
-          if (parsedDraft.photoData && parsedDraft.photoData !== 'null' && parsedDraft.photoData !== 'undefined' && parsedDraft.photoData.length > 100) {
+          // ⚠️⚠️⚠️ FIX BUG : Vérifier que le draft appartient à l'utilisateur connecté
+          const draftEmail = parsedDraft.email?.toLowerCase?.() || '';
+          const currentEmail = currentUser.email?.toLowerCase?.() || '';
+          const emailMatches = draftEmail && currentEmail && draftEmail === currentEmail;
+          
+          if (emailMatches && parsedDraft.photoData && parsedDraft.photoData !== 'null' && parsedDraft.photoData !== 'undefined' && parsedDraft.photoData.length > 100) {
             photoData = parsedDraft.photoData;
-            console.log('[AVATAR UI] ⚠️⚠️⚠️ photoData récupéré depuis registerFormDraft (longueur:', photoData.length, ')');
+            console.log('[AVATAR UI] ✅ photoData récupéré depuis registerFormDraft (même email:', currentEmail, ')');
             currentUser.photoData = photoData;
+          } else if (parsedDraft.photoData && !emailMatches) {
+            // Draft d'un autre compte - le supprimer pour éviter les confusions
+            console.log('[AVATAR UI] ⚠️ registerFormDraft ignoré (email différent: draft=', draftEmail, 'current=', currentEmail, ')');
+            // Nettoyer le draft obsolète
+            localStorage.removeItem('registerFormDraft');
           }
         }
       } catch (e) {
@@ -3546,12 +3586,21 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     
     // ⚠️⚠️⚠️ CRITIQUE : Vérifier aussi dans window.registerData
+    // MAIS SEULEMENT si les données correspondent à l'utilisateur connecté (même email)
     if (!photoData && window.registerData?.photoData) {
       const registerPhoto = window.registerData.photoData;
-      if (registerPhoto !== 'null' && registerPhoto !== 'undefined' && registerPhoto !== '' && registerPhoto.length > 100) {
+      const registerEmail = window.registerData.email?.toLowerCase?.() || '';
+      const currentEmail = currentUser.email?.toLowerCase?.() || '';
+      const emailMatches = registerEmail && currentEmail && registerEmail === currentEmail;
+      
+      if (emailMatches && registerPhoto !== 'null' && registerPhoto !== 'undefined' && registerPhoto !== '' && registerPhoto.length > 100) {
         photoData = registerPhoto;
-        console.log('[AVATAR UI] ⚠️⚠️⚠️ photoData récupéré depuis window.registerData (longueur:', photoData.length, ')');
+        console.log('[AVATAR UI] ✅ photoData récupéré depuis window.registerData (même email)');
         currentUser.photoData = photoData;
+      } else if (registerPhoto && !emailMatches) {
+        console.log('[AVATAR UI] ⚠️ window.registerData ignoré (email différent)');
+        // Nettoyer les données obsolètes
+        delete window.registerData;
       }
     }
     
@@ -3828,6 +3877,9 @@ document.addEventListener("DOMContentLoaded", () => {
     name: null
   };
   
+  // ⚠️ Cache des URLs d'avatar qui ont échoué (éviter les retries infinis - NS_BINDING_ABORTED)
+  const failedAvatarUrls = new Set();
+  
   const updateAccountBlockLegitimately = (retryCount = 0) => {
     const accountAvatar = document.getElementById("account-avatar");
     const accountName = document.getElementById("account-name");
@@ -3866,6 +3918,18 @@ document.addEventListener("DOMContentLoaded", () => {
     
     // Mettre à jour l'avatar
     if (validAvatar.startsWith('http') || validAvatar.startsWith('data:image')) {
+      // ⚠️ Vérifier si cette URL a déjà échoué (éviter retries infinis)
+      // Extraire la base de l'URL (sans les paramètres d'auth qui changent)
+      const avatarBaseUrl = validAvatar.split('?')[0];
+      if (failedAvatarUrls.has(avatarBaseUrl)) {
+        console.log('[AVATAR UI] ⏭️ URL déjà échouée, utilisation fallback:', avatarBaseUrl.substring(0, 50));
+        accountAvatar.innerHTML = '';
+        accountAvatar.textContent = "👤";
+        accountAvatar.style.background = 'rgba(0, 255, 195, 0.1)';
+        accountAvatar.style.border = '1px solid rgba(0, 255, 195, 0.2)';
+        return; // Sortir - ne pas réessayer
+      }
+      
       // C'est une URL d'image - FORCER l'affichage avec <img>
       // IMPORTANT: Log non ambigu AVANT d'assigner img.src pour vérifier l'URL complète
       console.log('[AVATAR] using src length=', validAvatar.length, 'src=', validAvatar);
@@ -3888,6 +3952,9 @@ document.addEventListener("DOMContentLoaded", () => {
         img.onerror = function() {
           console.error('[AVATAR UI] ❌ Erreur chargement image (URL complète):', validAvatar);
           console.error('[AVATAR UI] Network error - vérifier CORS/CSP/403 dans DevTools > Network');
+          // ⚠️ Marquer cette URL comme échouée pour éviter les retries infinis
+          failedAvatarUrls.add(avatarBaseUrl);
+          console.log('[AVATAR UI] URL ajoutée au cache des échecs (plus de retry)');
           accountAvatar.innerHTML = '';
           accountAvatar.textContent = "👤";
           accountAvatar.style.background = 'rgba(0, 255, 195, 0.1)';
@@ -3895,6 +3962,8 @@ document.addEventListener("DOMContentLoaded", () => {
         };
         img.onload = function() {
           console.log('[AVATAR UI] ✅ Image chargée avec succès (URL complète):', validAvatar);
+          // ⚠️ Si l'image réussit, la retirer du cache des échecs (au cas où)
+          failedAvatarUrls.delete(avatarBaseUrl);
         };
         accountAvatar.appendChild(img);
         console.log('[AVATAR UI] appliedToElement:', accountAvatar);
@@ -3906,6 +3975,9 @@ document.addEventListener("DOMContentLoaded", () => {
         accountAvatar.style.border = 'none';
         existingImg.onerror = function() {
           console.error('[AVATAR UI] ❌ Erreur chargement image mise à jour (URL complète):', validAvatar);
+          // ⚠️ Marquer cette URL comme échouée pour éviter les retries infinis
+          failedAvatarUrls.add(avatarBaseUrl);
+          console.log('[AVATAR UI] URL ajoutée au cache des échecs (plus de retry)');
           accountAvatar.innerHTML = '';
           accountAvatar.textContent = "👤";
           accountAvatar.style.background = 'rgba(0, 255, 195, 0.1)';
@@ -3913,6 +3985,8 @@ document.addEventListener("DOMContentLoaded", () => {
         };
         existingImg.onload = function() {
           console.log('[AVATAR UI] ✅ Image mise à jour chargée avec succès (URL complète):', validAvatar);
+          // ⚠️ Si l'image réussit, la retirer du cache des échecs
+          failedAvatarUrls.delete(avatarBaseUrl);
         };
       } else {
         // Image déjà présente et correcte, s'assurer que les styles sont bons
@@ -22284,9 +22358,14 @@ function openAccountModal() {
           <div style="font-weight:600;font-size:14px;color:#fff;">Profil</div>
         </div>
         
-        <div onclick="openAccountWindow('modifier-profil')" style="padding:24px;border-radius:16px;background:rgba(15,23,42,0.5);border:2px solid rgba(255,255,255,0.1);cursor:pointer;transition:all 0.3s;" onmouseover="this.style.borderColor='rgba(0,255,195,0.5)';this.style.background='rgba(0,255,195,0.1)';this.style.transform='translateY(-2px)';" onmouseout="this.style.borderColor='rgba(255,255,255,0.1)';this.style.background='rgba(15,23,42,0.5)';this.style.transform='translateY(0)';">
+        <div onclick="event.stopPropagation(); openAccountWindow('modifier-profil')" style="padding:24px;border-radius:16px;background:rgba(15,23,42,0.5);border:2px solid rgba(255,255,255,0.1);cursor:pointer;transition:all 0.3s;" onmouseover="this.style.borderColor='rgba(0,255,195,0.5)';this.style.background='rgba(0,255,195,0.1)';this.style.transform='translateY(-2px)';" onmouseout="this.style.borderColor='rgba(255,255,255,0.1)';this.style.background='rgba(15,23,42,0.5)';this.style.transform='translateY(0)';">
           <div style="font-size:32px;margin-bottom:8px;">✏️</div>
           <div style="font-weight:600;font-size:14px;color:#fff;">Modifier mon profil</div>
+        </div>
+        
+        <div onclick="event.stopPropagation(); openAccountWindow('mes-annonces')" style="padding:24px;border-radius:16px;background:rgba(15,23,42,0.5);border:2px solid rgba(139,92,246,0.3);cursor:pointer;transition:all 0.3s;" onmouseover="this.style.borderColor='rgba(139,92,246,0.6)';this.style.background='rgba(139,92,246,0.15)';this.style.transform='translateY(-2px)';" onmouseout="this.style.borderColor='rgba(139,92,246,0.3)';this.style.background='rgba(15,23,42,0.5)';this.style.transform='translateY(0)';">
+          <div style="font-size:32px;margin-bottom:8px;">📢</div>
+          <div style="font-weight:600;font-size:14px;color:#fff;">Mes annonces</div>
         </div>
       </div>
       
@@ -22305,6 +22384,34 @@ function openAccountModal() {
             <span id="account-remember-me-slider" style="position:absolute;top:0;left:0;right:0;bottom:0;background-color:rgba(255,255,255,0.2);border-radius:24px;transition:all 0.3s;"></span>
             <span id="account-remember-me-knob" style="position:absolute;top:2px;left:2px;width:20px;height:20px;background-color:#fff;border-radius:50%;transition:all 0.3s;box-shadow:0 2px 4px rgba(0,0,0,0.2);"></span>
           </label>
+        </div>
+      </div>
+      
+      <!-- Bouton Installation PWA (visible uniquement sur mobile) -->
+      <button id="account-pwa-install-btn" style="display:none;width:100%;margin-top:24px;padding:14px;border-radius:12px;border:none;background:linear-gradient(135deg,#667eea,#764ba2);color:white;font-weight:600;font-size:14px;cursor:pointer;transition:all 0.3s;" onmouseover="this.style.opacity='0.9';" onmouseout="this.style.opacity='1';">
+        📱 Installer l'app mobile
+      </button>
+      
+      <!-- Blocs supplémentaires pour mobile (cachés sur desktop) -->
+      <div id="account-mobile-extras" style="display:none;margin-top:16px;padding-top:16px;border-top:1px solid rgba(148,163,184,0.2);">
+        <div style="font-size:12px;color:var(--ui-text-muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:1px;">Plus d'options</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <button onclick="openSubscriptionView()" style="padding:12px;border-radius:10px;border:1px solid rgba(148,163,184,0.3);background:rgba(255,255,255,0.05);color:var(--ui-text-main);cursor:pointer;font-size:12px;display:flex;flex-direction:column;align-items:center;gap:4px;">
+            <span style="font-size:18px;">💎</span>
+            <span>Abos</span>
+          </button>
+          <button onclick="openProximityAlertsView()" style="padding:12px;border-radius:10px;border:1px solid rgba(148,163,184,0.3);background:rgba(255,255,255,0.05);color:var(--ui-text-main);cursor:pointer;font-size:12px;display:flex;flex-direction:column;align-items:center;gap:4px;">
+            <span style="font-size:18px;">🔔</span>
+            <span>Alertes</span>
+          </button>
+          <button onclick="openCartModal()" style="padding:12px;border-radius:10px;border:1px solid rgba(148,163,184,0.3);background:rgba(255,255,255,0.05);color:var(--ui-text-main);cursor:pointer;font-size:12px;display:flex;flex-direction:column;align-items:center;gap:4px;">
+            <span style="font-size:18px;">🛒</span>
+            <span>Panier</span>
+          </button>
+          <button onclick="openEcoMissionModal()" style="padding:12px;border-radius:10px;border:1px solid rgba(148,163,184,0.3);background:rgba(255,255,255,0.05);color:var(--ui-text-main);cursor:pointer;font-size:12px;display:flex;flex-direction:column;align-items:center;gap:4px;">
+            <span style="font-size:18px;">🌍</span>
+            <span>Sauver la Terre</span>
+          </button>
         </div>
       </div>
       
@@ -22334,6 +22441,27 @@ function openAccountModal() {
     const rememberMeToggle = document.getElementById('account-remember-me-toggle');
     const rememberMeSlider = document.getElementById('account-remember-me-slider');
     const rememberMeKnob = document.getElementById('account-remember-me-knob');
+    const pwaInstallBtn = document.getElementById('account-pwa-install-btn');
+    const mobileExtras = document.getElementById('account-mobile-extras');
+    
+    // Afficher les éléments mobile si on est sur mobile
+    const isMobile = window.innerWidth <= 768;
+    if (isMobile) {
+      // Afficher les extras mobile (abos, alertes, panier, etc.)
+      if (mobileExtras) {
+        mobileExtras.style.display = 'block';
+      }
+      
+      // Afficher le bouton d'installation PWA si disponible
+      if (pwaInstallBtn && (window.pwaInstallPrompt || !window.isPWAInstalled)) {
+        pwaInstallBtn.style.display = 'block';
+        pwaInstallBtn.addEventListener('click', () => {
+          if (typeof window.installPWA === 'function') {
+            window.installPWA();
+          }
+        });
+      }
+    }
     
     // Initialiser le toggle "Rester connecté" avec la valeur actuelle
     const currentRememberMe = localStorage.getItem('rememberMe') === 'true';
@@ -22621,6 +22749,11 @@ function openAccountWindow(blockType) {
       showNotification('⚠️ Fonctionnalité en cours de développement', 'info');
       return;
     }
+  } else if (blockType === 'mes-annonces') {
+    // ✅ MES ANNONCES - Afficher dans un modal
+    console.log('[ACCOUNT WINDOW] mes-annonces détecté - Ouverture du modal Mes annonces');
+    showMesAnnoncesModal();
+    return;
   } else {
     // Pour les autres blocs, utiliser showAccountBlockContent dans une nouvelle fenêtre
     windowContent = `
@@ -22840,6 +22973,131 @@ function confirmLogoutWithRememberMe(rememberMe) {
 window.openAccountWindow = openAccountWindow;
 window.askRememberMeBeforeLogout = askRememberMeBeforeLogout;
 window.confirmLogoutWithRememberMe = confirmLogoutWithRememberMe;
+
+// ✅ MODAL "MES ANNONCES" - Affiche les annonces de l'utilisateur
+function showMesAnnoncesModal() {
+  const modal = document.getElementById('publish-modal-inner');
+  const backdrop = document.getElementById('publish-modal-backdrop');
+  
+  if (!modal || !backdrop) {
+    console.error('[MES ANNONCES] Modal non trouvé');
+    return;
+  }
+  
+  // Récupérer les annonces de l'utilisateur (depuis eventsData, bookingsData, servicesData)
+  const userId = currentUser ? (currentUser.id || currentUser.cognitoSub) : null;
+  const userAnnonces = [];
+  
+  // Chercher dans eventsData
+  eventsData.filter(function(e) { return e.userId === userId || e.createdBy === userId; }).forEach(function(e) {
+    userAnnonces.push({ id: e.id, title: e.title, name: e.name, address: e.address, location: e.location, lat: e.lat, lng: e.lng, type: 'event', emoji: '📅' });
+  });
+  
+  // Chercher dans bookingsData
+  bookingsData.filter(function(b) { return b.userId === userId || b.createdBy === userId; }).forEach(function(b) {
+    userAnnonces.push({ id: b.id, title: b.title, name: b.name, address: b.address, location: b.location, lat: b.lat, lng: b.lng, type: 'booking', emoji: '🏨' });
+  });
+  
+  // Chercher dans servicesData
+  servicesData.filter(function(s) { return s.userId === userId || s.createdBy === userId; }).forEach(function(s) {
+    userAnnonces.push({ id: s.id, title: s.title, name: s.name, address: s.address, location: s.location, lat: s.lat, lng: s.lng, type: 'service', emoji: '🔧' });
+  });
+  
+  var html = '<div style="padding:24px;max-width:600px;margin:0 auto;position:relative;">' +
+    '<button id="mes-annonces-back-btn" style="position:absolute;top:16px;left:16px;background:rgba(255,255,255,0.1);border:none;color:#fff;font-size:14px;cursor:pointer;padding:8px 16px;border-radius:8px;display:flex;align-items:center;gap:8px;">← Retour</button>' +
+    '<button id="mes-annonces-close-btn" style="position:absolute;top:16px;right:16px;background:none;border:none;color:var(--ui-text-muted);font-size:24px;cursor:pointer;padding:8px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:50%;" title="Fermer">✕</button>' +
+    '<h2 style="text-align:center;margin:0 0 24px;font-size:24px;color:#fff;">📢 Mes annonces</h2>';
+  
+  if (userAnnonces.length === 0) {
+    html += '<div style="text-align:center;padding:40px;color:var(--ui-text-muted);">' +
+      '<div style="font-size:48px;margin-bottom:16px;">📭</div>' +
+      '<p>Vous n\'avez pas encore d\'annonces</p>' +
+      '<button id="mes-annonces-publish-btn" style="margin-top:16px;padding:12px 24px;border-radius:12px;border:none;background:#00ffc3;color:#000;font-weight:600;cursor:pointer;">+ Publier une annonce</button>' +
+    '</div>';
+  } else {
+    html += '<div id="mes-annonces-list" style="display:flex;flex-direction:column;gap:12px;">';
+    userAnnonces.forEach(function(item, idx) {
+      html += '<div class="annonce-item" data-type="' + item.type + '" data-id="' + item.id + '" style="display:flex;align-items:center;gap:16px;padding:16px;border-radius:12px;background:rgba(15,23,42,0.5);border:1px solid rgba(255,255,255,0.1);cursor:pointer;transition:all 0.2s;">' +
+        '<div style="font-size:32px;">' + item.emoji + '</div>' +
+        '<div style="flex:1;">' +
+          '<div style="font-weight:600;font-size:14px;color:#fff;margin-bottom:4px;">' + escapeHtml(item.title || item.name || 'Sans titre') + '</div>' +
+          '<div style="font-size:12px;color:var(--ui-text-muted);">' + escapeHtml(item.address || item.location || '') + '</div>' +
+        '</div>' +
+        '<div style="color:#00ffc3;font-size:20px;">→</div>' +
+      '</div>';
+    });
+    html += '</div>';
+  }
+  html += '</div>';
+  
+  modal.innerHTML = html;
+  modal.style.display = 'block';
+  modal.style.visibility = 'visible';
+  modal.style.opacity = '1';
+  backdrop.style.display = 'flex';
+  backdrop.style.visibility = 'visible';
+  backdrop.style.opacity = '1';
+  backdrop.style.zIndex = '9999';
+  
+  // Attacher les event listeners
+  setTimeout(function() {
+    var backBtn = document.getElementById('mes-annonces-back-btn');
+    var closeBtn = document.getElementById('mes-annonces-close-btn');
+    var publishBtn = document.getElementById('mes-annonces-publish-btn');
+    
+    if (backBtn) backBtn.addEventListener('click', function() { openAccountModal(); });
+    if (closeBtn) closeBtn.addEventListener('click', function() { closePublishModal(); });
+    if (publishBtn) publishBtn.addEventListener('click', function() { closePublishModal(); setTimeout(function() { openPublishModal(); }, 200); });
+    
+    // Items cliquables
+    var items = document.querySelectorAll('.annonce-item');
+    items.forEach(function(item) {
+      item.addEventListener('click', function() {
+        var type = this.getAttribute('data-type');
+        var id = this.getAttribute('data-id');
+        closePublishModal();
+        focusOnMapItem(type, parseInt(id));
+      });
+      item.addEventListener('mouseover', function() {
+        this.style.borderColor = 'rgba(0,255,195,0.5)';
+        this.style.background = 'rgba(0,255,195,0.1)';
+      });
+      item.addEventListener('mouseout', function() {
+        this.style.borderColor = 'rgba(255,255,255,0.1)';
+        this.style.background = 'rgba(15,23,42,0.5)';
+      });
+    });
+  }, 50);
+}
+
+// Fonction pour centrer la map sur un item et ouvrir sa popup
+function focusOnMapItem(type, id) {
+  var data = type === 'event' ? eventsData : type === 'booking' ? bookingsData : servicesData;
+  var item = data.find(function(i) { return i.id === parseInt(id); });
+  
+  if (item && item.lat && item.lng) {
+    // Changer le mode si nécessaire
+    if (currentMode !== type) {
+      setMode(type);
+    }
+    
+    // Centrer la carte
+    if (map) {
+      map.setView([item.lat, item.lng], 16);
+    }
+    
+    // Ouvrir la popup de l'item après un court délai
+    setTimeout(function() {
+      if (typeof openEventCard === 'function') {
+        openEventCard(item);
+      }
+    }, 500);
+    
+    showNotification('📍 ' + (item.title || item.name), 'info');
+  } else {
+    showNotification('❌ Impossible de localiser cette annonce', 'error');
+  }
+}
 
 // Fonction pour afficher le contenu d'un bloc
 function showAccountBlockContent(blockType) {
@@ -23745,15 +24003,15 @@ async function saveProfileChanges() {
     return;
   }
   
-  // Stocker les modifications temporairement
+  // Sauvegarder directement les modifications
   window.pendingProfileChanges = {
     username: username,
     postalAddress: address,
     photo: photo
   };
   
-  // Afficher le choix de validation (Google ou Email)
-  showProfileVerificationChoice();
+  // Appliquer directement sans confirmation Google/Email
+  await applyProfileChanges();
 }
 
 // Afficher le choix de validation pour les modifications de profil
@@ -27958,7 +28216,7 @@ async function loadEventsFromBackend() {
   try {
     // ✅ Charger les événements de France ET du backend en parallèle
     const [franceResponse, backendResponse] = await Promise.allSettled([
-      fetch('/public/events_france_final.geojson'),
+      fetch('/events_france_final.geojson'),
       fetch(`${window.API_BASE_URL}/events`)
     ]);
     

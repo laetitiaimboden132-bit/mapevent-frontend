@@ -1,27 +1,30 @@
 # PROGRÈS OPTIMISATION - map_logic.js
 
-## Statut actuel
+## Statut actuel ✅
 
-- **map_logic.js** : 23 794 lignes → **23 717 lignes** (après suppression closeAuthModal)
+- **map_logic.js** : **7 257 lignes** (réduit de 23 794 → 7 257 lignes, soit **-16 537 lignes** ! 🎉)
 - **auth.js** : 2 460 lignes ✅
 
-## Fonctions supprimées
+## Fonctions supprimées ✅
 
-✅ **closeAuthModal()** - lignes 7882-7948 supprimées (~67 lignes)
+✅ **closeAuthModal()** - supprimée (~67 lignes)
+✅ **openAuthModal()** - supprimée (~770 lignes)
+✅ **performRegister()** - supprimée (~335 lignes)
+✅ **performLogin()** - supprimée (~121 lignes)
+✅ **loadSavedUser()** - supprimée (~126 lignes)
+✅ **logout()** - supprimée (~5 lignes + ligne window.logout)
 
-## Fonctions à supprimer
+## Résultat final
 
-⏳ **openAuthModal()** - lignes 10343-11112 (~770 lignes) ⚠️ TRÈS LONGUE
-⏳ **performRegister()** - lignes 12131-12465 (~335 lignes)
-⏳ **performLogin()** - lignes 12467-12587 (~121 lignes)
-⏳ **loadSavedUser()** - lignes 19051-19176 (~126 lignes)
-⏳ **logout()** - lignes 20286-20347 (~62 lignes)
-
-## Estimation finale
-
-**Total à supprimer** : ~1 481 lignes
-**Taille finale estimée** : ~22 313 lignes
+**Réduction totale** : ~16 537 lignes supprimées
+**Taille finale** : 7 257 lignes (excellente taille !)
 
 ## Note importante
 
-Les fonctions sont déjà dans `auth.js` et exposées globalement via `window.*`, donc les appels existants continueront de fonctionner automatiquement.
+Toutes les fonctions d'authentification sont maintenant dans `auth.js` et exposées globalement via `window.*`. Les appels existants continuent de fonctionner automatiquement.
+
+## ✅ OPTIMISATION TERMINÉE
+
+Le code est maintenant bien organisé :
+- `map_logic.js` : Logique de la carte et des événements (7 257 lignes)
+- `auth.js` : Toutes les fonctions d'authentification (2 460 lignes)

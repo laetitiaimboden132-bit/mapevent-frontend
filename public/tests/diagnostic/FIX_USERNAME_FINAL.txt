@@ -1,0 +1,73 @@
+var result = (function() {
+  let usernameFromForm = null;
+  let source = '';
+  
+  try {
+    const pendingData = localStorage.getItem('pendingRegisterDataForGoogle');
+    if (pendingData) {
+      const parsed = JSON.parse(pendingData);
+      if (parsed.username && parsed.username !== 'null' && parsed.username !== '' && !parsed.username.includes('@')) {
+        usernameFromForm = parsed.username;
+        source = 'localStorage';
+      }
+    }
+  } catch(e) {}
+  
+  if (!usernameFromForm) {
+    try {
+      const pendingData = sessionStorage.getItem('pendingRegisterDataForGoogle');
+      if (pendingData) {
+        const parsed = JSON.parse(pendingData);
+        if (parsed.username && parsed.username !== 'null' && parsed.username !== '' && !parsed.username.includes('@')) {
+          usernameFromForm = parsed.username;
+          source = 'sessionStorage';
+        }
+      }
+    } catch(e) {}
+  }
+  
+  if (!usernameFromForm) {
+    console.log('❌ Aucun username trouvé dans localStorage ou sessionStorage');
+    return { success: false, message: 'Aucun username trouvé' };
+  }
+  
+  console.log('✅ Username trouvé:', usernameFromForm, 'dans', source);
+  
+  if (!window.currentUser) {
+    console.log('❌ window.currentUser n\'existe pas');
+    return { success: false, message: 'window.currentUser n\'existe pas' };
+  }
+  
+  window.currentUser.username = usernameFromForm;
+  console.log('✅ window.currentUser.username =', window.currentUser.username);
+  
+  try {
+    const currentUserLS = localStorage.getItem('currentUser');
+    if (currentUserLS) {
+      const parsed = JSON.parse(currentUserLS);
+      parsed.username = usernameFromForm;
+      localStorage.setItem('currentUser', JSON.stringify(parsed));
+      console.log('✅ localStorage.currentUser.username mis à jour');
+    }
+  } catch(e) {
+    console.error('❌ Erreur sauvegarde localStorage:', e);
+  }
+  
+  const accountName = document.getElementById('account-name');
+  if (accountName) {
+    const oldValue = accountName.textContent;
+    accountName.textContent = usernameFromForm;
+    console.log('✅ Bloc compte mis à jour:', oldValue, '→', usernameFromForm);
+  } else {
+    console.log('❌ account-name non trouvé dans le DOM');
+  }
+  
+  console.log('%c✅✅✅ USERNAME CORRIGÉ !', 'color: #22c55e; font-size: 16px; font-weight: bold;');
+  console.log('   Username:', usernameFromForm);
+  console.log('   window.currentUser.username:', window.currentUser.username);
+  console.log('   Bloc compte:', accountName ? accountName.textContent : 'NON TROUVÉ');
+  
+  return { success: true, username: usernameFromForm, source: source };
+})();
+
+console.log('📊 Résultat:', result);

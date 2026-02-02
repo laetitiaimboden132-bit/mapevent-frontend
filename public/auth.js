@@ -392,6 +392,62 @@ function setAuthTokens(accessToken, refreshToken, rememberMe = false) {
 // ===============================
 // OAUTH GOOGLE
 // ===============================
+
+// ⚠️⚠️⚠️ SOLUTION PROFESSIONNELLE : Forcer le sélecteur de compte Google
+// La vraie solution est de déconnecter Cognito AVANT de lancer le flux OAuth
+// Cela force Google à afficher son sélecteur de compte car Cognito n'a plus de session
+async function forceGoogleAccountSelection() {
+  console.log('[GOOGLE LOGIN] 🔄 Forcer sélection compte via logout Cognito...');
+  
+  // Sauvegarder le flag pour indiquer qu'on revient du logout
+  try {
+    sessionStorage.setItem('google_login_after_logout', 'true');
+  } catch (e) {
+    window.googleLoginAfterLogout = true;
+  }
+  
+  // Effacer tous les cookies de session Cognito localement
+  document.cookie.split(";").forEach((c) => {
+    const cookieName = c.trim().split("=")[0];
+    if (cookieName.includes("cognito") || cookieName.includes("COGNITO") || 
+        cookieName.includes("CognitoIdentity") || cookieName.includes("amplify")) {
+      document.cookie = cookieName + "=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
+      document.cookie = cookieName + "=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=.mapevent.world";
+      document.cookie = cookieName + "=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=.amazoncognito.com";
+      console.log('[GOOGLE LOGIN] 🗑️ Cookie supprimé:', cookieName);
+    }
+  });
+  
+  // Effacer le localStorage/sessionStorage Cognito
+  try {
+    Object.keys(localStorage).forEach(key => {
+      if (key.includes('cognito') || key.includes('Cognito') || key.includes('amplify')) {
+        localStorage.removeItem(key);
+        console.log('[GOOGLE LOGIN] 🗑️ localStorage supprimé:', key);
+      }
+    });
+    Object.keys(sessionStorage).forEach(key => {
+      if (key.includes('cognito') || key.includes('Cognito') || key.includes('amplify')) {
+        if (key !== 'google_login_after_logout') {
+          sessionStorage.removeItem(key);
+          console.log('[GOOGLE LOGIN] 🗑️ sessionStorage supprimé:', key);
+        }
+      }
+    });
+  } catch (e) {
+    console.warn('[GOOGLE LOGIN] ⚠️ Erreur nettoyage storage:', e);
+  }
+  
+  // Appeler l'endpoint de logout Cognito qui redirige vers notre page
+  // Cela déconnecte la session Cognito et force Google à redemander le compte
+  const logoutUrl = `${COGNITO.domain}/logout` +
+    `?client_id=${encodeURIComponent(COGNITO.clientId)}` +
+    `&logout_uri=${encodeURIComponent(COGNITO.redirectUri)}`;
+  
+  console.log('[GOOGLE LOGIN] 🔗 Redirection vers logout Cognito:', logoutUrl);
+  window.location.assign(logoutUrl);
+}
+
 async function startGoogleLogin() {
   if (isGoogleLoginInProgress) {
     console.warn('⚠️ Connexion Google déjà en cours - double clic ignoré');
@@ -409,6 +465,35 @@ async function startGoogleLogin() {
   
   // Afficher un overlay de chargement
   showGoogleLoginLoading();
+  
+  // ⚠️⚠️⚠️ COMPORTEMENT PRO : Vérifier si on revient du logout Cognito
+  // Si non, on force d'abord un logout pour garantir le sélecteur de compte Google
+  let afterLogout = false;
+  try {
+    afterLogout = sessionStorage.getItem('google_login_after_logout') === 'true';
+    if (afterLogout) {
+      sessionStorage.removeItem('google_login_after_logout');
+      console.log('[GOOGLE LOGIN] ✅ Retour du logout Cognito - Session nettoyée');
+    }
+  } catch (e) {
+    afterLogout = window.googleLoginAfterLogout === true;
+    if (afterLogout) {
+      window.googleLoginAfterLogout = false;
+    }
+  }
+  
+  // Si pas encore passé par le logout, forcer le logout d'abord
+  // Cela garantit que Google affichera son sélecteur de compte
+  if (!afterLogout) {
+    console.log('[GOOGLE LOGIN] 🔄 Première tentative - Forcer logout Cognito pour sélection compte...');
+    isGoogleLoginInProgress = false;
+    if (typeof window !== 'undefined') {
+      window.isGoogleLoginInProgress = false;
+    }
+    hideGoogleLoginLoading();
+    forceGoogleAccountSelection();
+    return;
+  }
   
   try {
     const verifier = randomString(80);
@@ -460,13 +545,12 @@ async function startGoogleLogin() {
     authSave("pkce_verifier", verifier);
     authSave("oauth_state", state);
 
-    // ⚠️⚠️⚠️ CRITIQUE : TOUJOURS forcer la validation Google (même pour les reconnexions)
-    // Utiliser 'consent' seul pour forcer Google à demander le consentement à chaque fois
-    // 'select_account' peut être ignoré si l'utilisateur n'a qu'un seul compte
-    // 'consent' force Google à demander la validation smartphone même si l'utilisateur est déjà connecté
-    const promptValue = 'consent';  // ⚠️⚠️⚠️ TOUJOURS forcer consentement = validation smartphone OBLIGATOIRE
+    // ⚠️⚠️⚠️ COMPORTEMENT PRO : Forcer le sélecteur de compte Google
+    // Après le logout Cognito, on utilise "select_account" pour que Google affiche le choix
+    const promptValue = 'select_account';
+    const nonce = Date.now().toString() + '_' + Math.random().toString(36).substring(2, 15);
     
-    console.log('[GOOGLE LOGIN] ⚠️⚠️⚠️ Validation Google FORCÉE - Prompt:', promptValue);
+    console.log('[GOOGLE LOGIN] Sélection de compte Google forcée - Prompt:', promptValue, 'Nonce:', nonce);
 
     const authorizeUrl =
       `${COGNITO.domain}/oauth2/authorize` +
@@ -478,9 +562,10 @@ async function startGoogleLogin() {
       `&code_challenge=${encodeURIComponent(challenge)}` +
       `&code_challenge_method=S256` +
       `&identity_provider=Google` +
-      `&prompt=${encodeURIComponent(promptValue)}`; // ⚠️⚠️⚠️ CRITIQUE : select_account consent pour première inscription = validation smartphone OBLIGATOIRE
+      `&prompt=${encodeURIComponent(promptValue)}` +
+      `&nonce=${encodeURIComponent(nonce)}`; // Nonce unique pour éviter le cache
 
-    console.log('[GOOGLE LOGIN] ⚠️⚠️⚠️ URL OAuth générée avec prompt:', promptValue);
+    console.log('[GOOGLE LOGIN] ⚠️⚠️⚠️ URL OAuth générée avec prompt:', promptValue, '+ nonce unique');
     window.location.assign(authorizeUrl);
   } catch (error) {
     console.error('❌ Erreur startGoogleLogin:', error);
@@ -2975,6 +3060,36 @@ async function performLogin() {
         
         console.log('[AUTH] Connexion reussie - pas d\'onboarding (uniquement a la creation de compte)');
         
+        // ⚠️⚠️⚠️ FIX BUG : Nettoyer les données d'inscription obsolètes pour éviter
+        // qu'un ancien draft d'inscription n'interfère avec le compte actuel
+        try {
+          const currentEmail = data?.email?.toLowerCase?.() || '';
+          const draft = localStorage.getItem('registerFormDraft');
+          if (draft) {
+            const parsedDraft = JSON.parse(draft);
+            const draftEmail = parsedDraft.email?.toLowerCase?.() || '';
+            if (draftEmail !== currentEmail) {
+              localStorage.removeItem('registerFormDraft');
+              console.log('[AUTH] ✅ registerFormDraft obsolète supprimé (email différent)');
+            }
+          }
+          const pendingData = localStorage.getItem('pendingRegisterDataForGoogle');
+          if (pendingData) {
+            const parsedPending = JSON.parse(pendingData);
+            const pendingEmail = parsedPending.email?.toLowerCase?.() || '';
+            if (pendingEmail !== currentEmail) {
+              localStorage.removeItem('pendingRegisterDataForGoogle');
+              console.log('[AUTH] ✅ pendingRegisterDataForGoogle obsolète supprimé');
+            }
+          }
+          // Nettoyer aussi window.registerData si email différent
+          if (window.registerData?.email?.toLowerCase?.() !== currentEmail) {
+            delete window.registerData;
+          }
+        } catch (e) {
+          console.warn('[AUTH] Erreur nettoyage données inscription obsolètes:', e);
+        }
+        
         // Afficher les notifications de changement de statut si l'utilisateur a participé à des événements
         if (typeof showStatusChangeNotifications === 'function') {
           setTimeout(() => {
@@ -3201,6 +3316,14 @@ async function performRegister() {
   
   // NOUVEAU FLUX: Après validation du formulaire, afficher le choix de vérification
   // Stocker les données du formulaire pour utilisation ultérieure
+  // ⚠️⚠️⚠️ CRITIQUE : Récupérer la photo depuis TOUTES les sources possibles
+  const photoData = window.registerPhotoData || 
+                    (window.registerData && window.registerData.photoData) || 
+                    (window.registerData && window.registerData.profilePhoto) ||
+                    null;
+  
+  console.log('[REGISTER] 📷 Photo détectée:', photoData ? `${photoData.substring(0, 50)}... (${photoData.length} chars)` : 'AUCUNE');
+  
   window.pendingRegisterData = {
     email: email,
     username: username,
@@ -3210,7 +3333,7 @@ async function performRegister() {
     photoLater: photoLater,
     addressLater: addressLater,
     selectedAddress: selectedAddress,
-    photoData: window.registerPhotoData
+    photoData: photoData
   };
   
   // Afficher le choix de méthode de vérification
@@ -3870,8 +3993,31 @@ async function handleCognitoCallbackIfPresent() {
           ok: syncData.ok,
           isNewUser: syncData.isNewUser,
           profileComplete: syncData.profileComplete,
-          username: syncData.user?.username || 'MANQUANT'
+          username: syncData.user?.username || 'MANQUANT',
+          hasAccessToken: !!syncData.accessToken,
+          hasRefreshToken: !!syncData.refreshToken
         });
+        
+        // ⚠️⚠️⚠️ CRITIQUE : Utiliser les tokens JWT MapEvent retournés par le backend
+        // Ces tokens sont valides pour appeler /api/user/me et autres endpoints protégés
+        // Les tokens Cognito (dans 'tokens') ne sont PAS valides pour le backend MapEvent
+        let tokensMapEvent = null;
+        if (syncData.accessToken && syncData.refreshToken) {
+          tokensMapEvent = {
+            access_token: syncData.accessToken,
+            refresh_token: syncData.refreshToken
+          };
+          console.log('[OAUTH] ✅ Tokens JWT MapEvent reçus du backend - Utilisation pour authentification API');
+          
+          // ⚠️⚠️⚠️ CRITIQUE FIX 401 : Sauvegarder les tokens MapEvent dans cognito_tokens
+          // getAuthToken() cherche d'abord dans cognito_tokens, donc on doit y mettre les tokens MapEvent
+          // Sinon, le token Cognito (invalide pour le backend) sera retourné et causera l'erreur 401
+          saveSession(tokensMapEvent);
+          console.log('[OAUTH] ✅ Tokens MapEvent sauvegardés dans cognito_tokens - Fix erreur 401');
+        } else {
+          console.warn('[OAUTH] ⚠️ Pas de tokens JWT MapEvent dans la réponse backend - Utilisation tokens Cognito (peut causer erreur 401)');
+          tokensMapEvent = tokens; // Fallback aux tokens Cognito
+        }
         
         // FLOW INTELLIGENT : Gérer les différents cas selon les données
         if (syncData.ok && syncData.user) {
@@ -3995,10 +4141,14 @@ async function handleCognitoCallbackIfPresent() {
               
               // ⚠️⚠️⚠️ CRITIQUE : Connexion DIRECTE sans demander "rester connecté"
               // La question "rester connecté" sera posée uniquement à la déconnexion
-              connectUser(slimUser, tokens, true); // true = rester connecté par défaut
+              // ⚠️⚠️⚠️ UTILISER tokensMapEvent (tokens JWT MapEvent) au lieu de tokens (Cognito)
+              connectUser(slimUser, tokensMapEvent, true); // true = rester connecté par défaut
               
               // Fermer le modal
               closeAuthModal();
+              
+              // connectUser gère déjà la mise à jour de l'UI
+              // Pas besoin de setTimeout supplémentaires ici
               return;
             }
             
@@ -4392,8 +4542,11 @@ async function handleCognitoCallbackIfPresent() {
             // Demander si l'utilisateur veut rester connecté
             // ⚠️⚠️⚠️ CRITIQUE : Connexion DIRECTE sans demander "rester connecté"
             // La question "rester connecté" sera posée uniquement à la déconnexion
-            connectUser(slimUser, tokens, true); // true = rester connecté par défaut
+            // ⚠️⚠️⚠️ UTILISER tokensMapEvent (tokens JWT MapEvent) au lieu de tokens (Cognito)
+            connectUser(slimUser, tokensMapEvent, true); // true = rester connecté par défaut
             closeAuthModal();
+            
+            // connectUser gère déjà la mise à jour de l'UI
             
             // ⚠️⚠️⚠️ CRITIQUE : Nettoyer localStorage APRÈS connectUser pour éviter les fuites
             try {
@@ -5489,19 +5642,17 @@ function connectUser(user, tokens, rememberMe) {
     updateAuthButtons();
   }
   
-  // Mettre à jour le bloc compte - FORCER plusieurs fois pour s'assurer
+  // Mettre à jour le bloc compte - Une seule fois après que currentUser soit défini
   if (typeof window.updateAccountBlockLegitimately === 'function') {
-    window.updateAccountBlockLegitimately();
+    // Délai unique pour s'assurer que le DOM est prêt
     setTimeout(() => {
       if (typeof window.updateAccountBlockLegitimately === 'function') {
         window.updateAccountBlockLegitimately();
       }
-    }, 100);
-    setTimeout(() => {
-      if (typeof window.updateAccountBlockLegitimately === 'function') {
-        window.updateAccountBlockLegitimately();
+      if (typeof window.updateAuthButtons === 'function') {
+        window.updateAuthButtons();
       }
-    }, 500);
+    }, 50);
   } else {
     console.warn('[CONNECT] ⚠️ window.updateAccountBlockLegitimately non disponible');
   }
@@ -6596,6 +6747,31 @@ if (typeof window !== 'undefined') {
   window.addEventListener('DOMContentLoaded', () => {
     handleEmailVerificationCallback();
     checkAndCleanTestAccount();
+    
+    // ⚠️⚠️⚠️ COMPORTEMENT PRO : Détecter le retour du logout Cognito pour relancer Google OAuth
+    // Si on revient du logout Cognito (pas de code OAuth dans l'URL), relancer le flux Google
+    const urlParams = new URLSearchParams(window.location.search);
+    const hasOAuthCode = urlParams.has('code');
+    const hasOAuthError = urlParams.has('error');
+    
+    let afterLogout = false;
+    try {
+      afterLogout = sessionStorage.getItem('google_login_after_logout') === 'true';
+    } catch (e) {
+      afterLogout = window.googleLoginAfterLogout === true;
+    }
+    
+    if (afterLogout && !hasOAuthCode && !hasOAuthError) {
+      console.log('[AUTH] 🔄 Retour du logout Cognito détecté - Relancement du flux Google OAuth...');
+      // Petit délai pour s'assurer que la page est prête
+      setTimeout(() => {
+        if (typeof startGoogleLogin === 'function') {
+          startGoogleLogin();
+        } else if (typeof window.startGoogleLogin === 'function') {
+          window.startGoogleLogin();
+        }
+      }, 100);
+    }
     
     // ⚠️ NOTE: Le callback OAuth Google est géré dans map_logic.js (ligne ~3915)
     // pour éviter un double traitement qui cause l'erreur "invalid_grant"

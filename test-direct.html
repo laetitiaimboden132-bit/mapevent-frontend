@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Modal Publication</title>
+</head>
+<body>
+    <h1>Test Direct du Modal</h1>
+    <button onclick="testModal()" style="padding:20px;font-size:16px;background:#00ffc3;color:#000;border:none;border-radius:8px;cursor:pointer;font-weight:600;">
+        TESTER LE MODAL
+    </button>
+    <div id="results" style="margin-top:20px;padding:20px;background:#1e293b;color:#fff;border-radius:8px;font-family:monospace;white-space:pre-wrap;"></div>
+    
+    <script>
+        function testModal() {
+            const results = document.getElementById('results');
+            let output = '=== TEST MODAL PUBLICATION ===\n\n';
+            
+            // Test 1
+            output += '1. Fonction openPublishModal:\n';
+            if (typeof window.openPublishModal === 'function') {
+                output += '   OK - window.openPublishModal existe\n';
+            } else if (typeof openPublishModal === 'function') {
+                output += '   OK - openPublishModal existe\n';
+            } else {
+                output += '   ERREUR - fonction non trouvee\n';
+            }
+            
+            // Test 2
+            output += '\n2. Elements du modal:\n';
+            const backdrop = document.getElementById('publish-modal-backdrop');
+            const inner = document.getElementById('publish-modal-inner');
+            output += '   Backdrop: ' + (backdrop ? 'OK' : 'MANQUANT') + '\n';
+            output += '   Inner: ' + (inner ? 'OK' : 'MANQUANT') + '\n';
+            
+            // Test 3
+            output += '\n3. Utilisateur:\n';
+            if (typeof currentUser !== 'undefined' && currentUser && currentUser.isLoggedIn) {
+                output += '   OK - Connecte\n';
+                output += '   Email: ' + (currentUser.email || 'N/A') + '\n';
+            } else {
+                output += '   NON CONNECTE - Le bouton ne devrait pas fonctionner\n';
+            }
+            
+            // Test 4
+            output += '\n4. Bouton Publier:\n';
+            const btn = document.getElementById('map-publish-btn');
+            if (btn) {
+                output += '   OK - Bouton trouve\n';
+                const styles = window.getComputedStyle(btn);
+                output += '   Display: ' + styles.display + '\n';
+                output += '   Visible: ' + (btn.offsetParent !== null ? 'OUI' : 'NON') + '\n';
+            } else {
+                output += '   ERREUR - Bouton non trouve\n';
+            }
+            
+            // Test 5
+            output += '\n5. Test ouverture modal:\n';
+            try {
+                if (typeof window.openPublishModal === 'function') {
+                    output += '   Appel de window.openPublishModal()...\n';
+                    window.openPublishModal();
+                } else if (typeof openPublishModal === 'function') {
+                    output += '   Appel de openPublishModal()...\n';
+                    openPublishModal();
+                } else {
+                    output += '   ERREUR - openPublishModal non trouvee\n';
+                }
+                
+                setTimeout(function() {
+                    output += '\n6. Verification apres 500ms:\n';
+                    const b2 = document.getElementById('publish-modal-backdrop');
+                    const i2 = document.getElementById('publish-modal-inner');
+                    
+                    if (b2) {
+                        const s = window.getComputedStyle(b2);
+                        output += '   Backdrop display: ' + s.display + '\n';
+                        output += '   Backdrop visible: ' + (b2.offsetParent !== null ? 'OUI' : 'NON') + '\n';
+                        const r = b2.getBoundingClientRect();
+                        output += '   Backdrop taille: ' + r.width + 'x' + r.height + '\n';
+                    }
+                    
+                    if (i2) {
+                        output += '   Inner HTML longueur: ' + i2.innerHTML.length + ' chars\n';
+                        if (i2.innerHTML.length > 0) {
+                            output += '   Inner HTML (100 premiers chars): ' + i2.innerHTML.substring(0, 100) + '\n';
+                        }
+                    }
+                    
+                    if (b2 && window.getComputedStyle(b2).display !== 'none' && i2 && i2.innerHTML.length > 100) {
+                        output += '\n   SUCCES - Modal affiche!\n';
+                    } else {
+                        output += '\n   ECHEC - Modal non affiche\n';
+                    }
+                    
+                    output += '\n=== FIN DES TESTS ===\n';
+                    results.textContent = output;
+                }, 500);
+                
+            } catch (e) {
+                output += '   ERREUR: ' + e.message + '\n';
+                results.textContent = output;
+            }
+            
+            results.textContent = output;
+        }
+    </script>
+</body>
+</html>

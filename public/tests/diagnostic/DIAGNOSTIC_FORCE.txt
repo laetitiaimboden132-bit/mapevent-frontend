@@ -1,0 +1,184 @@
+// ============================================
+// DIAGNOSTIC USERNAME - VERSION FORCE AFFICHAGE
+// ============================================
+// Copiez-collez TOUT ce code dans la console (F12)
+
+(function() {
+  const results = [];
+  
+  // localStorage
+  const pendingLS = localStorage.getItem('pendingRegisterDataForGoogle');
+  const currentUserLS = localStorage.getItem('currentUser');
+  
+  results.push('📦 LOCALSTORAGE:');
+  if (pendingLS) {
+    try {
+      const p = JSON.parse(pendingLS);
+      results.push('  pendingRegisterDataForGoogle.username: ' + (p.username || '❌ MANQUANT'));
+    } catch(e) {
+      results.push('  pendingRegisterDataForGoogle: ❌ ERREUR PARSING');
+    }
+  } else {
+    results.push('  pendingRegisterDataForGoogle: ❌ NON TROUVÉ');
+  }
+  
+  if (currentUserLS) {
+    try {
+      const c = JSON.parse(currentUserLS);
+      results.push('  currentUser.username: ' + (c.username || '❌ MANQUANT'));
+    } catch(e) {
+      results.push('  currentUser: ❌ ERREUR PARSING');
+    }
+  } else {
+    results.push('  currentUser: ❌ NON TROUVÉ');
+  }
+  
+  // sessionStorage
+  const pendingSS = sessionStorage.getItem('pendingRegisterDataForGoogle');
+  const currentUserSS = sessionStorage.getItem('currentUser');
+  
+  results.push('\n📦 SESSIONSTORAGE:');
+  if (pendingSS) {
+    try {
+      const p = JSON.parse(pendingSS);
+      results.push('  pendingRegisterDataForGoogle.username: ' + (p.username || '❌ MANQUANT'));
+    } catch(e) {
+      results.push('  pendingRegisterDataForGoogle: ❌ ERREUR PARSING');
+    }
+  } else {
+    results.push('  pendingRegisterDataForGoogle: ❌ NON TROUVÉ');
+  }
+  
+  if (currentUserSS) {
+    try {
+      const c = JSON.parse(currentUserSS);
+      results.push('  currentUser.username: ' + (c.username || '❌ MANQUANT'));
+    } catch(e) {
+      results.push('  currentUser: ❌ ERREUR PARSING');
+    }
+  } else {
+    results.push('  currentUser: ❌ NON TROUVÉ');
+  }
+  
+  // window.currentUser
+  results.push('\n🌐 WINDOW.CURRENTUSER:');
+  if (window.currentUser) {
+    results.push('  username: ' + (window.currentUser.username || '❌ MANQUANT'));
+    results.push('  email: ' + (window.currentUser.email || '❌ MANQUANT'));
+    const isValid = window.currentUser.username && 
+                    window.currentUser.username !== 'null' && 
+                    window.currentUser.username !== '' &&
+                    !window.currentUser.username.includes('@');
+    results.push('  isValid: ' + (isValid ? '✅' : '❌'));
+  } else {
+    results.push('  ❌ N\'EXISTE PAS');
+  }
+  
+  // window.pendingRegisterData
+  results.push('\n🌐 WINDOW.PENDINGREGISTERDATA:');
+  if (window.pendingRegisterData) {
+    results.push('  username: ' + (window.pendingRegisterData.username || '❌ MANQUANT'));
+  } else {
+    results.push('  ❌ N\'EXISTE PAS');
+  }
+  
+  // getUserDisplayName
+  results.push('\n👤 GETUSERDISPLAYNAME:');
+  if (typeof getUserDisplayName === 'function' && window.currentUser) {
+    const displayName = getUserDisplayName(window.currentUser);
+    results.push('  Résultat: ' + displayName);
+  } else {
+    results.push('  ❌ FONCTION NON DISPONIBLE');
+  }
+  
+  // Bloc compte
+  results.push('\n📱 BLOC COMPTE:');
+  const accountName = document.getElementById('account-name');
+  if (accountName) {
+    results.push('  Texte affiché: ' + accountName.textContent);
+  } else {
+    results.push('  ❌ ÉLÉMENT NON TROUVÉ');
+  }
+  
+  // Résumé
+  results.push('\n📊 RÉSUMÉ:');
+  let found = false;
+  let source = '';
+  let value = '';
+  
+  if (pendingLS) {
+    try {
+      const p = JSON.parse(pendingLS);
+      if (p.username && p.username !== 'null' && p.username !== '' && !p.username.includes('@')) {
+        found = true;
+        source = 'localStorage';
+        value = p.username;
+      }
+    } catch(e) {}
+  }
+  
+  if (!found && pendingSS) {
+    try {
+      const p = JSON.parse(pendingSS);
+      if (p.username && p.username !== 'null' && p.username !== '' && !p.username.includes('@')) {
+        found = true;
+        source = 'sessionStorage';
+        value = p.username;
+      }
+    } catch(e) {}
+  }
+  
+  if (!found && window.pendingRegisterData) {
+    if (window.pendingRegisterData.username && 
+        window.pendingRegisterData.username !== 'null' && 
+        window.pendingRegisterData.username !== '' &&
+        !window.pendingRegisterData.username.includes('@')) {
+      found = true;
+      source = 'window.pendingRegisterData';
+      value = window.pendingRegisterData.username;
+    }
+  }
+  
+  if (!found && window.currentUser) {
+    if (window.currentUser.username && 
+        window.currentUser.username !== 'null' && 
+        window.currentUser.username !== '' &&
+        !window.currentUser.username.includes('@')) {
+      found = true;
+      source = 'window.currentUser';
+      value = window.currentUser.username;
+    }
+  }
+  
+  if (found) {
+    results.push('  ✅ Username trouvé: ' + value + ' dans ' + source);
+  } else {
+    results.push('  ❌ Aucun username valide trouvé');
+  }
+  
+  if (accountName) {
+    results.push('  📱 Affiché: ' + accountName.textContent);
+  }
+  
+  // Afficher tout d'un coup
+  console.log('%c🔍 DIAGNOSTIC USERNAME', 'color: #00ffc3; font-size: 16px; font-weight: bold;');
+  console.log('='.repeat(80));
+  results.forEach(r => console.log(r));
+  console.log('='.repeat(80));
+  console.log('%c✅ Diagnostic terminé', 'color: #22c55e; font-weight: bold;');
+  
+  // Retourner un objet pour inspection
+  return {
+    pendingLS: pendingLS ? JSON.parse(pendingLS) : null,
+    currentUserLS: currentUserLS ? JSON.parse(currentUserLS) : null,
+    pendingSS: pendingSS ? JSON.parse(pendingSS) : null,
+    currentUserSS: currentUserSS ? JSON.parse(currentUserSS) : null,
+    windowCurrentUser: window.currentUser,
+    windowPendingRegisterData: window.pendingRegisterData,
+    accountName: accountName ? accountName.textContent : null,
+    getUserDisplayName: typeof getUserDisplayName === 'function' && window.currentUser ? getUserDisplayName(window.currentUser) : null,
+    found: found,
+    source: source,
+    value: value
+  };
+})();
