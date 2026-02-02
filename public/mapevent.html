@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
@@ -161,46 +161,136 @@
             font-size: 12px;
         }
 
-        /* Style spécifique pour le bouton compte - permet l'agrandissement */
+        /* ═══════════════════════════════════════════════════════════════
+           BOUTON COMPTE - DESIGN PREMIUM PRO MAX
+           ═══════════════════════════════════════════════════════════════ */
+        
         #account-topbar-btn {
             min-width: auto !important;
             max-width: none !important;
             width: auto !important;
             flex-shrink: 0 !important;
             white-space: nowrap !important;
-            padding: 6px 14px !important; /* Padding légèrement augmenté pour accommoder la photo */
+            padding: 5px 16px 5px 5px !important;
+            background: linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.95) 100%) !important;
+            border: 1px solid rgba(0, 255, 195, 0.3) !important;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            position: relative !important;
+            overflow: visible !important;
         }
 
+        #account-topbar-btn:hover {
+            border-color: rgba(0, 255, 195, 0.6) !important;
+            box-shadow: 0 0 20px rgba(0, 255, 195, 0.25), 0 4px 15px rgba(0, 0, 0, 0.3) !important;
+            transform: translateY(-1px) !important;
+        }
+
+        #account-topbar-btn:active {
+            transform: translateY(0) !important;
+        }
+
+        /* Container avatar avec bordure gradient */
         #account-topbar-btn #account-avatar {
-            width: 28px !important; /* Augmenté de 20px à 28px pour mieux afficher la photo */
-            height: 28px !important; /* Augmenté de 20px à 28px */
-            min-width: 28px !important;
-            min-height: 28px !important;
+            position: relative !important;
+            width: 34px !important;
+            height: 34px !important;
+            min-width: 34px !important;
+            min-height: 34px !important;
             border-radius: 50% !important;
             display: inline-flex !important;
             align-items: center !important;
             justify-content: center !important;
-            font-size: 18px !important; /* Augmenté pour les emojis */
-            overflow: hidden !important;
+            font-size: 18px !important;
+            overflow: visible !important;
             flex-shrink: 0 !important;
-            background: rgba(0, 255, 195, 0.1) !important; /* Fond subtil pour la photo */
-            border: 1px solid rgba(0, 255, 195, 0.2) !important; /* Bordure subtile */
+            background: linear-gradient(135deg, #00ffc3 0%, #3b82f6 50%, #8b5cf6 100%) !important;
+            padding: 2px !important;
+            box-shadow: 0 2px 10px rgba(0, 255, 195, 0.3) !important;
+            transition: all 0.3s ease !important;
+        }
+
+        #account-topbar-btn:hover #account-avatar {
+            box-shadow: 0 4px 20px rgba(0, 255, 195, 0.5), 0 0 30px rgba(59, 130, 246, 0.3) !important;
+            transform: scale(1.05) !important;
+        }
+
+        /* Conteneur interne pour l'image */
+        #account-topbar-btn #account-avatar::before {
+            content: '';
+            position: absolute;
+            inset: 2px;
+            background: #0f172a;
+            border-radius: 50%;
+            z-index: 0;
         }
 
         #account-topbar-btn #account-avatar img {
-            width: 100% !important;
-            height: 100% !important;
+            position: relative !important;
+            width: calc(100% - 4px) !important;
+            height: calc(100% - 4px) !important;
             object-fit: cover !important;
             border-radius: 50% !important;
             display: block !important;
+            z-index: 1 !important;
+            border: none !important;
         }
 
+        /* Indicateur de statut "en ligne" */
+        #account-topbar-btn #account-avatar::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            width: 10px;
+            height: 10px;
+            background: linear-gradient(135deg, #22c55e 0%, #10b981 100%);
+            border: 2px solid #0f172a;
+            border-radius: 50%;
+            z-index: 10;
+            box-shadow: 0 0 6px rgba(34, 197, 94, 0.6);
+            animation: pulse-status 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse-status {
+            0%, 100% { 
+                box-shadow: 0 0 6px rgba(34, 197, 94, 0.6);
+                transform: scale(1);
+            }
+            50% { 
+                box-shadow: 0 0 12px rgba(34, 197, 94, 0.9);
+                transform: scale(1.1);
+            }
+        }
+
+        /* Nom d'utilisateur premium */
         #account-topbar-btn #account-name {
-            max-width: 200px !important; /* Augmenté de 150px à 200px */
+            max-width: 150px !important;
             overflow: hidden !important;
             text-overflow: ellipsis !important;
             white-space: nowrap !important;
-            margin-left: 6px !important; /* Espacement entre avatar et nom */
+            margin-left: 10px !important;
+            font-weight: 600 !important;
+            font-size: 13px !important;
+            background: linear-gradient(90deg, #fff 0%, #00ffc3 100%) !important;
+            -webkit-background-clip: text !important;
+            -webkit-text-fill-color: transparent !important;
+            background-clip: text !important;
+            letter-spacing: 0.3px !important;
+        }
+
+        /* Style emoji quand pas de photo */
+        #account-topbar-btn #account-avatar:not(:has(img)) {
+            background: linear-gradient(135deg, rgba(0, 255, 195, 0.2) 0%, rgba(59, 130, 246, 0.2) 100%) !important;
+            border: 2px solid rgba(0, 255, 195, 0.4) !important;
+            padding: 0 !important;
+        }
+
+        #account-topbar-btn #account-avatar:not(:has(img))::before {
+            display: none;
+        }
+
+        #account-topbar-btn #account-avatar:not(:has(img))::after {
+            display: none; /* Pas d'indicateur "en ligne" si pas connecté */
         }
 
         .pill.btn-main {
@@ -333,18 +423,9 @@
             display:none;
             align-items:flex-start;
             justify-content:flex-end;
-            z-index:60;
+            z-index:100; /* Au-dessus du left-panel (80) pour être toujours visible */
             pointer-events:auto; /* Permet d'interagir avec le modal */
             backdrop-filter: none; /* Pas de blur pour que le filtre soit net */
-            box-sizing:border-box;
-        }
-        /* Centrage pour les modales d'authentification */
-        #publish-modal-backdrop[data-auth-modal="true"],
-        #publish-modal-backdrop:has(#authModal) {
-            align-items:center !important;
-            justify-content:center !important;
-            padding-top:40px !important;
-            padding-bottom:40px !important;
         }
         #publish-modal {
             position:absolute;
@@ -2355,7 +2436,7 @@
                     Connexion
                 </button>
             </div>
-            <button id="account-topbar-btn" class="pill small">
+            <button id="account-topbar-btn" class="pill small" onclick="openAccountModal()">
                 <span id="account-avatar">👤</span>
                 <span id="account-name">Compte</span>
             </button>
@@ -2413,10 +2494,30 @@
 
     <!-- SCRIPT DE FALLBACK SUPPRIMÉ - Le formulaire s'affiche uniquement dans le callback OAuth après validation Google -->
     
+    <!-- Modules core et services (doit être chargé avant auth.js) -->
+    <script type="module" src="js/load-modules.js"></script>
     <!-- Module AUTH (fonctions d'authentification) -->
-    <script src="auth.js?v=20260117-233000-EMAIL-LINK-VERIFY"></script>
+    <script src="auth.js?v=20260126-100851-OAUTH-FIX"></script>
+    <!-- Script de diagnostic username (développement uniquement) -->
+    <script>
+      // Exposer une fonction globale pour lancer le diagnostic
+      window.diagnosticUsername = function() {
+        // Charger le script de diagnostic
+        fetch('tests/diagnostic/diagnostic-username-simple.js')
+          .then(response => response.text())
+          .then(code => {
+            eval(code);
+          })
+          .catch(err => {
+            console.error('❌ Erreur chargement diagnostic:', err);
+            console.log('%c💡 Alternative: Ouvrez tests/diagnostic/DIAGNOSTIC_USERNAME_CONSOLE.txt et copiez-collez le code dans la console', 'color: #f59e0b; font-weight: bold;');
+          });
+      };
+      console.log('%c💡 Pour lancer le diagnostic username, tapez: diagnosticUsername()', 'color: #00ffc3; font-weight: bold;');
+      console.log('%c💡 Ou ouvrez: tests/diagnostic/DIAGNOSTIC_USERNAME_CONSOLE.txt et copiez-collez le code', 'color: #00ffc3; font-weight: bold;');
+    </script>
     <!-- Logique principale de la carte -->
-    <script src="map_logic.js?v=20260116-223000-BUTTON-FIX"></script>
+    <script src="map_logic.js?v=20260124-193500-FULL-RESTORE"></script>
     <!-- Script pour mettre à jour les métadonnées Open Graph immédiatement au chargement -->
     <script>
       // Mettre à jour les métadonnées Open Graph dès le chargement de la page

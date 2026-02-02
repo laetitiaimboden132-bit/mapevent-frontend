@@ -1,9 +1,0 @@
-﻿aws : 
-Au caractère C:\Users\Laeti\AppData\Local\Temp\ps-script-69fd98a7-8f64-41a2-82e5-41cb63a2be8a.ps1:76 : 11
-+ $output = aws logs tail /aws/lambda/mapevent-backend --since 10m --re ...
-+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : NotSpecified: (:String) [], RemoteException
-    + FullyQualifiedErrorId : NativeCommandError
- 
-'charmap' codec can't encode character '\U0001f50d' in position 86: character maps to <undefined>
-2026-01-05T18:06:15.384000+00:00 2026/01/05/[$LATEST]d37991ae67884e249b37f0e0390798b4 INIT_START Runtime Version: python:3.12.v101	Runtime Version ARN: arn:aws:lambda:eu-west-1::runtime:994aac32248ecf4d69d9f5e9a3a57aba3ccea19d94170a61d5ecf978927e1b0f

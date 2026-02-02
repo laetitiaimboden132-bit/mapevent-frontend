@@ -16,7 +16,54 @@
  * - updateAccountBlockLegitimately() (fonction globale)
  * - API_BASE_URL (constante)
  * - registerData (objet global pour formulaire)
+ * 
+ * MODULES INTERNES :
+ * - profile-validator.js (validation du profil utilisateur)
  */
+
+// ⚠️⚠️⚠️ IMPORT MODULE DE VALIDATION
+// Utilisation dynamique pour compatibilité avec l'environnement actuel
+let ProfileValidator = null;
+if (typeof window !== 'undefined' && window.ProfileValidator) {
+  ProfileValidator = window.ProfileValidator;
+} else {
+  // Fallback : définir les fonctions localement si le module n'est pas chargé
+  // Ces fonctions seront remplacées par le module une fois chargé
+  ProfileValidator = {
+    validateRequiredFields: (userData, pendingData) => {
+      const missingFields = [];
+      const username = pendingData?.username || userData?.username;
+      if (!username || username === '' || username === 'null' || username.includes('@')) {
+        missingFields.push('username');
+      }
+      const photoData = pendingData?.photoData || userData?.photoData;
+      const profilePhotoUrl = userData?.profile_photo_url;
+      if ((!photoData || photoData === '' || photoData === 'null') && (!profilePhotoUrl || profilePhotoUrl === '')) {
+        missingFields.push('photo');
+      }
+      return { isValid: missingFields.length === 0, missingFields };
+    },
+    canAllowConnection: (userData, pendingData) => {
+      const validation = ProfileValidator.validateRequiredFields(userData, pendingData);
+      return validation.isValid;
+    },
+    getValidUsername: (userData, pendingData, payload) => {
+      const username = pendingData?.username || userData?.username;
+      if (username && username !== '' && username !== 'null' && !username.includes('@')) {
+        return username;
+      }
+      const googleName = payload?.name || payload?.given_name;
+      if (googleName) {
+        return googleName.split(' ')[0];
+      }
+      const email = payload?.email || userData?.email;
+      if (email) {
+        return email.split('@')[0];
+      }
+      return 'Utilisateur';
+    }
+  };
+}
 // ⚠️⚠️⚠️ LOG DE VERSION - DOIT APPARAÎTRE IMMÉDIATEMENT AU CHARGEMENT
 console.log('🚨🚨🚨 [AUTH] VERSION 2026-01-16 00:05 - askRememberMeAndConnect DÉSACTIVÉE (CODE MODAL SUPPRIMÉ) 🚨🚨🚨');
 console.log('🚨🚨🚨 [AUTH] Si vous voyez ce message, la bonne version est chargée 🚨🚨🚨');
@@ -186,26 +233,19 @@ function updateAuthUI(slimUser) {
   
   // Mettre à jour currentUser global (doit être défini dans map_logic.js)
   if (typeof window !== 'undefined' && window.currentUser !== undefined) {
-    // ⚠️⚠️⚠️ CRITIQUE : Sauvegarder username et photoData AVANT de les écraser
-    const savedUsername = window.currentUser.username;
+    // ⚠️⚠️⚠️ CRITIQUE : Sauvegarder photoData AVANT de les écraser (mais PAS le username)
     const savedPhotoData = window.currentUser.photoData;
     
+    // ⚠️⚠️⚠️ SIMPLIFICATION : Utiliser DIRECTEMENT le username de slimUser (qui contient le username du formulaire)
+    // Le username de slimUser a déjà la priorité au formulaire, donc on l'utilise tel quel
     window.currentUser = {
       ...window.currentUser,
       ...slimUser,
+      username: slimUser.username, // ⚠️⚠️⚠️ FORCER le username de slimUser (qui vient du formulaire)
       isLoggedIn: true
     };
     
-    // ⚠️⚠️⚠️ CRITIQUE : PRIORITÉ au username du formulaire (savedUsername) si valide
-    // Ne pas écraser un username valide du formulaire avec un username invalide du backend
-    if (savedUsername && savedUsername !== 'null' && !savedUsername.includes('@') && savedUsername !== 'Utilisateur') {
-      window.currentUser.username = savedUsername;
-      console.log('[UPDATE AUTH UI] ✅✅✅ Username du formulaire préservé:', savedUsername);
-    } else if (window.currentUser.username && (window.currentUser.username.includes('@') || window.currentUser.username === 'null' || window.currentUser.username === '')) {
-      // Si le username du slimUser est invalide, utiliser "Utilisateur"
-      window.currentUser.username = 'Utilisateur';
-      console.log('[UPDATE AUTH UI] ⚠️ Username invalide remplacé par "Utilisateur"');
-    }
+    console.log('[UPDATE AUTH UI] ✅✅✅ Username de slimUser utilisé:', window.currentUser.username);
     
     // ⚠️⚠️⚠️ CRITIQUE : PRIORITÉ au photoData du formulaire (savedPhotoData) si valide
     if (savedPhotoData && savedPhotoData !== 'null' && savedPhotoData !== 'undefined' && savedPhotoData.length > 100) {
@@ -224,12 +264,22 @@ function updateAuthUI(slimUser) {
     updateAuthButtons();
   }
   
+  // ⚠️⚠️⚠️ CRITIQUE : S'assurer que window.currentUser.username contient le bon username avant la mise à jour
+  if (window.currentUser && slimUser.username && 
+      slimUser.username !== 'null' && 
+      !slimUser.username.includes('@')) {
+    window.currentUser.username = slimUser.username; // ⚠️ FORCER le username avant mise à jour
+    console.log('[UPDATE AUTH UI] ✅✅✅ Username FORCÉ avant updateAccountBlockLegitimately:', window.currentUser.username);
+  }
+  
   // Mettre à jour le bloc compte - FORCER la mise à jour immédiate
-  if (typeof updateAccountBlockLegitimately === 'function') {
-    updateAccountBlockLegitimately();
+  if (typeof window.updateAccountBlockLegitimately === 'function') {
+    window.updateAccountBlockLegitimately();
     // Forcer aussi après un court délai pour s'assurer que le DOM est prêt
     setTimeout(() => {
-      updateAccountBlockLegitimately();
+      if (typeof window.updateAccountBlockLegitimately === 'function') {
+        window.updateAccountBlockLegitimately();
+      }
     }, 100);
   }
   
@@ -238,6 +288,15 @@ function updateAuthUI(slimUser) {
 
 function getUserDisplayName(user) {
   if (!user) return 'Compte';
+  
+  // ⚠️⚠️⚠️ SIMPLIFICATION : Utiliser directement user.username (qui devrait contenir le username du formulaire après connectUser)
+  // connectUser récupère déjà le username du formulaire depuis localStorage et le met dans user.username
+  if (user.username && 
+      user.username !== '' && 
+      user.username !== 'null' && 
+      !user.username.includes('@')) {
+    return user.username;
+  }
   
   // Prioriser firstName + lastName
   if (user.firstName && user.lastName) {
@@ -253,12 +312,7 @@ function getUserDisplayName(user) {
     return user.first_name;
   }
   
-  // Fallback sur username
-  if (user.username) {
-    return user.username;
-  }
-  
-  // Fallback sur email
+  // Fallback sur email (dernier recours)
   if (user.email) {
     return user.email.split('@')[0];
   }
@@ -359,24 +413,60 @@ async function startGoogleLogin() {
   try {
     const verifier = randomString(80);
     const challenge = await pkceChallengeFromVerifier(verifier);
-    const state = randomString(24);
+    
+    // ⚠️⚠️⚠️ FIX MODE PRIVÉ : Encoder les données du formulaire dans le state OAuth
+    let state = randomString(24);
+    let pendingDataForState = null;
+    
+    // Récupérer les données du formulaire si disponibles
+    try {
+      let savedData = null;
+      try {
+        savedData = localStorage.getItem('pendingRegisterDataForGoogle');
+      } catch (e) {
+        try {
+          savedData = sessionStorage.getItem('pendingRegisterDataForGoogle');
+        } catch (e2) {
+          if (window.pendingRegisterData) {
+            savedData = JSON.stringify(window.pendingRegisterData);
+          }
+        }
+      }
+      
+      if (savedData) {
+        pendingDataForState = JSON.parse(savedData);
+        // Encoder seulement les données essentielles (username, photoData) dans le state
+        // Limiter la taille pour éviter les problèmes avec les URLs
+        const essentialData = {
+          username: pendingDataForState.username || null,
+          // photoData est trop gros, on le garde dans sessionStorage
+          hasPhotoData: !!pendingDataForState.photoData
+        };
+        if (essentialData.username) {
+          // Encoder en base64 et ajouter au state
+          try {
+            const encodedData = btoa(JSON.stringify(essentialData));
+            state = state + '_' + encodedData.substring(0, 100); // Limiter la taille mais garder assez pour le username
+            console.log('[GOOGLE LOGIN] ✅ Données formulaire encodées dans state OAuth:', essentialData);
+          } catch (e) {
+            console.warn('[GOOGLE LOGIN] ⚠️ Erreur encodage dans state:', e);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[GOOGLE LOGIN] ⚠️ Impossible d\'encoder les données dans state:', e);
+    }
 
     authSave("pkce_verifier", verifier);
     authSave("oauth_state", state);
 
-    // ⚠️⚠️⚠️ CRITIQUE : Déterminer si c'est une première inscription ou une reconnexion
-    // Si window.isRegisteringWithGoogle est true OU si window.pendingRegisterData existe, c'est une première inscription
-    const isFirstTimeRegistration = window.isRegisteringWithGoogle === true || 
-                                     (window.pendingRegisterData && window.pendingRegisterData.email);
+    // ⚠️⚠️⚠️ CRITIQUE : TOUJOURS forcer la validation Google (même pour les reconnexions)
+    // Utiliser 'consent' seul pour forcer Google à demander le consentement à chaque fois
+    // 'select_account' peut être ignoré si l'utilisateur n'a qu'un seul compte
+    // 'consent' force Google à demander la validation smartphone même si l'utilisateur est déjà connecté
+    const promptValue = 'consent';  // ⚠️⚠️⚠️ TOUJOURS forcer consentement = validation smartphone OBLIGATOIRE
     
-    // ⚠️⚠️⚠️ CRITIQUE : Pour la première inscription, forcer select_account ET consent pour garantir la validation smartphone
-    // Pour les reconnexions, on peut utiliser seulement consent
-    const promptValue = isFirstTimeRegistration 
-      ? 'select_account consent'  // ⚠️⚠️⚠️ PREMIÈRE INSCRIPTION : Forcer sélection compte + consentement = validation smartphone OBLIGATOIRE
-      : 'consent';                 // Reconnexion : consent seulement
-    
-    console.log('[GOOGLE LOGIN] ⚠️⚠️⚠️ Type de connexion:', isFirstTimeRegistration ? 'PREMIÈRE INSCRIPTION' : 'RECONNEXION');
-    console.log('[GOOGLE LOGIN] ⚠️⚠️⚠️ Prompt utilisé:', promptValue);
+    console.log('[GOOGLE LOGIN] ⚠️⚠️⚠️ Validation Google FORCÉE - Prompt:', promptValue);
 
     const authorizeUrl =
       `${COGNITO.domain}/oauth2/authorize` +
@@ -436,8 +526,8 @@ function showGoogleLoginLoading() {
   overlay.innerHTML = `
     <div style="text-align:center;color:#fff;max-width:400px;padding:40px;">
       <div style="font-size:64px;margin-bottom:20px;animation:spin 1s linear infinite;">⏳</div>
-      <h2 style="margin:0 0 10px;font-size:24px;font-weight:700;background:linear-gradient(135deg,#00ffc3,#3b82f6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">Connexion en cours...</h2>
-      <p style="margin:0;font-size:14px;color:rgba(255,255,255,0.7);">Vérification avec Google en cours. Veuillez patienter.</p>
+      <h2 style="margin:0 0 10px;font-size:24px;font-weight:700;background:linear-gradient(135deg,#00ffc3,#3b82f6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">Validation Google en cours...</h2>
+      <p style="margin:0;font-size:14px;color:rgba(255,255,255,0.7);">Veuillez valider sur votre smartphone si demandé, puis patientez.</p>
     </div>
     <style>
       @keyframes spin {
@@ -932,12 +1022,38 @@ function loadSavedUser() {
           return;
         }
         
-        // Même avec des tokens valides, on ne restaure PAS automatiquement la session
-        // L'utilisateur doit cliquer sur "Compte" et se reconnecter
-        // On charge juste les données de base pour référence
-        // FORCER profileComplete à false pour forcer le formulaire d'inscription
+        // ⚠️⚠️⚠️ CORRECTION : Si "Rester connecté" est activé ET tokens valides → restaurer la session
+        const rememberMe = localStorage.getItem('rememberMe') === 'true';
+        
+        if (rememberMe && hasValidTokens) {
+          console.log('✅✅✅ [AUTH] "Rester connecté" activé + tokens valides → RESTAURATION SESSION AUTOMATIQUE');
+          
+          // Restaurer la session avec isLoggedIn: true
+          if (typeof window !== 'undefined') {
+            window.currentUser = {
+              ...parsedUser,
+              isLoggedIn: true,
+              profileComplete: parsedUser.profileComplete !== false
+            };
+            
+            console.log('[AUTH] ✅ Session restaurée automatiquement pour:', window.currentUser.email || window.currentUser.username);
+            
+            // Mettre à jour l'UI
+            setTimeout(() => {
+              if (typeof window.updateAccountBlockLegitimately === 'function') {
+                window.updateAccountBlockLegitimately();
+              }
+              if (typeof window.updateAuthUI === 'function') {
+                window.updateAuthUI(window.currentUser);
+              }
+            }, 100);
+          }
+          return;
+        }
+        
+        // Si pas de "Rester connecté" ou tokens invalides → ne pas restaurer
         console.log('ℹ️ Données utilisateur trouvées mais session non restaurée automatiquement');
-        parsedUser.profileComplete = false; // FORCER à false pour forcer le formulaire
+        parsedUser.profileComplete = false;
         
         // Fusionner avec les valeurs par défaut pour éviter les propriétés manquantes
         if (typeof window !== 'undefined' && window.currentUser !== undefined) {
@@ -1411,6 +1527,12 @@ function openAuthModal(mode = 'login') {
   // Si c'est le mode register, utiliser le formulaire complet (showProRegisterForm)
   if (mode === 'register') {
     console.log('[AUTH] Mode register - Utilisation du formulaire complet showProRegisterForm');
+    // ⚠️⚠️⚠️ CRITIQUE : Marquer qu'on veut créer un compte (même si l'email existe)
+    try {
+      sessionStorage.setItem('wantToRegister', 'true');
+    } catch (e) {
+      console.warn('[AUTH] ⚠️ Impossible de sauvegarder wantToRegister:', e);
+    }
     if (typeof showProRegisterForm === 'function') {
       showProRegisterForm();
       return;
@@ -2284,8 +2406,136 @@ async function checkEmailAndProceed(email) {
     console.log('[AUTH] ✅ Email existe:', emailExists);
     
     if (emailExists) {
-      // ⚠️⚠️⚠️ COMPTE EXISTANT : Proposer directement deux options : Google OU Email/Mot de passe
-      console.log('[AUTH] ✅✅✅ Compte existant détecté - Affichage choix reconnexion');
+      // ⚠️⚠️⚠️ COMPTE EXISTANT : Vérifier si l'utilisateur veut créer un compte ou se connecter
+      const isCreatingAccount = window.location.hash.includes('register') || 
+                                document.getElementById('authModal')?.dataset.mode === 'register' ||
+                                sessionStorage.getItem('wantToRegister') === 'true';
+      
+      if (isCreatingAccount) {
+        // ⚠️⚠️⚠️ L'utilisateur essaie de créer un compte avec un email existant
+        console.log('[AUTH] ❌ Email existe déjà - Impossible de créer un compte avec cet email');
+        
+        // Afficher le formulaire d'inscription mais avec un message d'erreur
+        if (typeof showProRegisterForm === 'function') {
+          showProRegisterForm();
+          setTimeout(() => {
+            const emailInput = document.getElementById('pro-email');
+            if (emailInput) {
+              emailInput.value = email;
+              // Afficher le message d'erreur
+              const emailError = document.getElementById('pro-email-error');
+              if (emailError) {
+                emailError.textContent = '❌ Ce mail existe déjà. Veuillez utiliser un autre email ou vous connecter.';
+                emailError.style.color = '#ef4444';
+                emailError.style.display = 'block';
+              }
+              // Marquer le champ comme invalide
+              emailInput.style.borderColor = '#ef4444';
+              // Empêcher la soumission du formulaire
+              emailInput.setAttribute('data-email-exists', 'true');
+              emailInput.setAttribute('aria-invalid', 'true');
+              // ⚠️⚠️⚠️ CRITIQUE : Ajouter un listener pour vérifier en temps réel si l'email existe
+              // Supprimer les anciens listeners pour éviter les doublons
+              const newEmailInput = emailInput.cloneNode(true);
+              emailInput.parentNode.replaceChild(newEmailInput, emailInput);
+              const emailInputFinal = newEmailInput;
+              
+              // Vérifier immédiatement si l'email existe déjà
+              if (email && email.includes('@')) {
+                (async () => {
+                  try {
+                    const response = await fetch(`${API_BASE_URL}/user/exists?email=${encodeURIComponent(email)}`, {
+                      method: 'GET',
+                      headers: { 'Content-Type': 'application/json' }
+                    });
+                    if (response.ok) {
+                      const data = await response.json();
+                      if (data.exists === true) {
+                        emailInputFinal.style.borderColor = '#ef4444';
+                        emailInputFinal.setAttribute('data-email-exists', 'true');
+                        emailInputFinal.setAttribute('aria-invalid', 'true');
+                        const emailErrorFinal = document.getElementById('pro-email-error');
+                        if (emailErrorFinal) {
+                          emailErrorFinal.textContent = '❌ Ce mail existe déjà. Veuillez utiliser un autre email ou vous connecter.';
+                          emailErrorFinal.style.color = '#ef4444';
+                          emailErrorFinal.style.display = 'block';
+                        }
+                      }
+                    }
+                  } catch (e) {
+                    console.error('[AUTH] Erreur vérification email:', e);
+                  }
+                })();
+              }
+              
+              // Ajouter un listener pour vérifier en temps réel lors de la saisie
+              emailInputFinal.addEventListener('input', async function checkEmailExists() {
+                const currentEmail = this.value.trim();
+                if (currentEmail && currentEmail.includes('@')) {
+                  try {
+                    const response = await fetch(`${API_BASE_URL}/user/exists?email=${encodeURIComponent(currentEmail)}`, {
+                      method: 'GET',
+                      headers: { 'Content-Type': 'application/json' }
+                    });
+                    if (response.ok) {
+                      const data = await response.json();
+                      const emailErrorFinal = document.getElementById('pro-email-error');
+                      if (data.exists === true) {
+                        this.style.borderColor = '#ef4444';
+                        this.setAttribute('data-email-exists', 'true');
+                        this.setAttribute('aria-invalid', 'true');
+                        if (emailErrorFinal) {
+                          emailErrorFinal.textContent = '❌ Ce mail existe déjà. Veuillez utiliser un autre email ou vous connecter.';
+                          emailErrorFinal.style.color = '#ef4444';
+                          emailErrorFinal.style.display = 'block';
+                        }
+                      } else {
+                        this.style.borderColor = '';
+                        this.removeAttribute('data-email-exists');
+                        this.removeAttribute('aria-invalid');
+                        if (emailErrorFinal) {
+                          emailErrorFinal.textContent = '';
+                          emailErrorFinal.style.display = 'none';
+                        }
+                      }
+                    }
+                  } catch (e) {
+                    console.error('[AUTH] Erreur vérification email:', e);
+                  }
+                }
+              });
+              
+              emailInputFinal.value = email;
+              emailInputFinal.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+          }, 100);
+        } else if (typeof window.showProRegisterForm === 'function') {
+          window.showProRegisterForm();
+          setTimeout(() => {
+            const emailInput = document.getElementById('pro-email');
+            if (emailInput) {
+              emailInput.value = email;
+              const emailError = document.getElementById('pro-email-error');
+              if (emailError) {
+                emailError.textContent = '❌ Ce mail existe déjà. Veuillez utiliser un autre email ou vous connecter.';
+                emailError.style.color = '#ef4444';
+                emailError.style.display = 'block';
+              }
+              emailInput.style.borderColor = '#ef4444';
+              emailInput.setAttribute('data-email-exists', 'true');
+              emailInput.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+          }, 100);
+        }
+        
+        // Afficher aussi une notification
+        if (typeof showNotification === 'function') {
+          showNotification('❌ Ce mail existe déjà. Veuillez utiliser un autre email ou vous connecter.', 'error');
+        }
+        return; // Ne pas continuer
+      } else {
+        // ⚠️⚠️⚠️ COMPTE EXISTANT : Proposer directement deux options : Google OU Email/Mot de passe
+        console.log('[AUTH] ✅✅✅ Compte existant détecté - Affichage choix reconnexion');
       
       // ⚠️⚠️⚠️ SAUVEGARDER l'email dans sessionStorage pour restauration après F5
       try {
@@ -2367,41 +2617,118 @@ async function checkEmailAndProceed(email) {
           passwordInput.focus();
         }
       }, 100);
+      return; // Ne pas continuer si on a affiché le modal de reconnexion
+      }
+    }
+    
+    // ⚠️⚠️⚠️ NOUVEAU COMPTE OU CRÉATION DEMANDÉE : Proposer le formulaire d'inscription complet
+    console.log('[AUTH] ✅✅✅ Nouveau compte détecté ou création demandée - Affichage formulaire d\'inscription');
+    
+    // ⚠️⚠️⚠️ SAUVEGARDER l'email dans sessionStorage pour restauration après F5
+    try {
+      sessionStorage.setItem('lastLoginEmail', email.toLowerCase().trim());
+    } catch (e) {
+      console.warn('[AUTH] ⚠️ Impossible de sauvegarder l\'email:', e);
+    }
+    
+    // ⚠️⚠️⚠️ CRITIQUE : Vérifier si l'email existe AVANT de pré-remplir le formulaire
+    try {
+      const emailCheckResponse = await fetch(`${API_BASE_URL}/user/exists?email=${encodeURIComponent(email)}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (emailCheckResponse.ok) {
+        const emailCheckData = await emailCheckResponse.json();
+        if (emailCheckData.exists === true) {
+          // Email existe déjà - NE PAS pré-remplir et afficher une erreur
+          console.log('[AUTH] ❌ Email existe déjà - Ne pas pré-remplir le formulaire');
+          if (typeof showNotification === 'function') {
+            showNotification('❌ Ce mail existe déjà. Veuillez utiliser un autre email ou vous connecter.', 'error');
+          }
+          
+          // Afficher le formulaire SANS pré-remplir l'email
+          if (typeof showProRegisterForm === 'function') {
+            showProRegisterForm();
+            setTimeout(() => {
+              // ⚠️⚠️⚠️ CRITIQUE : Configurer la validation en temps réel sur tous les champs
+              if (typeof setupProFormValidation === 'function') {
+                setupProFormValidation();
+              } else if (typeof window.setupProFormValidation === 'function') {
+                window.setupProFormValidation();
+              }
+            }, 200);
+            // Ne pas pré-remplir l'email - laisser l'utilisateur en saisir un nouveau
+          } else if (typeof window.showProRegisterForm === 'function') {
+            window.showProRegisterForm();
+            setTimeout(() => {
+              // ⚠️⚠️⚠️ CRITIQUE : Configurer la validation en temps réel sur tous les champs
+              if (typeof setupProFormValidation === 'function') {
+                setupProFormValidation();
+              } else if (typeof window.setupProFormValidation === 'function') {
+                window.setupProFormValidation();
+              }
+            }, 200);
+            // Ne pas pré-remplir l'email
+          } else {
+            openAuthModal('register');
+          }
+          return; // Ne pas continuer
+        }
+      }
+    } catch (error) {
+      console.error('[AUTH] Erreur lors de la vérification de l\'email:', error);
+      // En cas d'erreur, continuer quand même mais ne pas pré-remplir
+    }
+    
+    // Email n'existe pas - on peut pré-remplir le formulaire
+    if (typeof showProRegisterForm === 'function') {
+      showProRegisterForm();
+      setTimeout(() => {
+        const emailInput = document.getElementById('pro-email');
+        if (emailInput) {
+          emailInput.value = email;
+          // ⚠️⚠️⚠️ CRITIQUE : Configurer la validation en temps réel sur tous les champs
+          if (typeof setupProFormValidation === 'function') {
+            setupProFormValidation();
+          } else if (typeof window.setupProFormValidation === 'function') {
+            window.setupProFormValidation();
+          }
+          // Valider immédiatement l'email après pré-remplissage
+          if (typeof validateProEmailField === 'function') {
+            validateProEmailField(emailInput);
+          } else if (typeof window.validateProEmailField === 'function') {
+            window.validateProEmailField(emailInput);
+          }
+          emailInput.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+      }, 200);
+    } else if (typeof window.showProRegisterForm === 'function') {
+      window.showProRegisterForm();
+      setTimeout(() => {
+        const emailInput = document.getElementById('pro-email');
+        if (emailInput) {
+          emailInput.value = email;
+          // ⚠️⚠️⚠️ CRITIQUE : Configurer la validation en temps réel sur tous les champs
+          if (typeof setupProFormValidation === 'function') {
+            setupProFormValidation();
+          } else if (typeof window.setupProFormValidation === 'function') {
+            window.setupProFormValidation();
+          }
+          // Valider immédiatement l'email après pré-remplissage
+          if (typeof validateProEmailField === 'function') {
+            validateProEmailField(emailInput);
+          } else if (typeof window.validateProEmailField === 'function') {
+            window.validateProEmailField(emailInput);
+          }
+          emailInput.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+      }, 200);
     } else {
-      // ⚠️⚠️⚠️ NOUVEAU COMPTE : Proposer le formulaire d'inscription complet
-      console.log('[AUTH] ✅✅✅ Nouveau compte détecté - Affichage formulaire d\'inscription');
-      
-      // ⚠️⚠️⚠️ SAUVEGARDER l'email dans sessionStorage pour restauration après F5
-      try {
-        sessionStorage.setItem('lastLoginEmail', email.toLowerCase().trim());
-      } catch (e) {
-        console.warn('[AUTH] ⚠️ Impossible de sauvegarder l\'email:', e);
-      }
-      
-      // Afficher le formulaire d'inscription complet
-      if (typeof showProRegisterForm === 'function') {
-        // Pré-remplir l'email dans le formulaire
-        showProRegisterForm();
-        setTimeout(() => {
-          const emailInput = document.getElementById('pro-email');
-          if (emailInput) {
-            emailInput.value = email;
-            emailInput.dispatchEvent(new Event('input', { bubbles: true }));
-          }
-        }, 100);
-      } else if (typeof window.showProRegisterForm === 'function') {
-        window.showProRegisterForm();
-        setTimeout(() => {
-          const emailInput = document.getElementById('pro-email');
-          if (emailInput) {
-            emailInput.value = email;
-            emailInput.dispatchEvent(new Event('input', { bubbles: true }));
-          }
-        }, 100);
-      } else {
-        // Fallback : afficher le formulaire d'inscription simplifié
-        openAuthModal('register');
-      }
+      // Fallback : afficher le formulaire d'inscription simplifié
+      openAuthModal('register');
     }
   } catch (error) {
     console.error('[AUTH] ❌ Erreur vérification email:', error);
@@ -2697,18 +3024,98 @@ async function performLogin() {
 async function performRegister() {
   console.log('[REGISTER] Debut inscription');
   
-  const email = document.getElementById("register-email")?.value.trim();
-  const username = document.getElementById("register-username")?.value.trim();
-  const password = document.getElementById("register-password")?.value;
-  const passwordConfirm = document.getElementById("register-password-confirm")?.value;
-  const photoLater = document.getElementById("register-photo-later")?.checked;
-  const addressLater = document.getElementById("register-address-later")?.checked;
+  // ⚠️⚠️⚠️ PRIORITÉ au formulaire professionnel
+  const emailInput = document.getElementById("pro-email") || document.getElementById("register-email");
+  const email = emailInput?.value.trim();
+  const username = document.getElementById("pro-username")?.value.trim() || document.getElementById("register-username")?.value.trim();
+  const firstName = document.getElementById("pro-firstname")?.value.trim() || '';
+  const lastName = document.getElementById("pro-lastname")?.value.trim() || '';
+  const password = document.getElementById("pro-password")?.value || document.getElementById("register-password")?.value;
+  const passwordConfirm = document.getElementById("pro-password-confirm")?.value || document.getElementById("register-password-confirm")?.value;
+  const photoInput = document.getElementById("pro-photo");
+  const photoLater = document.getElementById("register-photo-later")?.checked || document.getElementById("pro-photo-later")?.checked;
+  const addressLater = document.getElementById("register-address-later")?.checked || document.getElementById("pro-address-later")?.checked;
   
+  // Validation des champs obligatoires
   if (!email || !username || !password || !passwordConfirm) {
     if (typeof showNotification === 'function') {
       showNotification("⚠️ Veuillez remplir tous les champs obligatoires", "warning");
     }
     return;
+  }
+  
+  // Validation prénom et nom (formulaire professionnel)
+  if (document.getElementById("pro-firstname") && (!firstName || !lastName)) {
+    if (typeof showNotification === 'function') {
+      showNotification("⚠️ Veuillez remplir le prénom et le nom", "warning");
+    }
+    return;
+  }
+  
+  // Validation photo (obligatoire dans le formulaire professionnel)
+  if (photoInput && !photoInput.files || (photoInput && photoInput.files.length === 0)) {
+    if (typeof showNotification === 'function') {
+      showNotification("⚠️ Veuillez sélectionner une photo de profil", "warning");
+    }
+    const photoError = document.getElementById("pro-photo-error");
+    if (photoError) {
+      photoError.textContent = '❌ Photo de profil obligatoire';
+      photoError.style.color = '#ef4444';
+      photoError.style.display = 'block';
+    }
+    photoInput.focus();
+    return;
+  }
+  
+  // ⚠️⚠️⚠️ CRITIQUE : Vérifier si l'email est marqué comme existant (validation en temps réel)
+  if (emailInput && emailInput.getAttribute('data-email-exists') === 'true') {
+    if (typeof showNotification === 'function') {
+      showNotification("❌ Ce mail existe déjà. Veuillez utiliser un autre email ou vous connecter.", "error");
+    }
+    const emailError = document.getElementById("pro-email-error") || document.getElementById("register-email-error");
+    if (emailError) {
+      emailError.textContent = '❌ Ce mail existe déjà. Veuillez utiliser un autre email ou vous connecter.';
+      emailError.style.color = '#ef4444';
+      emailError.style.display = 'block';
+    }
+    emailInput.focus();
+    return; // Empêcher la soumission
+  }
+  
+  // ⚠️⚠️⚠️ CRITIQUE : Vérifier si l'email existe déjà AVANT de permettre la soumission
+  try {
+    const emailCheckResponse = await fetch(`${API_BASE_URL}/user/exists?email=${encodeURIComponent(email)}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (emailCheckResponse.ok) {
+      const emailCheckData = await emailCheckResponse.json();
+      if (emailCheckData.exists === true) {
+        // Email existe déjà - empêcher la création du compte
+        if (typeof showNotification === 'function') {
+          showNotification("❌ Ce mail existe déjà. Veuillez utiliser un autre email ou vous connecter.", "error");
+        }
+        
+        // Afficher l'erreur dans le formulaire
+        const emailInput = document.getElementById("register-email");
+        if (emailInput) {
+          emailInput.style.borderColor = '#ef4444';
+          const emailError = document.getElementById("register-email-error");
+          if (emailError) {
+            emailError.textContent = '❌ Ce mail existe déjà. Veuillez utiliser un autre email ou vous connecter.';
+            emailError.style.color = '#ef4444';
+            emailError.style.display = 'block';
+          }
+        }
+        return; // Empêcher la soumission
+      }
+    }
+  } catch (error) {
+    console.error('[REGISTER] Erreur lors de la vérification de l\'email:', error);
+    // En cas d'erreur, continuer quand même (ne pas bloquer si le backend est indisponible)
   }
   
   if (password !== passwordConfirm) {
@@ -2754,6 +3161,42 @@ async function performRegister() {
       showNotification("⚠️ Veuillez sélectionner une adresse ou cocher 'Vérifier plus tard'", "warning");
     }
     return;
+  }
+  
+  // ⚠️⚠️⚠️ CRITIQUE : Vérifier si l'email existe déjà AVANT d'afficher le choix de vérification
+  try {
+    const emailCheckResponse = await fetch(`${API_BASE_URL}/user/exists?email=${encodeURIComponent(email)}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (emailCheckResponse.ok) {
+      const emailCheckData = await emailCheckResponse.json();
+      if (emailCheckData.exists === true) {
+        // Email existe déjà - empêcher la création du compte
+        if (typeof showNotification === 'function') {
+          showNotification("❌ Ce mail existe déjà. Veuillez utiliser un autre email ou vous connecter.", "error");
+        }
+        
+        // Afficher l'erreur dans le formulaire
+        const emailInput = document.getElementById("register-email") || document.getElementById("pro-email");
+        if (emailInput) {
+          emailInput.style.borderColor = '#ef4444';
+          const emailError = document.getElementById("register-email-error") || document.getElementById("pro-email-error");
+          if (emailError) {
+            emailError.textContent = '❌ Ce mail existe déjà. Veuillez utiliser un autre email ou vous connecter.';
+            emailError.style.color = '#ef4444';
+            emailError.style.display = 'block';
+          }
+        }
+        return; // Empêcher l'affichage du choix de vérification
+      }
+    }
+  } catch (error) {
+    console.error('[REGISTER] Erreur lors de la vérification de l\'email:', error);
+    // En cas d'erreur, continuer quand même (ne pas bloquer si le backend est indisponible)
   }
   
   // NOUVEAU FLUX: Après validation du formulaire, afficher le choix de vérification
@@ -3082,12 +3525,31 @@ async function handleCognitoCallbackIfPresent() {
     hasError: !!new URL(window.location.href).searchParams.get("error")
   });
   
+  // ⚠️ CRITIQUE : Afficher le sablier d'attente pendant toute la validation Google
+  showGoogleLoginLoading();
+  
   const url = new URL(window.location.href);
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
   const error = url.searchParams.get("error");
 
   console.log('📋 Paramètres OAuth:', { code: !!code, state: !!state, error });
+  
+  // ⚠️⚠️⚠️ FIX MODE PRIVÉ : Décoder les données du formulaire depuis le state OAuth
+  let decodedFormData = null;
+  if (state && state.includes('_')) {
+    try {
+      const parts = state.split('_');
+      if (parts.length > 1) {
+        const encodedData = parts.slice(1).join('_'); // Tout après le premier underscore
+        const decoded = JSON.parse(atob(encodedData));
+        decodedFormData = decoded;
+        console.log('[OAUTH] ✅ Données formulaire décodées depuis state OAuth:', decodedFormData);
+      }
+    } catch (e) {
+      console.warn('[OAUTH] ⚠️ Impossible de décoder les données depuis state:', e);
+    }
+  }
 
   if (error) {
     console.error('❌ Erreur OAuth:', error);
@@ -3233,14 +3695,53 @@ async function handleCognitoCallbackIfPresent() {
       // Car window.pendingRegisterData est perdu lors de la redirection vers Google
       let pendingData = window.pendingRegisterData;
       
+      // ⚠️⚠️⚠️ FIX MODE PRIVÉ : Si on a décodé des données depuis le state OAuth, les utiliser
+      if (!pendingData && decodedFormData && decodedFormData.username) {
+        console.log('[OAUTH] ✅✅✅ Données formulaire récupérées depuis state OAuth (mode privé)');
+        // Récupérer photoData depuis sessionStorage si disponible
+        let photoData = null;
+        try {
+          const savedData = sessionStorage.getItem('pendingRegisterDataForGoogle');
+          if (savedData) {
+            const parsed = JSON.parse(savedData);
+            photoData = parsed.photoData || null;
+          }
+        } catch (e) {
+          // Ignorer
+        }
+        pendingData = {
+          username: decodedFormData.username,
+          photoData: photoData,
+          firstName: decodedFormData.firstName || null,
+          lastName: decodedFormData.lastName || null
+        };
+        window.pendingRegisterData = pendingData;
+        window.isRegisteringWithGoogle = true;
+        console.log('[OAUTH] ✅ pendingData restauré depuis state OAuth:', { username: pendingData.username, hasPhotoData: !!pendingData.photoData });
+      }
+      
       console.log('[OAUTH] 🔍🔍🔍 ÉTAPE 1 - window.pendingRegisterData:', pendingData ? 'EXISTE' : 'NULL');
       
       // Si pendingRegisterData n'existe pas dans window, le récupérer depuis localStorage
       if (!pendingData) {
         try {
-          console.log('[OAUTH] 🔍🔍🔍 ÉTAPE 2 - Tentative récupération depuis localStorage...');
-          const savedPendingData = localStorage.getItem('pendingRegisterDataForGoogle');
-          console.log('[OAUTH] 🔍🔍🔍 ÉTAPE 3 - localStorage.getItem résultat:', savedPendingData ? `EXISTE (${savedPendingData.length} chars)` : 'NULL');
+          console.log('[OAUTH] 🔍🔍🔍 ÉTAPE 2 - Tentative récupération depuis storage...');
+          // ⚠️⚠️⚠️ FIX MODE PRIVÉ : Essayer localStorage, puis sessionStorage, puis window
+          let savedPendingData = null;
+          try {
+            savedPendingData = localStorage.getItem('pendingRegisterDataForGoogle');
+          } catch (e) {
+            console.warn('[OAUTH] ⚠️ localStorage bloqué (mode privé?), essai sessionStorage...');
+            try {
+              savedPendingData = sessionStorage.getItem('pendingRegisterDataForGoogle');
+            } catch (e2) {
+              console.warn('[OAUTH] ⚠️ sessionStorage aussi bloqué, essai window.pendingRegisterData...');
+              if (window.pendingRegisterData) {
+                savedPendingData = JSON.stringify(window.pendingRegisterData);
+              }
+            }
+          }
+          console.log('[OAUTH] 🔍🔍🔍 ÉTAPE 3 - getItem résultat:', savedPendingData ? `EXISTE (${savedPendingData.length} chars)` : 'NULL');
           
           if (savedPendingData) {
             try {
@@ -3320,14 +3821,46 @@ async function handleCognitoCallbackIfPresent() {
       console.log('[OAUTH] requestBody username:', requestBody.username || 'MANQUANT');
       console.log('[OAUTH] Envoi requete OAuth Google au backend');
       
-      const syncResponse = await fetch(`${API_BASE_URL}/user/oauth/google`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${tokens.id_token}`
-        },
-        body: JSON.stringify(requestBody)
-      });
+      let syncResponse;
+      try {
+        syncResponse = await fetch(`${API_BASE_URL}/user/oauth/google`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${tokens.id_token}`
+          },
+          body: JSON.stringify(requestBody)
+        });
+      } catch (fetchError) {
+        // Erreur réseau (CORS, timeout, etc.) - backend vraiment indisponible
+        console.warn('⚠️ Erreur réseau lors de l\'appel API backend:', fetchError);
+        throw fetchError; // Relancer pour être géré par le catch externe
+      }
+      
+      // ⚠️⚠️⚠️ CRITIQUE : Vérifier le status de la réponse
+      // Si c'est 401, le backend est disponible mais l'utilisateur n'est pas authentifié
+      // Si c'est une erreur réseau (NetworkError), le backend est vraiment indisponible
+      if (!syncResponse.ok) {
+        const errorText = await syncResponse.text();
+        let errorData = null;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch (e) {
+          // Pas de JSON, utiliser le texte brut
+        }
+        
+        // Si c'est 401, c'est une erreur d'authentification, pas un backend indisponible
+        if (syncResponse.status === 401) {
+          console.warn('⚠️ Erreur 401 - Authentification requise:', errorData || errorText);
+          // Ne pas basculer en mode "backend indisponible" - le backend est disponible
+          // mais l'utilisateur n'est pas authentifié correctement
+          throw new Error(`Authentication failed: ${errorData?.error || errorText || 'Unauthorized'}`);
+        }
+        
+        // Autres erreurs (500, 503, etc.) - backend peut être indisponible
+        console.warn(`⚠️ Erreur ${syncResponse.status} lors de l'appel API backend:`, errorData || errorText);
+        throw new Error(`Backend error: ${syncResponse.status} - ${errorData?.error || errorText || 'Unknown error'}`);
+      }
       
       if (syncResponse.ok) {
         const syncData = await syncResponse.json();
@@ -3347,18 +3880,41 @@ async function handleCognitoCallbackIfPresent() {
           const needsEmailVerification = syncData.needsEmailVerification === true;
           const isNewUser = syncData.isNewUser === true;
           
-          // RÈGLE 1: NOUVEAU COMPTE
+          // RÈGLE 1: NOUVEAU COMPTE - FORCER LE FORMULAIRE SI DONNÉES MANQUANTES
           if (isNewUser) {
-            // Si c'est une inscription avec Google ET que le profil est complet (grâce aux données du formulaire)
-            // OU si c'est une inscription avec Google (même si profileComplete est false, on considère que c'est complet car on vient du formulaire)
-            if (window.isRegisteringWithGoogle) {
-              console.log('[OAUTH] NOUVEAU COMPTE GOOGLE - Connexion automatique (inscription via formulaire)');
-              console.log('[OAUTH] Détails:', { profileComplete, missingData, hasPendingData: !!window.pendingRegisterData });
+            // ⚠️⚠️⚠️ CRITIQUE : Vérifier que toutes les données obligatoires sont présentes
+            // Utilisation du module de validation
+            const validation = ProfileValidator.validateRequiredFields(
+              syncData.user || {}, 
+              window.pendingRegisterData || {}
+            );
+            const hasRequiredData = validation.isValid;
+            
+            // Si c'est une inscription avec Google ET que toutes les données obligatoires sont présentes
+            if (window.isRegisteringWithGoogle && hasRequiredData) {
+              console.log('[OAUTH] NOUVEAU COMPTE GOOGLE - Connexion automatique (inscription via formulaire avec données complètes)');
+              console.log('[OAUTH] Détails:', { profileComplete, missingData, hasPendingData: !!window.pendingRegisterData, hasRequiredData });
               
               // ⚠️⚠️⚠️ CRITIQUE : SAUVEGARDER username ET photoData AVANT de nettoyer pendingRegisterData
               // Le username du formulaire est la SEULE source de vérité pour les nouveaux comptes
               const savedPhotoData = window.pendingRegisterData?.photoData || syncData.user?.photoData || null;
-              const savedUsername = window.pendingRegisterData?.username || null; // ⚠️ PRIORITÉ ABSOLUE
+              let savedUsername = window.pendingRegisterData?.username || null; // ⚠️ PRIORITÉ ABSOLUE
+              
+              // ⚠️⚠️⚠️ Vérifier aussi dans localStorage/sessionStorage si pas trouvé
+              if (!savedUsername || savedUsername === 'null' || savedUsername === '' || savedUsername.includes('@')) {
+                try {
+                  const storedData = localStorage.getItem('pendingRegisterDataForGoogle') || sessionStorage.getItem('pendingRegisterDataForGoogle');
+                  if (storedData) {
+                    const parsed = JSON.parse(storedData);
+                    if (parsed?.username && parsed.username !== 'null' && !parsed.username.includes('@')) {
+                      savedUsername = parsed.username;
+                      console.log('[OAUTH] ✅ Username récupéré depuis storage:', savedUsername);
+                    }
+                  }
+                } catch (e) {
+                  console.error('[OAUTH] ❌ Erreur récupération username depuis storage:', e);
+                }
+              }
               
               console.log('[OAUTH] ⚠️⚠️⚠️ USERNAME DU FORMULAIRE (pendingRegisterData):', savedUsername || 'MANQUANT');
               console.log('[OAUTH] Username depuis syncData.user (backend):', syncData.user?.username || 'MANQUANT');
@@ -3377,20 +3933,25 @@ async function handleCognitoCallbackIfPresent() {
               
               // Connecter automatiquement
               // ⚠️⚠️⚠️ RÈGLE ABSOLUE : Le username du FORMULAIRE est la SEULE source de vérité pour les nouveaux comptes
-              // On ne fait JAMAIS confiance au backend pour le username (il peut être vide ou incorrect)
-              let finalUsername = tempPendingData.username; // ⚠️ PRIORITÉ ABSOLUE au username du formulaire
+              // Utilisation du module de validation pour récupérer le username valide
+              // ⚠️⚠️⚠️ CRITIQUE : Vérifier d'abord si le username du formulaire est présent
+              console.log('[OAUTH] 🔍 DEBUG username - tempPendingData.username:', tempPendingData?.username);
+              console.log('[OAUTH] 🔍 DEBUG username - syncData.user.username:', syncData.user?.username);
+              console.log('[OAUTH] 🔍 DEBUG username - payload.name:', payload?.name);
               
-              // Si le username du formulaire est manquant ou invalide, utiliser celui du backend
+              let finalUsername = tempPendingData?.username; // ⚠️ PRIORITÉ ABSOLUE au username du formulaire
+              
+              // Si le username du formulaire est invalide, utiliser le module
               if (!finalUsername || finalUsername === 'null' || finalUsername === '' || finalUsername.includes('@')) {
-                console.warn('[OAUTH] ⚠️ Username du formulaire invalide, utilisation du backend:', syncData.user?.username);
-                finalUsername = syncData.user?.username || null;
+                console.warn('[OAUTH] ⚠️ Username du formulaire invalide, utilisation du module');
+                finalUsername = ProfileValidator.getValidUsername(
+                  syncData.user || {},
+                  tempPendingData,
+                  payload
+                );
               }
               
-              // Si le username du backend est aussi invalide (email ou vide), utiliser "Utilisateur" en dernier recours
-              if (!finalUsername || finalUsername.includes('@') || finalUsername === email.split('@')[0]) {
-                console.error('[OAUTH] ❌ ERREUR: Aucun username valide trouvé, utilisation "Utilisateur"');
-                finalUsername = 'Utilisateur';
-              }
+              console.log('[OAUTH] ✅ Username final récupéré:', finalUsername);
               
               console.log('[OAUTH] ✅✅✅ Username FINAL pour slimUser:', finalUsername);
               console.log('[OAUTH] ✅✅✅ PhotoData FINAL pour slimUser:', tempPendingData.photoData ? 'PRÉSENT' : 'NULL');
@@ -3441,10 +4002,35 @@ async function handleCognitoCallbackIfPresent() {
               return;
             }
             
-            // Sinon, afficher le formulaire de complétion
-            console.log('[OAUTH] NOUVEAU COMPTE - Affichage formulaire complet');
+            // ⚠️⚠️⚠️ CRITIQUE : Si données obligatoires manquantes, FORCER le formulaire
+            // Utilisation du module de validation
+            const newUserValidation = ProfileValidator.validateRequiredFields(
+              syncData.user || {},
+              window.pendingRegisterData || {}
+            );
+            
+            if (!newUserValidation.isValid) {
+              console.log('[OAUTH] ❌ NOUVEAU COMPTE - Données obligatoires manquantes:', newUserValidation.missingFields);
+              console.log('[OAUTH] ❌ FORCAGE DU FORMULAIRE - Connexion refusée jusqu\'à complétion');
+              if (typeof showNotification === 'function') {
+                showNotification(`⚠️ Veuillez compléter les informations obligatoires : ${newUserValidation.missingFields.join(', ')}. L'adresse postale est optionnelle.`, 'warning');
+              }
+              if (typeof showProRegisterForm === 'function') {
+                showProRegisterForm();
+              } else if (typeof window.showProRegisterForm === 'function') {
+                window.showProRegisterForm();
+              }
+              isGoogleLoginInProgress = false;
+              if (typeof window !== 'undefined') {
+                window.isGoogleLoginInProgress = false;
+              }
+              return; // ⚠️⚠️⚠️ IMPORTANT : Ne pas connecter si données manquantes
+            }
+            
+            // Sinon, afficher le formulaire de complétion (pour adresse postale optionnelle)
+            console.log('[OAUTH] NOUVEAU COMPTE - Affichage formulaire complet (adresse postale optionnelle)');
             if (typeof showNotification === 'function') {
-              showNotification('⚠️ Veuillez compléter votre profil pour continuer.', 'info');
+              showNotification('⚠️ Veuillez compléter votre profil pour continuer. L\'adresse postale est optionnelle.', 'info');
             }
             if (typeof showProRegisterForm === 'function') {
               showProRegisterForm();
@@ -3485,8 +4071,16 @@ async function handleCognitoCallbackIfPresent() {
             return;
           }
           
-          // CAS 1: Profil complet → Connexion directe OU Mise à jour profil
-          if (profileComplete === true && missingData.length === 0 && !needsEmailVerification) {
+          // CAS 1: Profil complet → Vérifier données obligatoires puis connexion directe OU Mise à jour profil
+          // ⚠️⚠️⚠️ CRITIQUE : Vérifier que toutes les données obligatoires sont présentes
+          // Utilisation du module de validation
+          const existingUserValidation = ProfileValidator.validateRequiredFields(
+            syncData.user || {},
+            savedPendingData || {}
+          );
+          const hasRequiredDataForExisting = existingUserValidation.isValid;
+          
+          if (profileComplete === true && missingData.length === 0 && !needsEmailVerification && hasRequiredDataForExisting) {
             // Vérifier si c'est une mise à jour de profil
             if (window.isUpdatingProfile && window.pendingProfileChanges) {
               console.log('[OAUTH] ➡️ CAS: MISE À JOUR PROFIL - Application des modifications');
@@ -3499,7 +4093,22 @@ async function handleCognitoCallbackIfPresent() {
             
             console.log('[OAUTH] ➡️ CAS: COMPTE EXISTANT COMPLET - CONNEXION DIRECTE');
             
-            // ⚠️⚠️⚠️ CRITIQUE : Vérifier pendingRegisterData ET pendingData (deux sources possibles)
+            // ⚠️⚠️⚠️ COMPTE EXISTANT : Nettoyer les données d'inscription précédentes pour éviter la pollution
+            // Un compte existant utilise les données du BACKEND, pas du formulaire d'inscription
+            console.log('[OAUTH] 🧹 COMPTE EXISTANT - Nettoyage des données d\'inscription précédentes...');
+            try {
+              localStorage.removeItem('pendingRegisterDataForGoogle');
+              sessionStorage.removeItem('pendingRegisterDataForGoogle');
+              sessionStorage.removeItem('wantToRegister');
+              window.pendingRegisterData = null;
+              window.isRegisteringWithGoogle = false;
+              console.log('[OAUTH] ✅ Données d\'inscription nettoyées pour compte existant');
+            } catch (e) {
+              console.warn('[OAUTH] ⚠️ Erreur nettoyage données inscription:', e);
+            }
+            
+            // ⚠️⚠️⚠️ CRITIQUE : Pour compte existant, pendingData doit être null
+            // On utilise UNIQUEMENT les données du backend (syncData.user)
             console.log('[OAUTH] 🔍🔍🔍 VÉRIFICATION pendingRegisterData AVANT sauvegarde:', window.pendingRegisterData ? 'EXISTE' : 'NULL');
             console.log('[OAUTH] 🔍🔍🔍 VÉRIFICATION pendingData (ligne 2336):', pendingData ? 'EXISTE' : 'NULL');
             console.log('[OAUTH] 🔍🔍🔍 VÉRIFICATION isRegisteringWithGoogle:', window.isRegisteringWithGoogle);
@@ -3519,9 +4128,23 @@ async function handleCognitoCallbackIfPresent() {
             // Si toujours rien, essayer localStorage directement (fallback supplémentaire)
             if (!savedPendingData) {
               try {
-                console.log('[OAUTH] 🔍🔍🔍 COMPTE EXISTANT - ÉTAPE 3 - Tentative localStorage...');
-                const savedFromStorage = localStorage.getItem('pendingRegisterDataForGoogle');
-                console.log('[OAUTH] 🔍🔍🔍 COMPTE EXISTANT - ÉTAPE 4 - localStorage.getItem:', savedFromStorage ? `EXISTE (${savedFromStorage.length} chars)` : 'NULL');
+                console.log('[OAUTH] 🔍🔍🔍 COMPTE EXISTANT - ÉTAPE 3 - Tentative storage...');
+                // ⚠️⚠️⚠️ FIX MODE PRIVÉ : Essayer localStorage, puis sessionStorage, puis window
+                let savedFromStorage = null;
+                try {
+                  savedFromStorage = localStorage.getItem('pendingRegisterDataForGoogle');
+                } catch (e) {
+                  console.warn('[OAUTH] ⚠️ localStorage bloqué (mode privé?), essai sessionStorage...');
+                  try {
+                    savedFromStorage = sessionStorage.getItem('pendingRegisterDataForGoogle');
+                  } catch (e2) {
+                    console.warn('[OAUTH] ⚠️ sessionStorage aussi bloqué, essai window.pendingRegisterData...');
+                    if (window.pendingRegisterData) {
+                      savedFromStorage = JSON.stringify(window.pendingRegisterData);
+                    }
+                  }
+                }
+                console.log('[OAUTH] 🔍🔍🔍 COMPTE EXISTANT - ÉTAPE 4 - getItem:', savedFromStorage ? `EXISTE (${savedFromStorage.length} chars)` : 'NULL');
                 
                 if (savedFromStorage) {
                   savedPendingData = JSON.parse(savedFromStorage);
@@ -3551,8 +4174,22 @@ async function handleCognitoCallbackIfPresent() {
             // ⚠️⚠️⚠️ CRITIQUE : Si savedPendingData est toujours null, essayer localStorage directement
             if (!savedPendingData) {
               try {
-                console.log('[OAUTH] 🔍🔍🔍 COMPTE EXISTANT - Tentative récupération DIRECTE depuis localStorage...');
-                const savedFromStorage = localStorage.getItem('pendingRegisterDataForGoogle');
+                console.log('[OAUTH] 🔍🔍🔍 COMPTE EXISTANT - Tentative récupération DIRECTE depuis storage...');
+                // ⚠️⚠️⚠️ FIX MODE PRIVÉ : Essayer localStorage, puis sessionStorage, puis window
+                let savedFromStorage = null;
+                try {
+                  savedFromStorage = localStorage.getItem('pendingRegisterDataForGoogle');
+                } catch (e) {
+                  console.warn('[OAUTH] ⚠️ localStorage bloqué (mode privé?), essai sessionStorage...');
+                  try {
+                    savedFromStorage = sessionStorage.getItem('pendingRegisterDataForGoogle');
+                  } catch (e2) {
+                    console.warn('[OAUTH] ⚠️ sessionStorage aussi bloqué, essai window.pendingRegisterData...');
+                    if (window.pendingRegisterData) {
+                      savedFromStorage = JSON.stringify(window.pendingRegisterData);
+                    }
+                  }
+                }
                 if (savedFromStorage) {
                   savedPendingData = JSON.parse(savedFromStorage);
                   console.log('[OAUTH] ✅✅✅✅✅ COMPTE EXISTANT - savedPendingData récupéré DIRECTEMENT depuis localStorage:', {
@@ -3578,31 +4215,47 @@ async function handleCognitoCallbackIfPresent() {
             console.log('[OAUTH] PhotoData du backend (syncData.user):', syncData.user?.photoData ? 'PRÉSENT' : 'MANQUANT');
             
             // ⚠️⚠️⚠️ CRITIQUE : Normaliser photoData : PRIORITÉ ABSOLUE au formulaire, puis backend
+            // ⚠️⚠️⚠️ FIX MODE PRIVÉ : Si pas de photo du formulaire, la photo Google sera dans profile_photo_url
             // Exactement comme "Continuer sans vérifier" (ligne 3867)
             let normalizedPhotoData = savedPhotoDataFromForm || syncData.user.photoData || null;
             if (normalizedPhotoData === 'null' || normalizedPhotoData === 'undefined' || normalizedPhotoData === '' || !normalizedPhotoData) {
               normalizedPhotoData = null;
             }
             
-            // ⚠️⚠️⚠️ CRITIQUE : Username : PRIORITÉ ABSOLUE au formulaire, puis backend
-            // Exactement comme "Continuer sans vérifier" (ligne 3863)
-            let finalUsername = savedUsernameFromForm || syncData.user.username || 'Utilisateur';
+            // ⚠️⚠️⚠️ FIX MODE PRIVÉ : Si pas de photoData mais qu'on a une photo Google, on l'utilisera via profile_photo_url
+            // La photo Google sera affichée via getUserAvatar qui vérifie profile_photo_url
             
-            // ⚠️⚠️⚠️ VALIDATION STRICTE : Si le username du formulaire existe et est valide, l'utiliser
-            if (savedUsernameFromForm && savedUsernameFromForm !== 'null' && savedUsernameFromForm !== '' && !savedUsernameFromForm.includes('@')) {
-              finalUsername = savedUsernameFromForm;
-              console.log('[OAUTH] ✅✅✅✅✅ Username du FORMULAIRE VALIDÉ et utilisé:', finalUsername);
-            } else if (syncData.user.username && syncData.user.username !== 'null' && syncData.user.username !== '' && !syncData.user.username.includes('@')) {
-              // Si le username du backend est valide, l'utiliser
-              finalUsername = syncData.user.username;
-              console.log('[OAUTH] ⚠️ Username du backend utilisé (formulaire invalide):', finalUsername);
-            } else {
-              // Si les deux sont invalides, utiliser "Utilisateur"
-              finalUsername = 'Utilisateur';
-              console.log('[OAUTH] ❌ Aucun username valide, utilisation "Utilisateur"');
+            // ⚠️⚠️⚠️ CRITIQUE : Pour COMPTE EXISTANT : PRIORITÉ ABSOLUE au username du BACKEND
+            // Le username du formulaire n'a de sens que pour les NOUVEAUX comptes
+            // Pour les comptes existants, on utilise ce qui est déjà enregistré en base de données
+            console.log('[OAUTH] 🔍 DEBUG username COMPTE EXISTANT - syncData.user.username:', syncData.user?.username);
+            console.log('[OAUTH] 🔍 DEBUG username COMPTE EXISTANT - savedPendingData.username:', savedPendingData?.username);
+            console.log('[OAUTH] 🔍 DEBUG username COMPTE EXISTANT - payload.name:', payload?.name);
+            
+            // ⚠️⚠️⚠️ COMPTE EXISTANT : PRIORITÉ au backend (username déjà enregistré)
+            let finalUsername = syncData.user?.username; // ⚠️ PRIORITÉ au username du backend pour compte existant
+            
+            // Si le username du backend est invalide (email ou vide), essayer savedPendingData comme fallback
+            if (!finalUsername || finalUsername === 'null' || finalUsername === '' || finalUsername.includes('@')) {
+              console.warn('[OAUTH] ⚠️ Username du backend invalide, essai savedPendingData...');
+              finalUsername = savedPendingData?.username;
             }
             
+            // Si toujours invalide, utiliser le module
+            if (!finalUsername || finalUsername === 'null' || finalUsername === '' || finalUsername.includes('@')) {
+              console.warn('[OAUTH] ⚠️ Username du formulaire aussi invalide, utilisation du module');
+              finalUsername = ProfileValidator.getValidUsername(
+                syncData.user || {},
+                savedPendingData || {},
+                payload
+              );
+            }
+            
+            console.log('[OAUTH] ✅✅✅ Username final COMPTE EXISTANT (PRIORITÉ au backend):', finalUsername);
+            
             console.log('[OAUTH] ✅✅✅ Username FINAL pour slimUser:', finalUsername);
+            console.log('[OAUTH] ✅✅✅ Vérification: savedUsernameFromForm =', savedUsernameFromForm);
+            console.log('[OAUTH] ✅✅✅ Vérification: syncData.user.username =', syncData.user?.username);
             console.log('[OAUTH] ✅✅✅ PhotoData FINAL pour slimUser:', normalizedPhotoData ? `PRÉSENT (${normalizedPhotoData.length} chars)` : 'NULL');
             
             // ⚠️⚠️⚠️ CRITIQUE : Créer slimUser exactement comme "Continuer sans vérifier" (ligne 3860-3869)
@@ -3766,7 +4419,10 @@ async function handleCognitoCallbackIfPresent() {
             if (typeof closePublishModal === 'function') {
               closePublishModal();
             }
-            const displayName = slimUser.username || slimUser.email?.split('@')[0] || 'Utilisateur';
+            // ⚠️⚠️⚠️ FIX : Utiliser le username du formulaire (déjà dans slimUser.username)
+            // Ne PAS utiliser email.split('@')[0] car le username du formulaire a la priorité
+            const displayName = slimUser.username || slimUser.firstName || slimUser.email?.split('@')[0] || 'Utilisateur';
+            console.log('[OAUTH] ✅ DisplayName pour notification:', displayName, '| Username:', slimUser.username);
             if (typeof showNotification === 'function') {
               showNotification(`✅ Bienvenue ${displayName} ! Vous êtes connecté.`, 'success');
             }
@@ -3777,9 +4433,55 @@ async function handleCognitoCallbackIfPresent() {
             return;
           }
           
+          // CAS 1b: Profil marqué complet mais données obligatoires manquantes → FORCER FORMULAIRE
+          if (profileComplete === true && missingData.length === 0 && !needsEmailVerification && !hasRequiredDataForExisting) {
+            console.log('[OAUTH] ❌ Profil marqué complet mais données obligatoires manquantes - FORCAGE DU FORMULAIRE');
+            const missingRequired = existingUserValidation.missingFields;
+            if (typeof showNotification === 'function') {
+              showNotification(`⚠️ Veuillez compléter les informations obligatoires : ${missingRequired.join(', ')}. L'adresse postale est optionnelle.`, 'warning');
+            }
+            if (typeof showProRegisterForm === 'function') {
+              showProRegisterForm();
+            } else if (typeof window.showProRegisterForm === 'function') {
+              window.showProRegisterForm();
+            }
+            isGoogleLoginInProgress = false;
+            if (typeof window !== 'undefined') {
+              window.isGoogleLoginInProgress = false;
+            }
+            return; // ⚠️⚠️⚠️ IMPORTANT : Ne pas connecter si données obligatoires manquantes
+          }
+          
           // CAS 2: Compte existant avec données manquantes
           if (missingData.length > 0) {
             console.log('[OAUTH] Compte existant - Données manquantes:', missingData);
+            
+            // ⚠️⚠️⚠️ CRITIQUE : Vérifier si ce sont des données obligatoires
+            // Utilisation du module de validation pour identifier les champs obligatoires manquants
+            const existingValidation = ProfileValidator.validateRequiredFields(
+              syncData.user || {},
+              {}
+            );
+            const requiredMissing = existingValidation.missingFields.filter(field => missingData.includes(field));
+            const optionalMissing = missingData.filter(field => !existingValidation.missingFields.includes(field));
+            
+            // Si des données obligatoires manquent → FORCER FORMULAIRE COMPLET
+            if (requiredMissing.length > 0) {
+              console.log('[OAUTH] ❌ Données obligatoires manquantes - FORCAGE DU FORMULAIRE COMPLET');
+              if (typeof showNotification === 'function') {
+                showNotification(`⚠️ Veuillez compléter les informations obligatoires : ${requiredMissing.join(', ')}. L'adresse postale est optionnelle.`, 'warning');
+              }
+              if (typeof showProRegisterForm === 'function') {
+                showProRegisterForm();
+              } else if (typeof window.showProRegisterForm === 'function') {
+                window.showProRegisterForm();
+              }
+              isGoogleLoginInProgress = false;
+              if (typeof window !== 'undefined') {
+                window.isGoogleLoginInProgress = false;
+              }
+              return; // ⚠️⚠️⚠️ IMPORTANT : Ne pas connecter si données obligatoires manquantes
+            }
             
             // Si seulement la photo manque → Formulaire photo uniquement
             if (missingData.length === 1 && missingData[0] === 'photo') {
@@ -3793,10 +4495,10 @@ async function handleCognitoCallbackIfPresent() {
               return;
             }
             
-            // Si plusieurs données manquent → Formulaire complet pré-rempli
-            console.log('[OAUTH] Plusieurs données manquantes - Affichage formulaire complet pré-rempli');
+            // Si seulement des données optionnelles manquent → Formulaire complet pré-rempli (adresse postale)
+            console.log('[OAUTH] Données optionnelles manquantes - Affichage formulaire complet pré-rempli');
             if (typeof showNotification === 'function') {
-              showNotification(`⚠️ Veuillez compléter les informations manquantes: ${missingData.join(', ')}`, 'warning');
+              showNotification(`⚠️ Veuillez compléter les informations manquantes: ${optionalMissing.join(', ')} (optionnel)`, 'info');
             }
             if (typeof showProRegisterForm === 'function') {
               showProRegisterForm();
@@ -3968,6 +4670,20 @@ async function handleCognitoCallbackIfPresent() {
     } catch (apiError) {
       console.warn('⚠️ Erreur lors de l\'appel API backend:', apiError);
       
+      // ⚠️⚠️⚠️ CRITIQUE : Ne pas basculer en mode "backend indisponible" si c'est une erreur 401
+      // Une erreur 401 signifie que le backend est disponible mais l'utilisateur n'est pas authentifié
+      if (apiError.message && apiError.message.includes('Authentication failed')) {
+        console.error('❌ Erreur d\'authentification - Le backend est disponible mais l\'utilisateur n\'est pas authentifié');
+        if (typeof showNotification === 'function') {
+          showNotification('❌ Erreur d\'authentification. Veuillez réessayer.', 'error');
+        }
+        isGoogleLoginInProgress = false;
+        if (typeof window !== 'undefined') {
+          window.isGoogleLoginInProgress = false;
+        }
+        return; // Ne pas basculer en mode "backend indisponible"
+      }
+      
       // VÉRIFIER SI LE PROFIL EST DÉJÀ COMPLET
       const savedUser = localStorage.getItem('currentUser');
       let savedUserObj = null;
@@ -4020,12 +4736,59 @@ async function handleCognitoCallbackIfPresent() {
       // FLOW SIMPLIFIÉ : Se connecter quand même avec les données Google disponibles
       console.log('✅ Connexion avec données Google uniquement (backend indisponible)');
       
+      // ⚠️⚠️⚠️ CRITIQUE : Récupérer le username du formulaire s'il existe
+      let savedPendingData = null;
+      try {
+        savedPendingData = localStorage.getItem('pendingRegisterDataForGoogle');
+        if (savedPendingData) {
+          savedPendingData = JSON.parse(savedPendingData);
+        } else {
+          savedPendingData = sessionStorage.getItem('pendingRegisterDataForGoogle');
+          if (savedPendingData) {
+            savedPendingData = JSON.parse(savedPendingData);
+          } else if (window.pendingRegisterData) {
+            savedPendingData = window.pendingRegisterData;
+          }
+        }
+      } catch (e) {
+        console.error('[OAUTH] ❌ Erreur récupération username du formulaire:', e);
+      }
+      
+      console.log('[OAUTH] 🔍 DEBUG username (sans backend) - savedPendingData:', savedPendingData);
+      console.log('[OAUTH] 🔍 DEBUG username (sans backend) - window.currentUser.username:', window.currentUser?.username);
+      console.log('[OAUTH] 🔍 DEBUG username (sans backend) - payload.name:', payload?.name);
+      
+      // ⚠️⚠️⚠️ PRIORITÉ ABSOLUE au username du formulaire (savedPendingData, puis window.currentUser, puis module)
+      let finalUsername = savedPendingData?.username;
+      
+      // Si le username du formulaire n'est pas trouvé, vérifier dans window.currentUser
+      if (!finalUsername || finalUsername === 'null' || finalUsername === '' || finalUsername.includes('@')) {
+        if (window.currentUser?.username && 
+            window.currentUser.username !== 'null' && 
+            window.currentUser.username !== '' && 
+            !window.currentUser.username.includes('@')) {
+          finalUsername = window.currentUser.username;
+          console.log('[OAUTH] ✅ Username récupéré depuis window.currentUser:', finalUsername);
+        } else {
+          console.warn('[OAUTH] ⚠️ Username du formulaire invalide, utilisation du module');
+          finalUsername = ProfileValidator.getValidUsername(
+            window.currentUser || {},
+            savedPendingData || {},
+            payload
+          );
+        }
+      } else {
+        console.log('[OAUTH] ✅ Username récupéré depuis savedPendingData:', finalUsername);
+      }
+      
+      console.log('[OAUTH] ✅✅✅ Username final récupéré (sans backend):', finalUsername);
+      
       const slimUser = {
         id: window.currentUser?.id || `user_${Date.now()}`,
         email: window.currentUser?.email || payload.email,
-        username: window.currentUser?.email?.split('@')[0]?.substring(0, 20) || 'Utilisateur',
-        firstName: window.currentUser?.name?.split(' ')[0] || '',
-        lastName: window.currentUser?.name?.split(' ').slice(1).join(' ') || '',
+        username: finalUsername, // ⚠️⚠️⚠️ PRIORITÉ ABSOLUE au username du formulaire
+        firstName: window.currentUser?.name?.split(' ')[0] || payload.given_name || '',
+        lastName: window.currentUser?.name?.split(' ').slice(1).join(' ') || payload.family_name || '',
         role: 'user',
         subscription: 'free',
         profile_photo_url: payload.picture || null,
@@ -4035,17 +4798,53 @@ async function handleCognitoCallbackIfPresent() {
         isLoggedIn: true
       };
       
-      if (typeof window !== 'undefined' && window.currentUser !== undefined) {
-        window.currentUser = { ...window.currentUser, ...slimUser, isLoggedIn: true };
+      console.log('[OAUTH] ✅✅✅ slimUser créé avec username:', slimUser.username);
+      
+      // ⚠️⚠️⚠️ CRITIQUE : Forcer le username dans window.currentUser AVANT updateAuthUI
+      if (typeof window !== 'undefined') {
+        if (window.currentUser === undefined) {
+          window.currentUser = {};
+        }
+        // ⚠️ PRIORITÉ ABSOLUE au username du formulaire
+        window.currentUser = { 
+          ...window.currentUser, 
+          ...slimUser, 
+          username: finalUsername, // ⚠️⚠️⚠️ FORCER le username du formulaire
+          isLoggedIn: true 
+        };
+        console.log('[OAUTH] ✅✅✅ window.currentUser.username FORCÉ à:', window.currentUser.username);
       }
+      
+      // ⚠️⚠️⚠️ CRITIQUE : Forcer le username dans slimUser AVANT updateAuthUI (au cas où)
+      slimUser.username = finalUsername;
+      console.log('[OAUTH] ✅✅✅ slimUser.username FORCÉ à:', slimUser.username);
+      
       updateAuthUI(slimUser);
       
+      // ⚠️⚠️⚠️ CRITIQUE : Re-forcer le username APRÈS updateAuthUI et sauvegarder
+      // updateAuthUI peut avoir modifié window.currentUser, donc on re-force le username
+      if (window.currentUser) {
+        const usernameBefore = window.currentUser.username;
+        window.currentUser.username = finalUsername; // ⚠️ FORCER à nouveau après updateAuthUI
+        console.log('[OAUTH] ✅✅✅ window.currentUser.username RE-FORCÉ:', usernameBefore, '→', window.currentUser.username);
+      }
+      
+      // ⚠️⚠️⚠️ CRITIQUE : Sauvegarder dans localStorage/sessionStorage avec le username du formulaire
       try {
-        const slimJson = JSON.stringify(slimUser);
+        // Utiliser window.currentUser qui contient maintenant le bon username
+        const userToSave = { ...window.currentUser };
+        userToSave.username = finalUsername; // ⚠️ FORCER le username du formulaire
+        const slimJson = JSON.stringify(saveUserSlim(userToSave));
         localStorage.setItem('currentUser', slimJson);
+        console.log('[OAUTH] ✅✅✅ currentUser sauvegardé dans localStorage avec username:', finalUsername);
+        console.log('[OAUTH] 🔍 Vérification: localStorage.currentUser.username =', JSON.parse(localStorage.getItem('currentUser')).username);
       } catch (e) {
         try {
+          const userToSave = { ...window.currentUser };
+          userToSave.username = finalUsername; // ⚠️ FORCER le username du formulaire
+          const slimJson = JSON.stringify(saveUserSlim(userToSave));
           sessionStorage.setItem('currentUser', slimJson);
+          console.log('[OAUTH] ✅✅✅ currentUser sauvegardé dans sessionStorage avec username:', finalUsername);
         } catch (e2) {
           console.warn('⚠️ Impossible de sauvegarder user');
         }
@@ -4056,7 +4855,9 @@ async function handleCognitoCallbackIfPresent() {
         closePublishModal();
       }
       if (typeof showNotification === 'function') {
-        showNotification('✅ Connexion Google réussie !', 'success');
+        const displayName = slimUser.username || slimUser.firstName || slimUser.email?.split('@')[0] || 'Utilisateur';
+        console.log('[OAUTH] ✅ DisplayName pour notification (sans backend):', displayName, '| Username:', slimUser.username);
+        showNotification(`✅ Bienvenue ${displayName} ! Vous êtes connecté.`, 'success');
       }
       isGoogleLoginInProgress = false;
     }
@@ -4413,12 +5214,51 @@ function connectUser(user, tokens, rememberMe) {
     return;
   }
   
-  // ⚠️⚠️⚠️ CRITIQUE : Vérifier si window.currentUser contient des données du formulaire (priorité absolue)
-  // Car window.currentUser peut contenir photoData et username du formulaire même si user ne les a pas
+  // ⚠️⚠️⚠️ CRITIQUE : Récupérer le username du formulaire depuis localStorage/sessionStorage (PRIORITÉ ABSOLUE)
+  // C'est la source de vérité pour le username du formulaire
   let photoDataFromCurrentUser = null;
   let usernameFromCurrentUser = null;
   
-  if (typeof window !== 'undefined' && window.currentUser) {
+  // 1. Vérifier localStorage d'abord (source de vérité)
+  try {
+    const pendingData = localStorage.getItem('pendingRegisterDataForGoogle');
+    if (pendingData) {
+      const parsed = JSON.parse(pendingData);
+      if (parsed.username && parsed.username !== 'null' && parsed.username !== '' && !parsed.username.includes('@')) {
+        usernameFromCurrentUser = parsed.username;
+        console.log('[CONNECT] ✅✅✅ Username du formulaire trouvé dans localStorage:', usernameFromCurrentUser);
+      }
+      if (parsed.photoData && parsed.photoData !== 'null' && parsed.photoData !== 'undefined' && parsed.photoData.length > 100) {
+        photoDataFromCurrentUser = parsed.photoData;
+        console.log('[CONNECT] ✅✅✅ photoData trouvé dans localStorage (priorité formulaire)');
+      }
+    }
+  } catch(e) {
+    console.error('[CONNECT] ❌ Erreur récupération localStorage:', e);
+  }
+  
+  // 2. Vérifier sessionStorage si pas trouvé
+  if (!usernameFromCurrentUser) {
+    try {
+      const pendingData = sessionStorage.getItem('pendingRegisterDataForGoogle');
+      if (pendingData) {
+        const parsed = JSON.parse(pendingData);
+        if (parsed.username && parsed.username !== 'null' && parsed.username !== '' && !parsed.username.includes('@')) {
+          usernameFromCurrentUser = parsed.username;
+          console.log('[CONNECT] ✅✅✅ Username du formulaire trouvé dans sessionStorage:', usernameFromCurrentUser);
+        }
+        if (!photoDataFromCurrentUser && parsed.photoData && parsed.photoData !== 'null' && parsed.photoData !== 'undefined' && parsed.photoData.length > 100) {
+          photoDataFromCurrentUser = parsed.photoData;
+          console.log('[CONNECT] ✅✅✅ photoData trouvé dans sessionStorage (priorité formulaire)');
+        }
+      }
+    } catch(e) {
+      console.error('[CONNECT] ❌ Erreur récupération sessionStorage:', e);
+    }
+  }
+  
+  // 3. Vérifier window.currentUser si toujours pas trouvé
+  if (!usernameFromCurrentUser && typeof window !== 'undefined' && window.currentUser) {
     if (window.currentUser.photoData && window.currentUser.photoData !== 'null' && window.currentUser.photoData !== 'undefined' && window.currentUser.photoData.length > 100) {
       photoDataFromCurrentUser = window.currentUser.photoData;
       console.log('[CONNECT] ✅✅✅ photoData trouvé dans window.currentUser (priorité formulaire)');
@@ -4429,6 +5269,23 @@ function connectUser(user, tokens, rememberMe) {
     }
   }
   
+  // 4. ⚠️⚠️⚠️ CRITIQUE : Vérifier localStorage.currentUser (username sauvegardé lors de l'inscription précédente)
+  // C'est la source de vérité pour un compte EXISTANT qui se reconnecte
+  if (!usernameFromCurrentUser) {
+    try {
+      const savedCurrentUser = localStorage.getItem('currentUser') || sessionStorage.getItem('currentUser');
+      if (savedCurrentUser) {
+        const parsed = JSON.parse(savedCurrentUser);
+        if (parsed.username && parsed.username !== 'null' && parsed.username !== '' && !parsed.username.includes('@') && parsed.username !== 'Utilisateur') {
+          usernameFromCurrentUser = parsed.username;
+          console.log('[CONNECT] ✅✅✅ Username récupéré depuis localStorage.currentUser (compte existant):', usernameFromCurrentUser);
+        }
+      }
+    } catch(e) {
+      console.error('[CONNECT] ❌ Erreur récupération localStorage.currentUser:', e);
+    }
+  }
+  
   // ⚠️ CRITIQUE : Normaliser photoData AU DÉBUT - PRIORITÉ à window.currentUser (formulaire), puis user
   let normalizedPhotoData = photoDataFromCurrentUser || user.photoData || null;
   if (normalizedPhotoData === 'null' || normalizedPhotoData === 'undefined' || normalizedPhotoData === '' || !normalizedPhotoData) {
@@ -4436,9 +5293,19 @@ function connectUser(user, tokens, rememberMe) {
   }
   
   // ⚠️ CRITIQUE : Normaliser username - PRIORITÉ à window.currentUser (formulaire), puis user
+  // ⚠️⚠️⚠️ NE JAMAIS utiliser l'email comme username affiché
   let finalUsername = usernameFromCurrentUser || user.username || null;
-  if (!finalUsername || finalUsername === 'null' || finalUsername === '' || finalUsername.includes('@')) {
-    finalUsername = user.email?.split('@')[0] || 'Utilisateur';
+  if (!finalUsername || finalUsername === 'null' || finalUsername === '' || finalUsername.includes('@') || finalUsername === 'Utilisateur') {
+    // Ne PAS utiliser l'email - garder null pour que getUserDisplayName affiche "Compte"
+    console.warn('[CONNECT] ⚠️ Username invalide, on garde la valeur du user.username du backend:', user.username);
+    // Si user.username du backend est valide (pas un email), l'utiliser
+    if (user.username && user.username !== 'null' && user.username !== '' && !user.username.includes('@')) {
+      finalUsername = user.username;
+    } else {
+      // Sinon, ne PAS fallback sur email - utiliser null (getUserDisplayName affichera "Compte")
+      finalUsername = null;
+      console.warn('[CONNECT] ⚠️ Aucun username valide trouvé - getUserDisplayName affichera "Compte"');
+    }
   }
   
   // ⚠️⚠️⚠️ CRITIQUE : Forcer photoData et username dans user AVANT traitement
@@ -4623,16 +5490,20 @@ function connectUser(user, tokens, rememberMe) {
   }
   
   // Mettre à jour le bloc compte - FORCER plusieurs fois pour s'assurer
-  if (typeof updateAccountBlockLegitimately === 'function') {
-    updateAccountBlockLegitimately();
+  if (typeof window.updateAccountBlockLegitimately === 'function') {
+    window.updateAccountBlockLegitimately();
     setTimeout(() => {
-      updateAccountBlockLegitimately();
+      if (typeof window.updateAccountBlockLegitimately === 'function') {
+        window.updateAccountBlockLegitimately();
+      }
     }, 100);
     setTimeout(() => {
-      updateAccountBlockLegitimately();
+      if (typeof window.updateAccountBlockLegitimately === 'function') {
+        window.updateAccountBlockLegitimately();
+      }
     }, 500);
   } else {
-    console.warn('[CONNECT] ⚠️ updateAccountBlockLegitimately non disponible');
+    console.warn('[CONNECT] ⚠️ window.updateAccountBlockLegitimately non disponible');
   }
   
   // Fermer les modals
@@ -5000,10 +5871,24 @@ async function handleVerificationChoice(method) {
         // Créer une copie sans photoData pour éviter de remplir localStorage (photoData sera récupéré depuis registerData)
         const pendingDataForStorage = { ...pendingData };
         // Garder photoData quand même car on en a besoin après le retour de Google
-        localStorage.setItem('pendingRegisterDataForGoogle', JSON.stringify(pendingDataForStorage));
-        console.log('[VERIFY] ✅ pendingRegisterData sauvegardé dans localStorage');
+        // ⚠️⚠️⚠️ FIX MODE PRIVÉ : Essayer localStorage, puis sessionStorage
+        try {
+          localStorage.setItem('pendingRegisterDataForGoogle', JSON.stringify(pendingDataForStorage));
+          console.log('[VERIFY] ✅ pendingRegisterData sauvegardé dans localStorage');
+        } catch (e) {
+          console.warn('[VERIFY] ⚠️ localStorage bloqué (mode privé?), sauvegarde dans sessionStorage...');
+          try {
+            sessionStorage.setItem('pendingRegisterDataForGoogle', JSON.stringify(pendingDataForStorage));
+            console.log('[VERIFY] ✅ pendingRegisterData sauvegardé dans sessionStorage');
+          } catch (e2) {
+            console.error('[VERIFY] ❌ Erreur sauvegarde pendingRegisterData (localStorage et sessionStorage bloqués):', e2);
+            // Fallback : sauvegarder dans window
+            window.pendingRegisterData = pendingDataForStorage;
+            console.log('[VERIFY] ✅ pendingRegisterData sauvegardé dans window.pendingRegisterData');
+          }
+        }
       } catch (e) {
-        console.error('[VERIFY] ❌ Erreur sauvegarde pendingRegisterData:', e);
+        console.error('[VERIFY] ❌ Erreur générale sauvegarde pendingRegisterData:', e);
       }
       
       // Marquer que c'est pour l'inscription
@@ -5060,12 +5945,81 @@ async function createAccountAndSendVerificationEmail(pendingData) {
     
     // Préparer les données d'inscription
     console.log('[VERIFY] ⚠️⚠️⚠️ Création compte avec username:', pendingData.username);
+    
+    // ⚠️⚠️⚠️ VALIDATION : Vérifier que tous les champs requis sont présents
+    if (!pendingData.email || !pendingData.email.trim()) {
+      console.error('[VERIFY] ❌ Email manquant dans pendingData');
+      if (typeof showNotification === 'function') {
+        showNotification('⚠️ Erreur: Email requis', "error");
+      }
+      showVerificationChoice();
+      return;
+    }
+    
+    if (!pendingData.username || !pendingData.username.trim()) {
+      console.error('[VERIFY] ❌ Username manquant dans pendingData');
+      if (typeof showNotification === 'function') {
+        showNotification('⚠️ Erreur: Nom d\'utilisateur requis', "error");
+      }
+      showVerificationChoice();
+      return;
+    }
+    
+    if (!pendingData.password || !pendingData.password.trim()) {
+      console.error('[VERIFY] ❌ Password manquant dans pendingData');
+      if (typeof showNotification === 'function') {
+        showNotification('⚠️ Erreur: Mot de passe requis', "error");
+      }
+      showVerificationChoice();
+      return;
+    }
+    
+    // ⚠️⚠️⚠️ CRITIQUE : Vérifier si l'email existe déjà AVANT de créer le compte
+    try {
+      const emailCheckResponse = await fetch(`${API_BASE_URL}/user/exists?email=${encodeURIComponent(pendingData.email.trim())}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (emailCheckResponse.ok) {
+        const emailCheckData = await emailCheckResponse.json();
+        if (emailCheckData.exists === true) {
+          // Email existe déjà - empêcher la création du compte
+          console.error('[VERIFY] ❌ Email existe déjà:', pendingData.email);
+          if (typeof showNotification === 'function') {
+            showNotification("❌ Ce mail existe déjà. Veuillez utiliser un autre email ou vous connecter.", "error");
+          }
+          
+          // Afficher l'erreur dans le formulaire si on peut le trouver
+          const emailInput = document.getElementById("pro-email") || document.getElementById("register-email");
+          if (emailInput) {
+            emailInput.style.borderColor = '#ef4444';
+            const emailError = document.getElementById("pro-email-error") || document.getElementById("register-email-error");
+            if (emailError) {
+              emailError.textContent = '❌ Ce mail existe déjà. Veuillez utiliser un autre email ou vous connecter.';
+              emailError.style.color = '#ef4444';
+              emailError.style.display = 'block';
+            }
+          }
+          
+          // Revenir au choix de vérification (ou au formulaire)
+          showVerificationChoice();
+          return; // Empêcher la création du compte
+        }
+      }
+    } catch (error) {
+      console.error('[VERIFY] Erreur lors de la vérification de l\'email:', error);
+      // En cas d'erreur, continuer quand même (ne pas bloquer si le backend est indisponible)
+    }
+    
     const registerDataObj = {
-      email: pendingData.email,
-      username: pendingData.username, // ⚠️⚠️⚠️ CRITIQUE : Utiliser le username du formulaire
-      password: pendingData.password,
-      firstName: pendingData.firstName,
-      lastName: pendingData.lastName,
+      email: pendingData.email.trim(),
+      username: pendingData.username.trim(), // ⚠️⚠️⚠️ CRITIQUE : Utiliser le username du formulaire
+      password: pendingData.password, // Ne pas trimmer le password (peut contenir des espaces intentionnels)
+      firstName: pendingData.firstName?.trim() || '',
+      lastName: pendingData.lastName?.trim() || '',
       photoData: pendingData.photoData || null // ⚠️⚠️⚠️ CRITIQUE : Inclure photoData si disponible
     };
     
@@ -5098,15 +6052,32 @@ async function createAccountAndSendVerificationEmail(pendingData) {
       registerDataObj.avatarId = pendingData.avatarId;
     }
     
-    // Créer le compte
+    // ⚠️⚠️⚠️ IMPORTANT : Créer le compte AVANT d'envoyer l'email
+    // Le backend accepte maintenant les adresses non géocodées (elles seront ignorées)
+    // Le compte sera créé mais l'email ne sera pas vérifié (sera vérifié via le lien)
+    console.log('[VERIFY] 📤 Envoi requête création compte:', { 
+      email: registerDataObj.email, 
+      username: registerDataObj.username,
+      hasPassword: !!registerDataObj.password,
+      hasAddresses: !!registerDataObj.addresses,
+      addressesCount: registerDataObj.addresses?.length || 0
+    });
     const registerResponse = await fetch(`${API_BASE_URL}/user/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(registerDataObj)
     });
     
+    console.log('[VERIFY] 📥 Réponse création compte:', { 
+      ok: registerResponse.ok, 
+      status: registerResponse.status,
+      statusText: registerResponse.statusText
+    });
+    
     if (!registerResponse.ok) {
       const errorData = await registerResponse.json().catch(() => ({ error: 'Erreur inconnue' }));
+      console.error('[VERIFY] ❌ Erreur création compte:', errorData);
+      console.error('[VERIFY] ❌ Données envoyées:', registerDataObj);
       if (typeof showNotification === 'function') {
         showNotification(`⚠️ Erreur: ${errorData.error || 'Erreur lors de la création du compte'}`, "error");
       }
@@ -5114,7 +6085,10 @@ async function createAccountAndSendVerificationEmail(pendingData) {
       return;
     }
     
-    // Sauvegarder les données pour pouvoir renvoyer l'email
+    const registerResult = await registerResponse.json().catch(() => ({}));
+    console.log('[VERIFY] ✅ Compte créé avec succès:', registerResult);
+    
+    // Sauvegarder les données pour pouvoir renvoyer l'email si nécessaire
     if (!window.pendingRegisterData) {
       window.pendingRegisterData = pendingData;
     }
@@ -5183,6 +6157,15 @@ async function createAccountAndSendVerificationEmail(pendingData) {
       
       // Afficher un message d'erreur avec possibilité de réessayer
       if (modal) {
+        // Si on a un lien de vérification en mode dev, l'afficher de manière visible
+        const verificationLinkHtml = emailData.verification_url ? `
+          <div style="background:rgba(0,255,195,0.1);border:2px solid rgba(0,255,195,0.5);border-radius:12px;padding:20px;margin-bottom:20px;">
+            <p style="color:#00ffc3;font-size:14px;font-weight:700;margin-bottom:12px;">🔗 Lien de vérification (mode développement)</p>
+            <a href="${emailData.verification_url}" onclick="event.preventDefault(); window.location.href=this.href; return false;" target="_self" style="display:block;padding:12px;background:rgba(0,255,195,0.2);border-radius:8px;color:#00ffc3;font-size:12px;word-break:break-all;text-decoration:none;font-weight:600;transition:all 0.2s;cursor:pointer;" onmouseover="this.style.background='rgba(0,255,195,0.3)';this.style.transform='scale(1.02)'" onmouseout="this.style.background='rgba(0,255,195,0.2)';this.style.transform='scale(1)'">${emailData.verification_url}</a>
+            <p style="color:var(--ui-text-muted);font-size:11px;margin-top:12px;margin-bottom:0;">Cliquez sur ce lien pour vérifier votre compte (valable 24h)</p>
+          </div>
+        ` : '';
+        
         modal.innerHTML = `
           <div id="authModal" data-mode="email-error" style="padding:40px;max-width:500px;margin:0 auto;text-align:center;position:relative;">
             <div style="margin-bottom:32px;">
@@ -5191,39 +6174,8 @@ async function createAccountAndSendVerificationEmail(pendingData) {
               <p style="margin:0;font-size:14px;color:var(--ui-text-muted);">L'email n'a pas pu être envoyé</p>
             </div>
             <p style="color:var(--ui-text-muted);font-size:13px;margin-bottom:20px;">${errorMessage}</p>
-            <p style="color:var(--ui-text-muted);font-size:12px;margin-bottom:20px;">Veuillez réessayer ou contacter le support si le problème persiste.</p>
-            ${emailData.verification_url ? `<p style="color:var(--ui-text-muted);font-size:11px;margin-bottom:20px;word-break:break-all;">Lien de vérification (mode dev): <a href="${emailData.verification_url}" style="color:#00ffc3;">${emailData.verification_url}</a></p>` : ''}
-            <button onclick="if(typeof createAccountAndSendVerificationEmail==='function'){const pendingData=window.pendingRegisterData;if(pendingData){createAccountAndSendVerificationEmail(pendingData);}}" style="width:100%;padding:12px;border-radius:10px;border:2px solid rgba(255,255,255,0.1);background:transparent;color:var(--ui-text-muted);font-weight:600;font-size:14px;cursor:pointer;margin-bottom:12px;">Réessayer l'envoi</button>
-            <button onclick="closeAuthModal()" style="width:100%;padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#00ffc3,#3b82f6);color:#000;font-weight:600;font-size:14px;cursor:pointer;">Fermer</button>
-          </div>
-        `;
-      }
-    } else {
-      const errorData = await emailResponse.json().catch(() => ({ error: 'Erreur inconnue' }));
-      console.error('[VERIFY] ❌ Erreur envoi email:', errorData);
-      
-      // Récupérer le code si disponible dans la réponse d'erreur (mode développement)
-      const devCode = errorData.code || verificationCode;
-      
-      if (typeof showNotification === 'function') {
-        showNotification(`⚠️ Compte créé mais erreur lors de l'envoi de l'email: ${errorData.error || 'Erreur inconnue'}`, "error");
-      }
-      
-      // Afficher le formulaire de code avec le code généré (mode développement)
-      if (modal) {
-        modal.innerHTML = `
-          <div id="authModal" data-mode="email-error" style="padding:40px;max-width:500px;margin:0 auto;text-align:center;position:relative;">
-            <div style="margin-bottom:32px;">
-              <div style="font-size:64px;margin-bottom:16px;">⚠️</div>
-              <h2 style="margin:0 0 8px;font-size:28px;font-weight:800;color:#fff;">Erreur envoi email</h2>
-              <p style="margin:0;font-size:14px;color:var(--ui-text-muted);">L'email n'a pas pu être envoyé</p>
-            </div>
-            <p style="color:var(--ui-text-muted);font-size:13px;margin-bottom:20px;">Mode développement - Code généré: <strong style="font-family:monospace;font-size:24px;color:#00ffc3;">${devCode}</strong></p>
-            <p style="color:var(--ui-text-muted);font-size:12px;margin-bottom:20px;">Entrez ce code pour vérifier votre compte :</p>
-            <div style="margin-bottom:20px;">
-              <input type="text" id="email-verification-code" placeholder="000000" maxlength="6" style="width:100%;padding:14px;border-radius:10px;border:2px solid rgba(255,255,255,0.1);background:rgba(15,23,42,0.5);color:#fff;font-size:24px;font-weight:700;text-align:center;letter-spacing:8px;font-family:monospace;" oninput="this.value=this.value.replace(/[^0-9]/g,'');if(this.value.length===6){verifyEmailCodeAfterRegister('${pendingData.email}',this.value);}">
-              <div id="email-code-feedback" style="margin-top:8px;font-size:12px;color:var(--ui-text-muted);"></div>
-            </div>
+            ${verificationLinkHtml}
+            <p style="color:var(--ui-text-muted);font-size:12px;margin-bottom:20px;">${emailData.verification_url ? 'Vous pouvez utiliser le lien ci-dessus pour vérifier votre compte, ou réessayer l\'envoi de l\'email.' : 'Veuillez réessayer ou contacter le support si le problème persiste.'}</p>
             <button onclick="if(typeof createAccountAndSendVerificationEmail==='function'){const pendingData=window.pendingRegisterData;if(pendingData){createAccountAndSendVerificationEmail(pendingData);}}" style="width:100%;padding:12px;border-radius:10px;border:2px solid rgba(255,255,255,0.1);background:transparent;color:var(--ui-text-muted);font-weight:600;font-size:14px;cursor:pointer;margin-bottom:12px;">Réessayer l'envoi</button>
             <button onclick="closeAuthModal()" style="width:100%;padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#00ffc3,#3b82f6);color:#000;font-weight:600;font-size:14px;cursor:pointer;">Fermer</button>
           </div>
@@ -5242,6 +6194,48 @@ async function createAccountAndSendVerificationEmail(pendingData) {
 // ⚠️ TEMPORAIRE : Créer le compte sans vérification email (pour tests)
 async function createAccountWithoutVerification(pendingData) {
   try {
+    // ⚠️⚠️⚠️ CRITIQUE : Vérifier si l'email existe déjà AVANT de créer le compte
+    if (pendingData && pendingData.email) {
+      try {
+        const emailCheckResponse = await fetch(`${API_BASE_URL}/user/exists?email=${encodeURIComponent(pendingData.email.trim())}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (emailCheckResponse.ok) {
+          const emailCheckData = await emailCheckResponse.json();
+          if (emailCheckData.exists === true) {
+            // Email existe déjà - empêcher la création du compte
+            console.error('[VERIFY] ❌ Email existe déjà:', pendingData.email);
+            if (typeof showNotification === 'function') {
+              showNotification("❌ Ce mail existe déjà. Veuillez utiliser un autre email ou vous connecter.", "error");
+            }
+            
+            // Afficher l'erreur dans le formulaire si on peut le trouver
+            const emailInput = document.getElementById("pro-email") || document.getElementById("register-email");
+            if (emailInput) {
+              emailInput.style.borderColor = '#ef4444';
+              const emailError = document.getElementById("pro-email-error") || document.getElementById("register-email-error");
+              if (emailError) {
+                emailError.textContent = '❌ Ce mail existe déjà. Veuillez utiliser un autre email ou vous connecter.';
+                emailError.style.color = '#ef4444';
+                emailError.style.display = 'block';
+              }
+            }
+            
+            // Revenir au choix de vérification (ou au formulaire)
+            showVerificationChoice();
+            return; // Empêcher la création du compte
+          }
+        }
+      } catch (error) {
+        console.error('[VERIFY] Erreur lors de la vérification de l\'email:', error);
+        // En cas d'erreur, continuer quand même (ne pas bloquer si le backend est indisponible)
+      }
+    }
+    
     // Chercher le modal dans publish-modal-inner ou authModal
     let modal = document.getElementById('authModal');
     if (!modal) {
@@ -5401,14 +6395,35 @@ async function handleEmailVerificationCallback() {
   const refresh = url.searchParams.get('refresh');
   const email = url.searchParams.get('email');
   
-  // Si on est sur la page de vérification email
-  if (url.pathname.includes('verify-email') || url.searchParams.has('token')) {
-    if (token && email) {
+  // Si on a un token et un email dans l'URL (comme Google OAuth avec code et state)
+  if (token && email) {
       console.log('[EMAIL VERIFY] Callback détecté, vérification...');
+      console.log('[EMAIL VERIFY] Token brut depuis URL:', token);
+      console.log('[EMAIL VERIFY] Token longueur:', token.length);
+      console.log('[EMAIL VERIFY] Email:', email);
+      
+      // ⚠️ CRITIQUE : Détecter si on est dans un nouvel onglet (ouvert par le client email)
+      // Si on est dans un nouvel onglet ET qu'on a une fenêtre parente, utiliser la fenêtre parente
+      if (window.opener && !window.opener.closed) {
+        // Si on est dans une popup, fermer la popup et utiliser la fenêtre parente
+        console.log('[EMAIL VERIFY] Détection popup - Redirection vers fenêtre parente');
+        window.opener.location.href = window.location.href;
+        window.close();
+        return;
+      }
+      
+      // Si on est dans un nouvel onglet (ouvert par le client email), on reste ici
+      // Le callback sera traité normalement et l'URL sera nettoyée
+      console.log('[EMAIL VERIFY] Traitement dans le même onglet (comme Google OAuth)');
       
       try {
         // Vérifier le token avec le backend
-        const verifyResponse = await fetch(`${API_BASE_URL}/user/verify-email-link?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`);
+        const tokenEncoded = encodeURIComponent(token);
+        const emailEncoded = encodeURIComponent(email);
+        const verifyUrl = `${API_BASE_URL}/user/verify-email-link?token=${tokenEncoded}&email=${emailEncoded}`;
+        console.log('[EMAIL VERIFY] URL de vérification:', verifyUrl.substring(0, 200) + '...');
+        console.log('[EMAIL VERIFY] Token encodé:', tokenEncoded.substring(0, 50) + '...');
+        const verifyResponse = await fetch(verifyUrl);
         
         if (verifyResponse.ok) {
           const verifyData = await verifyResponse.json();
@@ -5433,27 +6448,91 @@ async function handleEmailVerificationCallback() {
               refresh_token: verifyData.refreshToken
             };
             
-            // Nettoyer l'URL
-            url.searchParams.delete('token');
-            url.searchParams.delete('email');
-            url.searchParams.delete('refresh');
-            window.history.replaceState({}, document.title, url.toString());
+            // ⚠️ CRITIQUE : Sauvegarder les tokens AVANT connectUser (comme Google OAuth)
+            // Google OAuth appelle saveSession() avant connectUser, on fait pareil ici
+            console.log('[EMAIL VERIFY] Sauvegarde des tokens avant connectUser...');
+            setAuthTokens(tokens.access_token, tokens.refresh_token || '', true); // true = rester connecté par défaut
+            
+            // Nettoyer l'URL IMMÉDIATEMENT pour éviter les problèmes et rester sur la même page (comme Google OAuth)
+            const cleanUrl = new URL(window.location.href);
+            cleanUrl.searchParams.delete('token');
+            cleanUrl.searchParams.delete('email');
+            cleanUrl.searchParams.delete('refresh');
+            // Nettoyer l'URL comme Google OAuth (reste sur la même page, pas de redirection)
+            window.history.replaceState({}, document.title, cleanUrl.pathname + (cleanUrl.search || ''));
             
             // Connexion automatique sans demander "rester connecté" (sera demandé uniquement à la déconnexion)
-            console.log('[EMAIL VERIFY] Connexion automatique après vérification email');
-            connectUser(user, tokens, true);
+            console.log('[EMAIL VERIFY] Connexion automatique après vérification email (rememberMe=true)');
+            connectUser(user, tokens, true); // true = rester connecté par défaut (comme Google OAuth)
+            
+            // Afficher un message de succès
+            if (typeof showNotification === 'function') {
+              showNotification('✅ Email vérifié avec succès ! Vous êtes maintenant connecté.', 'success');
+            }
           } else {
             // Pas de tokens, juste message de succès
             if (typeof showNotification === 'function') {
               showNotification('✅ Email vérifié avec succès !', 'success');
             }
-            // Rediriger vers la page principale
-            window.location.href = '/';
+            // Nettoyer l'URL et rester sur la même page
+            const cleanUrl = new URL(window.location.href);
+            cleanUrl.searchParams.delete('token');
+            cleanUrl.searchParams.delete('email');
+            cleanUrl.searchParams.delete('refresh');
+            window.history.replaceState({}, document.title, cleanUrl.pathname + (cleanUrl.search || ''));
           }
         } else {
           const errorData = await verifyResponse.json().catch(() => ({ error: 'Erreur inconnue' }));
-          if (typeof showNotification === 'function') {
-            showNotification(`⚠️ Erreur: ${errorData.error || 'Lien invalide ou expiré'}`, 'error');
+          console.error('[EMAIL VERIFY] ❌ Erreur vérification:', errorData);
+          console.error('[EMAIL VERIFY] Token utilisé:', token);
+          console.error('[EMAIL VERIFY] Email utilisé:', email);
+          console.error('[EMAIL VERIFY] Code erreur:', errorData.code);
+          
+          // Nettoyer l'URL même en cas d'erreur (comme Google OAuth)
+          const cleanUrl = new URL(window.location.href);
+          cleanUrl.searchParams.delete('token');
+          cleanUrl.searchParams.delete('email');
+          cleanUrl.searchParams.delete('refresh');
+          window.history.replaceState({}, document.title, cleanUrl.pathname + (cleanUrl.search || ''));
+          
+          // Gérer le cas "Utilisateur non trouvé" (mode test - compte supprimé)
+          if (errorData.code === 'USER_NOT_FOUND' || verifyResponse.status === 404) {
+            if (typeof showNotification === 'function') {
+              showNotification('⚠️ Compte non trouvé. Le compte a peut-être été supprimé en mode test. Veuillez créer un nouveau compte.', 'error');
+            }
+          } else {
+            if (typeof showNotification === 'function') {
+              showNotification(`⚠️ Erreur: ${errorData.error || 'Lien invalide ou expiré'}`, 'error');
+            }
+          }
+          // Afficher un message plus détaillé dans le modal
+          const modal = document.getElementById('authModal') || document.getElementById('publish-modal-inner');
+          if (modal && errorData.code === 'TOKEN_EXPIRED') {
+            modal.innerHTML = `
+              <div id="authModal" data-mode="email-error" style="padding:40px;max-width:500px;margin:0 auto;text-align:center;position:relative;">
+                <div style="margin-bottom:32px;">
+                  <div style="font-size:64px;margin-bottom:16px;">⏰</div>
+                  <h2 style="margin:0 0 8px;font-size:28px;font-weight:800;color:#fff;">Lien expiré</h2>
+                  <p style="margin:0;font-size:14px;color:var(--ui-text-muted);">Ce lien de vérification a expiré</p>
+                </div>
+                <p style="color:var(--ui-text-muted);font-size:13px;margin-bottom:20px;">Les liens de vérification sont valables pendant 24 heures.</p>
+                <p style="color:var(--ui-text-muted);font-size:12px;margin-bottom:20px;">Veuillez créer un nouveau compte ou demander un nouveau lien de vérification.</p>
+                <button onclick="closeAuthModal(); window.location.href='/';" style="width:100%;padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#00ffc3,#3b82f6);color:#000;font-weight:600;font-size:14px;cursor:pointer;">Retour à l'accueil</button>
+              </div>
+            `;
+          } else if (modal && errorData.code === 'INVALID_TOKEN') {
+            modal.innerHTML = `
+              <div id="authModal" data-mode="email-error" style="padding:40px;max-width:500px;margin:0 auto;text-align:center;position:relative;">
+                <div style="margin-bottom:32px;">
+                  <div style="font-size:64px;margin-bottom:16px;">⚠️</div>
+                  <h2 style="margin:0 0 8px;font-size:28px;font-weight:800;color:#fff;">Lien invalide</h2>
+                  <p style="margin:0;font-size:14px;color:var(--ui-text-muted);">Ce lien de vérification n'est pas valide</p>
+                </div>
+                <p style="color:var(--ui-text-muted);font-size:13px;margin-bottom:20px;">Le token de vérification ne correspond pas à celui stocké.</p>
+                <p style="color:var(--ui-text-muted);font-size:12px;margin-bottom:20px;">Veuillez créer un nouveau compte ou demander un nouveau lien de vérification.</p>
+                <button onclick="closeAuthModal(); window.location.href='/';" style="width:100%;padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#00ffc3,#3b82f6);color:#000;font-weight:600;font-size:14px;cursor:pointer;">Retour à l'accueil</button>
+              </div>
+            `;
           }
         }
       } catch (error) {
@@ -5462,7 +6541,6 @@ async function handleEmailVerificationCallback() {
           showNotification('⚠️ Erreur lors de la vérification', 'error');
         }
       }
-    }
   }
 }
 
@@ -5510,9 +6588,17 @@ function checkAndCleanTestAccount() {
 
 // Appeler au chargement de la page
 if (typeof window !== 'undefined') {
+  // Appeler handleEmailVerificationCallback au chargement si on est sur la page de vérification
+  if (window.location.pathname.includes('verify-email') || window.location.search.includes('token=')) {
+    handleEmailVerificationCallback();
+  }
+
   window.addEventListener('DOMContentLoaded', () => {
     handleEmailVerificationCallback();
     checkAndCleanTestAccount();
+    
+    // ⚠️ NOTE: Le callback OAuth Google est géré dans map_logic.js (ligne ~3915)
+    // pour éviter un double traitement qui cause l'erreur "invalid_grant"
   });
 }
 
@@ -5602,6 +6688,393 @@ async function performReconnectLogin(email, password) {
 window.performReconnectLogin = performReconnectLogin; // ⚠️⚠️⚠️ EXPOSER pour CSP
 
 // Exposer les variables globales
+// ⚠️⚠️⚠️ FONCTION DE VALIDATION EN TEMPS RÉEL POUR LE FORMULAIRE PROFESSIONNEL
+// Debounce pour éviter trop d'appels API
+let emailValidationTimeout = null;
+let lastValidatedEmail = '';
+
+async function validateProEmailField(emailInput) {
+  if (!emailInput) return false;
+  
+  const email = emailInput.value.trim();
+  const emailError = document.getElementById('pro-email-error');
+  
+  // Réinitialiser l'état visuel
+  emailInput.style.borderColor = '';
+  emailInput.removeAttribute('data-email-exists');
+  emailInput.removeAttribute('aria-invalid');
+  if (emailError) {
+    emailError.textContent = '';
+    emailError.style.display = 'none';
+  }
+  
+  // Validation basique
+  if (!email) {
+    return false; // Champ vide - pas d'erreur mais pas validé
+  }
+  
+  if (!email.includes('@') || !email.includes('.')) {
+    emailInput.style.borderColor = '#ef4444';
+    emailInput.setAttribute('aria-invalid', 'true');
+    if (emailError) {
+      emailError.textContent = '❌ Format d\'email invalide';
+      emailError.style.color = '#ef4444';
+      emailError.style.display = 'block';
+    }
+    return false;
+  }
+  
+  // ⚠️⚠️⚠️ CRITIQUE : Annuler le timeout précédent si l'utilisateur tape encore
+  if (emailValidationTimeout) {
+    clearTimeout(emailValidationTimeout);
+    emailValidationTimeout = null;
+  }
+  
+  // ⚠️⚠️⚠️ CRITIQUE : Si c'est le même email que la dernière validation, ne pas re-vérifier
+  if (email === lastValidatedEmail) {
+    return true; // Déjà validé
+  }
+  
+  // Afficher un message de chargement
+  if (emailError) {
+    emailError.textContent = '⏳ Vérification en cours...';
+    emailError.style.color = '#3b82f6';
+    emailError.style.display = 'block';
+  }
+  
+  // ⚠️⚠️⚠️ CRITIQUE : Debounce de 500ms pour attendre que l'utilisateur ait fini de taper
+  return new Promise((resolve) => {
+    emailValidationTimeout = setTimeout(async () => {
+      try {
+        // ⚠️⚠️⚠️ CRITIQUE : Utiliser API_BASE_URL depuis window si disponible
+        const apiUrl = (typeof window !== 'undefined' && window.API_BASE_URL) || API_BASE_URL || 'https://j33osy4bvj.execute-api.eu-west-1.amazonaws.com/default/api';
+        
+        console.log('[VALIDATE] 🔍 Vérification email:', email, 'API:', apiUrl);
+        
+        const response = await fetch(`${apiUrl}/user/exists?email=${encodeURIComponent(email)}`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        
+        console.log('[VALIDATE] 📡 Réponse API:', response.status, response.ok);
+        
+        if (response.ok) {
+          const data = await response.json();
+          console.log('[VALIDATE] 📦 Données reçues:', data);
+          
+          if (data.exists === true) {
+            // Email existe déjà - marquer comme invalide
+            emailInput.style.borderColor = '#ef4444';
+            emailInput.setAttribute('data-email-exists', 'true');
+            emailInput.setAttribute('aria-invalid', 'true');
+            if (emailError) {
+              emailError.textContent = '❌ Ce mail existe déjà. Veuillez utiliser un autre email ou vous connecter.';
+              emailError.style.color = '#ef4444';
+              emailError.style.display = 'block';
+            }
+            lastValidatedEmail = email;
+            resolve(false);
+          } else {
+            // Email valide et disponible - marquer comme validé
+            emailInput.style.borderColor = '#22c55e';
+            emailInput.removeAttribute('data-email-exists');
+            emailInput.removeAttribute('aria-invalid');
+            if (emailError) {
+              emailError.textContent = '✅ Email disponible';
+              emailError.style.color = '#22c55e';
+              emailError.style.display = 'block';
+            }
+            lastValidatedEmail = email;
+            resolve(true);
+          }
+        } else {
+          console.error('[VALIDATE] ❌ Erreur HTTP:', response.status);
+          // En cas d'erreur HTTP, ne pas bloquer mais ne pas marquer comme validé
+          if (emailError) {
+            emailError.textContent = '⚠️ Erreur de vérification';
+            emailError.style.color = '#f59e0b';
+            emailError.style.display = 'block';
+          }
+          resolve(false);
+        }
+      } catch (e) {
+        console.error('[VALIDATE] ❌ Erreur vérification email:', e);
+        // En cas d'erreur réseau, ne pas bloquer mais ne pas marquer comme validé
+        if (emailError) {
+          emailError.textContent = '⚠️ Erreur de connexion';
+          emailError.style.color = '#f59e0b';
+          emailError.style.display = 'block';
+        }
+        resolve(false);
+      }
+    }, 500); // Attendre 500ms après la dernière frappe
+  });
+}
+
+// ⚠️⚠️⚠️ FONCTION POUR VALIDER TOUS LES CHAMPS DU FORMULAIRE PROFESSIONNEL
+function setupProFormValidation() {
+  // Validation email en temps réel
+  const emailInput = document.getElementById('pro-email');
+  if (emailInput) {
+    // Supprimer les anciens listeners
+    const newEmailInput = emailInput.cloneNode(true);
+    emailInput.parentNode.replaceChild(newEmailInput, emailInput);
+    
+    // Ajouter le listener de validation
+    newEmailInput.addEventListener('input', async function() {
+      await validateProEmailField(this);
+    });
+    
+    // Valider immédiatement si l'email est déjà rempli
+    if (newEmailInput.value) {
+      setTimeout(() => validateProEmailField(newEmailInput), 100);
+    }
+  }
+  
+  // Validation username en temps réel
+  const usernameInput = document.getElementById('pro-username');
+  if (usernameInput) {
+    usernameInput.addEventListener('input', function() {
+      const username = this.value.trim();
+      const usernameError = document.getElementById('pro-username-error');
+      
+      // Réinitialiser
+      this.style.borderColor = '';
+      this.removeAttribute('aria-invalid');
+      if (usernameError) {
+        usernameError.textContent = '';
+        usernameError.style.display = 'none';
+      }
+      
+      if (!username) {
+        return; // Vide - pas d'erreur mais pas validé
+      }
+      
+      if (username.length < 3) {
+        this.style.borderColor = '#ef4444';
+        this.setAttribute('aria-invalid', 'true');
+        if (usernameError) {
+          usernameError.textContent = '❌ Le nom d\'utilisateur doit contenir au moins 3 caractères';
+          usernameError.style.color = '#ef4444';
+          usernameError.style.display = 'block';
+        }
+      } else if (username.length > 20) {
+        this.style.borderColor = '#ef4444';
+        this.setAttribute('aria-invalid', 'true');
+        if (usernameError) {
+          usernameError.textContent = '❌ Le nom d\'utilisateur ne peut pas dépasser 20 caractères';
+          usernameError.style.color = '#ef4444';
+          usernameError.style.display = 'block';
+        }
+      } else {
+        // Validé
+        this.style.borderColor = '#22c55e';
+        if (usernameError) {
+          usernameError.textContent = '✅ Nom d\'utilisateur valide';
+          usernameError.style.color = '#22c55e';
+          usernameError.style.display = 'block';
+        }
+      }
+    });
+  }
+  
+  // Validation mot de passe en temps réel (si nécessaire)
+  const passwordInput = document.getElementById('pro-password');
+  if (passwordInput) {
+    passwordInput.addEventListener('input', function() {
+      const password = this.value;
+      const passwordError = document.getElementById('pro-password-error');
+      
+      // Réinitialiser
+      this.style.borderColor = '';
+      this.removeAttribute('aria-invalid');
+      if (passwordError) {
+        passwordError.textContent = '';
+        passwordError.style.display = 'none';
+      }
+      
+      if (!password) {
+        return;
+      }
+      
+      if (password.length < 8) {
+        this.style.borderColor = '#ef4444';
+        this.setAttribute('aria-invalid', 'true');
+        if (passwordError) {
+          passwordError.textContent = '❌ Le mot de passe doit contenir au moins 8 caractères';
+          passwordError.style.color = '#ef4444';
+          passwordError.style.display = 'block';
+        }
+      } else {
+        // Validé
+        this.style.borderColor = '#22c55e';
+        if (passwordError) {
+          passwordError.textContent = '✅ Mot de passe valide';
+          passwordError.style.color = '#22c55e';
+          passwordError.style.display = 'block';
+        }
+      }
+    });
+  }
+}
+
+// ⚠️⚠️⚠️ FONCTION PRINCIPALE : Créer et afficher le formulaire professionnel avec validation intégrée
+function showProRegisterForm() {
+  console.log('[PRO REGISTER] Affichage formulaire professionnel avec validation intégrée');
+  
+  const backdrop = document.getElementById('publish-modal-backdrop');
+  const modal = document.getElementById('publish-modal-inner');
+  
+  if (!backdrop || !modal) {
+    console.error('[PRO REGISTER] Modal elements not found');
+    return;
+  }
+  
+  // Récupérer l'email sauvegardé si disponible
+  let savedEmail = '';
+  try {
+    const emailFromStorage = sessionStorage.getItem('lastLoginEmail');
+    if (emailFromStorage && emailFromStorage.includes('@')) {
+      savedEmail = emailFromStorage;
+    }
+  } catch (e) {
+    console.warn('[PRO REGISTER] Impossible de récupérer l\'email:', e);
+  }
+  
+  // ⚠️⚠️⚠️ CRITIQUE : Vérifier si l'email sauvegardé existe déjà AVANT de pré-remplir
+  if (savedEmail) {
+    fetch(`${API_BASE_URL}/user/exists?email=${encodeURIComponent(savedEmail)}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' }
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.exists === true) {
+        // Email existe - ne pas pré-remplir
+        savedEmail = '';
+        if (typeof showNotification === 'function') {
+          showNotification('❌ Ce mail existe déjà. Veuillez utiliser un autre email.', 'error');
+        }
+      }
+    })
+    .catch(e => console.error('[PRO REGISTER] Erreur vérification email:', e));
+  }
+  
+  const html = `
+    <div id="pro-register-container" style="padding:40px;max-width:600px;margin:0 auto;">
+      <button onclick="closeAuthModal()" style="position:absolute;top:16px;right:16px;background:none;border:none;color:var(--ui-text-muted);font-size:24px;cursor:pointer;padding:8px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:all 0.2s;z-index:10;" onmouseover="this.style.background='rgba(239,68,68,0.2)';this.style.color='#ef4444';" onmouseout="this.style.background='none';this.style.color='var(--ui-text-muted)';" title="Fermer">✕</button>
+      
+      <div style="text-align:center;margin-bottom:32px;">
+        <div style="font-size:64px;margin-bottom:16px;">🌍</div>
+        <h2 style="margin:0 0 8px;font-size:28px;font-weight:800;color:#fff;background:linear-gradient(135deg,#00ffc3,#3b82f6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">Créer un compte</h2>
+        <p style="margin:0;font-size:14px;color:var(--ui-text-muted);">Remplissez tous les champs obligatoires</p>
+      </div>
+      
+      <form id="pro-register-form" onsubmit="event.preventDefault(); if(typeof performRegister==='function')performRegister();">
+        <!-- Email avec validation en temps réel -->
+        <div style="margin-bottom:20px;">
+          <label style="display:block;font-size:13px;font-weight:600;color:var(--ui-text-main);margin-bottom:8px;">📧 Email <span style="color:#ef4444;">*</span></label>
+          <input type="email" id="pro-email" name="email" placeholder="votre@email.com" value="${savedEmail}" required
+                 style="width:100%;padding:12px 16px;border-radius:10px;border:2px solid rgba(255,255,255,0.1);background:rgba(15,23,42,0.5);color:var(--ui-text-main);font-size:14px;transition:all 0.3s;box-sizing:border-box;"
+                 oninput="if(typeof window.validateProEmailField==='function'){window.validateProEmailField(this).then(()=>{}).catch(e=>console.error('Erreur validation:',e));}"
+                 onblur="if(typeof window.validateProEmailField==='function'){window.validateProEmailField(this).then(()=>{}).catch(e=>console.error('Erreur validation:',e));}">
+          <div id="pro-email-error" style="display:none;font-size:12px;margin-top:6px;"></div>
+        </div>
+        
+        <!-- Username avec validation en temps réel -->
+        <div style="margin-bottom:20px;">
+          <label style="display:block;font-size:13px;font-weight:600;color:var(--ui-text-main);margin-bottom:8px;">👤 Nom d'utilisateur <span style="color:#ef4444;">*</span></label>
+          <input type="text" id="pro-username" name="username" placeholder="Votre pseudo (3-20 caractères)" required
+                 style="width:100%;padding:12px 16px;border-radius:10px;border:2px solid rgba(255,255,255,0.1);background:rgba(15,23,42,0.5);color:var(--ui-text-main);font-size:14px;transition:all 0.3s;box-sizing:border-box;"
+                 oninput="const u=this.value.trim();const e=document.getElementById('pro-username-error');this.style.borderColor='';if(e){e.textContent='';e.style.display='none';}if(u.length>=3&&u.length<=20){this.style.borderColor='#22c55e';if(e){e.textContent='✅ Nom d\'utilisateur valide';e.style.color='#22c55e';e.style.display='block';}}else if(u.length>0){this.style.borderColor='#ef4444';if(e){e.textContent=u.length<3?'❌ Minimum 3 caractères':'❌ Maximum 20 caractères';e.style.color='#ef4444';e.style.display='block';}}">
+          <div id="pro-username-error" style="display:none;font-size:12px;margin-top:6px;"></div>
+        </div>
+        
+        <!-- Prénom -->
+        <div style="margin-bottom:20px;">
+          <label style="display:block;font-size:13px;font-weight:600;color:var(--ui-text-main);margin-bottom:8px;">👤 Prénom <span style="color:#ef4444;">*</span></label>
+          <input type="text" id="pro-firstname" name="firstname" placeholder="Votre prénom" required
+                 style="width:100%;padding:12px 16px;border-radius:10px;border:2px solid rgba(255,255,255,0.1);background:rgba(15,23,42,0.5);color:var(--ui-text-main);font-size:14px;transition:all 0.3s;box-sizing:border-box;"
+                 oninput="const f=this.value.trim();if(f.length>0){this.style.borderColor='#22c55e';}else{this.style.borderColor='';}">
+        </div>
+        
+        <!-- Nom -->
+        <div style="margin-bottom:20px;">
+          <label style="display:block;font-size:13px;font-weight:600;color:var(--ui-text-main);margin-bottom:8px;">👤 Nom <span style="color:#ef4444;">*</span></label>
+          <input type="text" id="pro-lastname" name="lastname" placeholder="Votre nom" required
+                 style="width:100%;padding:12px 16px;border-radius:10px;border:2px solid rgba(255,255,255,0.1);background:rgba(15,23,42,0.5);color:var(--ui-text-main);font-size:14px;transition:all 0.3s;box-sizing:border-box;"
+                 oninput="const l=this.value.trim();if(l.length>0){this.style.borderColor='#22c55e';}else{this.style.borderColor='';}">
+        </div>
+        
+        <!-- Mot de passe avec validation en temps réel -->
+        <div style="margin-bottom:20px;">
+          <label style="display:block;font-size:13px;font-weight:600;color:var(--ui-text-main);margin-bottom:8px;">🔒 Mot de passe <span style="color:#ef4444;">*</span></label>
+          <input type="password" id="pro-password" name="password" placeholder="Minimum 8 caractères" required
+                 style="width:100%;padding:12px 16px;border-radius:10px;border:2px solid rgba(255,255,255,0.1);background:rgba(15,23,42,0.5);color:var(--ui-text-main);font-size:14px;transition:all 0.3s;box-sizing:border-box;"
+                 oninput="const p=this.value;const e=document.getElementById('pro-password-error');this.style.borderColor='';if(e){e.textContent='';e.style.display='none';}if(p.length>=8){this.style.borderColor='#22c55e';if(e){e.textContent='✅ Mot de passe valide';e.style.color='#22c55e';e.style.display='block';}}else if(p.length>0){this.style.borderColor='#ef4444';if(e){e.textContent='❌ Minimum 8 caractères';e.style.color='#ef4444';e.style.display='block';}}">
+          <div id="pro-password-error" style="display:none;font-size:12px;margin-top:6px;"></div>
+        </div>
+        
+        <!-- Confirmation mot de passe -->
+        <div style="margin-bottom:20px;">
+          <label style="display:block;font-size:13px;font-weight:600;color:var(--ui-text-main);margin-bottom:8px;">✅ Confirmer mot de passe <span style="color:#ef4444;">*</span></label>
+          <input type="password" id="pro-password-confirm" name="password-confirm" placeholder="Confirmer votre mot de passe" required
+                 style="width:100%;padding:12px 16px;border-radius:10px;border:2px solid rgba(255,255,255,0.1);background:rgba(15,23,42,0.5);color:var(--ui-text-main);font-size:14px;transition:all 0.3s;box-sizing:border-box;"
+                 oninput="const p=document.getElementById('pro-password')?.value;const c=this.value;const e=document.getElementById('pro-password-confirm-error');this.style.borderColor='';if(e){e.textContent='';e.style.display='none';}if(c===p&&c.length>0){this.style.borderColor='#22c55e';if(e){e.textContent='✅ Les mots de passe correspondent';e.style.color='#22c55e';e.style.display='block';}}else if(c.length>0){this.style.borderColor='#ef4444';if(e){e.textContent='❌ Les mots de passe ne correspondent pas';e.style.color='#ef4444';e.style.display='block';}}">
+          <div id="pro-password-confirm-error" style="display:none;font-size:12px;margin-top:6px;"></div>
+        </div>
+        
+        <!-- Photo de profil (obligatoire) -->
+        <div style="margin-bottom:20px;">
+          <label style="display:block;font-size:13px;font-weight:600;color:var(--ui-text-main);margin-bottom:8px;">📷 Photo de profil <span style="color:#ef4444;">*</span></label>
+          <input type="file" id="pro-photo" name="photo" accept="image/*" required
+                 style="width:100%;padding:12px 16px;border-radius:10px;border:2px solid rgba(255,255,255,0.1);background:rgba(15,23,42,0.5);color:var(--ui-text-main);font-size:14px;transition:all 0.3s;box-sizing:border-box;"
+                 onchange="const f=this.files[0];if(f){this.style.borderColor='#22c55e';const e=document.getElementById('pro-photo-error');if(e){e.textContent='✅ Photo sélectionnée';e.style.color='#22c55e';e.style.display='block';}}else{this.style.borderColor='';const e=document.getElementById('pro-photo-error');if(e){e.textContent='';e.style.display='none';}}">
+          <div id="pro-photo-error" style="display:none;font-size:12px;margin-top:6px;"></div>
+        </div>
+        
+        <!-- Bouton de soumission -->
+        <button type="submit" style="width:100%;padding:14px;border-radius:12px;border:none;background:linear-gradient(135deg,#00ffc3,#3b82f6);color:#000;font-weight:700;font-size:15px;cursor:pointer;transition:all 0.3s;margin-top:8px;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 20px rgba(0,255,195,0.3)';" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='none';">
+          Créer mon compte
+        </button>
+      </form>
+    </div>
+  `;
+  
+  backdrop.style.display = 'flex';
+  backdrop.style.visibility = 'visible';
+  backdrop.style.opacity = '1';
+  backdrop.style.paddingTop = '40px';
+  backdrop.style.paddingBottom = '40px';
+  backdrop.style.boxSizing = 'border-box';
+  modal.innerHTML = html;
+  modal.style.display = 'block';
+  
+  // ⚠️⚠️⚠️ CRITIQUE : Valider immédiatement l'email si pré-rempli
+  setTimeout(() => {
+    const emailInput = document.getElementById('pro-email');
+    if (emailInput && emailInput.value) {
+      if (typeof window.validateProEmailField === 'function') {
+        window.validateProEmailField(emailInput);
+      }
+    }
+  }, 100);
+}
+
+// Exposer la fonction globalement
+window.showProRegisterForm = showProRegisterForm;
+
+// ⚠️⚠️⚠️ CRITIQUE : S'assurer que la fonction est disponible immédiatement
+if (typeof window !== 'undefined') {
+  window.showProRegisterForm = showProRegisterForm;
+  console.log('[PRO REGISTER] ✅ Fonction showProRegisterForm exposée globalement');
+}
+
+window.validateProEmailField = validateProEmailField;
+window.setupProFormValidation = setupProFormValidation;
+// ⚠️⚠️⚠️ CRITIQUE : Exposer API_BASE_URL pour que la validation inline puisse l'utiliser
+window.API_BASE_URL = API_BASE_URL;
+
 window.isSubmittingProRegister = isSubmittingProRegister;
 window.registerStep = registerStep;
 window.registerData = registerData;

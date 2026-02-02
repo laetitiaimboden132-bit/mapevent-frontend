@@ -585,12 +585,19 @@ async function startGoogleLogin() {
 
 // 2) Traite le retour Cognito: https://mapevent.world/?code=...&state=...
 async function handleCognitoCallbackIfPresent() {
-  // GUARD: Éviter double traitement du callback
-  if (window.isGoogleLoginInProgress && window.location.search.includes('code=')) {
-    // Callback déjà en cours de traitement
-    console.warn('⚠️ Callback OAuth déjà en cours de traitement');
+  // GUARD ROBUSTE: Éviter double traitement du callback
+  if (window._oauthCallbackProcessed) {
+    console.warn('⚠️ Callback OAuth DÉJÀ TRAITÉ - Ignoré');
     return;
   }
+  
+  if (window.isGoogleLoginInProgress && window.location.search.includes('code=')) {
+    console.warn('⚠️ Callback OAuth EN COURS de traitement - Ignoré');
+    return;
+  }
+  
+  // Marquer comme traité IMMÉDIATEMENT pour éviter tout double appel
+  window._oauthCallbackProcessed = true;
   
   console.log('🔍 handleCognitoCallbackIfPresent appelé', {
     url: window.location.href,
@@ -1421,20 +1428,65 @@ async function handleCognitoCallbackIfPresent() {
       // Comme les leaders mondiaux, on se connecte même si le backend échoue
       console.log('✅ Connexion avec données Google uniquement (backend indisponible)');
       
+      // ⚠️⚠️⚠️ CRITIQUE : Récupérer le username depuis pendingRegisterDataForGoogle (données du formulaire d'inscription)
+      let savedUsername = null;
+      let savedPhotoData = null;
+      let savedPostalAddress = null;
+      try {
+        const pendingData = localStorage.getItem('pendingRegisterDataForGoogle') || sessionStorage.getItem('pendingRegisterDataForGoogle');
+        if (pendingData) {
+          const parsed = JSON.parse(pendingData);
+          if (parsed.username && parsed.username !== 'null' && parsed.username !== '' && !parsed.username.includes('@')) {
+            savedUsername = parsed.username;
+            console.log('[FALLBACK] ✅ Username récupéré depuis pendingRegisterDataForGoogle:', savedUsername);
+          }
+          if (parsed.photoData && parsed.photoData !== 'null' && parsed.photoData.length > 100) {
+            savedPhotoData = parsed.photoData;
+            console.log('[FALLBACK] ✅ photoData récupéré depuis pendingRegisterDataForGoogle');
+          }
+          if (parsed.selectedAddress?.label) {
+            savedPostalAddress = parsed.selectedAddress.label;
+            console.log('[FALLBACK] ✅ Adresse postale récupérée:', savedPostalAddress);
+          }
+        }
+      } catch (e) {
+        console.warn('[FALLBACK] ⚠️ Erreur lecture pendingRegisterDataForGoogle:', e);
+      }
+      
+      // Aussi vérifier localStorage.currentUser (données d'une connexion précédente)
+      if (!savedUsername) {
+        try {
+          const savedCurrentUser = localStorage.getItem('currentUser') || sessionStorage.getItem('currentUser');
+          if (savedCurrentUser) {
+            const parsed = JSON.parse(savedCurrentUser);
+            if (parsed.username && parsed.username !== 'null' && parsed.username !== '' && !parsed.username.includes('@') && parsed.username !== 'Utilisateur') {
+              savedUsername = parsed.username;
+              console.log('[FALLBACK] ✅ Username récupéré depuis localStorage.currentUser:', savedUsername);
+            }
+          }
+        } catch (e) {
+          console.warn('[FALLBACK] ⚠️ Erreur lecture localStorage.currentUser:', e);
+        }
+      }
+      
       const slimUser = {
         id: currentUser.id || `user_${Date.now()}`,
         email: currentUser.email,
-        username: currentUser.email?.split('@')[0]?.substring(0, 20) || 'Utilisateur',
+        username: savedUsername || null, // ⚠️⚠️⚠️ NE JAMAIS utiliser l'email - getUserDisplayName affichera "Compte" si null
         firstName: currentUser.name?.split(' ')[0] || '',
         lastName: currentUser.name?.split(' ').slice(1).join(' ') || '',
         role: 'user',
         subscription: 'free',
         profile_photo_url: payload.picture || null,
+        photoData: savedPhotoData || null,
+        postalAddress: savedPostalAddress || null,
         hasPassword: false,
-        hasPostalAddress: false,
+        hasPostalAddress: !!savedPostalAddress,
         profileComplete: false,
         isLoggedIn: true
       };
+      
+      console.log('[FALLBACK] slimUser créé:', { username: slimUser.username, hasPhotoData: !!slimUser.photoData, postalAddress: slimUser.postalAddress });
       
       currentUser = { ...currentUser, ...slimUser, isLoggedIn: true };
       updateAuthUI(slimUser);
@@ -2561,6 +2613,9 @@ async function handleStripeReturn() {
           await loadUserSubscription();
           playPaymentSound();
           showNotification("✅ Abonnement activé !", "success");
+        } else if (paymentType === 'publication') {
+          // Publication d'événement payée
+          await finalizePublishAfterPayment(sessionId);
         }
         
         // Nettoyer l'URL
@@ -2570,12 +2625,64 @@ async function handleStripeReturn() {
       }
     } catch (error) {
       console.error('Erreur vérification paiement:', error);
-      showNotification("⚠️ Erreur lors de la vérification du paiement", "error");
+      
+      // ⚠️ Vérifier si on a des données de publication en attente
+      const pendingData = localStorage.getItem('pendingPublishData');
+      if (pendingData) {
+        try {
+          const data = JSON.parse(pendingData);
+          window.pendingPublishData = data;
+          await finalizePublish();
+          localStorage.removeItem('pendingPublishData');
+          showNotification("✅ Paiement reçu ! Publication effectuée.", "success");
+        } catch (e) {
+          console.error('Erreur finalisation publication:', e);
+        }
+      } else {
+        showNotification("⚠️ Erreur lors de la vérification du paiement", "error");
+      }
     }
-  } else if (paymentStatus === 'canceled') {
+  } else if (paymentStatus === 'cancelled' || paymentStatus === 'canceled') {
     showNotification("❌ Paiement annulé", "info");
+    // Supprimer les données de publication en attente
+    localStorage.removeItem('pendingPublishData');
     // Nettoyer l'URL
     window.history.replaceState({}, document.title, window.location.pathname);
+  }
+  
+  // ⚠️ Vérifier aussi au chargement s'il y a des données de publication en attente avec succès
+  if (!paymentStatus) {
+    const pendingData = localStorage.getItem('pendingPublishData');
+    if (pendingData) {
+      // Il y a des données mais pas de statut de paiement - nettoyer après 30 min
+      const data = JSON.parse(pendingData);
+      const age = Date.now() - (data.timestamp || 0);
+      if (age > 30 * 60 * 1000) {
+        localStorage.removeItem('pendingPublishData');
+      }
+    }
+  }
+}
+
+// Finaliser la publication après retour de Stripe
+async function finalizePublishAfterPayment(sessionId) {
+  const pendingData = localStorage.getItem('pendingPublishData');
+  if (!pendingData) {
+    console.warn('[PUBLISH] Pas de données de publication en attente');
+    return;
+  }
+  
+  try {
+    const data = JSON.parse(pendingData);
+    window.pendingPublishData = data;
+    await finalizePublish();
+    localStorage.removeItem('pendingPublishData');
+    
+    playPaymentSound();
+    showNotification(`✅ Paiement confirmé ! Votre ${data.mode} est maintenant publié.`, "success");
+  } catch (error) {
+    console.error('[PUBLISH] Erreur finalisation:', error);
+    showNotification("⚠️ Publication en cours de traitement...", "warning");
   }
 }
 
@@ -3545,13 +3652,14 @@ document.addEventListener("DOMContentLoaded", () => {
   
   // Fonction pour obtenir le nom de l'utilisateur nettoyé
   // IMPORTANT: Ne JAMAIS afficher l'email dans le header public
+  // UNIQUEMENT le username choisi lors du formulaire d'inscription
   const getUserDisplayName = () => {
     // Permettre l'affichage du nom même pendant le formulaire d'inscription (googleValidated)
     if (!currentUser || (!currentUser.isLoggedIn && !currentUser.googleValidated)) return "Compte";
     
-    // RÈGLE STRICTE : UNIQUEMENT le nom d'utilisateur (username)
-    // Le username est obligatoire et c'est le seul choix
-    // EMAIL JAMAIS AFFICHÉ dans le header (confidentialité)
+    // RÈGLE STRICTE : UNIQUEMENT le nom d'utilisateur (username) choisi lors de l'inscription
+    // PAS le prénom Google, PAS l'email
+    // Le username est obligatoire lors de la création du compte
     
     let rawName = "Compte";
     
@@ -3559,6 +3667,8 @@ document.addEventListener("DOMContentLoaded", () => {
     if (currentUser.username && 
         currentUser.username !== 'null' && 
         currentUser.username !== null &&
+        currentUser.username !== '' &&
+        currentUser.username !== 'Utilisateur' &&
         !currentUser.username.includes('@') &&
         currentUser.username !== currentUser.email) {
       rawName = currentUser.username;
@@ -3718,12 +3828,17 @@ document.addEventListener("DOMContentLoaded", () => {
     name: null
   };
   
-  const updateAccountBlockLegitimately = () => {
+  const updateAccountBlockLegitimately = (retryCount = 0) => {
     const accountAvatar = document.getElementById("account-avatar");
     const accountName = document.getElementById("account-name");
     
     if (!accountAvatar || !accountName) {
-      console.warn('⚠️ account-avatar ou account-name non trouvé');
+      // Retry automatique si DOM pas encore prêt (max 5 tentatives)
+      if (retryCount < 5) {
+        setTimeout(() => updateAccountBlockLegitimately(retryCount + 1), 200);
+      } else {
+        console.warn('⚠️ account-avatar ou account-name non trouvé après 5 tentatives');
+      }
       return;
     }
     
@@ -3832,6 +3947,9 @@ document.addEventListener("DOMContentLoaded", () => {
     accountName.textContent = validName;
     accountName.innerHTML = validName;
   };
+  
+  // ✅ Exposer globalement pour que auth.js puisse l'appeler après connexion
+  window.updateAccountBlockLegitimately = updateAccountBlockLegitimately;
   
   // Protéger immédiatement et périodiquement
   protectAccountBlock();
@@ -7770,10 +7888,12 @@ function buildColumn(colBox, node, level) {
       html += `
         <label style="display:flex;align-items:center;gap:8px;padding:6px;cursor:pointer;border-radius:6px;transition:background 0.15s;"
              onmouseover="this.style.background='rgba(0,255,195,0.12)'"
-               onmouseout="this.style.background='transparent'">
+               onmouseout="this.style.background='transparent'"
+               onclick="event.stopPropagation()">
           <input type="checkbox" 
                  ${isChecked ? 'checked' : ''} 
-                 onchange="toggleCategory('${safe}')"
+                 onchange="toggleCategory('${safe}', event); event.stopPropagation();"
+                 onclick="event.stopPropagation()"
                  style="width:16px;height:16px;accent-color:#00ffc3;cursor:pointer;">
           <span style="flex:1;font-size:12px;">${safe}</span>
         </label>
@@ -7789,10 +7909,11 @@ function buildColumn(colBox, node, level) {
       html += `
         <div style="display:flex;align-items:center;gap:6px;padding:6px;border-radius:6px;transition:background 0.15s;"
              onmouseover="this.style.background='rgba(0,255,195,0.12)'"
-             onmouseout="this.style.background='transparent'">
+             onmouseout="this.style.background='transparent'"
+             onclick="event.stopPropagation()">
           <input type="checkbox" 
                  ${isChecked ? 'checked' : ''} 
-                 onchange="toggleCategory('${safeKey}')"
+                 onchange="toggleCategory('${safeKey}', event); event.stopPropagation();"
                  onclick="event.stopPropagation()"
                  style="width:16px;height:16px;accent-color:#00ffc3;cursor:pointer;">
           <div style="flex:1;display:flex;align-items:center;justify-content:space-between;cursor:pointer;"
@@ -7810,19 +7931,63 @@ function buildColumn(colBox, node, level) {
 }
 
 // Toggle une catégorie (cocher/décocher)
-function toggleCategory(cat) {
+function toggleCategory(cat, event) {
+  console.log('[CATEGORY] toggleCategory appelé avec:', cat);
+  
+  // ⚠️⚠️⚠️ EMPÊCHER la propagation pour ne pas fermer le modal
+  if (event) {
+    event.stopPropagation();
+    event.stopImmediatePropagation();
+  }
+  
+  // ⚠️⚠️⚠️ Si le modal Publier est ouvert, remplir le champ catégorie au lieu de filtrer
+  const publishModal = document.getElementById("publish-modal-backdrop");
+  const categoryInput = document.getElementById("pub-main-category");
+  
+  console.log('[CATEGORY] publishModal:', !!publishModal);
+  console.log('[CATEGORY] categoryInput:', !!categoryInput);
+  
+  // Vérifier si le modal est visible (via style ou computed style)
+  const styleDisplay = publishModal?.style?.display;
+  const computedDisplay = publishModal ? getComputedStyle(publishModal).display : 'none';
+  const attrStyle = publishModal?.getAttribute('style');
+  
+  console.log('[CATEGORY] styleDisplay:', styleDisplay);
+  console.log('[CATEGORY] computedDisplay:', computedDisplay);
+  console.log('[CATEGORY] attrStyle includes flex:', attrStyle?.includes('display: flex'));
+  
+  const isModalVisible = publishModal && (
+    styleDisplay === "flex" || 
+    computedDisplay === "flex" ||
+    attrStyle?.includes('display: flex')
+  );
+  
+  console.log('[CATEGORY] isModalVisible:', isModalVisible);
+  
+  if (isModalVisible && categoryInput) {
+    // Mode publication : remplir le champ catégorie
+    categoryInput.value = cat;
+    console.log('[PUBLISH] ✅ Catégorie insérée dans le formulaire:', cat);
+    
+    // ⚠️⚠️⚠️ FORCER les couleurs pour visibilité
+    categoryInput.style.background = '#0f172a';
+    categoryInput.style.color = '#00ffc3';
+    categoryInput.style.webkitTextFillColor = '#00ffc3';
+    categoryInput.style.borderColor = '#00ffc3';
+    
+    // Effet visuel flash puis retour à normal
+    setTimeout(() => {
+      categoryInput.style.borderColor = '#334155';
+    }, 500);
+    
+    return; // Ne pas filtrer la carte
+  }
+  
+  // Mode normal : toggle le filtre
   if (selectedCategories.includes(cat)) {
     selectedCategories = selectedCategories.filter(c => c !== cat);
   } else {
     selectedCategories.push(cat);
-    
-    // ⚠️⚠️⚠️ NOUVEAU : Si le modal Publier est ouvert, remplir le champ catégorie avec la première sélection
-    const publishModal = document.getElementById("publish-modal-backdrop");
-    const categoryInput = document.getElementById("pub-main-category");
-    if (publishModal && publishModal.style.display === "flex" && categoryInput && !categoryInput.value.trim()) {
-      categoryInput.value = cat;
-      console.log('[PUBLISH] ✅ Catégorie sélectionnée depuis le filtre:', cat);
-    }
   }
   renderSelectedTags();
   applyExplorerFilter();
@@ -7845,7 +8010,43 @@ function openNextLevel(key, level) {
   }, 100);
 }
 
-function selectLeafCategory(cat) {
+function selectLeafCategory(cat, event) {
+  // ⚠️⚠️⚠️ EMPÊCHER la propagation pour ne pas fermer le modal
+  if (event) {
+    event.stopPropagation();
+    event.stopImmediatePropagation();
+  }
+  
+  // ⚠️⚠️⚠️ Si le modal Publier est ouvert, remplir le champ catégorie au lieu de filtrer
+  const publishModal = document.getElementById("publish-modal-backdrop");
+  const categoryInput = document.getElementById("pub-main-category");
+  
+  // Vérifier si le modal est visible
+  const isModalVisible = publishModal && (
+    publishModal.style.display === "flex" || 
+    getComputedStyle(publishModal).display === "flex" ||
+    publishModal.getAttribute('style')?.includes('display: flex')
+  );
+  
+  if (isModalVisible && categoryInput) {
+    // Mode publication : remplir le champ catégorie
+    categoryInput.value = cat;
+    console.log('[PUBLISH] ✅ Catégorie insérée dans le formulaire:', cat);
+    
+    // ⚠️⚠️⚠️ FORCER les couleurs pour visibilité
+    categoryInput.style.background = '#0f172a';
+    categoryInput.style.color = '#00ffc3';
+    categoryInput.style.webkitTextFillColor = '#00ffc3';
+    categoryInput.style.borderColor = '#00ffc3';
+    
+    setTimeout(() => {
+      categoryInput.style.borderColor = '#334155';
+    }, 500);
+    
+    return; // Ne pas filtrer la carte
+  }
+  
+  // Mode normal
   if (!selectedCategories.includes(cat)) {
     selectedCategories.push(cat);
   }
@@ -8395,12 +8596,12 @@ function buildPublishFormHtml() {
   const categoriesBlock = `
     <div style="margin-bottom:10px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-        <label style="font-size:12px;font-weight:600;">${window.t("main_category")} *</label>
+        <label style="font-size:12px;font-weight:600;color:#e2e8f0;">${window.t("main_category")} *</label>
         <button type="button" id="pub-open-filter-btn" onclick="openFilterForPublish()" style="padding:4px 10px;border-radius:6px;border:1px solid rgba(0,255,195,0.5);background:rgba(0,255,195,0.1);color:#00ffc3;font-size:11px;cursor:pointer;font-weight:600;transition:all 0.2s;" onmouseover="this.style.background='rgba(0,255,195,0.2)';this.style.borderColor='rgba(0,255,195,0.8)'" onmouseout="this.style.background='rgba(0,255,195,0.1)';this.style.borderColor='rgba(0,255,195,0.5)'">🔍 Ouvrir filtre</button>
       </div>
-      <input id="pub-main-category" placeholder="${window.t("choose_category")} (commencez à taper pour rechercher)"
-               style="width:100%;padding:6px;border-radius:8px;border:1px solid var(--ui-card-border);background:transparent;color:var(--ui-text-main);font-size:13px;">
-      <div id="pub-category-suggestions" style="display:none;margin-top:4px;max-height:150px;overflow-y:auto;border:1px solid var(--ui-card-border);border-radius:8px;background:var(--ui-card-bg);padding:4px;"></div>
+      <input id="pub-main-category" placeholder="Commencez à taper ou sélectionnez dans le filtre"
+               style="width:100%;padding:8px 10px;border-radius:8px;border:2px solid #334155;background:#0f172a !important;color:#00ffc3 !important;font-size:13px;font-weight:600;-webkit-text-fill-color:#00ffc3 !important;">
+      <div id="pub-category-suggestions" style="display:none;margin-top:4px;max-height:150px;overflow-y:auto;border:1px solid #334155;border-radius:8px;background:#0f172a;padding:4px;position:relative;z-index:1000;"></div>
     </div>
   `;
 
@@ -8408,82 +8609,45 @@ function buildPublishFormHtml() {
     ? `
       <div style="display:flex;gap:8px;margin-bottom:10px;">
         <div style="flex:1;">
-          <label style="font-size:12px;font-weight:600;">${window.t("start")} *</label>
-          <input type="datetime-local" id="pub-start" required style="width:100%;padding:6px;border-radius:8px;border:1px solid var(--ui-card-border);background:transparent;color:var(--ui-text-main);">
+          <label id="pub-start-label" style="font-size:12px;font-weight:600;color:#e2e8f0;">${window.t("start")} <span id="pub-start-star" style="color:#ff4444;">*</span></label>
+          <input type="datetime-local" id="pub-start" required onchange="validateEventDates()" style="width:100%;padding:8px;border-radius:8px;border:2px solid #334155;background:#0f172a;color:#fff;color-scheme:dark;">
+          <div id="pub-start-error" style="display:none;font-size:10px;color:#ff4444;margin-top:2px;">⚠️ Date/heure invalide</div>
         </div>
         <div style="flex:1;">
-          <label style="font-size:12px;font-weight:600;">${window.t("end")} *</label>
-          <input type="datetime-local" id="pub-end" required style="width:100%;padding:6px;border-radius:8px;border:1px solid var(--ui-card-border);background:transparent;color:var(--ui-text-main);">
+          <label id="pub-end-label" style="font-size:12px;font-weight:600;color:#e2e8f0;">${window.t("end")} <span id="pub-end-star" style="color:#ff4444;">*</span></label>
+          <input type="datetime-local" id="pub-end" required onchange="validateEventDates()" style="width:100%;padding:8px;border-radius:8px;border:2px solid #334155;background:#0f172a;color:#fff;color-scheme:dark;">
+          <div id="pub-end-error" style="display:none;font-size:10px;color:#ff4444;margin-top:2px;">⚠️ Date/heure invalide</div>
         </div>
       </div>
       
-      <!-- RÉPÉTITIONS D'ÉVÉNEMENTS -->
+      <!-- RÉPÉTITIONS D'ÉVÉNEMENTS - Hebdomadaire ou Mensuel uniquement -->
       <div style="margin-bottom:12px;padding:10px;background:rgba(0,255,195,0.05);border:1px solid rgba(0,255,195,0.2);border-radius:10px;">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-          <input type="checkbox" id="pub-repeat-enabled" onchange="toggleRepeatOptions()" style="width:18px;height:18px;accent-color:#00ffc3;cursor:pointer;">
-          <label for="pub-repeat-enabled" style="font-size:12px;font-weight:600;color:#00ffc3;cursor:pointer;">🔄 Répéter cet événement</label>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <input type="checkbox" id="pub-repeat-enabled" onchange="toggleRepeatOptions()" style="width:18px;height:18px;accent-color:#00ffc3;cursor:pointer;">
+            <label for="pub-repeat-enabled" style="font-size:12px;font-weight:600;color:#00ffc3;cursor:pointer;">🔄 Répéter cet événement</label>
+          </div>
+          <span id="pub-repeat-price-badge" style="display:none;padding:3px 8px;background:rgba(255,200,0,0.2);border:1px solid rgba(255,200,0,0.5);border-radius:12px;font-size:10px;color:#ffc800;font-weight:600;">+0.-</span>
         </div>
         
         <div id="pub-repeat-options" style="display:none;margin-top:10px;">
           <div style="margin-bottom:8px;">
             <label style="font-size:11px;font-weight:600;color:var(--ui-text-muted);margin-bottom:4px;display:block;">Fréquence</label>
-            <select id="pub-repeat-frequency" onchange="updateRepeatPreview()" style="width:100%;padding:6px;border-radius:8px;border:1px solid var(--ui-card-border);background:rgba(15,23,42,0.9);color:var(--ui-text-main);font-size:12px;cursor:pointer;">
-              <option value="daily">Quotidien</option>
-              <option value="weekly" selected>Hebdomadaire</option>
-              <option value="biweekly">Bi-hebdomadaire</option>
-              <option value="monthly">Mensuel</option>
-              <option value="yearly">Annuel</option>
-              <option value="custom">Personnalisé</option>
+            <select id="pub-repeat-frequency" onchange="updateRepeatPricing()" style="width:100%;padding:6px;border-radius:8px;border:1px solid var(--ui-card-border);background:rgba(15,23,42,0.9);color:var(--ui-text-main);font-size:12px;cursor:pointer;">
+              <option value="weekly">📅 Hebdomadaire (+15.- CHF)</option>
+              <option value="monthly">📆 Mensuel (+4.- CHF)</option>
             </select>
-          </div>
-          
-          <div id="pub-repeat-weekdays" style="margin-bottom:8px;">
-            <label style="font-size:11px;font-weight:600;color:var(--ui-text-muted);margin-bottom:4px;display:block;">Jours de la semaine</label>
-            <div style="display:flex;gap:4px;flex-wrap:wrap;">
-              <label style="flex:1;min-width:40px;padding:6px;border-radius:6px;border:1px solid var(--ui-card-border);background:rgba(15,23,42,0.5);text-align:center;font-size:11px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='rgba(0,255,195,0.1)'" onmouseout="this.style.background='rgba(15,23,42,0.5)'">
-                <input type="checkbox" value="0" class="repeat-weekday" onchange="updateRepeatPreview()" style="display:none;">
-                <span>Lun</span>
-              </label>
-              <label style="flex:1;min-width:40px;padding:6px;border-radius:6px;border:1px solid var(--ui-card-border);background:rgba(15,23,42,0.5);text-align:center;font-size:11px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='rgba(0,255,195,0.1)'" onmouseout="this.style.background='rgba(15,23,42,0.5)'">
-                <input type="checkbox" value="1" class="repeat-weekday" onchange="updateRepeatPreview()" style="display:none;">
-                <span>Mar</span>
-              </label>
-              <label style="flex:1;min-width:40px;padding:6px;border-radius:6px;border:1px solid var(--ui-card-border);background:rgba(15,23,42,0.5);text-align:center;font-size:11px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='rgba(0,255,195,0.1)'" onmouseout="this.style.background='rgba(15,23,42,0.5)'">
-                <input type="checkbox" value="2" class="repeat-weekday" onchange="updateRepeatPreview()" style="display:none;">
-                <span>Mer</span>
-              </label>
-              <label style="flex:1;min-width:40px;padding:6px;border-radius:6px;border:1px solid var(--ui-card-border);background:rgba(15,23,42,0.5);text-align:center;font-size:11px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='rgba(0,255,195,0.1)'" onmouseout="this.style.background='rgba(15,23,42,0.5)'">
-                <input type="checkbox" value="3" class="repeat-weekday" onchange="updateRepeatPreview()" style="display:none;">
-                <span>Jeu</span>
-              </label>
-              <label style="flex:1;min-width:40px;padding:6px;border-radius:6px;border:1px solid var(--ui-card-border);background:rgba(15,23,42,0.5);text-align:center;font-size:11px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='rgba(0,255,195,0.1)'" onmouseout="this.style.background='rgba(15,23,42,0.5)'">
-                <input type="checkbox" value="4" class="repeat-weekday" onchange="updateRepeatPreview()" style="display:none;">
-                <span>Ven</span>
-              </label>
-              <label style="flex:1;min-width:40px;padding:6px;border-radius:6px;border:1px solid var(--ui-card-border);background:rgba(15,23,42,0.5);text-align:center;font-size:11px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='rgba(0,255,195,0.1)'" onmouseout="this.style.background='rgba(15,23,42,0.5)'">
-                <input type="checkbox" value="5" class="repeat-weekday" onchange="updateRepeatPreview()" style="display:none;">
-                <span>Sam</span>
-              </label>
-              <label style="flex:1;min-width:40px;padding:6px;border-radius:6px;border:1px solid var(--ui-card-border);background:rgba(15,23,42,0.5);text-align:center;font-size:11px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='rgba(0,255,195,0.1)'" onmouseout="this.style.background='rgba(15,23,42,0.5)'">
-                <input type="checkbox" value="6" class="repeat-weekday" onchange="updateRepeatPreview()" style="display:none;">
-                <span>Dim</span>
-              </label>
-            </div>
           </div>
           
           <div style="display:flex;gap:8px;margin-bottom:8px;">
             <div style="flex:1;">
               <label style="font-size:11px;font-weight:600;color:var(--ui-text-muted);margin-bottom:4px;display:block;">Répéter jusqu'au</label>
-              <input type="date" id="pub-repeat-until" onchange="updateRepeatPreview()" style="width:100%;padding:6px;border-radius:8px;border:1px solid var(--ui-card-border);background:rgba(15,23,42,0.9);color:var(--ui-text-main);font-size:12px;">
-            </div>
-            <div style="flex:1;">
-              <label style="font-size:11px;font-weight:600;color:var(--ui-text-muted);margin-bottom:4px;display:block;">Ou nombre d'occurrences</label>
-              <input type="number" id="pub-repeat-count" min="1" max="365" placeholder="Ex: 10" onchange="updateRepeatPreview()" style="width:100%;padding:6px;border-radius:8px;border:1px solid var(--ui-card-border);background:rgba(15,23,42,0.9);color:var(--ui-text-main);font-size:12px;">
+              <input type="date" id="pub-repeat-until" onchange="updateRepeatPricing()" style="width:100%;padding:6px;border-radius:8px;border:1px solid var(--ui-card-border);background:rgba(15,23,42,0.9);color:var(--ui-text-main);font-size:12px;">
             </div>
           </div>
           
           <div id="pub-repeat-preview" style="padding:8px;background:rgba(0,255,195,0.1);border-radius:6px;font-size:11px;color:#00ffc3;min-height:20px;">
-            <span style="opacity:0.6;">Aperçu des répétitions...</span>
+            <span>💡 Le point réapparaîtra automatiquement chaque semaine/mois jusqu'à la date finale.</span>
           </div>
         </div>
       </div>
@@ -8522,14 +8686,45 @@ function buildPublishFormHtml() {
       : "";
 
   const paymentBlock = `
-    <div style="margin-top:6px;padding:8px;border-radius:10px;border:1px dashed var(--ui-card-border);font-size:12px;color:var(--ui-text-muted);">
-      <div style="font-weight:600;margin-bottom:4px;">${window.t("visibility_choice")}</div>
-      <ul style="padding-left:18px;margin:0;">
-        <li><b>${window.t("standard_point")}</b></li>
-        <li><b>${window.t("bronze_boost")}</b></li>
-        <li><b>${window.t("silver_boost")}</b></li>
-        <li><b>${window.t("platinum_boost")}</b></li>
-      </ul>
+    <div style="margin-top:6px;padding:10px;border-radius:10px;border:1px dashed var(--ui-card-border);font-size:12px;color:var(--ui-text-muted);">
+      <div style="font-weight:600;margin-bottom:6px;">${window.t("visibility_choice")}</div>
+      <div style="display:flex;flex-direction:column;gap:6px;">
+        <label style="display:flex;align-items:center;gap:8px;padding:6px;border-radius:6px;cursor:pointer;transition:background 0.2s;" onmouseover="this.style.background='rgba(0,255,195,0.05)'" onmouseout="this.style.background='transparent'">
+          <input type="radio" name="pub-boost" value="standard" checked onchange="updateTotalPrice()" style="accent-color:#00ffc3;">
+          <span><b>Standard</b> - Point basique (inclus)</span>
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;padding:6px;border-radius:6px;cursor:pointer;transition:background 0.2s;" onmouseover="this.style.background='rgba(205,127,50,0.1)'" onmouseout="this.style.background='transparent'">
+          <input type="radio" name="pub-boost" value="bronze" onchange="updateTotalPrice()" style="accent-color:#cd7f32;">
+          <span><b style="color:#cd7f32;">🥉 Bronze</b> - +5.- CHF (légère mise en avant)</span>
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;padding:6px;border-radius:6px;cursor:pointer;transition:background 0.2s;" onmouseover="this.style.background='rgba(192,192,192,0.1)'" onmouseout="this.style.background='transparent'">
+          <input type="radio" name="pub-boost" value="silver" onchange="updateTotalPrice()" style="accent-color:#c0c0c0;">
+          <span><b style="color:#c0c0c0;">🥈 Silver</b> - +10.- CHF (bonne visibilité)</span>
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;padding:6px;border-radius:6px;cursor:pointer;transition:background 0.2s;" onmouseover="this.style.background='rgba(139,92,246,0.1)'" onmouseout="this.style.background='transparent'">
+          <input type="radio" name="pub-boost" value="platinum" onchange="updateTotalPrice(); openPlatinumAuctionModal()" style="accent-color:#8b5cf6;">
+          <span><b style="color:#8b5cf6;">💎 Platinum (Top 10)</b> - Enchères (voir prix actuels)</span>
+        </label>
+      </div>
+    </div>
+    
+    <!-- AFFICHAGE PRIX TOTAL -->
+    <div id="pub-total-price-block" style="margin-top:12px;padding:12px;background:linear-gradient(135deg,rgba(0,255,195,0.1),rgba(59,130,246,0.05));border:2px solid rgba(0,255,195,0.4);border-radius:12px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <div style="font-size:11px;color:#e2e8f0;margin-bottom:2px;">Prix de publication</div>
+          <div style="font-size:10px;color:#94a3b8;" id="pub-price-details">Base: 1.-</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:22px;font-weight:700;color:#00ffc3;" id="pub-total-price">1.- CHF</div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- PLACEHOLDER ENCHÈRE PLATINUM -->
+    <div id="pub-platinum-bid-info" style="display:none;margin-top:8px;padding:10px;background:rgba(139,92,246,0.1);border:1px solid rgba(139,92,246,0.3);border-radius:8px;">
+      <div style="font-size:11px;color:#a78bfa;font-weight:600;">💎 Votre enchère Platinum</div>
+      <div style="font-size:14px;color:#fff;font-weight:700;" id="pub-platinum-bid-amount">-</div>
     </div>
   `;
 
@@ -8537,22 +8732,31 @@ function buildPublishFormHtml() {
     <form onsubmit="return onSubmitPublishForm(event)">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
         <h2 style="margin:0;font-size:16px;">${window.t("publish_mode")} ${modeLabel}</h2>
-        <button type="button" onclick="closePublishModal(event)" style="background:none;border:none;color:var(--ui-text-muted);font-size:24px;cursor:pointer;padding:4px 8px;border-radius:6px;transition:all 0.15s;line-height:1;width:32px;height:32px;display:flex;align-items:center;justify-content:center;" onmouseover="this.style.background='rgba(255,255,255,0.1)';this.style.color='#fff'" onmouseout="this.style.background='none';this.style.color='var(--ui-text-muted)'" title="Fermer">✕</button>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <button type="button" onclick="resetPublishForm()" style="padding:4px 10px;border-radius:6px;border:1px solid #475569;background:transparent;color:#94a3b8;font-size:11px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='rgba(255,100,100,0.1)';this.style.borderColor='#ff4444';this.style.color='#ff4444'" onmouseout="this.style.background='transparent';this.style.borderColor='#475569';this.style.color='#94a3b8'" title="Effacer toutes les données">🔄 Réinitialiser</button>
+          <button type="button" onclick="closePublishModal(event)" style="background:none;border:none;color:var(--ui-text-muted);font-size:24px;cursor:pointer;padding:4px 8px;border-radius:6px;transition:all 0.15s;line-height:1;width:32px;height:32px;display:flex;align-items:center;justify-content:center;" onmouseover="this.style.background='rgba(255,255,255,0.1)';this.style.color='#fff'" onmouseout="this.style.background='none';this.style.color='var(--ui-text-muted)'" title="Fermer (données conservées)">✕</button>
+        </div>
       </div>
 
       <div style="margin-bottom:10px;">
-        <label style="font-size:12px;font-weight:600;">${window.t("title_name")} *</label>
-        <input id="pub-title" required
-               style="width:100%;padding:6px;border-radius:8px;border:1px solid var(--ui-card-border);background:transparent;color:var(--ui-text-main);font-size:13px;">
+        <label style="font-size:12px;font-weight:600;color:#e2e8f0;">${window.t("title_name")} <span style="color:#ff4444;">*</span></label>
+        <input id="pub-title" required placeholder="Nom de votre événement"
+               style="width:100%;padding:8px 10px;border-radius:8px;border:2px solid #334155;background:#0f172a;color:#fff;font-size:13px;">
       </div>
 
       ${categoriesBlock}
       ${datesBlock}
 
-      <div style="margin-bottom:10px;">
-        <label style="font-size:12px;font-weight:600;">${window.t("full_address")} *</label>
-        <input id="pub-address" required
-               style="width:100%;padding:6px;border-radius:8px;border:1px solid var(--ui-card-border);background:transparent;color:var(--ui-text-main);font-size:13px;">
+      <div style="margin-bottom:10px;position:relative;">
+        <label id="pub-address-label" style="font-size:12px;font-weight:600;color:#e2e8f0;">${window.t("full_address")} <span id="pub-address-star" style="color:#ff4444;">*</span></label>
+        <textarea id="pub-address" required oninput="debounceAddressSearch()" onblur="validateAddress()"
+               placeholder="Entrez une adresse complète (monde entier)"
+               rows="2"
+               style="width:100%;padding:8px 10px;border-radius:8px;border:2px solid #334155;background:#0f172a;color:#fff;font-size:13px;resize:none;font-family:inherit;"></textarea>
+        <div id="pub-address-suggestions" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:1001;max-height:200px;overflow-y:auto;border:1px solid #334155;border-radius:8px;background:#0f172a;margin-top:2px;box-shadow:0 4px 12px rgba(0,0,0,0.3);"></div>
+        <div id="pub-address-status" style="display:none;font-size:10px;margin-top:2px;"></div>
+        <input type="hidden" id="pub-address-lat">
+        <input type="hidden" id="pub-address-lng">
       </div>
 
       <div style="display:flex;gap:8px;margin-bottom:10px;">
@@ -8586,7 +8790,17 @@ function buildPublishFormHtml() {
         <div style="margin-bottom:10px;">
           <label style="font-size:12px;font-weight:600;">${window.t("ticketing")}</label>
           <input id="pub-ticket" placeholder="${window.t("ticket_link")}"
-                 style="width:100%;padding:6px;border-radius:8px;border:1px solid var(--ui-card-border);background:transparent;color:var(--ui-text-main);">
+                 style="width:100%;padding:6px;border-radius:8px;border:1px solid var(--ui-card-border);background:rgba(15,23,42,0.9);color:#fff;">
+        </div>
+        
+        <!-- LIENS SONS - SoundCloud, Spotify, etc. -->
+        <div style="margin-bottom:10px;">
+          <label style="font-size:12px;font-weight:600;">🎵 Liens Sons (écoute directe)</label>
+          <textarea id="pub-audio-links" rows="2" placeholder="SoundCloud, Spotify, Mixcloud... (un lien par ligne)"
+                    style="width:100%;padding:6px;border-radius:8px;border:1px solid var(--ui-card-border);background:rgba(15,23,42,0.9);color:#fff;font-size:12px;"></textarea>
+          <div style="font-size:10px;color:var(--ui-text-muted);margin-top:2px;">
+            💡 Les visiteurs pourront écouter directement depuis la fiche événement
+          </div>
         </div>
       `
           : ""
@@ -8595,7 +8809,7 @@ function buildPublishFormHtml() {
       <div style="margin-bottom:10px;">
         <label style="font-size:12px;font-weight:600;">${window.t("social_links")}</label>
         <textarea id="pub-social" rows="2" placeholder="Facebook, Instagram…"
-                  style="width:100%;padding:6px;border-radius:8px;border:1px solid var(--ui-card-border);background:transparent;color:var(--ui-text-main);"></textarea>
+                  style="width:100%;padding:6px;border-radius:8px;border:1px solid var(--ui-card-border);background:rgba(15,23,42,0.9);color:#fff;"></textarea>
       </div>
 
       <div style="margin-bottom:10px;">
@@ -8642,18 +8856,82 @@ function buildPublishFormHtml() {
 }
 
 function openPublishModal() {
-  const backdrop = document.getElementById("publish-modal-backdrop");
-  const inner = document.getElementById("publish-modal-inner");
-  inner.innerHTML = buildPublishFormHtml();
-  backdrop.style.display = "flex";
+  console.log('[PUBLISH] 🔍 openPublishModal appelé - currentUser:', currentUser);
+  console.log('[PUBLISH] 🔍 isLoggedIn:', currentUser?.isLoggedIn);
   
-  // ⚠️⚠️⚠️ NOUVEAU : Ouvrir automatiquement le filtre de catégories
+  // ⚠️⚠️⚠️ VÉRIFIER SI L'UTILISATEUR EST CONNECTÉ
+  if (!currentUser || !currentUser.isLoggedIn) {
+    console.log('[PUBLISH] ❌ Utilisateur non connecté - Ouverture modal connexion');
+    // Afficher le modal de connexion avec callback pour ouvrir le formulaire après
+    if (typeof window.openAuthModal === 'function') {
+      window.openAuthModal('login');
+    } else if (typeof openAuthModal === 'function') {
+      openAuthModal('login');
+    } else {
+      showNotification('❌ Veuillez vous connecter pour publier', 'error');
+    }
+    return;
+  }
+  
+  console.log('[PUBLISH] ✅ Utilisateur connecté - Ouverture formulaire publication');
+  
+  try {
+    const backdrop = document.getElementById("publish-modal-backdrop");
+    const inner = document.getElementById("publish-modal-inner");
+    console.log('[PUBLISH] 🔍 backdrop:', !!backdrop, 'inner:', !!inner);
+    
+    if (!backdrop || !inner) {
+      console.error('[PUBLISH] ❌ Éléments DOM non trouvés:', { backdrop: !!backdrop, inner: !!inner });
+      return;
+    }
+    
+    console.log('[PUBLISH] 🔍 Appel buildPublishFormHtml...');
+    const formHtml = buildPublishFormHtml();
+    console.log('[PUBLISH] 🔍 HTML généré, longueur:', formHtml?.length || 0);
+    
+    inner.innerHTML = formHtml;
+    console.log('[PUBLISH] 🔍 innerHTML assigné');
+    
+    // ⚠️⚠️⚠️ FORCER l'affichage avec !important pour écraser les styles de closeAuthModal
+    backdrop.setAttribute('style', 'display: flex !important; visibility: visible !important; opacity: 1 !important; z-index: 100 !important; position: fixed !important; inset: 0 !important; background: rgba(0,0,0,0.3) !important; align-items: flex-start !important; justify-content: flex-end !important;');
+    
+    // Forcer aussi les styles du modal et inner
+    const modal = document.getElementById('publish-modal');
+    if (modal) {
+      modal.style.display = 'block';
+      modal.style.visibility = 'visible';
+      modal.style.opacity = '1';
+      modal.style.height = 'auto';
+      modal.style.minHeight = '400px';
+    }
+    inner.style.display = 'block';
+    inner.style.visibility = 'visible';
+    inner.style.opacity = '1';
+    inner.style.height = 'auto';
+    
+    console.log('[PUBLISH] ✅ Modal affiché avec display:flex (forcé avec !important)');
+  } catch (error) {
+    console.error('[PUBLISH] ❌ ERREUR:', error);
+  }
+  
+  // Ouvrir automatiquement le filtre pour aider à choisir la catégorie
   if (!explorerOpen) {
     explorerOpen = true;
     const panel = document.getElementById("left-panel");
     if (panel) {
       panel.style.display = "block";
+      // ⚠️⚠️⚠️ IMPORTANT: Donner un z-index plus élevé au panneau pour qu'il soit au-dessus du backdrop
+      panel.style.zIndex = "150";
+      panel.style.position = "relative";
       loadExplorerTree();
+      console.log('[PUBLISH] ✅ Filtre ouvert pour aide catégorie (z-index: 150)');
+    }
+  } else {
+    // Même si le filtre est déjà ouvert, s'assurer qu'il a le bon z-index
+    const panel = document.getElementById("left-panel");
+    if (panel) {
+      panel.style.zIndex = "150";
+      panel.style.position = "relative";
     }
   }
   
@@ -8669,6 +8947,11 @@ function openPublishModal() {
   setTimeout(() => {
     setupCategoryInputWithFilter();
   }, 200);
+  
+  // ⚠️⚠️⚠️ RESTAURER les données du formulaire si elles existent
+  setTimeout(() => {
+    restorePublishFormData();
+  }, 300);
 }
 
 // ⚠️⚠️⚠️ NOUVEAU : Fonction pour ouvrir le filtre depuis le bouton Publier
@@ -8742,10 +9025,10 @@ function setupCategoryInputWithFilter() {
     suggestionsDiv.innerHTML = matches.map(cat => {
       const safe = escapeHtml(cat);
       return `
-        <div onclick="selectCategoryForPublish('${safe}')" 
-             style="padding:8px;cursor:pointer;border-radius:4px;transition:background 0.15s;font-size:12px;"
-             onmouseover="this.style.background='rgba(0,255,195,0.15)'"
-             onmouseout="this.style.background='transparent'">
+        <div onclick="event.stopPropagation(); selectCategoryForPublish('${safe}')" 
+             style="padding:8px;cursor:pointer;border-radius:4px;transition:background 0.15s;font-size:12px;color:var(--ui-text-main);background:transparent;"
+             onmouseover="this.style.background='rgba(0,255,195,0.2)';this.style.color='#00ffc3'"
+             onmouseout="this.style.background='transparent';this.style.color='var(--ui-text-main)'">
           ${safe}
         </div>
       `;
@@ -8784,6 +9067,8 @@ function setupCategoryInputWithFilter() {
 
 // ⚠️⚠️⚠️ NOUVEAU : Sélectionner une catégorie depuis les suggestions
 function selectCategoryForPublish(category) {
+  console.log('[PUBLISH] selectCategoryForPublish appelé avec:', category);
+  
   const categoryInput = document.getElementById("pub-main-category");
   const suggestionsDiv = document.getElementById("pub-category-suggestions");
   
@@ -8791,11 +9076,18 @@ function selectCategoryForPublish(category) {
     // Extraire juste le nom de la catégorie finale (après le dernier >)
     const finalCategory = category.split(">").pop().trim();
     categoryInput.value = finalCategory;
+    console.log('[PUBLISH] ✅ Catégorie sélectionnée depuis suggestions:', finalCategory);
     
-    // Cocher la catégorie dans le filtre si elle existe
-    if (!selectedCategories.includes(finalCategory)) {
-      toggleCategory(finalCategory);
-    }
+    // Effet visuel pour confirmer la sélection
+    categoryInput.style.background = 'rgba(0, 255, 195, 0.2)';
+    categoryInput.style.borderColor = '#00ffc3';
+    setTimeout(() => {
+      categoryInput.style.background = '';
+      categoryInput.style.borderColor = '';
+    }, 500);
+    
+    // ⚠️ NE PAS appeler toggleCategory ici - cela pourrait filtrer la carte
+    // La catégorie est juste insérée dans le formulaire
   }
   
   if (suggestionsDiv) {
@@ -8807,49 +9099,615 @@ function selectCategoryForPublish(category) {
 function toggleRepeatOptions() {
   const checkbox = document.getElementById("pub-repeat-enabled");
   const options = document.getElementById("pub-repeat-options");
+  const priceBadge = document.getElementById("pub-repeat-price-badge");
+  
   if (checkbox && options) {
     options.style.display = checkbox.checked ? "block" : "none";
+    if (priceBadge) {
+      priceBadge.style.display = checkbox.checked ? "inline-block" : "none";
+    }
     if (checkbox.checked) {
-      updateRepeatPreview();
+      updateRepeatPricing();
+    } else {
+      updateTotalPrice();
     }
   }
 }
 
-function updateRepeatPreview() {
-  const preview = document.getElementById("pub-repeat-preview");
-  if (!preview) return;
+// ⚠️⚠️⚠️ VALIDATION DES DATES - Refuser les dates passées
+function validateEventDates() {
+  const startInput = document.getElementById("pub-start");
+  const endInput = document.getElementById("pub-end");
+  const startError = document.getElementById("pub-start-error");
+  const endError = document.getElementById("pub-end-error");
+  const startStar = document.getElementById("pub-start-star");
+  const endStar = document.getElementById("pub-end-star");
   
-  const frequency = document.getElementById("pub-repeat-frequency")?.value || "weekly";
-  const until = document.getElementById("pub-repeat-until")?.value;
-  const count = document.getElementById("pub-repeat-count")?.value;
-  const weekdays = Array.from(document.querySelectorAll(".repeat-weekday:checked")).map(cb => parseInt(cb.value));
+  const now = new Date();
+  let isValid = true;
   
-  let previewText = "";
-  
-  if (frequency === "weekly" && weekdays.length > 0) {
-    const dayNames = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
-    previewText = `Répétition hebdomadaire le${weekdays.length > 1 ? "s" : ""} ${weekdays.map(d => dayNames[d]).join(", ")}`;
-  } else {
-    const freqNames = {
-      daily: "Quotidien",
-      weekly: "Hebdomadaire",
-      biweekly: "Bi-hebdomadaire",
-      monthly: "Mensuel",
-      yearly: "Annuel",
-      custom: "Personnalisé"
-    };
-    previewText = `Répétition ${freqNames[frequency] || frequency}`;
+  // Valider la date de début
+  if (startInput && startInput.value) {
+    const startDate = new Date(startInput.value);
+    if (startDate < now) {
+      // Date dans le passé - invalide
+      startInput.style.borderColor = "#ff4444";
+      startInput.style.background = "rgba(255,68,68,0.1)";
+      if (startError) startError.style.display = "block";
+      if (startStar) startStar.style.color = "#ff4444";
+      isValid = false;
+    } else {
+      // Date valide
+      startInput.style.borderColor = "var(--ui-card-border)";
+      startInput.style.background = "rgba(15,23,42,0.9)";
+      if (startError) startError.style.display = "none";
+      if (startStar) startStar.style.color = "inherit";
+    }
   }
   
-  if (until) {
-    const untilDate = new Date(until);
-    previewText += ` jusqu'au ${untilDate.toLocaleDateString("fr-FR")}`;
-  } else if (count) {
-    previewText += ` (${count} occurrence${count > 1 ? "s" : ""})`;
+  // Valider la date de fin
+  if (endInput && endInput.value) {
+    const endDate = new Date(endInput.value);
+    const startDate = startInput?.value ? new Date(startInput.value) : now;
+    
+    if (endDate < now) {
+      // Date dans le passé - invalide
+      endInput.style.borderColor = "#ff4444";
+      endInput.style.background = "rgba(255,68,68,0.1)";
+      if (endError) {
+        endError.textContent = "⚠️ Date invalide (passée)";
+        endError.style.display = "block";
+      }
+      if (endStar) endStar.style.color = "#ff4444";
+      isValid = false;
+    } else if (endDate < startDate) {
+      // Fin avant début - invalide
+      endInput.style.borderColor = "#ff4444";
+      endInput.style.background = "rgba(255,68,68,0.1)";
+      if (endError) {
+        endError.textContent = "⚠️ Fin avant début";
+        endError.style.display = "block";
+      }
+      if (endStar) endStar.style.color = "#ff4444";
+      isValid = false;
+    } else {
+      // Date valide
+      endInput.style.borderColor = "var(--ui-card-border)";
+      endInput.style.background = "rgba(15,23,42,0.9)";
+      if (endError) endError.style.display = "none";
+      if (endStar) endStar.style.color = "inherit";
+    }
   }
   
-  preview.innerHTML = `<span style="color:#00ffc3;">📅 ${previewText}</span>`;
+  return isValid;
 }
+
+// ⚠️⚠️⚠️ CALCUL DU PRIX DE RÉPÉTITION
+function updateRepeatPricing() {
+  const frequency = document.getElementById("pub-repeat-frequency")?.value || "weekly";
+  const priceBadge = document.getElementById("pub-repeat-price-badge");
+  const preview = document.getElementById("pub-repeat-preview");
+  const until = document.getElementById("pub-repeat-until")?.value;
+  
+  // Prix selon la fréquence
+  const repeatPrice = frequency === "weekly" ? 15 : 4;
+  
+  if (priceBadge) {
+    priceBadge.textContent = `+${repeatPrice}.- CHF`;
+    priceBadge.style.display = "inline-block";
+  }
+  
+  // Aperçu
+  if (preview) {
+    const freqText = frequency === "weekly" ? "chaque semaine" : "chaque mois";
+    let previewText = `💡 Le point réapparaîtra automatiquement ${freqText}`;
+    if (until) {
+      const untilDate = new Date(until);
+      previewText += ` jusqu'au ${untilDate.toLocaleDateString("fr-FR")}`;
+    }
+    preview.innerHTML = `<span style="color:#00ffc3;">${previewText}</span>`;
+  }
+  
+  updateTotalPrice();
+}
+
+// ⚠️⚠️⚠️ CALCUL DU PRIX TOTAL
+// Variable globale pour stocker le montant de l'enchère Platinum
+let currentPlatinumBid = 0;
+
+function updateTotalPrice() {
+  const basePrice = 1;
+  let totalPrice = basePrice;
+  let details = ["Base: 1.-"];
+  
+  // Prix de répétition
+  const repeatEnabled = document.getElementById("pub-repeat-enabled")?.checked;
+  if (repeatEnabled) {
+    const frequency = document.getElementById("pub-repeat-frequency")?.value || "weekly";
+    const repeatPrice = frequency === "weekly" ? 15 : 4;
+    totalPrice += repeatPrice;
+    details.push(`Répétition ${frequency === "weekly" ? "hebdo" : "mensuelle"}: +${repeatPrice}.-`);
+  }
+  
+  // Prix du boost
+  const boostRadio = document.querySelector('input[name="pub-boost"]:checked');
+  if (boostRadio) {
+    if (boostRadio.value === 'platinum' && currentPlatinumBid > 0) {
+      // Platinum avec enchère
+      totalPrice += currentPlatinumBid;
+      details.push(`Enchère Platinum: +${currentPlatinumBid}.-`);
+      
+      // Afficher l'info de l'enchère
+      const bidInfo = document.getElementById("pub-platinum-bid-info");
+      const bidAmount = document.getElementById("pub-platinum-bid-amount");
+      if (bidInfo) bidInfo.style.display = "block";
+      if (bidAmount) bidAmount.textContent = `${currentPlatinumBid}.- CHF`;
+    } else {
+      // Boost standard (Bronze, Silver)
+      const boostPrices = { standard: 0, bronze: 5, silver: 10 };
+      const boostPrice = boostPrices[boostRadio.value] || 0;
+      if (boostPrice > 0) {
+        totalPrice += boostPrice;
+        details.push(`Boost ${boostRadio.value}: +${boostPrice}.-`);
+      }
+      
+      // Cacher l'info de l'enchère
+      const bidInfo = document.getElementById("pub-platinum-bid-info");
+      if (bidInfo) bidInfo.style.display = "none";
+    }
+  }
+  
+  // Afficher le prix total
+  const totalDisplay = document.getElementById("pub-total-price");
+  const detailsDisplay = document.getElementById("pub-price-details");
+  
+  if (totalDisplay) {
+    totalDisplay.textContent = `${totalPrice}.- CHF`;
+  }
+  if (detailsDisplay) {
+    detailsDisplay.textContent = details.join(" • ");
+  }
+  
+  // Stocker le prix total pour le paiement
+  window.currentPublishPrice = totalPrice;
+}
+
+// ⚠️⚠️⚠️ MODAL ENCHÈRES PLATINUM (TOP 10)
+function openPlatinumAuctionModal() {
+  // Fermer d'abord le modal de publication temporairement
+  const publishBackdrop = document.getElementById("publish-modal-backdrop");
+  
+  // Créer le modal d'enchères
+  const auctionHtml = `
+    <div id="platinum-auction-modal" style="position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;padding:20px;">
+      <div style="background:linear-gradient(135deg,#1e1b4b,#0f172a);border:2px solid #8b5cf6;border-radius:16px;max-width:450px;width:100%;max-height:80vh;overflow-y:auto;box-shadow:0 0 50px rgba(139,92,246,0.3);">
+        <div style="padding:20px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <h2 style="margin:0;font-size:18px;color:#a78bfa;">💎 Enchères Platinum - Top 10</h2>
+            <button onclick="closePlatinumAuctionModal()" style="background:none;border:none;color:#94a3b8;font-size:20px;cursor:pointer;">✕</button>
+          </div>
+          
+          <p style="font-size:12px;color:#94a3b8;margin-bottom:16px;">
+            Les 10 événements avec les enchères les plus élevées apparaissent en première position sur la carte.
+          </p>
+          
+          <!-- TOP 10 ACTUEL -->
+          <div style="margin-bottom:16px;">
+            <div style="font-size:11px;font-weight:600;color:#e2e8f0;margin-bottom:8px;">📊 Enchères actuelles (Top 10)</div>
+            <div id="platinum-top-10-list" style="background:rgba(0,0,0,0.3);border-radius:8px;padding:8px;max-height:200px;overflow-y:auto;">
+              ${generateTop10List()}
+            </div>
+          </div>
+          
+          <!-- PLACER UNE ENCHÈRE -->
+          <div style="background:rgba(139,92,246,0.1);border:1px solid rgba(139,92,246,0.3);border-radius:10px;padding:12px;">
+            <div style="font-size:11px;font-weight:600;color:#a78bfa;margin-bottom:8px;">💰 Placer votre enchère</div>
+            <div style="font-size:10px;color:#94a3b8;margin-bottom:8px;">
+              Minimum: <b style="color:#00ffc3;">25.- CHF</b> pour entrer dans le Top 10
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <input type="number" id="platinum-bid-input" min="25" step="1" value="25" 
+                     style="flex:1;padding:8px;border-radius:8px;border:1px solid #8b5cf6;background:#1e1b4b;color:#fff;font-size:14px;font-weight:600;text-align:center;">
+              <span style="color:#e2e8f0;font-weight:600;">CHF</span>
+            </div>
+            
+            <button onclick="confirmPlatinumBid()" style="width:100%;margin-top:12px;padding:10px;border-radius:8px;border:none;background:linear-gradient(135deg,#8b5cf6,#6d28d9);color:#fff;font-weight:700;cursor:pointer;font-size:13px;transition:transform 0.2s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+              ✅ Confirmer l'enchère
+            </button>
+          </div>
+          
+          <button onclick="cancelPlatinumBid()" style="width:100%;margin-top:10px;padding:8px;border-radius:8px;border:1px solid #475569;background:transparent;color:#94a3b8;cursor:pointer;font-size:12px;">
+            Annuler (choisir un autre boost)
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  document.body.insertAdjacentHTML('beforeend', auctionHtml);
+}
+
+function generateTop10List() {
+  // Simuler des enchères actuelles (à remplacer par des données réelles du backend)
+  const mockAuctions = [
+    { position: 1, title: "Festival Électro Genève", bid: 85 },
+    { position: 2, title: "Concert Jazz Lausanne", bid: 72 },
+    { position: 3, title: "Soirée Techno Zurich", bid: 65 },
+    { position: 4, title: "Exposition Art Basel", bid: 58 },
+    { position: 5, title: "Open Air Montreux", bid: 52 },
+    { position: 6, title: "Club Night Bern", bid: 45 },
+    { position: 7, title: "Vernissage Fribourg", bid: 38 },
+    { position: 8, title: "Rave Underground", bid: 32 },
+    { position: 9, title: "Apéro Concert Neuchâtel", bid: 28 },
+    { position: 10, title: "DJ Set Sion", bid: 25 }
+  ];
+  
+  return mockAuctions.map(a => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;border-bottom:1px solid rgba(255,255,255,0.05);font-size:11px;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="color:#8b5cf6;font-weight:700;width:20px;">#${a.position}</span>
+        <span style="color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px;">${a.title}</span>
+      </div>
+      <span style="color:#00ffc3;font-weight:600;">${a.bid}.-</span>
+    </div>
+  `).join('');
+}
+
+function closePlatinumAuctionModal() {
+  const modal = document.getElementById("platinum-auction-modal");
+  if (modal) modal.remove();
+}
+
+function confirmPlatinumBid() {
+  const bidInput = document.getElementById("platinum-bid-input");
+  const bid = parseInt(bidInput?.value) || 25;
+  
+  if (bid < 25) {
+    showNotification("⚠️ L'enchère minimum est de 25.- CHF", "warning");
+    return;
+  }
+  
+  currentPlatinumBid = bid;
+  closePlatinumAuctionModal();
+  updateTotalPrice();
+  showNotification(`💎 Enchère de ${bid}.- CHF confirmée!`, "success");
+}
+
+function cancelPlatinumBid() {
+  currentPlatinumBid = 0;
+  closePlatinumAuctionModal();
+  
+  // Revenir au standard
+  const standardRadio = document.querySelector('input[name="pub-boost"][value="standard"]');
+  if (standardRadio) standardRadio.checked = true;
+  
+  updateTotalPrice();
+}
+
+function updateRepeatPreview() {
+  // Appeler la nouvelle fonction de pricing
+  updateRepeatPricing();
+}
+
+// ⚠️⚠️⚠️ SAUVEGARDE ET RESTAURATION DES DONNÉES DU FORMULAIRE
+function savePublishFormData() {
+  try {
+    const formData = {
+      mode: currentMode,
+      title: document.getElementById("pub-title")?.value || "",
+      mainCategory: document.getElementById("pub-main-category")?.value || "",
+      address: document.getElementById("pub-address")?.value || "",
+      addressLat: document.getElementById("pub-address-lat")?.value || "",
+      addressLng: document.getElementById("pub-address-lng")?.value || "",
+      email: document.getElementById("pub-email")?.value || "",
+      description: document.getElementById("pub-description")?.value || "",
+      startDate: document.getElementById("pub-start")?.value || "",
+      endDate: document.getElementById("pub-end")?.value || "",
+      repeatEnabled: document.getElementById("pub-repeat-enabled")?.checked || false,
+      repeatFrequency: document.getElementById("pub-repeat-frequency")?.value || "weekly",
+      repeatUntil: document.getElementById("pub-repeat-until")?.value || "",
+      capacity: document.getElementById("pub-capacity")?.value || "",
+      price: document.getElementById("pub-price")?.value || "",
+      eventType: document.getElementById("pub-event-type")?.value || "",
+      ticketLink: document.getElementById("pub-ticket-link")?.value || "",
+      audioLinks: document.getElementById("pub-audio-links")?.value || "",
+      socialLinks: document.getElementById("pub-social-links")?.value || "",
+      website: document.getElementById("pub-website")?.value || "",
+      tags: document.getElementById("pub-tags")?.value || "",
+      boost: document.querySelector('input[name="pub-boost"]:checked')?.value || "standard",
+      platinumBid: currentPlatinumBid || 0,
+      timestamp: Date.now()
+    };
+    
+    localStorage.setItem("publishFormData", JSON.stringify(formData));
+    console.log('[FORM] ✅ Données du formulaire sauvegardées');
+  } catch (error) {
+    console.error('[FORM] Erreur sauvegarde:', error);
+  }
+}
+
+function restorePublishFormData() {
+  try {
+    const savedData = localStorage.getItem("publishFormData");
+    if (!savedData) return;
+    
+    const formData = JSON.parse(savedData);
+    
+    // Vérifier si les données ne sont pas trop vieilles (24h max)
+    if (formData.timestamp && Date.now() - formData.timestamp > 24 * 60 * 60 * 1000) {
+      localStorage.removeItem("publishFormData");
+      return;
+    }
+    
+    // Restaurer les valeurs
+    setTimeout(() => {
+      const setVal = (id, val) => {
+        const el = document.getElementById(id);
+        if (el && val) el.value = val;
+      };
+      
+      setVal("pub-title", formData.title);
+      setVal("pub-main-category", formData.mainCategory);
+      setVal("pub-address", formData.address);
+      setVal("pub-address-lat", formData.addressLat);
+      setVal("pub-address-lng", formData.addressLng);
+      setVal("pub-email", formData.email);
+      setVal("pub-description", formData.description);
+      setVal("pub-start", formData.startDate);
+      setVal("pub-end", formData.endDate);
+      setVal("pub-repeat-frequency", formData.repeatFrequency);
+      setVal("pub-repeat-until", formData.repeatUntil);
+      setVal("pub-capacity", formData.capacity);
+      setVal("pub-price", formData.price);
+      setVal("pub-event-type", formData.eventType);
+      setVal("pub-ticket-link", formData.ticketLink);
+      setVal("pub-audio-links", formData.audioLinks);
+      setVal("pub-social-links", formData.socialLinks);
+      setVal("pub-website", formData.website);
+      setVal("pub-tags", formData.tags);
+      
+      // Checkbox répétition
+      const repeatCheckbox = document.getElementById("pub-repeat-enabled");
+      if (repeatCheckbox && formData.repeatEnabled) {
+        repeatCheckbox.checked = true;
+        toggleRepeatOptions();
+      }
+      
+      // Boost sélectionné
+      const boostRadio = document.querySelector(`input[name="pub-boost"][value="${formData.boost}"]`);
+      if (boostRadio) boostRadio.checked = true;
+      
+      // Enchère Platinum
+      if (formData.platinumBid) {
+        currentPlatinumBid = formData.platinumBid;
+      }
+      
+      // Style pour la catégorie
+      const catInput = document.getElementById("pub-main-category");
+      if (catInput && formData.mainCategory) {
+        catInput.style.background = '#0f172a';
+        catInput.style.color = '#00ffc3';
+        catInput.style.webkitTextFillColor = '#00ffc3';
+      }
+      
+      updateTotalPrice();
+      console.log('[FORM] ✅ Données du formulaire restaurées');
+    }, 100);
+    
+  } catch (error) {
+    console.error('[FORM] Erreur restauration:', error);
+  }
+}
+
+function resetPublishForm() {
+  if (!confirm("⚠️ Voulez-vous vraiment effacer toutes les données du formulaire ?")) {
+    return;
+  }
+  
+  // Effacer le localStorage
+  localStorage.removeItem("publishFormData");
+  currentPlatinumBid = 0;
+  
+  // Réinitialiser tous les champs
+  const fields = [
+    "pub-title", "pub-main-category", "pub-address", "pub-address-lat", "pub-address-lng",
+    "pub-email", "pub-description", "pub-start", "pub-end", "pub-repeat-frequency",
+    "pub-repeat-until", "pub-capacity", "pub-price", "pub-event-type", "pub-ticket-link",
+    "pub-audio-links", "pub-social-links", "pub-website", "pub-tags"
+  ];
+  
+  fields.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = "";
+  });
+  
+  // Décocher la répétition
+  const repeatCheckbox = document.getElementById("pub-repeat-enabled");
+  if (repeatCheckbox) {
+    repeatCheckbox.checked = false;
+    toggleRepeatOptions();
+  }
+  
+  // Boost standard
+  const standardRadio = document.querySelector('input[name="pub-boost"][value="standard"]');
+  if (standardRadio) standardRadio.checked = true;
+  
+  // Réinitialiser le style de la catégorie
+  const catInput = document.getElementById("pub-main-category");
+  if (catInput) {
+    catInput.style.borderColor = '#334155';
+  }
+  
+  updateTotalPrice();
+  showNotification("🔄 Formulaire réinitialisé", "info");
+  console.log('[FORM] 🔄 Formulaire réinitialisé');
+}
+
+// ⚠️⚠️⚠️ VALIDATION ET RECHERCHE D'ADRESSE MONDIALE
+let addressSearchTimeout = null;
+
+function debounceAddressSearch() {
+  clearTimeout(addressSearchTimeout);
+  addressSearchTimeout = setTimeout(() => {
+    searchAddress();
+  }, 400);
+}
+
+async function searchAddress() {
+  const input = document.getElementById("pub-address");
+  const suggestionsDiv = document.getElementById("pub-address-suggestions");
+  
+  if (!input || !suggestionsDiv) return;
+  
+  const query = input.value.trim();
+  if (query.length < 3) {
+    suggestionsDiv.style.display = "none";
+    return;
+  }
+  
+  try {
+    // Utiliser Nominatim (OpenStreetMap) pour la recherche mondiale
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1`,
+      {
+        headers: {
+          'Accept-Language': 'fr',
+          'User-Agent': 'MapEvent/1.0'
+        }
+      }
+    );
+    
+    if (!response.ok) return;
+    
+    const results = await response.json();
+    
+    if (results.length === 0) {
+      suggestionsDiv.innerHTML = '<div style="padding:8px;color:var(--ui-text-muted);font-size:11px;">Aucune adresse trouvée</div>';
+      suggestionsDiv.style.display = "block";
+      return;
+    }
+    
+    // Afficher les suggestions
+    suggestionsDiv.innerHTML = results.map(r => `
+      <div onclick="selectAddress('${escapeHtml(r.display_name)}', ${r.lat}, ${r.lon})"
+           style="padding:8px 10px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.1);font-size:12px;color:#fff;transition:background 0.15s;"
+           onmouseover="this.style.background='rgba(0,255,195,0.15)'"
+           onmouseout="this.style.background='transparent'">
+        📍 ${escapeHtml(r.display_name)}
+      </div>
+    `).join('');
+    
+    suggestionsDiv.style.display = "block";
+    
+  } catch (error) {
+    console.log('[ADDRESS] Erreur recherche:', error);
+  }
+}
+
+function selectAddress(displayName, lat, lng) {
+  const input = document.getElementById("pub-address");
+  const latInput = document.getElementById("pub-address-lat");
+  const lngInput = document.getElementById("pub-address-lng");
+  const suggestionsDiv = document.getElementById("pub-address-suggestions");
+  const statusDiv = document.getElementById("pub-address-status");
+  
+  if (input) input.value = displayName;
+  if (latInput) latInput.value = lat;
+  if (lngInput) lngInput.value = lng;
+  if (suggestionsDiv) suggestionsDiv.style.display = "none";
+  
+  // Afficher le statut de validation
+  if (statusDiv) {
+    statusDiv.innerHTML = '<span style="color:#00ffc3;">✅ Adresse validée - Coordonnées: ' + lat.toFixed(4) + ', ' + lng.toFixed(4) + '</span>';
+    statusDiv.style.display = "block";
+  }
+  
+  // Mettre à jour le style du champ
+  if (input) {
+    input.style.borderColor = "rgba(0,255,195,0.5)";
+    input.style.background = "rgba(0,255,195,0.05)";
+  }
+  
+  console.log('[ADDRESS] ✅ Adresse sélectionnée:', displayName, 'Coords:', lat, lng);
+}
+
+async function validateAddress() {
+  const input = document.getElementById("pub-address");
+  const latInput = document.getElementById("pub-address-lat");
+  const lngInput = document.getElementById("pub-address-lng");
+  const statusDiv = document.getElementById("pub-address-status");
+  const starSpan = document.getElementById("pub-address-star");
+  const suggestionsDiv = document.getElementById("pub-address-suggestions");
+  
+  // Fermer les suggestions
+  if (suggestionsDiv) suggestionsDiv.style.display = "none";
+  
+  if (!input || !input.value.trim()) return false;
+  
+  // Si déjà validée (coordonnées présentes), c'est bon
+  if (latInput?.value && lngInput?.value) {
+    return true;
+  }
+  
+  // Sinon, essayer de géocoder l'adresse
+  try {
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(input.value)}&limit=1`,
+      {
+        headers: {
+          'Accept-Language': 'fr',
+          'User-Agent': 'MapEvent/1.0'
+        }
+      }
+    );
+    
+    if (!response.ok) throw new Error('Erreur réseau');
+    
+    const results = await response.json();
+    
+    if (results.length > 0) {
+      const r = results[0];
+      if (latInput) latInput.value = r.lat;
+      if (lngInput) lngInput.value = r.lon;
+      
+      if (statusDiv) {
+        statusDiv.innerHTML = '<span style="color:#00ffc3;">✅ Adresse validée automatiquement</span>';
+        statusDiv.style.display = "block";
+      }
+      
+      input.style.borderColor = "rgba(0,255,195,0.5)";
+      input.style.background = "rgba(0,255,195,0.05)";
+      if (starSpan) starSpan.style.color = "inherit";
+      
+      return true;
+    } else {
+      // Adresse non trouvée
+      if (statusDiv) {
+        statusDiv.innerHTML = '<span style="color:#ff4444;">⚠️ Adresse non reconnue - Le pointeur ne pourra pas être placé correctement</span>';
+        statusDiv.style.display = "block";
+      }
+      
+      input.style.borderColor = "#ff4444";
+      input.style.background = "rgba(255,68,68,0.1)";
+      if (starSpan) starSpan.style.color = "#ff4444";
+      
+      return false;
+    }
+    
+  } catch (error) {
+    console.log('[ADDRESS] Erreur validation:', error);
+    return false;
+  }
+}
+
+// Fermer les suggestions quand on clique ailleurs
+document.addEventListener('click', function(e) {
+  const suggestionsDiv = document.getElementById("pub-address-suggestions");
+  const input = document.getElementById("pub-address");
+  if (suggestionsDiv && input && !input.contains(e.target) && !suggestionsDiv.contains(e.target)) {
+    suggestionsDiv.style.display = "none";
+  }
+});
 
 function toggleAdvancedOptions() {
   const checkbox = document.getElementById("pub-advanced-options");
@@ -8939,14 +9797,75 @@ window.fermerModalAuth = function() {
 function closePublishModal(e) {
   console.log('🚪 closePublishModal called', e?.type || 'direct call', e?.target?.id || 'no target');
   
-  // ⚠️⚠️⚠️ NOUVEAU : Si c'est un clic sur le bouton de fermeture (croix), fermer directement
-  if (e && e.target && (e.target.textContent === '✕' || e.target.onclick || e.target.closest('button[onclick*="closePublishModal"]'))) {
-    e.stopPropagation();
-    const backdrop = document.getElementById("publish-modal-backdrop");
-    if (backdrop) {
-      backdrop.style.display = "none";
-      console.log('🚪 Modal fermé via bouton croix');
+  // ⚠️⚠️⚠️ PROTECTION COORDONNÉES : Vérifier si le clic est dans la zone du panneau gauche
+  if (e && e.clientX !== undefined) {
+    const leftPanel = document.getElementById("left-panel");
+    if (leftPanel && leftPanel.offsetParent !== null) {
+      const panelRect = leftPanel.getBoundingClientRect();
+      // Si le clic est dans la zone du panneau gauche (avec une marge de 20px)
+      if (e.clientX >= panelRect.left - 20 && 
+          e.clientX <= panelRect.right + 20 && 
+          e.clientY >= panelRect.top - 20 && 
+          e.clientY <= panelRect.bottom + 20) {
+        console.log('🚪 [GUARD] Clic dans la zone du left-panel (coordonnées) - IGNORÉ (pas de fermeture)', 
+          { clickX: e.clientX, clickY: e.clientY, panelRect: { left: panelRect.left, right: panelRect.right, top: panelRect.top, bottom: panelRect.bottom } });
+        return;
+      }
+    }
+  }
+  
+  // ⚠️⚠️⚠️ PROTECTION FILTRE : Ne jamais fermer si le clic vient du left-panel (filtre de catégories)
+  if (e && e.target) {
+    const isInLeftPanel = e.target.closest('#left-panel') || 
+                         e.target.closest('.explorer-col') ||
+                         e.target.closest('[onclick*="toggleCategory"]') ||
+                         e.target.closest('[onclick*="selectLeafCategory"]') ||
+                         e.target.closest('[onclick*="openNextLevel"]') ||
+                         e.target.closest('[onchange*="toggleCategory"]');
+    if (isInLeftPanel) {
+      console.log('🚪 [GUARD] Clic dans le left-panel (filtre) - IGNORÉ (pas de fermeture)');
       return;
+    }
+    
+    // ⚠️⚠️⚠️ PROTECTION FORMULAIRE PUBLICATION : Ne jamais fermer si clic sur éléments du formulaire
+    const isPublishFormElement = e.target.closest('#publish-modal') ||
+                                  e.target.closest('#publish-modal-inner') ||
+                                  e.target.closest('#pub-category-suggestions') ||
+                                  e.target.id?.startsWith('pub-') ||
+                                  e.target.closest('[id^="pub-"]') ||
+                                  e.target.closest('[onclick*="selectCategoryForPublish"]') ||
+                                  e.target.tagName === 'INPUT' ||
+                                  e.target.tagName === 'TEXTAREA' ||
+                                  e.target.tagName === 'SELECT' ||
+                                  e.target.tagName === 'LABEL';
+    
+    // Mais permettre la fermeture si c'est le vrai bouton croix
+    const isCloseButton = (e.target.textContent?.trim() === '✕' || e.target.textContent?.trim() === '×') &&
+                          (e.target.tagName === 'BUTTON' || e.target.tagName === 'SPAN') &&
+                          !e.target.id?.startsWith('pub-');
+    
+    if (isPublishFormElement && !isCloseButton) {
+      console.log('🚪 [GUARD] Clic sur élément du formulaire publication - IGNORÉ (pas de fermeture)', e.target.id || e.target.tagName);
+      return;
+    }
+  }
+  
+  // ⚠️⚠️⚠️ Si c'est un clic sur le VRAI bouton de fermeture (croix), fermer directement
+  if (e && e.target) {
+    const isActualCloseButton = (e.target.textContent?.trim() === '✕' || e.target.textContent?.trim() === '×') &&
+                                 (e.target.tagName === 'BUTTON' || e.target.tagName === 'SPAN') &&
+                                 !e.target.id?.startsWith('pub-');
+    
+    if (isActualCloseButton) {
+      e.stopPropagation();
+      // ⚠️ SAUVEGARDER les données avant de fermer
+      savePublishFormData();
+      const backdrop = document.getElementById("publish-modal-backdrop");
+      if (backdrop) {
+        backdrop.style.display = "none";
+        console.log('🚪 Modal fermé via bouton croix (données sauvegardées)');
+        return;
+      }
     }
   }
   
@@ -9100,6 +10019,12 @@ function closePublishModal(e) {
   if (backdrop) {
     backdrop.style.display = "none";
     console.log('🚪 Modal closed - backdrop display set to none');
+    
+    // ⚠️⚠️⚠️ Réinitialiser le z-index du panneau gauche
+    const leftPanel = document.getElementById("left-panel");
+    if (leftPanel) {
+      leftPanel.style.zIndex = "";
+    }
   }
 }
 
@@ -9113,6 +10038,27 @@ async function onSubmitPublishForm(e) {
     return false;
   }
   
+  // ⚠️⚠️⚠️ VALIDATION DES DATES (pour les events)
+  if (currentMode === "event") {
+    if (!validateEventDates()) {
+      showNotification("⚠️ Les dates de l'événement sont invalides (date passée ou fin avant début)", "error");
+      return false;
+    }
+  }
+  
+  // ⚠️⚠️⚠️ VALIDATION DE L'ADRESSE
+  const addressLat = document.getElementById("pub-address-lat")?.value;
+  const addressLng = document.getElementById("pub-address-lng")?.value;
+  
+  if (!addressLat || !addressLng) {
+    // Essayer de valider l'adresse une dernière fois
+    const addressValid = await validateAddress();
+    if (!addressValid) {
+      showNotification("⚠️ L'adresse n'est pas valide. Veuillez sélectionner une adresse dans les suggestions.", "error");
+      return false;
+    }
+  }
+  
   // Récupérer les données du formulaire
   const title = document.getElementById("pub-title")?.value.trim();
   const mainCategory = document.getElementById("pub-main-category")?.value.trim();
@@ -9123,6 +10069,7 @@ async function onSubmitPublishForm(e) {
   const ticketUrl = document.getElementById("pub-ticket")?.value.trim();
   const socialLinks = document.getElementById("pub-social")?.value.trim();
   const videoLinks = document.getElementById("pub-videos")?.value.trim();
+  const audioEventLinks = document.getElementById("pub-audio-links")?.value.trim(); // Liens sons pour events
   
   // Pour les events : dates
   const startDate = document.getElementById("pub-start")?.value;
@@ -9169,28 +10116,39 @@ async function onSubmitPublishForm(e) {
     return false;
   }
   
-  // Géocoder l'adresse
-  showNotification("🔍 Recherche de l'adresse...", "info");
-  
+  // Utiliser les coordonnées pré-validées si disponibles
   let lat = null, lng = null, city = "";
-  try {
-    const geoResponse = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`, {
-      headers: { 'User-Agent': 'MapEventAI/1.0' }
-    });
-    const geoData = await geoResponse.json();
+  const preValidatedLat = document.getElementById("pub-address-lat")?.value;
+  const preValidatedLng = document.getElementById("pub-address-lng")?.value;
+  
+  if (preValidatedLat && preValidatedLng) {
+    lat = parseFloat(preValidatedLat);
+    lng = parseFloat(preValidatedLng);
+    city = address.split(',')[0];
+    showNotification("✅ Adresse validée", "success");
+  } else {
+    // Géocoder l'adresse
+    showNotification("🔍 Recherche de l'adresse...", "info");
     
-    if (geoData.length > 0) {
-      lat = parseFloat(geoData[0].lat);
-      lng = parseFloat(geoData[0].lon);
-      city = geoData[0].display_name.split(',')[0];
-    } else {
-      showNotification("⚠️ Adresse introuvable. Vérifiez et réessayez.", "warning");
+    try {
+      const geoResponse = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`, {
+        headers: { 'User-Agent': 'MapEventAI/1.0' }
+      });
+      const geoData = await geoResponse.json();
+      
+      if (geoData.length > 0) {
+        lat = parseFloat(geoData[0].lat);
+        lng = parseFloat(geoData[0].lon);
+        city = geoData[0].display_name.split(',')[0];
+      } else {
+        showNotification("⚠️ Adresse introuvable. Vérifiez et réessayez.", "warning");
+        return false;
+      }
+    } catch (error) {
+      console.error('Erreur géocodage:', error);
+      showNotification("❌ Erreur de géocodage. Réessayez.", "error");
       return false;
     }
-  } catch (error) {
-    console.error('Erreur géocodage:', error);
-    showNotification("❌ Erreur de géocodage. Réessayez.", "error");
-    return false;
   }
   
   // Créer l'objet selon le mode
@@ -9230,14 +10188,22 @@ async function onSubmitPublishForm(e) {
     newItem.participants = 0;
     newItem.status = "upcoming";
     
-    // RÉPÉTITIONS
+    // LIENS AUDIO (SoundCloud, Spotify, etc.)
+    if (audioEventLinks) {
+      newItem.audioLinks = audioEventLinks.split('\n').filter(l => l.trim());
+    }
+    
+    // RÉPÉTITIONS (hebdomadaire ou mensuel uniquement)
     if (repeatEnabled) {
+      const repeatPrice = repeatFrequency === "weekly" ? 15 : 4;
       newItem.repeat = {
         enabled: true,
-        frequency: repeatFrequency,
+        frequency: repeatFrequency, // "weekly" ou "monthly"
         until: repeatUntil,
-        count: repeatCount ? parseInt(repeatCount) : null,
-        weekdays: repeatWeekdays.length > 0 ? repeatWeekdays : null
+        price: repeatPrice,
+        // Pour la logique de réapparition automatique
+        nextOccurrence: null, // Sera calculé par le backend
+        autoReappear: true
       };
     }
     
@@ -9292,28 +10258,261 @@ async function onSubmitPublishForm(e) {
     // Continuer même si le backend échoue (sauvegarde locale)
   }
   
+  // Calculer le prix final
+  const finalPrice = window.currentPublishPrice || 1;
+  
+  // Stocker les données pour après le paiement
+  window.pendingPublishData = {
+    newItem: newItem,
+    mode: currentMode,
+    lat: lat,
+    lng: lng,
+    boost: boost,
+    price: finalPrice
+  };
+  
+  // Ouvrir le modal de paiement Stripe
+  openStripePaymentModal(finalPrice, boost);
+  
+  return false;
+}
+
+// ⚠️⚠️⚠️ MODAL PAIEMENT STRIPE (MODE RÉEL)
+function openStripePaymentModal(amount, boost) {
+  const boostLabels = {
+    standard: 'Standard',
+    bronze: '🥉 Bronze',
+    silver: '🥈 Silver',
+    platinum: '💎 Platinum'
+  };
+  
+  const paymentHtml = `
+    <div id="stripe-payment-modal" style="position:fixed;inset:0;z-index:10001;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;padding:20px;">
+      <div style="background:linear-gradient(135deg,#0f172a,#1e293b);border:2px solid #00ffc3;border-radius:16px;max-width:400px;width:100%;box-shadow:0 0 50px rgba(0,255,195,0.2);">
+        <div style="padding:24px;">
+          <div style="text-align:center;margin-bottom:20px;">
+            <div style="font-size:40px;margin-bottom:8px;">💳</div>
+            <h2 style="margin:0;font-size:20px;color:#00ffc3;">Paiement sécurisé</h2>
+            <p style="font-size:12px;color:#94a3b8;margin-top:4px;">Powered by Stripe</p>
+            <div style="margin-top:8px;padding:4px 10px;background:rgba(0,255,195,0.1);border-radius:20px;display:inline-block;">
+              <span style="color:#00ffc3;font-size:10px;font-weight:600;">🔒 MODE LIVE - PAIEMENT RÉEL</span>
+            </div>
+          </div>
+          
+          <!-- RÉSUMÉ -->
+          <div style="background:rgba(0,0,0,0.3);border-radius:10px;padding:12px;margin-bottom:16px;">
+            <div style="font-size:11px;color:#94a3b8;margin-bottom:8px;">Récapitulatif</div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+              <span style="color:#e2e8f0;font-size:13px;">Publication ${currentMode}</span>
+              <span style="color:#00ffc3;font-weight:600;">1.- CHF</span>
+            </div>
+            ${boost !== 'standard' ? `
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+              <span style="color:#e2e8f0;font-size:13px;">Boost ${boostLabels[boost] || boost}</span>
+              <span style="color:#a78bfa;font-weight:600;">+${boost === 'platinum' ? currentPlatinumBid : (boost === 'bronze' ? 5 : boost === 'silver' ? 10 : 0)}.- CHF</span>
+            </div>
+            ` : ''}
+            ${document.getElementById("pub-repeat-enabled")?.checked ? `
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+              <span style="color:#e2e8f0;font-size:13px;">Répétition</span>
+              <span style="color:#ffc800;font-weight:600;">+${document.getElementById("pub-repeat-frequency")?.value === 'weekly' ? 15 : 4}.- CHF</span>
+            </div>
+            ` : ''}
+            <div style="border-top:1px solid #334155;margin-top:8px;padding-top:8px;display:flex;justify-content:space-between;align-items:center;">
+              <span style="color:#fff;font-weight:700;font-size:14px;">TOTAL</span>
+              <span style="color:#00ffc3;font-weight:700;font-size:20px;">${amount}.- CHF</span>
+            </div>
+          </div>
+          
+          <!-- FORMULAIRE STRIPE -->
+          <div id="stripe-card-element" style="background:#1e293b;border:1px solid #334155;border-radius:8px;padding:12px;margin-bottom:16px;">
+            <!-- Stripe Elements sera injecté ici -->
+            <div style="color:#94a3b8;font-size:12px;text-align:center;">
+              Chargement du formulaire de paiement...
+            </div>
+          </div>
+          
+          <div id="stripe-card-errors" style="display:none;color:#ff4444;font-size:11px;margin-bottom:12px;"></div>
+          
+          <button id="stripe-submit-btn" onclick="processStripePayment(${amount})" style="width:100%;padding:14px;border-radius:10px;border:none;background:linear-gradient(135deg,#00ffc3,#00d4a4);color:#0f172a;font-weight:700;cursor:pointer;font-size:14px;transition:transform 0.2s,box-shadow 0.2s;" onmouseover="this.style.transform='scale(1.02)';this.style.boxShadow='0 4px 20px rgba(0,255,195,0.4)'" onmouseout="this.style.transform='scale(1)';this.style.boxShadow='none'">
+            💳 Payer ${amount}.- CHF
+          </button>
+          
+          <button onclick="closeStripePaymentModal()" style="width:100%;margin-top:10px;padding:10px;border-radius:8px;border:1px solid #475569;background:transparent;color:#94a3b8;cursor:pointer;font-size:12px;">
+            Annuler
+          </button>
+          
+          <div style="text-align:center;margin-top:12px;">
+            <img src="https://stripe.com/img/v3/home/social.png" alt="Stripe" style="height:20px;opacity:0.6;">
+            <div style="font-size:9px;color:#64748b;margin-top:4px;">Paiement 100% sécurisé • Données chiffrées</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  document.body.insertAdjacentHTML('beforeend', paymentHtml);
+  
+  // Initialiser Stripe Elements
+  initStripeCardElement();
+}
+
+function closeStripePaymentModal() {
+  const modal = document.getElementById("stripe-payment-modal");
+  if (modal) modal.remove();
+}
+
+// Initialiser Stripe Card Element (pas utilisé pour Checkout)
+async function initStripeCardElement() {
+  const cardElement = document.getElementById("stripe-card-element");
+  
+  // Afficher un message indiquant la redirection vers Stripe
+  if (cardElement) {
+    cardElement.innerHTML = `
+      <div style="text-align:center;">
+        <div style="color:#00ffc3;font-size:13px;font-weight:600;margin-bottom:8px;">💳 Paiement sécurisé Stripe</div>
+        <div style="color:#94a3b8;font-size:11px;">Vous serez redirigé vers la page de paiement Stripe</div>
+        <div style="color:#e2e8f0;font-size:10px;margin-top:6px;">Carte bancaire • TWINT • Apple Pay • Google Pay</div>
+      </div>
+    `;
+  }
+}
+
+// ⚠️⚠️⚠️ VRAI PAIEMENT STRIPE CHECKOUT
+async function processStripePayment(amount) {
+  const submitBtn = document.getElementById("stripe-submit-btn");
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '⏳ Redirection vers Stripe...';
+  }
+  
+  try {
+    const data = window.pendingPublishData;
+    if (!data) {
+      throw new Error('Données de publication manquantes');
+    }
+    
+    // Générer un userId si l'utilisateur n'en a pas
+    const userId = currentUser?.id || currentUser?.email || `guest_${Date.now()}`;
+    
+    console.log('[STRIPE] Création session Checkout pour', amount, 'CHF, userId:', userId);
+    
+    // Appeler le backend pour créer une session Stripe Checkout
+    // ⚠️ Champs requis par le backend: userId, paymentType, amount
+    const response = await fetch(`${window.API_BASE_URL}/payments/create-checkout-session`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': localStorage.getItem('id_token') ? `Bearer ${localStorage.getItem('id_token')}` : ''
+      },
+      body: JSON.stringify({
+        userId: userId,
+        paymentType: 'publication',
+        amount: amount * 100, // Convertir en centimes pour Stripe
+        currency: 'chf',
+        email: currentUser?.email || data.newItem?.email || '',
+        product_name: `Publication ${data.mode}: ${data.newItem?.title || 'Événement'}`,
+        description: `Boost: ${data.boost}${data.newItem?.repeat?.enabled ? ' + Répétition' : ''}`,
+        metadata: {
+          eventId: String(data.newItem?.id || ''),
+          mode: data.mode || 'event',
+          boost: data.boost || 'standard',
+          repeatEnabled: String(data.newItem?.repeat?.enabled || false),
+          title: data.newItem?.title || ''
+        }
+      })
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `Erreur serveur: ${response.status}`);
+    }
+    
+    const result = await response.json();
+    
+    if (!result.sessionId && !result.url) {
+      throw new Error('Session Stripe non créée');
+    }
+    
+    // Sauvegarder les données en localStorage pour après le paiement
+    localStorage.setItem('pendingPublishData', JSON.stringify(data));
+    
+    // Rediriger vers Stripe Checkout
+    if (result.url) {
+      // Redirection directe vers l'URL de checkout
+      window.location.href = result.url;
+    } else if (result.sessionId) {
+      // Utiliser Stripe.js pour rediriger
+      if (typeof Stripe !== 'undefined') {
+        const stripeInstance = Stripe(result.publicKey || 'pk_live_51OEuvVGixxoHLLo1eJsGcVPSYcO3Ig1gBrcJQxdoLvwFRt0rxIk5e7twIgL8EjpTwKlLY9BuKhzyUr3IxmIwJgQj00vJqpGv9h');
+        const { error } = await stripeInstance.redirectToCheckout({ sessionId: result.sessionId });
+        if (error) {
+          throw new Error(error.message);
+        }
+      } else {
+        throw new Error('Stripe.js non chargé');
+      }
+    }
+    
+  } catch (error) {
+    console.error('[STRIPE] Erreur:', error);
+    showNotification(`❌ Erreur: ${error.message}`, "error");
+    
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = `💳 Payer ${amount}.- CHF`;
+    }
+  }
+}
+
+// Finaliser la publication après paiement
+async function finalizePublish() {
+  const data = window.pendingPublishData;
+  if (!data) {
+    showNotification("❌ Erreur: Données de publication perdues", "error");
+    return;
+  }
+  
+  // Ajouter aux données locales
+  if (data.mode === "event") {
+    eventsData.push(data.newItem);
+  } else if (data.mode === "booking") {
+    bookingsData.push(data.newItem);
+  } else if (data.mode === "service") {
+    servicesData.push(data.newItem);
+  }
+  
+  // Sauvegarder dans le backend
+  try {
+    await fetch(`${window.API_BASE_URL}/${data.mode}s`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...data.newItem,
+        userId: currentUser?.id,
+        paymentStatus: 'paid',
+        paymentAmount: data.price
+      })
+    });
+  } catch (error) {
+    console.error('Erreur sauvegarde backend:', error);
+  }
+  
+  // Nettoyer
+  window.pendingPublishData = null;
+  
   // Fermer le modal et rafraîchir
   closePublishModal();
   refreshMarkers();
   refreshListView();
   
   // Centrer la carte sur le nouveau point
-  if (map && lat && lng) {
-    map.setView([lat, lng], 14);
+  if (map && data.lat && data.lng) {
+    map.setView([data.lat, data.lng], 14);
   }
   
   // Message de succès
-  if (boost !== 'basic') {
-    showNotification(`✅ ${currentMode === 'event' ? 'Événement' : currentMode === 'booking' ? 'Booking' : 'Service'} publié avec boost ${boost} ! Redirection vers le paiement...`, "success");
-    // Ici, vous pourriez rediriger vers Stripe pour le paiement du boost
-    setTimeout(() => {
-      openSubscriptionModal();
-    }, 2000);
-  } else {
-    showNotification(`✅ ${currentMode === 'event' ? 'Événement' : currentMode === 'booking' ? 'Booking' : 'Service'} publié avec succès !`, "success");
-  }
-  
-  return false;
+  showNotification(`✅ Paiement reçu ! ${data.mode === 'event' ? 'Événement' : data.mode === 'booking' ? 'Booking' : 'Service'} publié avec succès !`, "success");
 }
 
 // ============================================
@@ -24616,8 +25815,11 @@ function updateUITranslations() {
     alertsLabel.innerHTML = "ABOS"; // Double vérification avec innerHTML
   }
   
-  const accountBtn = document.querySelector('button[onclick="openAccountModal()"]');
-  if (accountBtn) accountBtn.textContent = `👤 ${window.t("account")}`;
+  // ⚠️ Ne pas écraser le contenu du bouton compte - mettre à jour seulement le span account-name
+  const accountNameSpan = document.getElementById("account-name");
+  if (accountNameSpan) {
+    accountNameSpan.textContent = window.t("account");
+  }
   
   const cartBtn = document.getElementById("cart-btn");
   if (cartBtn) {
