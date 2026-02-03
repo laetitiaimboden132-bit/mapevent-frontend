@@ -28,13 +28,15 @@
     <!-- Meta standard -->
     <meta name="description" content="Découvrez les événements près de chez vous sur la carte interactive MapEvent" id="meta-description">
 
-    <!-- PWA -->
+    <!-- PWA (id + start_url absolue dans manifest = raccourci plus persistant) -->
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#667eea">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="MapEvent">
     <link rel="apple-touch-icon" href="/icons/icon-192.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="/icons/icon-152.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/icon-192.png">
     <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
     <link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512.png">
 
@@ -50,6 +52,11 @@
       integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
       crossorigin=""
     ></script>
+    
+    <!-- Leaflet MarkerCluster - Regroupement intelligent des marqueurs (style pro) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
     
     <!-- Stripe.js -->
     <script src="https://js.stripe.com/v3/"></script>
@@ -78,6 +85,41 @@
 
         * {
             box-sizing: border-box;
+        }
+        
+        /* ⭐ CLUSTER STYLES - Dégradé classe, look professionnel */
+        .custom-cluster-icon {
+            background: transparent !important;
+        }
+        
+        .marker-cluster {
+            background-clip: padding-box;
+            border-radius: 50%;
+        }
+        
+        .marker-cluster div {
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        
+        .marker-cluster:hover div {
+            transform: scale(1.12);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.4), 0 0 0 3px rgba(255,255,255,0.2);
+        }
+        
+        /* Animation pulse sur les gros clusters (dégradé conservé) */
+        .marker-cluster-large div {
+            animation: cluster-pulse 2s ease-in-out infinite;
+        }
+        
+        @keyframes cluster-pulse {
+            0%, 100% { box-shadow: 0 4px 16px rgba(0,0,0,0.35), 0 0 0 2px rgba(255,255,255,0.15); }
+            50% { box-shadow: 0 6px 24px rgba(0,0,0,0.45), 0 0 0 3px rgba(255,255,255,0.25); }
+        }
+        
+        /* Ligne de spiderfy */
+        .leaflet-cluster-anim .leaflet-marker-icon,
+        .leaflet-cluster-anim .leaflet-marker-shadow {
+            transition: transform 0.3s ease-out, opacity 0.3s ease-in !important;
         }
         
         /* Style simple pour les inputs autofill */
@@ -2926,12 +2968,36 @@
         localStorage.setItem('welcomePopupShown', Date.now().toString());
       };
       
+      // Rappel discret (1x par semaine) pour iOS : ré-ajouter à l'écran d'accueil si le raccourci a disparu
+      function showPwaRappelRaccourci() {
+        var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        if (!isIOS || window.isPWAInstalled) return;
+        var last = localStorage.getItem('pwaRappelRaccourciShown');
+        if (last && (Date.now() - parseInt(last)) < 7 * 24 * 60 * 60 * 1000) return;
+        var toast = document.createElement('div');
+        toast.id = 'pwa-rappel-toast';
+        toast.style.cssText = 'position:fixed;bottom:20px;left:16px;right:16px;background:rgba(30,30,50,0.95);color:#e5e7eb;padding:14px 16px;border-radius:12px;font-size:13px;z-index:99998;border:1px solid rgba(102,126,234,0.4);box-shadow:0 4px 20px rgba(0,0,0,0.3);';
+        toast.innerHTML = 'Pour garder MapEvent sur votre écran : <strong>Partager</strong> → <strong>Sur l\'écran d\'accueil</strong>. <button id="pwa-rappel-ok" style="margin-left:8px;padding:6px 12px;background:#667eea;color:white;border:none;border-radius:8px;font-size:12px;cursor:pointer;">OK</button>';
+        document.body.appendChild(toast);
+        document.getElementById('pwa-rappel-ok').onclick = function() {
+          localStorage.setItem('pwaRappelRaccourciShown', Date.now().toString());
+          toast.remove();
+        };
+        setTimeout(function() {
+          if (document.getElementById('pwa-rappel-toast')) {
+            document.getElementById('pwa-rappel-toast').remove();
+          }
+        }, 12000);
+      }
+      
       // Afficher la popup après un court délai
       setTimeout(() => {
         if (typeof window.showWelcomePopup === 'function') {
           window.showWelcomePopup();
         }
       }, 1500);
+      // Rappel raccourci iOS (après la popup d'accueil)
+      setTimeout(showPwaRappelRaccourci, 5000);
     </script>
 </body>
 </html>

@@ -117,16 +117,28 @@ async function pkceChallengeFromVerifier(verifier) {
 // ===============================
 // STORAGE HELPERS
 // ===============================
+// OAuth state + PKCE : localStorage pour survivre au redirect sur smartphone
+// (sur mobile le retour Google peut ouvrir un nouvel onglet/contexte où sessionStorage serait vide)
+var _oauthKeys = ["pkce_verifier", "oauth_state"];
 function authSave(key, val) {
+  if (_oauthKeys.indexOf(key) !== -1) {
+    try { localStorage.setItem(key, val); return; } catch (e) {}
+  }
   sessionStorage.setItem(key, val);
 }
 
 function authLoad(key) {
+  if (_oauthKeys.indexOf(key) !== -1) {
+    try { return localStorage.getItem(key); } catch (e) {}
+  }
   return sessionStorage.getItem(key);
 }
 
 function authClearTemp() {
-  ["pkce_verifier", "oauth_state"].forEach((k) => sessionStorage.removeItem(k));
+  ["pkce_verifier", "oauth_state"].forEach((k) => {
+    try { sessionStorage.removeItem(k); } catch (e) {}
+    try { localStorage.removeItem(k); } catch (e) {}
+  });
 }
 
 function safeSetJSON(key, value) {

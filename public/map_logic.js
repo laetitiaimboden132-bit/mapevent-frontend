@@ -620,26 +620,32 @@ async function handleCognitoCallbackIfPresent() {
   if (error) {
     console.error('❌ Erreur OAuth:', error);
     showNotification("❌ Erreur login: " + error, "error");
-    window.isGoogleLoginInProgress = false; // Réinitialiser le verrou
+    window._oauthCallbackProcessed = false;
+    window.isGoogleLoginInProgress = false;
     return;
   }
   if (!code) {
     console.log('ℹ️ Pas de code OAuth dans l\'URL - pas un callback');
-    window.isGoogleLoginInProgress = false; // Réinitialiser le verrou
-    return; // pas un callback
+    window._oauthCallbackProcessed = false;
+    window.isGoogleLoginInProgress = false;
+    return;
   }
-  
+
   console.log('✅ Code OAuth détecté - Traitement du callback...');
 
   const expectedState = authLoad("oauth_state");
   if (!state || state !== expectedState) {
-    showNotification("❌ State OAuth invalide (sécurité).", "error");
+    console.warn('❌ State OAuth invalide ou manquant (redirection mobile ?). Réessayez.');
+    showNotification("❌ Connexion expirée. Réessayez en cliquant sur Connexion Google.", "error");
+    window._oauthCallbackProcessed = false;
     return;
   }
 
   const verifier = authLoad("pkce_verifier");
   if (!verifier) {
-    showNotification("❌ PKCE verifier manquant.", "error");
+    console.warn('❌ PKCE verifier manquant (redirection smartphone ?). Réessayez.');
+    showNotification("❌ Connexion expirée. Réessayez en cliquant sur Connexion Google.", "error");
+    window._oauthCallbackProcessed = false;
     return;
   }
 
@@ -673,6 +679,13 @@ async function handleCognitoCallbackIfPresent() {
   url.searchParams.delete("state");
   url.searchParams.delete("session_state");
   window.history.replaceState({}, document.title, url.toString());
+  try {
+    if (typeof closeAuthModal === 'function') closeAuthModal();
+    if (typeof closePublishModal === 'function') closePublishModal();
+    var b = document.getElementById('publish-modal-backdrop');
+    if (b) { b.style.display = 'none'; b.style.visibility = 'hidden'; }
+    if (window.focus) window.focus();
+  } catch (e) {}
 
   // Construire un user "MapEvent"
   try {
@@ -1625,7 +1638,17 @@ let markersLayer;
 let markerMap = {};
 
 let currentMode = "event"; // "event" | "booking" | "service"
-let currentLanguage = "fr"; // "fr" | "en" | "es" | "zh" | "hi"
+let currentLanguage = "fr";
+
+// Langues supportées – MEILLEURE AU MONDE (90+ langues, couverture maximale)
+const SUPPORTED_LANGUAGES = [
+  "fr", "en", "es", "zh", "hi", "de", "it", "pt", "ru", "ar", "ja", "ko", "nl", "tr", "pl", "vi", "id", "th",
+  "uk", "sv", "no", "da", "fi", "el", "he", "ro", "ms", "cs", "hu", "sk", "bg", "hr", "sr", "lt", "lv", "et", "sl",
+  "ta", "bn", "ur", "fa", "mr", "sw", "am", "af", "ca", "pa", "tl", "my", "ne", "is", "sq", "mk", "bs", "gl",
+  "cy", "ka", "hy", "az", "kk", "uz", "ml", "te", "gu", "kn", "si", "eu", "mn", "ga", "lb", "mt",
+  "yo", "ha", "ig", "so", "rw", "mg", "wo", "st", "tn", "xh", "zu", "km", "lo", "sd", "ps", "ky", "tk", "tg",
+  "br", "gd", "fy", "ku", "ht", "jv", "su", "ny", "om", "ti", "dv", "bo", "dz", "or", "as", "kmr", "ckb"
+];
 
 // CRITIQUE: Initialiser window.translations IMMÉDIATEMENT avec un objet vide
 // pour éviter toute erreur TDZ avant que les traductions complètes ne soient chargées
@@ -1635,10 +1658,9 @@ let currentLanguage = "fr"; // "fr" | "en" | "es" | "zh" | "hi"
   if (typeof window !== 'undefined') {
     // S'assurer que window.translations existe AVANT toute utilisation
     if (!window.translations || typeof window.translations !== 'object') {
-      window.translations = { fr: {}, en: {}, es: {}, zh: {}, hi: {} };
+      window.translations = {};
     }
-    // S'assurer que toutes les langues existent
-    ['fr', 'en', 'es', 'zh', 'hi'].forEach(lang => {
+    SUPPORTED_LANGUAGES.forEach(lang => {
       if (!window.translations[lang] || typeof window.translations[lang] !== 'object') {
         window.translations[lang] = {};
       }
@@ -1659,6 +1681,7 @@ window.t = function(k) {
     var l = (typeof currentLanguage !== 'undefined' && currentLanguage) ? currentLanguage : 'fr';
     if (w.translations[l] && w.translations[l][k]) return w.translations[l][k];
     if (w.translations.fr && w.translations.fr[k]) return w.translations.fr[k];
+    if (w.translations.en && w.translations.en[k]) return w.translations.en[k];
     return k;
   } catch(e) {
     return k;
@@ -1667,34 +1690,23 @@ window.t = function(k) {
 
 // Définir les fonctions critiques IMMÉDIATEMENT pour éviter les erreurs de référence
 // Ces fonctions seront redéfinies plus tard avec leurs implémentations complètes
-// Stub pour openEventDiscussion - ouvre la discussion d'un événement
+// Ouvre la discussion d'un événement (depuis la popup)
 window.openEventDiscussion = function(type, id) {
   try {
-    // Vérifier si l'utilisateur est connecté
     if (typeof currentUser === 'undefined' || !currentUser || !currentUser.isLoggedIn) {
-      if (typeof window.openLoginModal === 'function') {
-        window.openLoginModal();
-      } else if (typeof openLoginModal === 'function') {
-        openLoginModal();
-      }
+      if (typeof window.openLoginModal === 'function') window.openLoginModal();
+      else if (typeof openLoginModal === 'function') openLoginModal();
       return;
     }
-    // Afficher une notification
-    showNotification("💬 Discussion ouverte", "info");
-    // Si openDiscussionModal est disponible, l'utiliser
     if (typeof window.openDiscussionModal === 'function') {
       window.openDiscussionModal(type, id);
     } else if (typeof openDiscussionModal === 'function') {
       openDiscussionModal(type, id);
     } else {
-      // Attendre un peu et réessayer
       setTimeout(() => {
-        if (typeof window.openDiscussionModal === 'function') {
-          window.openDiscussionModal(type, id);
-        } else if (typeof openDiscussionModal === 'function') {
-          openDiscussionModal(type, id);
-        }
-      }, 100);
+        if (typeof window.openDiscussionModal === 'function') window.openDiscussionModal(type, id);
+        else if (typeof openDiscussionModal === 'function') openDiscussionModal(type, id);
+      }, 150);
     }
   } catch (e) {
     console.warn('openEventDiscussion error:', e);
@@ -1786,10 +1798,9 @@ window.sharePopup = function(type, id) {
 // Au lieu de cela, remplir progressivement les objets existants
 // Initialiser d'abord avec un objet vide pour éviter les erreurs TDZ
 if (!window.translations) {
-  window.translations = { fr: {}, en: {}, es: {}, zh: {}, hi: {} };
+  window.translations = {};
 }
-// S'assurer que toutes les langues existent AVANT de les remplir
-['fr', 'en', 'es', 'zh', 'hi'].forEach(lang => {
+SUPPORTED_LANGUAGES.forEach(lang => {
   if (!window.translations[lang] || typeof window.translations[lang] !== 'object') {
     window.translations[lang] = {};
   }
@@ -2006,7 +2017,11 @@ const translationsDataObject = {
     "loading": "लोड हो रहा है...", "error": "त्रुटि", "success": "सफलता", "info": "जानकारी",
     "translate": "अनुवाद करें", "hide_translation": "अनुवाद छुपाएं", "translation_error": "अनुवाद त्रुटि",
     "try_again": "पुनः प्रयास करें"
-  }
+  },
+  de: { "filter": "Filtern", "list": "Liste", "events": "Events", "booking": "Booking", "services": "Dienste", "agenda": "Agenda", "alerts": "Abos", "account": "Konto", "cart": "Warenkorb", "search_city": "Stadt suchen...", "publish": "Veröffentlichen", "event_title": "Event", "date": "Datum", "address": "Adresse", "description": "Beschreibung", "category": "Kategorie", "organizer": "Veranstalter", "price": "Preis", "free": "Kostenlos", "add_to_agenda": "Zu meinem Kalender", "like": "Gefällt mir", "favorite": "Favoriten", "participate": "Teilnehmen", "leave_review": "Bewertung schreiben", "contact_ai": "KI-Kontakt", "report": "Melden", "participants": "Teilnehmer", "registered": "Registriert", "in_agenda": "Im Kalender", "share": "Teilen", "route": "Route", "review": "Bewertung", "contact": "Kontakt", "reviews": "Bewertungen", "ai_detected": "Von KI erkannt", "check_source": "Quelle prüfen", "booking_link": "Buchungslink", "rating": "Bewertung", "booking_title": "Buchung", "artist": "Künstler", "level": "Niveau", "sound_preview": "Hörprobe", "get_contact": "Kontakt", "pay": "Bezahlen", "view_subs": "Abos anzeigen", "add_to_cart": "In den Warenkorb", "verified": "Verifiziert", "website": "Webseite", "email": "E-Mail", "phone": "Telefon", "service_title": "Dienstleistung", "company": "Unternehmen", "contact_info": "Kontakt", "my_agenda": "Mein Kalender", "my_favorites": "Favoriten", "my_subscriptions": "Abos", "agenda_empty": "Kalender leer", "add_from_map": "Events von der Karte hinzufügen!", "remove_from_agenda": "Aus Kalender entfernen", "city_found": "gefunden!", "city_not_found": "nicht gefunden", "searching": "Suche", "language_changed": "Sprache geändert", "removed_from_agenda": "Aus Kalender entfernt", "filter_by_date": "Nach Datum filtern", "today": "Heute", "tomorrow": "Morgen", "weekend": "Dieses Wochenende", "week": "Diese Woche", "month": "Diesen Monat", "select_period": "Zeitraum wählen", "from": "Von", "to": "Bis", "reset_all": "Zurücksetzen", "selected_categories": "Kategorien", "cumulative": "kumulativ", "publish_mode": "Veröffentlichen – Modus", "main_category": "Hauptkategorie", "choose_category": "Kategorie wählen…", "start": "Start", "end": "Ende", "title_name": "Titel / Name", "full_address": "Adresse", "full_description": "Beschreibung", "main_photo": "Hauptfoto", "ticketing": "Ticketing", "ticket_link": "Ticket-Link", "social_links": "Soziale Links", "video_links": "Video-Links", "sound_links": "Sound-Links", "paste_sound_links": "Sound-Links einfügen", "price_estimate": "Preisschätzung", "price_example": "z. B. 500.– pro Abend", "price_not_detected": "Preis nicht erkannt.", "visibility_choice": "Sichtbarkeit (Zahlung im nächsten Schritt):", "standard_point": "1.– : Standard-Punkt", "bronze_boost": "5.– Bronze", "silver_boost": "10.– Silber", "platinum_boost": "TOP 10 – Platin", "subscription_recommended": "💎 Abo empfohlen", "save_on_events": "Sparen bei Events", "unlimited_contacts": "Unbegrenzte Kontakte", "publish_and_pay": "Veröffentlichen und zahlen", "close": "Schließen", "save": "Speichern", "cancel": "Abbrechen", "confirm": "Bestätigen", "loading": "Laden...", "error": "Fehler", "success": "Erfolg", "info": "Info", "translate": "Übersetzen", "hide_translation": "Übersetzung ausblenden", "translation_error": "Übersetzungsfehler", "try_again": "Erneut versuchen" },
+  it: { "filter": "Filtra", "list": "Lista", "events": "Eventi", "booking": "Booking", "services": "Servizi", "agenda": "Agenda", "alerts": "Abos", "account": "Account", "cart": "Carrello", "search_city": "Cerca città...", "publish": "Pubblica", "event_title": "Evento", "date": "Data", "address": "Indirizzo", "description": "Descrizione", "category": "Categoria", "organizer": "Organizzatore", "price": "Prezzo", "free": "Gratis", "add_to_agenda": "Aggiungi al calendario", "like": "Mi piace", "favorite": "Preferiti", "participate": "Partecipa", "leave_review": "Lascia una recensione", "contact_ai": "Contatto IA", "report": "Segnala", "participants": "partecipanti", "registered": "Iscritto", "in_agenda": "In agenda", "share": "Condividi", "route": "Percorso", "review": "Recensione", "contact": "Contatto", "reviews": "recensioni", "ai_detected": "Rilevato da IA", "check_source": "Verifica fonte", "booking_link": "Link prenotazione", "rating": "Valutazione", "booking_title": "Prenotazione", "artist": "Artista", "level": "Livello", "sound_preview": "Anteprima audio", "get_contact": "Contatto", "pay": "Paga", "view_subs": "Abbonamenti", "add_to_cart": "Aggiungi al carrello", "verified": "Verificato", "website": "Sito web", "email": "Email", "phone": "Telefono", "service_title": "Servizio", "company": "Azienda", "contact_info": "Contatti", "my_agenda": "La mia agenda", "my_favorites": "Preferiti", "my_subscriptions": "Abbonamenti", "agenda_empty": "Agenda vuota", "add_from_map": "Aggiungi eventi dalla mappa!", "remove_from_agenda": "Rimuovi da agenda", "city_found": "trovata!", "city_not_found": "non trovata", "searching": "Ricerca", "language_changed": "Lingua cambiata", "removed_from_agenda": "Rimosso da agenda", "filter_by_date": "Filtra per data", "today": "Oggi", "tomorrow": "Domani", "weekend": "Questo weekend", "week": "Questa settimana", "month": "Questo mese", "select_period": "Seleziona periodo", "from": "Da", "to": "A", "reset_all": "Reimposta", "selected_categories": "Categorie", "cumulative": "cumulativo", "publish_mode": "Pubblica – Modo", "main_category": "Categoria principale", "choose_category": "Scegli categoria…", "start": "Inizio", "end": "Fine", "title_name": "Titolo / Nome", "full_address": "Indirizzo completo", "full_description": "Descrizione", "main_photo": "Foto principale", "ticketing": "Biglietteria", "ticket_link": "Link biglietti", "social_links": "Link social", "video_links": "Link video", "sound_links": "Link audio", "paste_sound_links": "Incolla link audio", "price_estimate": "Stima prezzo", "price_example": "es. 500.– a serata", "price_not_detected": "Prezzo non rilevato.", "visibility_choice": "Visibilità (pagamento al passo successivo):", "standard_point": "1.– : Punto standard", "bronze_boost": "5.– Bronze", "silver_boost": "10.– Argento", "platinum_boost": "TOP 10 – Platino", "subscription_recommended": "💎 Abbonamento consigliato", "save_on_events": "Risparmia sugli eventi", "unlimited_contacts": "Contatti illimitati", "publish_and_pay": "Pubblica e paga", "close": "Chiudi", "save": "Salva", "cancel": "Annulla", "confirm": "Conferma", "loading": "Caricamento...", "error": "Errore", "success": "Successo", "info": "Info", "translate": "Traduci", "hide_translation": "Nascondi traduzione", "translation_error": "Errore traduzione", "try_again": "Riprova" },
+  pt: { "filter": "Filtrar", "list": "Lista", "events": "Eventos", "booking": "Reservas", "services": "Serviços", "agenda": "Agenda", "alerts": "Alertas", "account": "Conta", "cart": "Carrinho", "search_city": "Pesquisar cidade...", "publish": "Publicar", "event_title": "Evento", "date": "Data", "address": "Morada", "description": "Descrição", "category": "Categoria", "organizer": "Organizador", "price": "Preço", "free": "Grátis", "add_to_agenda": "Adicionar à agenda", "like": "Gosto", "favorite": "Favoritos", "participate": "Participar", "leave_review": "Deixar avaliação", "contact_ai": "Contacto IA", "report": "Reportar", "participants": "participantes", "registered": "Inscrito", "in_agenda": "Na agenda", "share": "Partilhar", "route": "Percurso", "review": "Avaliação", "contact": "Contacto", "reviews": "avaliações", "ai_detected": "Detetado por IA", "check_source": "Verificar fonte", "booking_link": "Link reserva", "rating": "Classificação", "booking_title": "Reserva", "artist": "Artista", "level": "Nível", "sound_preview": "Pré-visualização áudio", "get_contact": "Obter contacto", "pay": "Pagar", "view_subs": "Ver subscrições", "add_to_cart": "Adicionar ao carrinho", "verified": "Verificado", "website": "Site", "email": "Email", "phone": "Telefone", "service_title": "Serviço", "company": "Empresa", "contact_info": "Contacto", "my_agenda": "A minha agenda", "my_favorites": "Favoritos", "my_subscriptions": "Subscrições", "agenda_empty": "Agenda vazia", "add_from_map": "Adicione eventos do mapa!", "remove_from_agenda": "Remover da agenda", "city_found": "encontrada!", "city_not_found": "não encontrada", "searching": "A pesquisar", "language_changed": "Idioma alterado", "removed_from_agenda": "Removido da agenda", "filter_by_date": "Filtrar por data", "today": "Hoje", "tomorrow": "Amanhã", "weekend": "Este fim de semana", "week": "Esta semana", "month": "Este mês", "select_period": "Ou selecionar período", "from": "De", "to": "Até", "reset_all": "Repor", "selected_categories": "Categorias", "cumulative": "acumulável", "publish_mode": "Publicar – Modo", "main_category": "Categoria principal", "choose_category": "Escolher categoria…", "start": "Início", "end": "Fim", "title_name": "Título / Nome", "full_address": "Morada completa", "full_description": "Descrição", "main_photo": "Foto principal", "ticketing": "Bilhetes", "ticket_link": "Link bilhetes", "social_links": "Redes sociais", "video_links": "Links vídeo", "sound_links": "Links áudio", "paste_sound_links": "Colar links áudio", "price_estimate": "Estimativa de preço", "price_example": "ex.: 500.– por noite", "price_not_detected": "Preço não detetado.", "visibility_choice": "Visibilidade (pagamento no próximo passo):", "standard_point": "1.– : Ponto standard", "bronze_boost": "5.– Bronze", "silver_boost": "10.– Prata", "platinum_boost": "TOP 10 – Platina", "subscription_recommended": "💎 Subscrição recomendada", "save_on_events": "Poupe em eventos", "unlimited_contacts": "Contactos ilimitados", "publish_and_pay": "Publicar e pagar", "close": "Fechar", "save": "Guardar", "cancel": "Cancelar", "confirm": "Confirmar", "loading": "A carregar...", "error": "Erro", "success": "Sucesso", "info": "Informação", "translate": "Traduzir", "hide_translation": "Ocultar tradução", "translation_error": "Erro de tradução", "try_again": "Tentar novamente" },
+  ru: { "filter": "Фильтр", "list": "Список", "events": "События", "booking": "Бронирование", "services": "Услуги", "agenda": "Календарь", "alerts": "Оповещения", "account": "Аккаунт", "cart": "Корзина", "search_city": "Поиск города...", "publish": "Опубликовать", "event_title": "Событие", "date": "Дата", "address": "Адрес", "description": "Описание", "category": "Категория", "organizer": "Организатор", "price": "Цена", "free": "Бесплатно", "add_to_agenda": "В календарь", "like": "Нравится", "favorite": "Избранное", "participate": "Участвовать", "leave_review": "Оставить отзыв", "contact_ai": "Контакт ИИ", "report": "Пожаловаться", "participants": "участников", "registered": "Зарегистрирован", "in_agenda": "В календаре", "share": "Поделиться", "route": "Маршрут", "review": "Отзыв", "contact": "Контакт", "reviews": "отзывов", "ai_detected": "Определено ИИ", "check_source": "Проверить источник", "booking_link": "Ссылка бронирования", "rating": "Рейтинг", "booking_title": "Бронирование", "artist": "Артист", "level": "Уровень", "sound_preview": "Прослушать", "get_contact": "Контакт", "pay": "Оплатить", "view_subs": "Подписки", "add_to_cart": "В корзину", "verified": "Проверено", "website": "Сайт", "email": "Email", "phone": "Телефон", "service_title": "Услуга", "company": "Компания", "contact_info": "Контакты", "my_agenda": "Мой календарь", "my_favorites": "Избранное", "my_subscriptions": "Подписки", "agenda_empty": "Календарь пуст", "add_from_map": "Добавьте события с карты!", "remove_from_agenda": "Удалить из календаря", "city_found": "найдено!", "city_not_found": "не найдено", "searching": "Поиск", "language_changed": "Язык изменён", "removed_from_agenda": "Удалено из календаря", "filter_by_date": "По дате", "today": "Сегодня", "tomorrow": "Завтра", "weekend": "В эти выходные", "week": "На этой неделе", "month": "В этом месяце", "select_period": "Выберите период", "from": "С", "to": "По", "reset_all": "Сбросить", "selected_categories": "Категории", "cumulative": "суммарно", "publish_mode": "Публикация – Режим", "main_category": "Основная категория", "choose_category": "Выбрать категорию…", "start": "Начало", "end": "Конец", "title_name": "Название", "full_address": "Адрес", "full_description": "Описание", "main_photo": "Фото", "ticketing": "Билеты", "ticket_link": "Ссылка на билеты", "social_links": "Соцсети", "video_links": "Видео", "sound_links": "Аудио", "paste_sound_links": "Вставьте ссылки", "price_estimate": "Ориентир цены", "price_example": "напр. 500.– за вечер", "price_not_detected": "Цена не определена.", "visibility_choice": "Видимость (оплата на следующем шаге):", "standard_point": "1.– : Стандартная точка", "bronze_boost": "5.– Бронза", "silver_boost": "10.– Серебро", "platinum_boost": "TOP 10 – Платина", "subscription_recommended": "💎 Рекомендуем подписку", "save_on_events": "Экономия на событиях", "unlimited_contacts": "Безлимит контактов", "publish_and_pay": "Опубликовать и оплатить", "close": "Закрыть", "save": "Сохранить", "cancel": "Отмена", "confirm": "Подтвердить", "loading": "Загрузка...", "error": "Ошибка", "success": "Успех", "info": "Инфо", "translate": "Перевести", "hide_translation": "Скрыть перевод", "translation_error": "Ошибка перевода", "try_again": "Повторить" }
 };
 
 // CRITIQUE: Remplir progressivement window.translations au lieu de le réassigner
@@ -2021,12 +2036,16 @@ Object.keys(translationsDataObject).forEach(lang => {
 
 // S'assurer que window.translations est toujours un objet valide après assignation
 if (!window.translations || typeof window.translations !== 'object') {
-  window.translations = { fr: {}, en: {}, es: {}, zh: {}, hi: {} };
+  window.translations = {};
+  SUPPORTED_LANGUAGES.forEach(lang => { window.translations[lang] = {}; });
 }
-// S'assurer que toutes les langues existent
-['fr', 'en', 'es', 'zh', 'hi'].forEach(lang => {
+SUPPORTED_LANGUAGES.forEach(lang => {
   if (!window.translations[lang] || typeof window.translations[lang] !== 'object') {
     window.translations[lang] = window.translations[lang] || {};
+  }
+  // Langues sans dictionnaire complet : hériter de l'anglais (fallback mondial)
+  if (window.translations.en && Object.keys(window.translations[lang]).length < 10) {
+    window.translations[lang] = Object.assign({}, window.translations.en, window.translations[lang]);
   }
 });
 
@@ -2427,7 +2446,9 @@ const UI_THEMES = [
     btnAltText: "#e5e7eb",
     pillBorder: "rgba(148,163,184,0.6)",
     logoColor: "#ffffff",
-    taglineColor: "#e5e7eb"
+    taglineColor: "#e5e7eb",
+    markerAccent: "#22c55e",
+    markerBorder: "#4ade80"
   },
   {
     name: "Light Pro",
@@ -2444,7 +2465,9 @@ const UI_THEMES = [
     btnAltText: "#111827",
     pillBorder: "rgba(148,163,184,0.7)",
     logoColor: "#020617",
-    taglineColor: "#4b5563"
+    taglineColor: "#4b5563",
+    markerAccent: "#16a34a",
+    markerBorder: "#15803d"
   },
   {
     name: "Purple Cyberpunk",
@@ -2461,7 +2484,9 @@ const UI_THEMES = [
     btnAltText: "#e5e7eb",
     pillBorder: "rgba(192,132,252,0.7)",
     logoColor: "#ffffff",
-    taglineColor: "#e5e7eb"
+    taglineColor: "#e5e7eb",
+    markerAccent: "#a855f7",
+    markerBorder: "#c084fc"
   },
   {
     name: "Miami Sunset",
@@ -2478,7 +2503,9 @@ const UI_THEMES = [
     btnAltText: "#fefce8",
     pillBorder: "rgba(250,204,21,0.7)",
     logoColor: "#fefce8",
-    taglineColor: "#fed7aa"
+    taglineColor: "#fed7aa",
+    markerAccent: "#f97316",
+    markerBorder: "#fbbf24"
   },
   {
     name: "Blue Ice",
@@ -2495,9 +2522,20 @@ const UI_THEMES = [
     btnAltText: "#e5e7eb",
     pillBorder: "rgba(148,163,184,0.7)",
     logoColor: "#d1fae5",
-    taglineColor: "#bbf7d0"
+    taglineColor: "#bbf7d0",
+    markerAccent: "#0ea5e9",
+    markerBorder: "#38bdf8"
   }
 ];
+
+// Couleurs des marqueurs/clusters selon le thème UI actuel (bordure incluse)
+function getThemeMarkerColors() {
+  const t = UI_THEMES[typeof uiThemeIndex !== "undefined" ? uiThemeIndex : 0];
+  return {
+    accent: t && t.markerAccent ? t.markerAccent : "#667eea",
+    border: t && t.markerBorder ? t.markerBorder : (t && t.pillBorder ? t.pillBorder : "rgba(148,163,184,0.8)")
+  };
+}
 
 // ===============================
 // THÈMES MAP
@@ -4339,7 +4377,74 @@ function initMap() {
   });
   tileLayer.addTo(map);
 
-  markersLayer = L.layerGroup().addTo(map);
+  // ⭐ CLUSTERING PRO - Regroupement intelligent des marqueurs
+  // Quand on zoom arrière, les marqueurs proches se regroupent automatiquement
+  markersLayer = L.markerClusterGroup({
+    // Animation fluide lors du zoom
+    animate: true,
+    animateAddingMarkers: false, // Désactivé pour perf avec beaucoup de marqueurs
+    
+    // Distance de regroupement (en pixels)
+    maxClusterRadius: 60, // Plus petit = moins de regroupement
+    
+    // Afficher la zone couverte au survol du cluster
+    showCoverageOnHover: true,
+    
+    // Zoom au clic sur le cluster
+    zoomToBoundsOnClick: true,
+    
+    // Spiderfication (explosion en araignée) quand trop proche
+    spiderfyOnMaxZoom: true,
+    
+    // Désactiver le clustering au zoom max
+    disableClusteringAtZoom: 18,
+    
+    // Personnalisation de l'icône du cluster - dégradé thème UI (accent + bordure)
+    iconCreateFunction: function(cluster) {
+      const count = cluster.getChildCount();
+      let size = 'small';
+      
+      if (count < 10) {
+        size = 'small';
+      } else if (count < 100) {
+        size = 'medium';
+      } else {
+        size = 'large';
+      }
+      
+      const theme = getThemeMarkerColors();
+      const bgColor = theme.accent;
+      const borderColor = theme.border;
+      const sizePx = size === 'small' ? 36 : size === 'medium' ? 44 : 52;
+      // Dégradé premium : radial (effet boule) + liner shine
+      const radial = `radial-gradient(circle at 32% 28%, rgba(255,255,255,0.35), ${borderColor} 25%, ${bgColor} 55%, ${borderColor} 100%)`;
+      const linearShine = `linear-gradient(145deg, rgba(255,255,255,0.2) 0%, transparent 40%, transparent 60%, rgba(0,0,0,0.15) 100%)`;
+      
+      return L.divIcon({
+        html: `<div style="
+          background: ${radial};
+          border-radius: 50%;
+          width: ${sizePx}px;
+          height: ${sizePx}px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: bold;
+          font-size: ${size === 'small' ? 12 : size === 'medium' ? 14 : 16}px;
+          color: #fff;
+          text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+          box-shadow: 0 4px 20px rgba(0,0,0,0.4), 0 0 0 2px ${borderColor}, inset 0 1px 0 rgba(255,255,255,0.2);
+          border: 2px solid ${borderColor};
+          position: relative;
+          overflow: hidden;
+        "><span style="position:absolute;inset:0;border-radius:50%;background:${linearShine};pointer-events:none;z-index:0;"></span><span style="position:relative;z-index:1;">${count}</span></div>`,
+        className: 'custom-cluster-icon',
+        iconSize: L.point(sizePx + 8, sizePx + 8)
+      });
+    }
+  }).addTo(map);
+  
+  console.log('⭐ [CLUSTER] MarkerClusterGroup initialisé - Regroupement intelligent activé');
 }
 
 function getCurrentData() {
@@ -5307,12 +5412,14 @@ function buildMarkerIcon(item) {
   const isAI = item.isAI || item.aiGenerated || false;
   const emoji = getCategoryEmoji(item);
   
-  // Effets selon le niveau de boost
+  // Effets selon le niveau de boost - marqueurs en rond 100% (cercle) + pin en dessous
   let markerClass = "";
   let extraStyles = "";
-  let size = { w: 38, h: 48 };
+  let sizePx = 40; // Cercle : même largeur et hauteur
+  let borderWidth = 2;
+  let fontSize = 18;
   
-  // Bordure par défaut
+  // Bordure par défaut (on ne touche pas les couleurs des pointeurs individuels)
   let borderColor;
   if (isAI) {
     borderColor = "#000000";
@@ -5322,9 +5429,8 @@ function buildMarkerIcon(item) {
     borderColor = getBoostColor(boost);
   }
   
-  // Couleurs de bordure selon le boost
   const boostBorderColors = {
-    platinum: "#ef4444", // Rouge pour platine
+    platinum: "#ef4444",
     gold: "#ffd700",
     silver: "#b8b8b8",
     bronze: "#cd853f",
@@ -5333,49 +5439,37 @@ function buildMarkerIcon(item) {
   
   const borderColorBoost = boostBorderColors[boost] || borderColor;
   
-  // Variables pour le système Platinum Top 10
   let showHalo = false;
   let showCrown = false;
-  let borderWidth = 2;
-  let fontSize = 18;
   
   switch(boost) {
     case "platinum":
-      // Système Top 10 par région avec enchères
       markerClass = `marker-platinum marker-platinum-rank-${platinumRank}`;
-      
-      // Plus le rang est haut, plus le marqueur est visible
       if (platinumRank === 1) {
-        // TOP 1 : Le plus grand, avec couronne et double halo
-        size = { w: 52, h: 62 };
+        sizePx = 52;
         borderWidth = 4;
         fontSize = 24;
         showHalo = true;
         showCrown = true;
       } else if (platinumRank === 2) {
-        // TOP 2 : Grand avec halo
-        size = { w: 48, h: 58 };
+        sizePx = 48;
         borderWidth = 3.5;
         fontSize = 22;
         showHalo = true;
       } else if (platinumRank === 3) {
-        // TOP 3 : Moyen-grand avec halo léger
-        size = { w: 46, h: 56 };
+        sizePx = 46;
         borderWidth = 3;
         fontSize = 21;
         showHalo = true;
       } else if (platinumRank <= 5) {
-        // TOP 4-5 : Moyen
-        size = { w: 44, h: 54 };
+        sizePx = 44;
         borderWidth = 2.5;
         fontSize = 20;
       } else {
-        // TOP 6-10 : Standard platinum
-        size = { w: 42, h: 52 };
+        sizePx = 42;
         borderWidth = 2;
         fontSize = 19;
       }
-      
       extraStyles = `
         background: linear-gradient(145deg, #1a1a1a, #2d2d2d);
         border: ${borderWidth}px solid ${borderColorBoost};
@@ -5390,7 +5484,7 @@ function buildMarkerIcon(item) {
         border: 2.5px solid ${borderColorBoost};
         box-shadow: 0 3px 10px rgba(255,215,0,0.3);
       `;
-      size = { w: 40, h: 50 };
+      sizePx = 42;
       fontSize = 19;
       break;
       
@@ -5401,18 +5495,17 @@ function buildMarkerIcon(item) {
         border: 2px solid ${borderColorBoost};
         box-shadow: 0 2px 8px rgba(184,184,184,0.25);
       `;
-      size = { w: 38, h: 48 };
+      sizePx = 40;
       break;
       
     case "bronze":
-      // Bronze : bordure un peu plus épaisse (élargie)
       markerClass = "marker-bronze";
       extraStyles = `
         background: #1a1a1a;
         border: 2.5px solid ${borderColorBoost};
         box-shadow: 0 2px 8px rgba(205,133,63,0.3);
       `;
-      size = { w: 39, h: 49 };
+      sizePx = 41;
       break;
       
     default:
@@ -5421,13 +5514,14 @@ function buildMarkerIcon(item) {
         border: 2px solid ${borderColor};
         box-shadow: 0 2px 6px rgba(0,0,0,0.2);
       `;
+      sizePx = 40;
   }
 
   // Halo décoratif uniquement pour Top 1, 2, 3
   let haloHtml = "";
   if (boost === "platinum" && showHalo) {
-    const haloSize1 = size.w + (platinumRank === 1 ? 24 : platinumRank === 2 ? 18 : 14);
-    const haloSize2 = size.w + (platinumRank === 1 ? 32 : platinumRank === 2 ? 24 : 18);
+    const haloSize1 = sizePx + (platinumRank === 1 ? 24 : platinumRank === 2 ? 18 : 14);
+    const haloSize2 = sizePx + (platinumRank === 1 ? 32 : platinumRank === 2 ? 24 : 18);
     const haloOpacity1 = platinumRank === 1 ? 0.9 : platinumRank === 2 ? 0.7 : 0.5;
     const haloOpacity2 = platinumRank === 1 ? 0.6 : platinumRank === 2 ? 0.4 : 0.3;
     
@@ -5461,7 +5555,6 @@ function buildMarkerIcon(item) {
     `;
   }
 
-  // Couronne pour Top 1 (sur le pointeur lui-même)
   const crownHtml = showCrown ? `
     <div style="
       position:absolute;
@@ -5474,46 +5567,55 @@ function buildMarkerIcon(item) {
     ">👑</div>
   ` : "";
 
+  // Pin triangulaire sous le marqueur (important pour la lisibilité)
+  const pinSize = boost === "platinum" && platinumRank <= 3 ? 10 : 8;
+  const pinHeight = boost === "platinum" && platinumRank <= 3 ? 14 : 12;
+  const pinHtml = `
+    <div style="
+      width:0;height:0;
+      border-left:${pinSize}px solid transparent;
+      border-right:${pinSize}px solid transparent;
+      border-top:${pinHeight}px solid ${borderColorBoost};
+      margin:0 auto;
+      position:relative;
+      z-index:2;
+    "></div>
+  `;
+
+  // Marqueur : cercle 100% rond + pin en dessous
   const html = `
     <div class="${markerClass}" style="position:relative;">
       ${haloHtml}
       ${crownHtml}
       <div style="
         ${extraStyles}
-        border-radius:16px;
-        padding:${boost === "platinum" ? "6px 14px" : boost === "gold" ? "5px 12px" : "4px 10px"};
+        width:${sizePx}px;
+        height:${sizePx}px;
+        border-radius:50%;
         color:#fff;
         font-size:${fontSize}px;
         display:flex;
         align-items:center;
         justify-content:center;
-        gap:4px;
         position:relative;
         z-index:2;
       ">
         <span>${emoji}</span>
       </div>
-      <div style="
-        width:0;height:0;
-        border-left:${boost === "platinum" && platinumRank <= 3 ? 10 : 8}px solid transparent;
-        border-right:${boost === "platinum" && platinumRank <= 3 ? 10 : 8}px solid transparent;
-        border-top:${boost === "platinum" && platinumRank <= 3 ? 14 : 12}px solid ${borderColorBoost};
-        margin:0 auto;
-        position:relative;
-        z-index:2;
-      "></div>
+      ${pinHtml}
     </div>
   `;
 
-  const iconAnchorX = size.w / 2;
-  const iconAnchorY = size.h + (showCrown ? 18 : 0);
+  const totalH = sizePx + pinHeight + (showCrown ? 18 : 0);
+  const iconAnchorX = sizePx / 2;
+  const iconAnchorY = totalH;
 
   return L.divIcon({
     html,
     className: markerClass,
-    iconSize: [size.w, size.h + (showCrown ? 18 : 0)],
+    iconSize: [sizePx, totalH],
     iconAnchor: [iconAnchorX, iconAnchorY],
-    popupAnchor: [0, -size.h + 6],
+    popupAnchor: [0, -sizePx + 6],
     tooltipAnchor: [iconAnchorX, 0]
   });
 }
@@ -10622,8 +10724,10 @@ function applyUITheme(i) {
   if (logoIcon) logoIcon.style.color = t.logoColor;
   if (tagline) tagline.style.color = t.taglineColor;
   
-  // NE PAS modifier les couleurs des textes dans les blocs de titre (comme demandé)
-  // Les textes dans les blocs de droite gardent leur couleur originale
+  // Rafraîchir marqueurs et clusters pour appliquer les nouvelles couleurs (accent + bordure)
+  if (typeof refreshMarkers === "function") {
+    refreshMarkers();
+  }
 }
 
 function cycleMapTheme() {
@@ -19044,20 +19148,20 @@ function submitReview(type, id) {
 }
 
 function openDiscussionModal(type, id) {
-  // Récupérer l'item (event, booking, service)
+  // Échappement HTML sûr (au cas où escapeHtml n'est pas encore défini)
+  const esc = (typeof escapeHtml === 'function') ? escapeHtml : function(s) {
+    if (s == null || s === undefined) return '';
+    const t = String(s);
+    return t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  };
+  
   let item = null;
-  if (type === 'event') {
-    item = eventsData.find(e => e.id === id);
-  } else if (type === 'booking') {
-    item = bookingsData.find(b => b.id === id);
-  } else if (type === 'service') {
-    item = servicesData.find(s => s.id === id);
-  }
+  if (type === 'event') item = eventsData.find(e => e.id === id);
+  else if (type === 'booking') item = bookingsData.find(b => b.id === id);
+  else if (type === 'service') item = servicesData.find(s => s.id === id);
   
   const itemTitle = item?.title || item?.name || 'Événement';
-  const itemImage = item?.image || item?.photo || '';
   
-  // Récupérer les posts existants (stockés localement pour l'instant)
   const postsKey = `discussion_${type}_${id}`;
   let posts = JSON.parse(localStorage.getItem(postsKey) || '[]');
   
@@ -19101,15 +19205,15 @@ function openDiscussionModal(type, id) {
     const hiddenNestedCount = sortedNested.length - maxVisibleNested;
     
     return `
-      <div style="margin-bottom:4px;">
-        <div style="display:flex;gap:8px;">
+      <div style="margin-bottom:4px;min-width:0;overflow:hidden;">
+        <div style="display:flex;gap:8px;min-width:0;">
           <div style="width:${avatarSize}px;height:${avatarSize}px;border-radius:50%;background:linear-gradient(135deg,#1877f2,#42a5f5);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;font-weight:700;color:#fff;">
             ${reply.avatar || '👤'}
           </div>
-          <div style="flex:1;min-width:0;">
-            <div style="background:#3a3b3c;border-radius:18px;padding:8px 12px;display:inline-block;max-width:100%;">
-              <span style="font-weight:600;font-size:13px;color:#e4e6eb;margin-right:4px;">${escapeHtml(reply.author || 'Utilisateur')}</span>
-              <span style="font-size:13px;color:#e4e6eb;line-height:1.33;white-space:pre-wrap;word-wrap:break-word;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">${escapeHtml(reply.text)}</span>
+          <div style="flex:1;min-width:0;overflow:hidden;">
+            <div style="background:#3a3b3c;border-radius:18px;padding:8px 12px;max-width:100%;overflow-wrap:break-word;word-break:break-word;">
+              <span style="font-weight:600;font-size:13px;color:#e4e6eb;margin-right:4px;">${esc(reply.author || 'Utilisateur')}</span>
+              <span style="font-size:13px;color:#e4e6eb;line-height:1.33;white-space:pre-wrap;word-wrap:break-word;overflow-wrap:break-word;word-break:break-word;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">${esc(reply.text)}</span>
             </div>
             <div style="display:flex;align-items:center;gap:12px;margin-top:4px;margin-left:12px;">
               <span style="font-size:12px;color:#b0b3b8;font-weight:600;cursor:pointer;" onclick="toggleReplyLike('${type}', '${id}', '${postId}', '${replyPath}')">J'aime</span>
@@ -19127,7 +19231,7 @@ function openDiscussionModal(type, id) {
               ${currentUser?.avatar || '👤'}
             </div>
             <div style="flex:1;position:relative;">
-              <textarea id="reply-input-${postId}-${replyPath}" placeholder="Répondre à ${escapeHtml(reply.author || 'Utilisateur')}..." style="width:100%;min-height:36px;max-height:100px;padding:8px 12px;border-radius:20px;border:none;background:rgba(58,59,60,0.8);color:#e4e6eb;font-size:14px;resize:none;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;line-height:1.33;" onkeydown="if(event.key==='Enter' && !event.shiftKey) { event.preventDefault(); submitReply('${type}', '${id}', '${postId}', '${replyPath}'); }" oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px';"></textarea>
+              <textarea id="reply-input-${postId}-${replyPath}" placeholder="Répondre à ${esc(reply.author || 'Utilisateur')}..." style="width:100%;min-height:36px;max-height:100px;padding:8px 12px;border-radius:20px;border:none;background:rgba(58,59,60,0.8);color:#e4e6eb;font-size:14px;resize:none;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;line-height:1.33;" onkeydown="if(event.key==='Enter' && !event.shiftKey) { event.preventDefault(); submitReply('${type}', '${id}', '${postId}', '${replyPath}'); }" oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px';"></textarea>
             </div>
           </div>
         </div>
@@ -19158,20 +19262,20 @@ function openDiscussionModal(type, id) {
     const repliesCount = post.replies ? post.replies.length : 0;
     
     return `
-      <div style="background:#242526;border-radius:8px;padding:12px;margin-bottom:12px;">
+      <div style="background:#242526;border-radius:8px;padding:12px;margin-bottom:12px;min-width:0;overflow:hidden;">
         <!-- En-tête du post -->
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:8px;min-width:0;">
           <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#1877f2,#42a5f5);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;font-weight:700;color:#fff;">
             ${post.avatar || '👤'}
           </div>
-          <div style="flex:1;">
-            <div style="font-weight:600;font-size:15px;color:#e4e6eb;line-height:1.2;">${escapeHtml(post.author || 'Utilisateur')}</div>
+          <div style="flex:1;min-width:0;overflow:hidden;">
+            <div style="font-weight:600;font-size:15px;color:#e4e6eb;line-height:1.2;overflow-wrap:break-word;word-break:break-word;">${escapeHtml(post.author || 'Utilisateur')}</div>
             <div style="font-size:13px;color:#b0b3b8;line-height:1.2;">${formatTime(post.timestamp || Date.now())}</div>
           </div>
         </div>
         
         <!-- Contenu du post -->
-        <div style="font-size:15px;color:#e4e6eb;line-height:1.33;margin-bottom:8px;white-space:pre-wrap;word-wrap:break-word;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+        <div style="font-size:15px;color:#e4e6eb;line-height:1.33;margin-bottom:8px;white-space:pre-wrap;word-wrap:break-word;overflow-wrap:break-word;word-break:break-word;min-width:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
           ${escapeHtml(post.text)}
         </div>
         
@@ -19260,22 +19364,22 @@ function openDiscussionModal(type, id) {
   const html = `
     <div style="display:flex;flex-direction:column;height:100%;max-height:90vh;">
       <!-- En-tête style Facebook -->
-      <div style="display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid rgba(255,255,255,0.1);background:var(--ui-card-bg);flex-shrink:0;">
-        <button onclick="closeDiscussionAndReturnToPopup()" style="background:none;border:none;color:var(--ui-text-muted);font-size:20px;cursor:pointer;padding:4px;border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;transition:all 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.1)';this.style.color='#fff'" onmouseout="this.style.background='none';this.style.color='var(--ui-text-muted)'">←</button>
+      <div style="display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid rgba(255,255,255,0.1);background:#242526;flex-shrink:0;">
+        <button onclick="closeDiscussionAndReturnToPopup()" style="background:none;border:none;color:#b0b3b8;font-size:20px;cursor:pointer;padding:4px;border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;transition:all 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.1)';this.style.color='#fff'" onmouseout="this.style.background='none';this.style.color='#b0b3b8'">←</button>
         <div style="flex:1;">
-          <div style="font-weight:600;font-size:16px;color:var(--ui-text-main);">Discussion</div>
-          <div style="font-size:13px;color:var(--ui-text-muted);">${escapeHtml(itemTitle)}</div>
+          <div style="font-weight:600;font-size:16px;color:#e4e6eb;">Discussion</div>
+          <div style="font-size:13px;color:#b0b3b8;">${esc(itemTitle)}</div>
         </div>
-        <button onclick="closePublishModal()" style="background:none;border:none;color:var(--ui-text-muted);font-size:20px;cursor:pointer;padding:4px;border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;transition:all 0.15s;" onmouseover="this.style.background='rgba(239,68,68,0.2)';this.style.color='#ef4444'" onmouseout="this.style.background='none';this.style.color='var(--ui-text-muted)'">✕</button>
+        <button onclick="closeDiscussionAndReturnToPopup()" style="background:none;border:none;color:#b0b3b8;font-size:20px;cursor:pointer;padding:4px;border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;transition:all 0.15s;" onmouseover="this.style.background='rgba(239,68,68,0.2)';this.style.color='#ef4444'" onmouseout="this.style.background='none';this.style.color='#b0b3b8'">✕</button>
       </div>
       
       <!-- Zone de scroll avec posts -->
       <div id="discussion-posts-container" style="flex:1;overflow-y:auto;overflow-x:hidden;padding:16px 20px;background:#18191a;">
         ${posts.length > 0 ? posts.map(p => renderPost(p)).join('') : `
-          <div style="text-align:center;padding:80px 20px;color:var(--ui-text-muted);font-size:14px;">
+          <div style="text-align:center;padding:80px 20px;color:#b0b3b8;font-size:14px;">
             <div style="font-size:64px;margin-bottom:16px;opacity:0.5;">💬</div>
-            <div style="font-weight:600;margin-bottom:8px;color:var(--ui-text-main);font-size:16px;">Aucune publication</div>
-            <div style="font-size:13px;">Soyez le premier à partager quelque chose !</div>
+            <div style="font-weight:600;margin-bottom:8px;color:#e4e6eb;font-size:16px;">Aucune publication</div>
+            <div style="font-size:13px;color:#b0b3b8;">Soyez le premier à partager quelque chose !</div>
           </div>
         `}
       </div>
@@ -19297,20 +19401,49 @@ function openDiscussionModal(type, id) {
     </div>
   `;
   
-  document.getElementById("publish-modal-inner").innerHTML = html;
-  const backdrop = document.getElementById("publish-modal-backdrop");
-  if (backdrop) {
-    backdrop.setAttribute('data-auth-modal', 'true');
-    backdrop.style.display = "flex";
-    backdrop.style.paddingTop = "40px";
-    backdrop.style.paddingBottom = "40px";
-    backdrop.style.boxSizing = "border-box";
-    backdrop.style.paddingTop = "40px";
-    backdrop.style.paddingBottom = "40px";
-    backdrop.style.boxSizing = "border-box";
+  // Ouvrir la discussion : dans la popup si ouverte, sinon modal central visible
+  const popupBackdrop = document.getElementById("popup-modal-backdrop");
+  const popupContent = document.getElementById("popup-modal-content");
+  const publishInner = document.getElementById("publish-modal-inner");
+  const publishBackdrop = document.getElementById("publish-modal-backdrop");
+  
+  const popupIsOpen = popupBackdrop && popupContent && (popupBackdrop.style.display === "flex" || popupBackdrop.contains(popupContent));
+  
+  if (popupBackdrop && popupContent && popupIsOpen) {
+    window.discussionOpenedInPopup = true;
+    popupContent.innerHTML = html;
+    popupContent.style.maxHeight = "85vh";
+    popupContent.style.overflow = "hidden";
+    popupContent.style.display = "flex";
+    popupContent.style.flexDirection = "column";
+    popupContent.style.visibility = "visible";
+    popupContent.style.opacity = "1";
+    // Forcer la fenêtre visible immédiatement
+    popupBackdrop.style.display = "flex";
+    popupBackdrop.style.visibility = "visible";
+    popupBackdrop.style.opacity = "1";
+    popupBackdrop.style.zIndex = "99999";
+    popupBackdrop.style.pointerEvents = "auto";
+  } else if (publishInner && publishBackdrop) {
+    window.discussionOpenedInPopup = false;
+    publishInner.innerHTML = html;
+    publishBackdrop.setAttribute('data-auth-modal', 'true');
+    publishBackdrop.style.display = "flex";
+    publishBackdrop.style.visibility = "visible";
+    publishBackdrop.style.opacity = "1";
+    publishBackdrop.style.zIndex = "99999";
+    publishBackdrop.style.pointerEvents = "auto";
+    publishBackdrop.style.paddingTop = "40px";
+    publishBackdrop.style.paddingBottom = "40px";
+    publishBackdrop.style.boxSizing = "border-box";
+    const publishModal = document.getElementById("publish-modal");
+    if (publishModal) {
+      publishModal.style.display = "block";
+      publishModal.style.visibility = "visible";
+      publishModal.style.opacity = "1";
+    }
   }
   
-  // Focus sur le textarea
   setTimeout(() => {
     const input = document.getElementById("discussion-input");
     if (input) input.focus();
@@ -19321,28 +19454,21 @@ function openDiscussionModal(type, id) {
 function closeDiscussionAndReturnToPopup() {
   const type = window.currentDiscussionType;
   const id = window.currentDiscussionId;
+  const openedInPopup = window.discussionOpenedInPopup;
   
   if (type && id) {
     const item = getItemById(type, id);
     if (item) {
       let popupHtml = "";
-      if (type === "event") {
-        popupHtml = buildEventPopup(item);
-      } else if (type === "booking") {
-        popupHtml = buildBookingPopup(item);
-      } else if (type === "service") {
-        popupHtml = buildServicePopup(item);
-      }
+      if (type === "event") popupHtml = buildEventPopup(item);
+      else if (type === "booking") popupHtml = buildBookingPopup(item);
+      else if (type === "service") popupHtml = buildServicePopup(item);
       
-      if (popupHtml) {
-        // Réouvrir la popup de l'événement
-        openPopupModal(popupHtml, item);
-      }
+      if (popupHtml) openPopupModal(popupHtml, item);
     }
   }
   
-  // Fermer la modal de discussion
-  closePublishModal();
+  if (!openedInPopup && typeof closePublishModal === "function") closePublishModal();
 }
 
 window.closeDiscussionAndReturnToPopup = closeDiscussionAndReturnToPopup;
@@ -26008,24 +26134,22 @@ async function translateThisComment(button) {
 }
 
 // Fonction pour changer de langue
+const LANG_FLAGS = { fr: "🇫🇷", en: "🇬🇧", es: "🇪🇸", zh: "🇨🇳", hi: "🇮🇳", de: "🇩🇪", it: "🇮🇹", pt: "🇵🇹", ru: "🇷🇺", ar: "🇸🇦", ja: "🇯🇵", ko: "🇰🇷", nl: "🇳🇱", tr: "🇹🇷", pl: "🇵🇱", vi: "🇻🇳", id: "🇮🇩", th: "🇹🇭", uk: "🇺🇦", sv: "🇸🇪", no: "🇳🇴", da: "🇩🇰", fi: "🇫🇮", el: "🇬🇷", he: "🇮🇱", ro: "🇷🇴", ms: "🇲🇾", cs: "🇨🇿", hu: "🇭🇺", sk: "🇸🇰", bg: "🇧🇬", hr: "🇭🇷", sr: "🇷🇸", lt: "🇱🇹", lv: "🇱🇻", et: "🇪🇪", sl: "🇸🇮", ta: "🇮🇳", bn: "🇧🇩", ur: "🇵🇰", fa: "🇮🇷", mr: "🇮🇳", sw: "🇰🇪", am: "🇪🇹", af: "🇿🇦", ca: "🇪🇸", pa: "🇮🇳", tl: "🇵🇭", my: "🇲🇲", ne: "🇳🇵", is: "🇮🇸", sq: "🇦🇱", mk: "🇲🇰", bs: "🇧🇦", gl: "🇪🇸", cy: "🇬🇧", ka: "🇬🇪", hy: "🇦🇲", az: "🇦🇿", kk: "🇰🇿", uz: "🇺🇿", ml: "🇮🇳", te: "🇮🇳", gu: "🇮🇳", kn: "🇮🇳", si: "🇱🇰", eu: "🇪🇸", mn: "🇲🇳", ga: "🇮🇪", lb: "🇱🇺", mt: "🇲🇹", yo: "🇳🇬", ha: "🇳🇬", ig: "🇳🇬", so: "🇸🇴", rw: "🇷🇼", mg: "🇲🇬", wo: "🇸🇳", st: "🇱🇸", tn: "🇧🇼", xh: "🇿🇦", zu: "🇿🇦", km: "🇰🇭", lo: "🇱🇦", sd: "🇵🇰", ps: "🇦🇫", ky: "🇰🇬", tk: "🇹🇲", tg: "🇹🇯", br: "🇫🇷", gd: "🇬🇧", fy: "🇳🇱", ku: "🇮🇶", ht: "🇭🇹", jv: "🇮🇩", su: "🇮🇩", ny: "🇲🇼", om: "🇪🇹", ti: "🇪🇷", dv: "🇲🇻", bo: "🇨🇳", dz: "🇧🇹", or: "🇮🇳", as: "🇮🇳", kmr: "🇹🇷", ckb: "🇮🇶" };
+const LANG_CODES = { fr: "FR", en: "EN", es: "ES", zh: "ZH", hi: "HI", de: "DE", it: "IT", pt: "PT", ru: "RU", ar: "AR", ja: "JA", ko: "KO", nl: "NL", tr: "TR", pl: "PL", vi: "VI", id: "ID", th: "TH", uk: "UK", sv: "SV", no: "NO", da: "DA", fi: "FI", el: "EL", he: "HE", ro: "RO", ms: "MS", cs: "CS", hu: "HU", sk: "SK", bg: "BG", hr: "HR", sr: "SR", lt: "LT", lv: "LV", et: "ET", sl: "SL", ta: "TA", bn: "BN", ur: "UR", fa: "FA", mr: "MR", sw: "SW", am: "AM", af: "AF", ca: "CA", pa: "PA", tl: "TL", my: "MY", ne: "NE", is: "IS", sq: "SQ", mk: "MK", bs: "BS", gl: "GL", cy: "CY", ka: "KA", hy: "HY", az: "AZ", kk: "KK", uz: "UZ", ml: "ML", te: "TE", gu: "GU", kn: "KN", si: "SI", eu: "EU", mn: "MN", ga: "GA", lb: "LB", mt: "MT", yo: "YO", ha: "HA", ig: "IG", so: "SO", rw: "RW", mg: "MG", wo: "WO", st: "ST", tn: "TN", xh: "XH", zu: "ZU", km: "KM", lo: "LO", sd: "SD", ps: "PS", ky: "KY", tk: "TK", tg: "TG", br: "BR", gd: "GD", fy: "FY", ku: "KU", ht: "HT", jv: "JV", su: "SU", ny: "NY", om: "OM", ti: "TI", dv: "DV", bo: "BO", dz: "DZ", or: "OR", as: "AS", kmr: "KU", ckb: "KU" };
+
 function setLanguage(lang) {
-  if (!["fr", "en", "es", "zh", "hi"].includes(lang)) return;
+  if (!SUPPORTED_LANGUAGES.includes(lang)) return;
   
   currentLanguage = lang;
   localStorage.setItem("mapEventLanguage", lang);
   
-  // Mettre à jour l'UI
-  const flagMap = { fr: "🇫🇷", en: "🇬🇧", es: "🇪🇸", zh: "🇨🇳", hi: "🇮🇳" };
-  const codeMap = { fr: "FR", en: "EN", es: "ES", zh: "ZH", hi: "HI" };
-  
   const flagEl = document.getElementById("current-lang-flag");
   const codeEl = document.getElementById("current-lang-code");
   
-  if (flagEl) flagEl.textContent = flagMap[lang];
-  if (codeEl) codeEl.textContent = codeMap[lang];
+  if (flagEl) flagEl.textContent = LANG_FLAGS[lang] || "🌍";
+  if (codeEl) codeEl.textContent = LANG_CODES[lang] || lang.toUpperCase();
   
-  // Mettre à jour les checkmarks
-  ["fr", "en", "es", "zh", "hi"].forEach(l => {
+  SUPPORTED_LANGUAGES.forEach(l => {
     const check = document.getElementById(`lang-check-${l}`);
     if (check) check.style.display = l === lang ? "block" : "none";
   });
@@ -26037,17 +26161,16 @@ function setLanguage(lang) {
   // Re-traduire l'interface (à implémenter complètement plus tard)
   updateUITranslations();
   
-  showNotification(`🌍 Langue changée : ${flagMap[lang]} ${codeMap[lang]}`, "success");
+  showNotification(`🌍 Langue changée : ${LANG_FLAGS[lang] || "🌍"} ${LANG_CODES[lang] || lang.toUpperCase()}`, "success");
 }
 
 // Fonction pour mettre à jour les traductions de l'UI (TOUT LE SITE)
 function updateUITranslations() {
   // CRITIQUE: S'assurer que window.translations est complètement initialisé AVANT d'utiliser t()
   if (typeof window === 'undefined' || !window.translations || typeof window.translations !== 'object') {
-    window.translations = { fr: {}, en: {}, es: {}, zh: {}, hi: {} };
+    window.translations = {};
   }
-  // S'assurer que toutes les langues existent
-  ['fr', 'en', 'es', 'zh', 'hi'].forEach(lang => {
+  SUPPORTED_LANGUAGES.forEach(lang => {
     if (!window.translations[lang] || typeof window.translations[lang] !== 'object') {
       window.translations[lang] = window.translations[lang] || {};
     }
@@ -26170,24 +26293,35 @@ function toggleLanguageMenu() {
   }
 }
 
-// Charger la langue sauvegardée au démarrage
+// Détecter la langue de l'utilisateur (smartphone = langue du téléphone, desktop = langue du navigateur)
+function detectUserLanguage() {
+  const saved = localStorage.getItem("mapEventLanguage");
+  if (saved && SUPPORTED_LANGUAGES.includes(saved)) return saved;
+  const nav = (typeof navigator !== 'undefined' && (navigator.language || navigator.userLanguage)) ? (navigator.language || navigator.userLanguage) : "";
+  const browser = nav.split("-")[0].toLowerCase();
+  if (SUPPORTED_LANGUAGES.includes(browser)) return browser;
+  // Correspondances courantes (navigator peut renvoyer pt-BR, zh-CN, etc.)
+  const map = { "pt": "pt", "zh": "zh", "nb": "no", "nn": "no", "he": "he", "uk": "uk", "el": "el", "sv": "sv", "da": "da", "fi": "fi", "ro": "ro", "cs": "cs", "hu": "hu", "sk": "sk", "pl": "pl", "tr": "tr", "ru": "ru", "ar": "ar", "ja": "ja", "ko": "ko", "th": "th", "vi": "vi", "id": "id", "ms": "ms", "nl": "nl", "de": "de", "it": "it", "es": "es", "fr": "fr", "en": "en", "hi": "hi", "bg": "bg", "hr": "hr", "sr": "sr", "lt": "lt", "lv": "lv", "et": "et", "sl": "sl", "ta": "ta", "bn": "bn", "ur": "ur", "fa": "fa", "mr": "mr", "sw": "sw", "am": "am", "af": "af", "ca": "ca", "pa": "pa", "tl": "tl", "my": "my", "ne": "ne", "is": "is", "sq": "sq", "mk": "mk", "bs": "bs", "gl": "gl", "cy": "cy", "ka": "ka", "hy": "hy", "az": "az", "kk": "kk", "uz": "uz", "ml": "ml", "te": "te", "gu": "gu", "kn": "kn", "si": "si", "eu": "eu", "mn": "mn", "ga": "ga", "lb": "lb", "mt": "mt", "yo": "yo", "ha": "ha", "ig": "ig", "so": "so", "rw": "rw", "mg": "mg", "wo": "wo", "st": "st", "tn": "tn", "xh": "xh", "zu": "zu", "km": "km", "lo": "lo", "sd": "sd", "ps": "ps", "ky": "ky", "tk": "tk", "tg": "tg", "br": "br", "gd": "gd", "fy": "fy", "ku": "ku", "ckb": "ckb", "kmr": "kmr", "ht": "ht", "jv": "jv", "su": "su", "ny": "ny", "om": "om", "ti": "ti", "dv": "dv", "bo": "bo", "dz": "dz", "or": "or", "as": "as" };
+  return map[browser] || "en";
+}
+
+// Charger la langue sauvegardée ou détectée au démarrage (smartphone + desktop)
 function initLanguage() {
   // CRITIQUE: S'assurer que window.translations est complètement initialisé AVANT updateUITranslations()
   if (typeof window === 'undefined' || !window.translations || typeof window.translations !== 'object') {
     window.translations = { fr: {}, en: {}, es: {}, zh: {}, hi: {} };
   }
-  // S'assurer que toutes les langues existent
-  ['fr', 'en', 'es', 'zh', 'hi'].forEach(lang => {
+  SUPPORTED_LANGUAGES.forEach(lang => {
     if (!window.translations[lang] || typeof window.translations[lang] !== 'object') {
       window.translations[lang] = window.translations[lang] || {};
     }
   });
   
-  // FORCER LE FRANÇAIS PAR DÉFAUT
-  currentLanguage = "fr";
-  localStorage.setItem("mapEventLanguage", "fr");
+  // Priorité : 1) langue sauvegardée, 2) langue du navigateur/téléphone, 3) anglais
+  currentLanguage = detectUserLanguage();
+  localStorage.setItem("mapEventLanguage", currentLanguage);
   updateUITranslations();
-  console.log("🇫🇷 Langue définie en français par défaut");
+  console.log("🌍 Langue : " + (currentLanguage === "fr" ? "français (défaut)" : currentLanguage.toUpperCase() + " (détectée ou sauvegardée)"));
 }
 
 // Exports
