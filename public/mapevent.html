@@ -3026,12 +3026,24 @@
         }, 12000);
       }
       
-      // Afficher la popup après un court délai
+      // Afficher la popup "À propos" (logo) après un court délai
       setTimeout(() => {
-        if (typeof window.showWelcomePopup === 'function') {
-          window.showWelcomePopup();
+        // Ne pas afficher si déjà installée en PWA
+        if (window.isPWAInstalled) return;
+        
+        // Ne pas afficher si déjà vue récemment (24h)
+        const lastShown = localStorage.getItem('welcomePopupShown');
+        const now = Date.now();
+        if (lastShown && (now - parseInt(lastShown)) < 24 * 60 * 60 * 1000) {
+          return;
         }
-      }, 1500);
+        
+        // Appeler openAboutModal (défini dans map_logic.js)
+        if (typeof window.openAboutModal === 'function') {
+          window.openAboutModal();
+          localStorage.setItem('welcomePopupShown', Date.now().toString());
+        }
+      }, 2000);
       // Rappel raccourci iOS (après la popup d'accueil)
       setTimeout(showPwaRappelRaccourci, 5000);
     </script>

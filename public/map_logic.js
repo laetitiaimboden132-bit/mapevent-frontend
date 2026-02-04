@@ -6354,8 +6354,9 @@ function buildBookingPopup(b) {
   // Badge vérifié
   const verifiedBadge = b.verified ? `<span class="verified-badge">✓ Vérifié</span>` : "";
 
-  // Liens sons - Player intégré sans accès au site, paiement débloque tout
-  const hasPaidContact = currentUser.subscription === 'premium' || paidContacts.includes(`booking:${b.id}`);
+  // Liens sons - Player intégré sans accès au site
+  // ⚠️ GRATUIT : Coordonnées toujours affichées (plus de paiement requis)
+  const hasPaidContact = true;
   
   const soundsSection = b.soundLinks && b.soundLinks.length > 0 ? `
     <div style="margin:8px 0;padding:12px;background:linear-gradient(135deg,rgba(139,92,246,0.15),rgba(59,130,246,0.1));border-radius:12px;border:1px solid rgba(139,92,246,0.3);">
@@ -6543,7 +6544,8 @@ function buildServicePopup(s) {
   const imgTag = buildMainImageTag(s, s.name || "");
   const cats = (s.categories || []).join(" • ");
   const emoji = getCategoryEmoji(s);
-  const hasPaidContact = currentUser.subscription === 'premium' || paidContacts.includes(`service:${s.id}`);
+  // ⚠️ GRATUIT : Coordonnées toujours affichées (plus de paiement requis)
+  const hasPaidContact = true;
 
   // Badge vérifié
   const verifiedBadge = s.verified ? `<span class="verified-badge">✓ Vérifié</span>` : "";
