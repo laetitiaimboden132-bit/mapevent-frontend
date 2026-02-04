@@ -1,33 +1,55 @@
 // ===============================
 // BUILD ID - Vérification déploiement
 // ===============================
-console.log("BUILD_ID", "onboarding-v1", new Date().toISOString(), location.href);
+console.log("BUILD_ID", "mes-annonces-v2", new Date().toISOString(), location.href);
 
 // ===============================
-// GESTION D'ERREURS GLOBALE - Protection contre écran noir
+// PROTECTION LOCALSTORAGE MINIMALE
+// ===============================
+// Bloque SEULEMENT currentUser (cause du quota), garde tout le reste
+(function() {
+  'use strict';
+  if (window.__storageProtected) return; // Déjà fait dans auth.js
+  window.__storageProtected = true;
+  
+  // Supprimer UNIQUEMENT currentUser
+  try { localStorage.removeItem('currentUser'); } catch(e) {}
+  
+  // Surcharger setItem pour bloquer UNIQUEMENT currentUser
+  const originalSetItem = localStorage.setItem.bind(localStorage);
+  localStorage.setItem = function(key, value) {
+    if (key === 'currentUser') return; // Bloqué
+    try {
+      originalSetItem(key, value);
+    } catch(e) {
+      try { localStorage.removeItem('currentUser'); } catch(e2) {}
+      try { originalSetItem(key, value); } catch(e3) {}
+    }
+  };
+  
+  console.log('[STORAGE] Protection currentUser activée');
+})();
+
+// ===============================
+// GESTION D'ERREURS GLOBALE - Silencieuse (logs uniquement)
 // ===============================
 window.addEventListener('error', function(e) {
-  console.error('❌ ERREUR GLOBALE:', e.error, e.message, e.filename, e.lineno);
-  // Empêcher l'écran noir en affichant un message
-  if (!document.getElementById('error-overlay')) {
-    const overlay = document.createElement('div');
-    overlay.id = 'error-overlay';
-    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.9);color:#fff;display:flex;align-items:center;justify-content:center;z-index:99999;padding:20px;font-family:monospace;';
-    overlay.innerHTML = `
-      <div style="text-align:center;max-width:600px;">
-        <h2 style="color:#ef4444;margin-bottom:16px;">⚠️ Erreur JavaScript détectée</h2>
-        <p style="margin-bottom:8px;"><strong>Fichier:</strong> ${e.filename || 'inconnu'}</p>
-        <p style="margin-bottom:8px;"><strong>Ligne:</strong> ${e.lineno || 'inconnue'}</p>
-        <p style="margin-bottom:16px;"><strong>Message:</strong> ${e.message || 'Erreur inconnue'}</p>
-        <button onclick="location.reload()" style="padding:12px 24px;background:#3b82f6;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;">Recharger la page</button>
-      </div>
-    `;
-    document.body.appendChild(overlay);
+  // Ignorer les erreurs des extensions navigateur
+  const filename = e.filename || '';
+  if (filename.includes('content.js') || 
+      filename.includes('chrome-extension://') || 
+      filename.includes('moz-extension://') ||
+      filename.includes('safari-extension://')) {
+    return; // Ignorer silencieusement les erreurs des extensions
   }
+  
+  // Logger l'erreur dans la console (pas d'overlay intrusif)
+  console.warn('[MAP] Erreur JS:', e.message, '- Fichier:', filename, 'Ligne:', e.lineno);
 });
 
 window.addEventListener('unhandledrejection', function(e) {
-  console.error('❌ PROMISE REJECTION NON GÉRÉE:', e.reason);
+  // Logger uniquement, pas d'alerte intrusive
+  console.warn('[MAP] Promise rejection:', e.reason?.message || e.reason);
 });
 
 // ===============================
@@ -781,8 +803,35 @@ async function handleCognitoCallbackIfPresent() {
           ok: syncData.ok,
           isNewUser: syncData.isNewUser,
           profileComplete: syncData.profileComplete,
-          userProfilePhoto: syncData.user?.profile_photo_url ? syncData.user.profile_photo_url.substring(0, 50) + '...' : 'VIDE'
+          userProfilePhoto: syncData.user?.profile_photo_url ? syncData.user.profile_photo_url.substring(0, 50) + '...' : 'VIDE',
+          hasAccessToken: !!syncData.accessToken,
+          hasRefreshToken: !!syncData.refreshToken
         });
+        
+        // ⚠️⚠️⚠️ CRITIQUE FIX 401 : Sauvegarder les tokens MapEvent retournés par le backend
+        // Ces tokens JWT sont nécessaires pour tous les appels API authentifiés (/api/user/events, etc.)
+        // Sans cette sauvegarde, le frontend utilise les tokens Cognito (invalides pour notre backend)
+        if (syncData.accessToken && syncData.refreshToken) {
+          const tokensMapEvent = {
+            access_token: syncData.accessToken,
+            refresh_token: syncData.refreshToken
+          };
+          saveSession(tokensMapEvent);
+          console.log('[OAUTH] ✅ Tokens MapEvent sauvegardés - Fix erreur 401 pour /api/user/events');
+          
+          // Sauvegarder aussi directement dans localStorage/sessionStorage pour getAuthToken()
+          const rememberMe = localStorage.getItem('rememberMe') === 'true';
+          if (rememberMe) {
+            localStorage.setItem('accessToken', syncData.accessToken);
+            localStorage.setItem('refreshToken', syncData.refreshToken);
+          } else {
+            sessionStorage.setItem('accessToken', syncData.accessToken);
+            sessionStorage.setItem('refreshToken', syncData.refreshToken);
+          }
+          console.log('[OAUTH] ✅ Tokens MapEvent aussi sauvegardés dans accessToken direct');
+        } else {
+          console.warn('[OAUTH] ⚠️ Pas de tokens MapEvent dans la réponse backend - Risque erreur 401');
+        }
         
         // ⚠️⚠️⚠️ CRITIQUE : Vérifier si c'est une validation Google après formulaire d'inscription
         const pendingFormData = localStorage.getItem('pendingRegisterDataForGoogle');
@@ -2638,19 +2687,51 @@ const demoServiceBase = [
 // ============================================
 // Gérer le retour de Stripe après paiement
 async function handleStripeReturn() {
+  console.log('[STRIPE RETURN] 🔄 handleStripeReturn() appelée');
+  
   const urlParams = new URLSearchParams(window.location.search);
   const paymentStatus = urlParams.get('payment');
   const sessionId = urlParams.get('session_id');
   
+  console.log('[STRIPE RETURN] 📊 Paramètres URL - payment:', paymentStatus, 'session_id:', sessionId);
+  
   if (paymentStatus === 'success' && sessionId) {
+    console.log('[STRIPE RETURN] ✅ Paiement success détecté, vérification...');
+    
+    // ⚠️ PRIORITÉ : Vérifier d'abord si on a des données de publication en attente
+    const pendingData = localStorage.getItem('pendingPublishData');
+    console.log('[STRIPE RETURN] 📦 pendingPublishData dans localStorage:', !!pendingData);
+    
+    if (pendingData) {
+      console.log('[STRIPE RETURN] ✅ Données de publication trouvées - Finalisation directe...');
+      try {
+        const data = JSON.parse(pendingData);
+        console.log('[STRIPE RETURN] 📦 Mode:', data.mode, 'Titre:', data.newItem?.title);
+        window.pendingPublishData = data;
+        await finalizePublish();
+        localStorage.removeItem('pendingPublishData');
+        playPaymentSound();
+        // Nettoyer l'URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+        return; // Sortir, publication gérée
+      } catch (e) {
+        console.error('[STRIPE RETURN] ❌ Erreur parsing pendingPublishData:', e);
+      }
+    }
+    
+    // Sinon, essayer de vérifier via l'API (pour autres types de paiement)
     try {
+      console.log('[STRIPE RETURN] 🔍 Appel API verify-session...');
       // Vérifier le statut du paiement
       const response = await fetch(`${window.API_BASE_URL}/payments/verify-session?session_id=${sessionId}`);
+      console.log('[STRIPE RETURN] 📥 Réponse API:', response.status);
       const data = await response.json();
+      console.log('[STRIPE RETURN] 📥 Données API:', JSON.stringify(data));
       
       if (data.success) {
         const paymentType = data.paymentType;
         const items = data.items || [];
+        console.log('[STRIPE RETURN] ✅ paymentType:', paymentType, 'items:', items.length);
         
         if (paymentType === 'contact' || paymentType === 'cart') {
           // Débloquer les contacts
@@ -2727,23 +2808,31 @@ async function handleStripeReturn() {
 
 // Finaliser la publication après retour de Stripe
 async function finalizePublishAfterPayment(sessionId) {
+  console.log('[PUBLISH] 🔄 Retour de Stripe détecté, session:', sessionId);
+  console.log('[PUBLISH] 📦 Contenu localStorage:', Object.keys(localStorage).join(', '));
+  
   const pendingData = localStorage.getItem('pendingPublishData');
+  console.log('[PUBLISH] 📦 pendingPublishData existe:', !!pendingData);
+  
   if (!pendingData) {
-    console.warn('[PUBLISH] Pas de données de publication en attente');
+    console.error('[PUBLISH] ❌ DONNÉES PERDUES - pendingPublishData introuvable dans localStorage');
+    console.error('[PUBLISH] ❌ Clés disponibles:', Object.keys(localStorage));
+    showNotification("❌ Données de publication perdues. Le paiement a été effectué mais l'événement n'a pas pu être créé. Contactez le support.", "error");
     return;
   }
   
   try {
     const data = JSON.parse(pendingData);
+    console.log('[PUBLISH] ✅ Données récupérées:', data.mode, data.newItem?.title);
+    
     window.pendingPublishData = data;
     await finalizePublish();
     localStorage.removeItem('pendingPublishData');
     
     playPaymentSound();
-    showNotification(`✅ Paiement confirmé ! Votre ${data.mode} est maintenant publié.`, "success");
   } catch (error) {
-    console.error('[PUBLISH] Erreur finalisation:', error);
-    showNotification("⚠️ Publication en cours de traitement...", "warning");
+    console.error('[PUBLISH] ❌ Erreur finalisation:', error);
+    showNotification("❌ Erreur lors de la publication: " + error.message, "error");
   }
 }
 
@@ -3136,6 +3225,22 @@ window.updateAuthButtons = updateAuthButtons;
 document.addEventListener("DOMContentLoaded", () => {
   console.log('🏗️ DOM Content Loaded - REGISTER MODAL FIX VERSION - TEST DEPLOYMENT');
   console.log('🚀 REGISTER MODAL FIX DEPLOYED SUCCESSFULLY - VERSION 2024-12-31');
+  
+  // ⚠️ CRITIQUE: Vérifier le retour Stripe IMMÉDIATEMENT au chargement
+  const stripeParams = new URLSearchParams(window.location.search);
+  const stripePaymentStatus = stripeParams.get('payment');
+  const stripeSessionId = stripeParams.get('session_id');
+  
+  if (stripePaymentStatus || stripeSessionId) {
+    console.log('[STRIPE RETURN] 🔍 Paramètres détectés - payment:', stripePaymentStatus, 'session_id:', stripeSessionId?.substring(0, 20) + '...');
+    // Appeler handleStripeReturn après un court délai pour laisser l'API_BASE_URL s'initialiser
+    setTimeout(() => {
+      console.log('[STRIPE RETURN] 🚀 Appel de handleStripeReturn()...');
+      handleStripeReturn().catch(err => {
+        console.error('[STRIPE RETURN] ❌ Erreur:', err);
+      });
+    }, 500);
+  }
   
   // Initialisation UI auth: vérifier si currentUser existe et afficher "Compte" ou "Connexion"
   const u = safeGetJSON("currentUser");
@@ -4208,6 +4313,15 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   initLanguage();
   
+  // ⚠️ CRITIQUE: Charger les événements réels depuis la base de données
+  // Cela ajoute les vrais événements créés par les utilisateurs aux données de démo
+  loadEventsFromBackend().then(() => {
+    console.log('[INIT] ✅ Événements réels chargés depuis la base de données');
+    refreshMarkers();
+  }).catch(err => {
+    console.warn('[INIT] ⚠️ Erreur chargement événements backend (non bloquant):', err);
+  });
+  
   // Gérer le deep linking (ouvrir un event depuis l'URL)
   const hasDeepLink = handleDeepLink();
   
@@ -4449,8 +4563,35 @@ function initMap() {
 
 function getCurrentData() {
   let data = [];
+  const now = new Date();
+  
   if (currentMode === "event") {
-    data = eventsData.filter(item => item && item.type === "event");
+    // ⚠️ CRITIQUE : Filtrer les événements terminés (date passée) de l'affichage sur la carte
+    // Ils restent dans eventsData pour "Mes annonces" mais ne s'affichent plus sur la carte
+    data = eventsData.filter(item => {
+      if (!item || item.type !== "event") return false;
+      
+      // Déterminer la date de fin de l'événement
+      let endDate = null;
+      if (item.endDate) {
+        endDate = new Date(item.endDate);
+      } else if (item.end_date) {
+        const endDateStr = item.end_date + (item.end_time ? 'T' + item.end_time : 'T23:59:59');
+        endDate = new Date(endDateStr);
+      } else if (item.startDate) {
+        // Si pas de date de fin, utiliser la date de début
+        endDate = new Date(item.startDate);
+      } else if (item.date) {
+        const dateStr = item.date + (item.time ? 'T' + item.time : 'T23:59:59');
+        endDate = new Date(dateStr);
+      }
+      
+      // Si pas de date ou date invalide, garder l'événement (données incomplètes)
+      if (!endDate || isNaN(endDate.getTime())) return true;
+      
+      // Exclure les événements dont la date de fin est passée
+      return endDate >= now;
+    });
   } else if (currentMode === "booking") {
     data = bookingsData.filter(item => item && item.type === "booking");
   } else if (currentMode === "service") {
@@ -5683,18 +5824,23 @@ function buildPopupHtml(item) {
 }
 
 function buildStatusOverlay(status) {
-  if (!status || status === "OK") return "";
+  // ⚠️ Ne pas afficher de badge pour le statut "active" (c'est le statut par défaut)
+  // Seulement afficher les statuts importants : annulé, reporté, complet
+  if (!status || status === "OK" || status === "active" || status === "upcoming") {
+    return "";
+  }
 
   let label = status;
   let bg = "rgba(239,68,68,0.9)";
+  let textColor = "#111827";
 
-  if (status === "COMPLET" || status === "SOLDOUT") {
+  if (status === "COMPLET" || status === "SOLDOUT" || status === "completed") {
     label = "COMPLET";
     bg = "rgba(234,179,8,0.9)";
-  } else if (status === "ANNULE" || status === "ANNULÉ") {
+  } else if (status === "ANNULE" || status === "ANNULÉ" || status === "cancelled") {
     label = "ANNULÉ";
     bg = "rgba(239,68,68,0.9)";
-  } else if (status === "REPORTE" || status === "REPORTÉ") {
+  } else if (status === "REPORTE" || status === "REPORTÉ" || status === "postponed") {
     label = "REPORTÉ";
     bg = "rgba(59,130,246,0.9)";
   }
@@ -5710,7 +5856,7 @@ function buildStatusOverlay(status) {
       font-size:11px;
       font-weight:700;
       text-transform:uppercase;
-      color:#111827;
+      color:${textColor};
     ">
       ${label}
     </div>
@@ -5787,13 +5933,65 @@ function buildEventPopup(ev) {
   const statusOverlay = buildStatusOverlay(ev.status);
   const borderColor = getBoostColor(ev.boost);
   const cats = (evTranslated.categories || ev.categories || []).join(" • ");
-  const imgTag = buildMainImageTag(ev, evTranslated.title || ev.title || "");
+  
+  // ⚠️ CRITIQUE : Utiliser l'image de statut si le statut n'est pas "active"
+  // Les images de statut remplacent complètement l'image de l'événement
+  const statusImages = {
+    'cancelled': '/assets/event_overlays/Event canceled.jpeg',
+    'postponed': '/assets/event_overlays/postponed.jpeg',
+    'completed': '/assets/event_overlays/completed.jpeg',
+    'ANNULE': '/assets/event_overlays/Event canceled.jpeg',
+    'ANNULÉ': '/assets/event_overlays/Event canceled.jpeg',
+    'REPORTE': '/assets/event_overlays/postponed.jpeg',
+    'REPORTÉ': '/assets/event_overlays/postponed.jpeg',
+    'COMPLET': '/assets/event_overlays/completed.jpeg',
+    'SOLDOUT': '/assets/event_overlays/completed.jpeg'
+  };
+  
+  let imgTag;
+  const statusImage = statusImages[ev.status];
+  if (statusImage) {
+    // Si statut spécial : utiliser l'image de statut en plein écran
+    imgTag = `
+      <img 
+        src="${statusImage}"
+        alt="${escapeHtml(evTranslated.title || ev.title || '')}"
+        style="width:100%;min-height:280px;max-height:400px;object-fit:cover;display:block;margin:0;padding:0;border:none;box-sizing:border-box;background:linear-gradient(135deg,#3b82f6,#8b5cf6);vertical-align:top;"
+        onerror="this.src='/assets/event_overlays/eventdefault.jpg';"
+        loading="eager"
+      >
+    `;
+    console.log('[POPUP] Image de statut utilisée:', ev.status, statusImage);
+  } else {
+    // Statut normal (active) : utiliser l'image de l'événement
+    imgTag = buildMainImageTag(ev, evTranslated.title || ev.title || "");
+  }
+  
   const emoji = getCategoryEmoji(ev);
   
   // Calcul du temps restant
   const now = new Date();
-  const startDate = ev.startDate ? new Date(ev.startDate) : null;
-  const daysUntil = startDate ? Math.ceil((startDate - now) / (1000 * 60 * 60 * 24)) : null;
+  // ⚠️ Support des deux formats : startDate/endDate (frontend) ou date+time/end_date+end_time (backend)
+  let startDate = null;
+  let endDate = null;
+  
+  if (ev.startDate) {
+    startDate = new Date(ev.startDate);
+  } else if (ev.date) {
+    // Format backend : date (2026-02-05) + time (14:00:00)
+    const dateStr = ev.date + (ev.time ? 'T' + ev.time : 'T00:00:00');
+    startDate = new Date(dateStr);
+  }
+  
+  if (ev.endDate) {
+    endDate = new Date(ev.endDate);
+  } else if (ev.end_date) {
+    // Format backend : end_date + end_time
+    const endDateStr = ev.end_date + (ev.end_time ? 'T' + ev.end_time : 'T23:59:59');
+    endDate = new Date(endDateStr);
+  }
+  
+  const daysUntil = (startDate && !isNaN(startDate.getTime())) ? Math.ceil((startDate - now) / (1000 * 60 * 60 * 24)) : null;
   const timeLabel = daysUntil !== null ? (
     daysUntil < 0 ? "Terminé" :
     daysUntil === 0 ? "Aujourd'hui !" :
@@ -6060,7 +6258,7 @@ function buildEventPopup(ev) {
           <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:linear-gradient(135deg,rgba(0,255,195,0.1),rgba(16,185,129,0.05));border:1px solid rgba(0,255,195,0.2);border-radius:10px;">
             <span style="font-size:20px;">📅</span>
             <div>
-              <div style="font-size:13px;font-weight:600;color:#00ffc3;">${formatEventDateRange(ev.startDate, ev.endDate)}</div>
+              <div style="font-size:13px;font-weight:600;color:#00ffc3;">${formatEventDateRange(startDate, endDate)}</div>
             </div>
           </div>
           <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.2);border-radius:10px;">
@@ -8925,9 +9123,10 @@ function buildPublishFormHtml() {
 
       <div style="margin-bottom:10px;position:relative;">
         <label id="pub-address-label" style="font-size:12px;font-weight:600;color:#e2e8f0;">${window.t("full_address")} <span id="pub-address-star" style="color:#ff4444;">*</span></label>
-        <textarea id="pub-address" required oninput="debounceAddressSearch()" onblur="validateAddress()"
-               placeholder="Entrez une adresse complète (monde entier)"
+        <textarea id="pub-address" name="pub-location-search-${Date.now()}" required oninput="debounceAddressSearch()" onblur="validateAddress()"
+               placeholder="Ex: 15 Rue de la Paix, Paris"
                rows="2"
+               autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-form-type="other"
                style="width:100%;padding:8px 10px;border-radius:8px;border:2px solid #334155;background:#0f172a;color:#fff;font-size:13px;resize:none;font-family:inherit;"></textarea>
         <div id="pub-address-suggestions" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:1001;max-height:200px;overflow-y:auto;border:1px solid #334155;border-radius:8px;background:#0f172a;margin-top:2px;box-shadow:0 4px 12px rgba(0,0,0,0.3);"></div>
         <div id="pub-address-status" style="display:none;font-size:10px;margin-top:2px;"></div>
@@ -9763,15 +9962,27 @@ async function searchAddress() {
       return;
     }
     
-    // Afficher les suggestions
-    suggestionsDiv.innerHTML = results.map(r => `
-      <div onclick="selectAddress('${escapeHtml(r.display_name)}', ${r.lat}, ${r.lon})"
+    // Afficher les suggestions avec data attributes (évite les problèmes d'apostrophes)
+    suggestionsDiv.innerHTML = results.map((r, index) => `
+      <div class="address-suggestion" data-index="${index}" data-lat="${r.lat}" data-lng="${r.lon}"
            style="padding:8px 10px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.1);font-size:12px;color:#fff;transition:background 0.15s;"
            onmouseover="this.style.background='rgba(0,255,195,0.15)'"
            onmouseout="this.style.background='transparent'">
         📍 ${escapeHtml(r.display_name)}
       </div>
     `).join('');
+    
+    // Stocker les résultats et ajouter les listeners
+    window._addressResults = results;
+    suggestionsDiv.querySelectorAll('.address-suggestion').forEach(div => {
+      div.addEventListener('click', function() {
+        const idx = parseInt(this.dataset.index);
+        const result = window._addressResults[idx];
+        if (result) {
+          selectAddress(result.display_name, parseFloat(result.lat), parseFloat(result.lon));
+        }
+      });
+    });
     
     suggestionsDiv.style.display = "block";
     
@@ -9781,13 +9992,23 @@ async function searchAddress() {
 }
 
 function selectAddress(displayName, lat, lng) {
+  console.log('[ADDRESS] 🔄 selectAddress appelée avec:', displayName, lat, lng);
+  
   const input = document.getElementById("pub-address");
   const latInput = document.getElementById("pub-address-lat");
   const lngInput = document.getElementById("pub-address-lng");
   const suggestionsDiv = document.getElementById("pub-address-suggestions");
   const statusDiv = document.getElementById("pub-address-status");
   
-  if (input) input.value = displayName;
+  console.log('[ADDRESS] 📦 Éléments trouvés - input:', !!input, 'latInput:', !!latInput, 'lngInput:', !!lngInput);
+  
+  if (input) {
+    input.value = displayName;
+    console.log('[ADDRESS] ✅ Adresse écrite dans input:', input.value);
+  } else {
+    console.error('[ADDRESS] ❌ Element pub-address introuvable!');
+  }
+  
   if (latInput) latInput.value = lat;
   if (lngInput) lngInput.value = lng;
   if (suggestionsDiv) suggestionsDiv.style.display = "none";
@@ -9819,6 +10040,21 @@ async function validateAddress() {
   if (suggestionsDiv) suggestionsDiv.style.display = "none";
   
   if (!input || !input.value.trim()) return false;
+  
+  const addressValue = input.value.trim();
+  
+  // Vérifier qu'il y a un numéro de rue (obligatoire)
+  const hasStreetNumber = /\d+/.test(addressValue);
+  if (!hasStreetNumber) {
+    if (statusDiv) {
+      statusDiv.innerHTML = '<span style="color:#ff4444;">⚠️ Numéro de rue obligatoire (ex: 15 Rue de la Paix)</span>';
+      statusDiv.style.display = "block";
+    }
+    input.style.borderColor = "#ff4444";
+    input.style.background = "rgba(255,68,68,0.1)";
+    if (starSpan) starSpan.style.color = "#ff4444";
+    return false;
+  }
   
   // Si déjà validée (coordonnées présentes), c'est bon
   if (latInput?.value && lngInput?.value) {
@@ -10201,6 +10437,12 @@ function closePublishModal(e) {
     if (leftPanel) {
       leftPanel.style.zIndex = "";
     }
+    
+    // ⚠️ Nettoyer le mode édition si on ferme le modal
+    if (window.editingItem) {
+      window.editingItem = null;
+      console.log('🚪 Mode édition annulé');
+    }
   }
 }
 
@@ -10212,6 +10454,11 @@ async function onSubmitPublishForm(e) {
     showNotification("⚠️ Vous devez être connecté pour publier", "warning");
     openLoginModal();
     return false;
+  }
+  
+  // ⚠️ MODE ÉDITION - Modification d'une annonce existante
+  if (window.editingItem) {
+    return await handleEditSubmit(e);
   }
   
   // ⚠️⚠️⚠️ VALIDATION DES DATES (pour les events)
@@ -10338,9 +10585,12 @@ async function onSubmitPublishForm(e) {
     categories: [mainCategory],
     mainCategory: mainCategory,
     address: address,
+    location: address, // Backend attend "location"
     city: city,
     lat: lat,
     lng: lng,
+    latitude: lat,   // Backend attend "latitude"
+    longitude: lng,  // Backend attend "longitude"
     description: description,
     email: email,
     phone: phone,
@@ -10421,13 +10671,28 @@ async function onSubmitPublishForm(e) {
   
   // Sauvegarder dans le backend
   try {
+    // Préparer les données pour le backend
+    const backendData = {
+      ...newItem,
+      userId: currentUser.id
+    };
+    
+    // ⚠️ CRITIQUE : Convertir startDate/endDate au format backend (date, time, end_date, end_time)
+    if (currentMode === "event" && startDate) {
+      const [datePart, timePart] = startDate.split('T');
+      backendData.date = datePart;
+      backendData.time = timePart ? timePart + ':00' : '00:00:00';
+    }
+    if (currentMode === "event" && endDate) {
+      const [endDatePart, endTimePart] = endDate.split('T');
+      backendData.end_date = endDatePart;
+      backendData.end_time = endTimePart ? endTimePart + ':00' : '23:59:59';
+    }
+    
     await fetch(`${window.API_BASE_URL}/${currentMode}s`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        ...newItem,
-        userId: currentUser.id
-      })
+      body: JSON.stringify(backendData)
     });
   } catch (error) {
     console.error('Erreur sauvegarde backend:', error);
@@ -10449,6 +10714,101 @@ async function onSubmitPublishForm(e) {
   
   // Ouvrir le modal de paiement Stripe
   openStripePaymentModal(finalPrice, boost);
+  
+  return false;
+}
+
+// ⚠️ GESTION DE LA MODIFICATION D'UNE ANNONCE EXISTANTE
+async function handleEditSubmit(e) {
+  e.preventDefault();
+  
+  const editingItem = window.editingItem;
+  const itemId = editingItem.id;
+  const itemType = editingItem.mode || editingItem.type || 'event';
+  
+  // Récupérer les données du formulaire
+  const title = document.getElementById("pub-title")?.value.trim();
+  const mainCategory = document.getElementById("pub-main-category")?.value.trim();
+  const address = document.getElementById("pub-address")?.value.trim();
+  const phone = document.getElementById("pub-phone")?.value.trim();
+  const email = document.getElementById("pub-email")?.value.trim();
+  const description = document.getElementById("pub-description")?.value.trim();
+  
+  // Coordonnées
+  const lat = parseFloat(document.getElementById("pub-address-lat")?.value) || editingItem.lat;
+  const lng = parseFloat(document.getElementById("pub-address-lng")?.value) || editingItem.lng;
+  
+  // Pour les events : dates
+  const startDate = document.getElementById("pub-start")?.value;
+  const endDate = document.getElementById("pub-end")?.value;
+  
+  // Validation de base
+  if (!title || !address) {
+    showNotification("⚠️ Veuillez remplir les champs obligatoires", "warning");
+    return false;
+  }
+  
+  // Préparer les données à envoyer
+  const updateData = {
+    title: title,
+    description: description,
+    location: address,
+    address: address,
+    latitude: lat,
+    longitude: lng,
+    email: email,
+    phone: phone,
+    categories: mainCategory ? [mainCategory] : editingItem.categories
+  };
+  
+  if (itemType === 'event') {
+    if (startDate) updateData.date = startDate.split('T')[0];
+    if (startDate) updateData.time = startDate.split('T')[1];
+    if (endDate) updateData.end_date = endDate.split('T')[0];
+    if (endDate) updateData.end_time = endDate.split('T')[1];
+  }
+  
+  // Afficher un loader
+  showNotification("⏳ Enregistrement des modifications...", "info");
+  
+  try {
+    const token = typeof getAuthToken === 'function' ? getAuthToken() : localStorage.getItem('accessToken');
+    const endpoint = itemType === 'event' ? 'events' : itemType === 'booking' ? 'bookings' : 'services';
+    
+    const response = await fetch(`${window.API_BASE_URL}/${endpoint}/${itemId}`, {
+      method: 'PUT',
+      headers: { 
+        'Authorization': 'Bearer ' + token,
+        'Content-Type': 'application/json' 
+      },
+      body: JSON.stringify(updateData)
+    });
+    
+    if (response.ok) {
+      // Mettre à jour localement
+      const dataArray = itemType === 'event' ? eventsData : itemType === 'booking' ? bookingsData : servicesData;
+      const index = dataArray.findIndex(i => i.id === itemId);
+      if (index !== -1) {
+        dataArray[index] = { ...dataArray[index], ...updateData, title: title, name: title };
+      }
+      
+      // Nettoyer
+      window.editingItem = null;
+      closePublishModal();
+      refreshMarkers();
+      
+      showNotification("✅ Modifications enregistrées !", "success");
+      
+      // Revenir à Mes Annonces après un court délai
+      setTimeout(() => showMesAnnoncesModal(), 500);
+    } else {
+      const err = await response.json();
+      showNotification("❌ Erreur: " + (err.error || "Impossible de modifier"), "error");
+    }
+  } catch (error) {
+    console.error('Erreur modification:', error);
+    showNotification("❌ Erreur de connexion", "error");
+  }
   
   return false;
 }
@@ -10620,7 +10980,7 @@ async function processStripePayment(amount) {
     } else if (result.sessionId) {
       // Utiliser Stripe.js pour rediriger
       if (typeof Stripe !== 'undefined') {
-        const stripeInstance = Stripe(result.publicKey || 'pk_live_51OEuvVGixxoHLLo1eJsGcVPSYcO3Ig1gBrcJQxdoLvwFRt0rxIk5e7twIgL8EjpTwKlLY9BuKhzyUr3IxmIwJgQj00vJqpGv9h');
+        const stripeInstance = Stripe(result.publicKey || 'pk_live_51Sfg8g2YO5zMBO7yRz2yRw9SZMJhYY8bfxLYT7v6VgQ77lFFwaUOGa5WYD1h7SDUgNkyABKnGFu3KN5p4PwT1Eqr00CisIZv67');
         const { error } = await stripeInstance.redirectToCheckout({ sessionId: result.sessionId });
         if (error) {
           throw new Error(error.message);
@@ -10645,50 +11005,96 @@ async function processStripePayment(amount) {
 async function finalizePublish() {
   const data = window.pendingPublishData;
   if (!data) {
-    showNotification("❌ Erreur: Données de publication perdues", "error");
+    console.error('[PUBLISH] ❌ Données de publication perdues - pendingPublishData est null');
+    showNotification("❌ Erreur: Données de publication perdues. Veuillez réessayer.", "error");
     return;
   }
   
-  // Ajouter aux données locales
-  if (data.mode === "event") {
-    eventsData.push(data.newItem);
-  } else if (data.mode === "booking") {
-    bookingsData.push(data.newItem);
-  } else if (data.mode === "service") {
-    servicesData.push(data.newItem);
-  }
+  console.log('[PUBLISH] 🔄 Tentative de création avec données:', JSON.stringify(data.newItem, null, 2));
   
-  // Sauvegarder dans le backend
+  // Sauvegarder dans le backend D'ABORD
+  let backendSuccess = false;
   try {
-    await fetch(`${window.API_BASE_URL}/${data.mode}s`, {
+    const token = typeof getAuthToken === 'function' ? getAuthToken() : localStorage.getItem('accessToken');
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+    
+    // Préparer les données avec les bons noms de champs pour le backend
+    const backendData = {
+      ...data.newItem,
+      // Mapper les champs frontend -> backend
+      location: data.newItem.address || data.newItem.location,
+      latitude: data.newItem.lat || data.newItem.latitude,
+      longitude: data.newItem.lng || data.newItem.longitude,
+      userId: currentUser?.id,
+      creator_id: currentUser?.id,
+      paymentStatus: 'paid',
+      paymentAmount: data.price
+    };
+    
+    console.log('[PUBLISH] 📤 Envoi au backend:', window.API_BASE_URL + '/' + data.mode + 's');
+    console.log('[PUBLISH] 📤 Données envoyées:', JSON.stringify(backendData, null, 2));
+    
+    const response = await fetch(`${window.API_BASE_URL}/${data.mode}s`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        ...data.newItem,
-        userId: currentUser?.id,
-        paymentStatus: 'paid',
-        paymentAmount: data.price
-      })
+      headers: headers,
+      body: JSON.stringify(backendData)
     });
+    
+    const responseText = await response.text();
+    console.log('[PUBLISH] 📥 Réponse backend:', response.status, responseText);
+    
+    if (response.ok) {
+      backendSuccess = true;
+      // Récupérer l'ID généré par le backend
+      try {
+        const result = JSON.parse(responseText);
+        if (result.id) {
+          console.log('[PUBLISH] ✅ ID backend reçu:', result.id);
+          data.newItem.id = result.id; // Utiliser l'ID du backend !
+        }
+        if (result.creator_id) {
+          console.log('[PUBLISH] ✅ creator_id confirmé:', result.creator_id);
+        }
+      } catch (e) {
+        console.warn('[PUBLISH] Impossible de parser la réponse:', e);
+      }
+      console.log('[PUBLISH] ✅ Événement créé avec succès dans le backend');
+    } else {
+      console.error('[PUBLISH] ❌ Erreur backend:', response.status, responseText);
+      showNotification(`❌ Erreur serveur (${response.status}): ${responseText}`, "error");
+    }
   } catch (error) {
-    console.error('Erreur sauvegarde backend:', error);
+    console.error('[PUBLISH] ❌ Erreur réseau:', error);
+    showNotification("❌ Erreur réseau lors de la publication. Vérifiez votre connexion.", "error");
   }
   
-  // Nettoyer
+  // Ajouter aux données locales SEULEMENT si backend OK
+  if (backendSuccess) {
+    if (data.mode === "event") {
+      eventsData.push(data.newItem);
+    } else if (data.mode === "booking") {
+      bookingsData.push(data.newItem);
+    } else if (data.mode === "service") {
+      servicesData.push(data.newItem);
+    }
+    
+    // Fermer le modal et rafraîchir
+    closePublishModal();
+    refreshMarkers();
+    refreshListView();
+    
+    // Centrer la carte sur le nouveau point
+    if (map && data.lat && data.lng) {
+      map.setView([data.lat, data.lng], 14);
+    }
+    
+    // Message de succès
+    showNotification(`✅ Paiement reçu ! ${data.mode === 'event' ? 'Événement' : data.mode === 'booking' ? 'Booking' : 'Service'} publié avec succès !`, "success");
+  }
+  
+  // Nettoyer dans tous les cas
   window.pendingPublishData = null;
-  
-  // Fermer le modal et rafraîchir
-  closePublishModal();
-  refreshMarkers();
-  refreshListView();
-  
-  // Centrer la carte sur le nouveau point
-  if (map && data.lat && data.lng) {
-    map.setView([data.lat, data.lng], 14);
-  }
-  
-  // Message de succès
-  showNotification(`✅ Paiement reçu ! ${data.mode === 'event' ? 'Événement' : data.mode === 'booking' ? 'Booking' : 'Service'} publié avec succès !`, "success");
 }
 
 // ============================================
@@ -19165,6 +19571,28 @@ function openDiscussionModal(type, id) {
   const postsKey = `discussion_${type}_${id}`;
   let posts = JSON.parse(localStorage.getItem(postsKey) || '[]');
   
+  // ⚠️ PROTECTION : Filtrer les posts corrompus (contenu suspect ou trop long)
+  const isPostCorrupted = (post) => {
+    if (!post || !post.text) return true;
+    const text = post.text;
+    // Post trop long (> 5000 caractères)
+    if (text.length > 5000) return true;
+    // Contient beaucoup de caractères spéciaux consécutifs (ressemble à du code/token)
+    if (/[A-Za-z0-9+/=]{100,}/.test(text)) return true;
+    // Contient des patterns de code JS
+    if (/function\s*\(|const\s+\w+\s*=|window\.|document\./.test(text)) return true;
+    return false;
+  };
+  
+  // Filtrer et nettoyer les posts corrompus
+  const originalLength = posts.length;
+  posts = posts.filter(p => !isPostCorrupted(p));
+  if (posts.length !== originalLength) {
+    // Sauvegarder les posts nettoyés
+    localStorage.setItem(postsKey, JSON.stringify(posts));
+    console.log(`[Discussion] ${originalLength - posts.length} posts corrompus supprimés`);
+  }
+  
   // Fonction pour formater le temps
   const formatTime = (timestamp) => {
     const now = Date.now();
@@ -20168,7 +20596,7 @@ function openPaymentModal(type, id, action) {
 // Son de paiement
 function playPaymentSound() {
   try {
-    const audio = new Audio('./assets/popopo.m4a');
+    const audio = new Audio('/assets/popopo.m4a');
     audio.volume = 0.7;
     audio.play().catch(e => {
       console.log("Son de paiement non disponible", e);
@@ -21663,6 +22091,8 @@ function openAboutModal() {
           <span>🚀</span> Prochaines étapes
         </div>
         <ul style="margin:0;padding-left:20px;color:var(--ui-text-main);font-size:13px;line-height:1.8;">
+          <li><strong>106 langues</strong> - Traduction automatique mondiale</li>
+          <li><strong>Safe Social</strong> - Réseau social sécurisé et bienveillant</li>
           <li><strong>Messagerie</strong> - Discutez avec vos amis</li>
           <li><strong>Groupes</strong> - Créez des groupes comme WhatsApp</li>
           <li><strong>Invitations</strong> - Invitez vos amis aux événements</li>
@@ -23100,8 +23530,8 @@ window.openAccountWindow = openAccountWindow;
 window.askRememberMeBeforeLogout = askRememberMeBeforeLogout;
 window.confirmLogoutWithRememberMe = confirmLogoutWithRememberMe;
 
-// ✅ MODAL "MES ANNONCES" - Affiche les annonces de l'utilisateur
-function showMesAnnoncesModal() {
+// ✅ MODAL "MES ANNONCES" - Affiche les annonces de l'utilisateur (avec API backend)
+async function showMesAnnoncesModal() {
   const modal = document.getElementById('publish-modal-inner');
   const backdrop = document.getElementById('publish-modal-backdrop');
   
@@ -23110,90 +23540,437 @@ function showMesAnnoncesModal() {
     return;
   }
   
-  // Récupérer les annonces de l'utilisateur (depuis eventsData, bookingsData, servicesData)
-  const userId = currentUser ? (currentUser.id || currentUser.cognitoSub) : null;
+  // Afficher le loader
+  modal.innerHTML = '<div style="padding:60px;text-align:center;"><div style="font-size:48px;margin-bottom:16px;">⏳</div><p style="color:var(--ui-text-muted);">Chargement...</p></div>';
+  modal.style.display = 'block';
+  modal.style.visibility = 'visible';
+  backdrop.style.display = 'flex';
+  backdrop.style.visibility = 'visible';
+  backdrop.style.zIndex = '9999';
+  
+  // Récupérer les annonces depuis l'API backend ET les données locales
   const userAnnonces = [];
+  const userId = currentUser ? (currentUser.id || currentUser.cognitoSub) : null;
+  const token = typeof getAuthToken === 'function' ? getAuthToken() : localStorage.getItem('accessToken');
   
-  // Chercher dans eventsData
-  eventsData.filter(function(e) { return e.userId === userId || e.createdBy === userId; }).forEach(function(e) {
-    userAnnonces.push({ id: e.id, title: e.title, name: e.name, address: e.address, location: e.location, lat: e.lat, lng: e.lng, type: 'event', emoji: '📅' });
+  // Charger depuis l'API backend
+  if (token) {
+    try {
+      const response = await fetch(window.API_BASE_URL + '/user/events', {
+        method: 'GET',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }
+      });
+      if (response.ok) {
+        const events = await response.json();
+        events.forEach(e => {
+          // Ajouter à userAnnonces pour l'affichage dans la modal
+          userAnnonces.push({
+            id: e.id, title: e.title, location: e.location, lat: e.latitude, lng: e.longitude,
+            date: e.date, status: e.status || 'active', type: 'event', emoji: '📅'
+          });
+          
+          // ⚠️ CRITIQUE : Ajouter aussi à eventsData si pas déjà présent
+          // Cela permet à focusOnMapItem de trouver l'événement pour "Voir"
+          if (!eventsData.find(ev => ev.id === e.id)) {
+            eventsData.push({
+              id: e.id,
+              type: 'event',
+              title: e.title,
+              description: e.description || '',
+              location: e.location,
+              address: e.location,
+              lat: e.latitude,
+              lng: e.longitude,
+              startDate: e.date ? new Date(e.date + (e.time ? 'T' + e.time : '')) : null,
+              endDate: e.end_date ? new Date(e.end_date + (e.end_time ? 'T' + e.end_time : '')) : null,
+              status: e.status || 'active',
+              creator_id: e.creator_id,
+              image_url: e.image_url,
+              categories: e.categories || [],
+              boost: '1.-',
+              likes: 0,
+              favorites: 0,
+              participations: 0
+            });
+            console.log('[MES ANNONCES] Événement ajouté à eventsData:', e.id, e.title);
+          }
+        });
+        // Rafraîchir les marqueurs pour afficher les nouveaux événements sur la carte
+        if (events.length > 0) {
+          refreshMarkers();
+        }
+      }
+    } catch (err) { console.warn('[MES ANNONCES] API error:', err); }
+  }
+  
+  // Chercher aussi dans les données locales (fallback + bookings/services)
+  eventsData.filter(e => e.userId === userId || e.createdBy === userId || e.creator_id === userId).forEach(e => {
+    if (!userAnnonces.find(a => a.id === e.id && a.type === 'event')) {
+      userAnnonces.push({ id: e.id, title: e.title || e.name, location: e.location || e.address, lat: e.lat, lng: e.lng, status: e.status || 'active', type: 'event', emoji: '📅' });
+    }
+  });
+  bookingsData.filter(b => b.userId === userId || b.createdBy === userId).forEach(b => {
+    userAnnonces.push({ id: b.id, title: b.title || b.name, location: b.location || b.address, lat: b.lat, lng: b.lng, status: 'active', type: 'booking', emoji: '🏨' });
+  });
+  servicesData.filter(s => s.userId === userId || s.createdBy === userId).forEach(s => {
+    userAnnonces.push({ id: s.id, title: s.title || s.name, location: s.location || s.address, lat: s.lat, lng: s.lng, status: 'active', type: 'service', emoji: '🔧' });
   });
   
-  // Chercher dans bookingsData
-  bookingsData.filter(function(b) { return b.userId === userId || b.createdBy === userId; }).forEach(function(b) {
-    userAnnonces.push({ id: b.id, title: b.title, name: b.name, address: b.address, location: b.location, lat: b.lat, lng: b.lng, type: 'booking', emoji: '🏨' });
-  });
-  
-  // Chercher dans servicesData
-  servicesData.filter(function(s) { return s.userId === userId || s.createdBy === userId; }).forEach(function(s) {
-    userAnnonces.push({ id: s.id, title: s.title, name: s.name, address: s.address, location: s.location, lat: s.lat, lng: s.lng, type: 'service', emoji: '🔧' });
-  });
+  const statusLabels = {
+    'active': { label: 'Actif', color: '#22c55e', bg: 'rgba(34,197,94,0.15)' },
+    'cancelled': { label: 'Annulé', color: '#ef4444', bg: 'rgba(239,68,68,0.15)' },
+    'postponed': { label: 'Reporté', color: '#f59e0b', bg: 'rgba(245,158,11,0.15)' }
+  };
   
   var html = '<div style="padding:24px;max-width:600px;margin:0 auto;position:relative;">' +
-    '<button id="mes-annonces-back-btn" style="position:absolute;top:16px;left:16px;background:rgba(255,255,255,0.1);border:none;color:#fff;font-size:14px;cursor:pointer;padding:8px 16px;border-radius:8px;display:flex;align-items:center;gap:8px;">← Retour</button>' +
-    '<button id="mes-annonces-close-btn" style="position:absolute;top:16px;right:16px;background:none;border:none;color:var(--ui-text-muted);font-size:24px;cursor:pointer;padding:8px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:50%;" title="Fermer">✕</button>' +
+    '<button id="mes-annonces-back-btn" style="position:absolute;top:16px;left:16px;background:rgba(255,255,255,0.1);border:none;color:#fff;font-size:14px;cursor:pointer;padding:8px 16px;border-radius:8px;">← Retour</button>' +
+    '<button id="mes-annonces-close-btn" style="position:absolute;top:16px;right:16px;background:none;border:none;color:var(--ui-text-muted);font-size:24px;cursor:pointer;">✕</button>' +
     '<h2 style="text-align:center;margin:0 0 24px;font-size:24px;color:#fff;">📢 Mes annonces</h2>';
   
   if (userAnnonces.length === 0) {
-    html += '<div style="text-align:center;padding:40px;color:var(--ui-text-muted);">' +
-      '<div style="font-size:48px;margin-bottom:16px;">📭</div>' +
-      '<p>Vous n\'avez pas encore d\'annonces</p>' +
-      '<button id="mes-annonces-publish-btn" style="margin-top:16px;padding:12px 24px;border-radius:12px;border:none;background:#00ffc3;color:#000;font-weight:600;cursor:pointer;">+ Publier une annonce</button>' +
-    '</div>';
+    html += '<div style="text-align:center;padding:40px;color:var(--ui-text-muted);"><div style="font-size:48px;margin-bottom:16px;">📭</div><p>Vous n\'avez pas encore d\'annonces</p><button id="mes-annonces-publish-btn" style="margin-top:16px;padding:12px 24px;border-radius:12px;border:none;background:#00ffc3;color:#000;font-weight:600;cursor:pointer;">+ Publier une annonce</button></div>';
   } else {
-    html += '<div id="mes-annonces-list" style="display:flex;flex-direction:column;gap:12px;">';
-    userAnnonces.forEach(function(item, idx) {
-      html += '<div class="annonce-item" data-type="' + item.type + '" data-id="' + item.id + '" style="display:flex;align-items:center;gap:16px;padding:16px;border-radius:12px;background:rgba(15,23,42,0.5);border:1px solid rgba(255,255,255,0.1);cursor:pointer;transition:all 0.2s;">' +
-        '<div style="font-size:32px;">' + item.emoji + '</div>' +
-        '<div style="flex:1;">' +
-          '<div style="font-weight:600;font-size:14px;color:#fff;margin-bottom:4px;">' + escapeHtml(item.title || item.name || 'Sans titre') + '</div>' +
-          '<div style="font-size:12px;color:var(--ui-text-muted);">' + escapeHtml(item.address || item.location || '') + '</div>' +
+    html += '<div id="mes-annonces-list" style="display:flex;flex-direction:column;gap:16px;">';
+    userAnnonces.forEach(item => {
+      const st = statusLabels[item.status] || statusLabels['active'];
+      html += '<div class="annonce-item" data-type="' + item.type + '" data-id="' + item.id + '" data-status="' + item.status + '" style="padding:16px;border-radius:12px;background:rgba(15,23,42,0.5);border:1px solid rgba(255,255,255,0.1);">' +
+        '<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;cursor:pointer;" class="annonce-header">' +
+          '<div style="font-size:28px;">' + item.emoji + '</div>' +
+          '<div style="flex:1;"><div style="font-weight:600;font-size:15px;color:#fff;">' + escapeHtml(item.title || 'Sans titre') + '</div><div style="font-size:12px;color:var(--ui-text-muted);">' + escapeHtml(item.location || '') + '</div></div>' +
+          '<span style="padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;background:' + st.bg + ';color:' + st.color + ';">' + st.label + '</span>' +
         '</div>' +
-        '<div style="color:#00ffc3;font-size:20px;">→</div>' +
-      '</div>';
+        // Première ligne de boutons
+        '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">' +
+          '<button class="annonce-btn-view" data-id="' + item.id + '" data-type="' + item.type + '" style="flex:1;min-width:60px;padding:10px;border-radius:8px;border:1px solid rgba(0,255,195,0.4);background:rgba(0,255,195,0.1);color:#00ffc3;font-size:12px;font-weight:600;cursor:pointer;">📍 Voir</button>' +
+          '<button class="annonce-btn-edit" data-id="' + item.id + '" data-type="' + item.type + '" style="flex:1;min-width:60px;padding:10px;border-radius:8px;border:1px solid rgba(59,130,246,0.4);background:rgba(59,130,246,0.1);color:#3b82f6;font-size:12px;font-weight:600;cursor:pointer;">✏️ Modifier</button>' +
+        '</div>' +
+        // Deuxième ligne - Statuts
+        '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
+          (item.status === 'active' ? '<button class="annonce-btn-cancel" data-id="' + item.id + '" data-type="' + item.type + '" style="flex:1;min-width:60px;padding:10px;border-radius:8px;border:1px solid rgba(239,68,68,0.4);background:rgba(239,68,68,0.1);color:#ef4444;font-size:12px;font-weight:600;cursor:pointer;">❌ Annuler</button>' : '') +
+          (item.status === 'active' ? '<button class="annonce-btn-postpone" data-id="' + item.id + '" data-type="' + item.type + '" style="flex:1;min-width:60px;padding:10px;border-radius:8px;border:1px solid rgba(245,158,11,0.4);background:rgba(245,158,11,0.1);color:#f59e0b;font-size:12px;font-weight:600;cursor:pointer;">⏸️ Reporter</button>' : '') +
+          (item.status === 'cancelled' || item.status === 'postponed' ? '<button class="annonce-btn-reactivate" data-id="' + item.id + '" data-type="' + item.type + '" style="flex:1;min-width:60px;padding:10px;border-radius:8px;border:1px solid rgba(34,197,94,0.4);background:rgba(34,197,94,0.1);color:#22c55e;font-size:12px;font-weight:600;cursor:pointer;">✅ Réactiver</button>' : '') +
+          '<button class="annonce-btn-delete" data-id="' + item.id + '" data-type="' + item.type + '" style="flex:1;min-width:60px;padding:10px;border-radius:8px;border:1px solid rgba(127,29,29,0.4);background:rgba(127,29,29,0.1);color:#dc2626;font-size:12px;font-weight:600;cursor:pointer;">🗑️ Supprimer</button>' +
+        '</div></div>';
     });
     html += '</div>';
   }
   html += '</div>';
+  modal.innerHTML = html;
+  
+  setTimeout(() => {
+    document.getElementById('mes-annonces-back-btn')?.addEventListener('click', () => openAccountModal());
+    document.getElementById('mes-annonces-close-btn')?.addEventListener('click', () => closePublishModal());
+    document.getElementById('mes-annonces-publish-btn')?.addEventListener('click', () => { closePublishModal(); setTimeout(() => openPublishModal(), 200); });
+    document.querySelectorAll('.annonce-btn-view').forEach(btn => btn.addEventListener('click', function() { closePublishModal(); focusOnMapItem(this.dataset.type, parseInt(this.dataset.id)); }));
+    document.querySelectorAll('.annonce-btn-edit').forEach(btn => btn.addEventListener('click', function() { openEditEventModal(this.dataset.type, parseInt(this.dataset.id)); }));
+    document.querySelectorAll('.annonce-btn-cancel').forEach(btn => btn.addEventListener('click', function() { updateEventStatus(parseInt(this.dataset.id), 'cancelled', this.dataset.type); }));
+    document.querySelectorAll('.annonce-btn-postpone').forEach(btn => btn.addEventListener('click', function() { updateEventStatus(parseInt(this.dataset.id), 'postponed', this.dataset.type); }));
+    document.querySelectorAll('.annonce-btn-reactivate').forEach(btn => btn.addEventListener('click', function() { updateEventStatus(parseInt(this.dataset.id), 'active', this.dataset.type); }));
+    document.querySelectorAll('.annonce-btn-delete').forEach(btn => btn.addEventListener('click', function() { confirmDeleteEvent(parseInt(this.dataset.id), this.dataset.type); }));
+    document.querySelectorAll('.annonce-header').forEach(h => h.addEventListener('click', function() { const p = this.closest('.annonce-item'); closePublishModal(); focusOnMapItem(p.dataset.type, parseInt(p.dataset.id)); }));
+  }, 50);
+}
+
+// Mettre à jour le statut d'un événement (annuler/reporter/réactiver)
+async function updateEventStatus(eventId, newStatus, itemType = 'event') {
+  const token = typeof getAuthToken === 'function' ? getAuthToken() : localStorage.getItem('accessToken');
+  if (!token) { showNotification('❌ Vous devez être connecté', 'error'); return; }
+  try {
+    const endpoint = itemType === 'event' ? 'events' : itemType === 'booking' ? 'bookings' : 'services';
+    const response = await fetch(window.API_BASE_URL + '/' + endpoint + '/' + eventId + '/status', {
+      method: 'PATCH',
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: newStatus })
+    });
+    if (response.ok) {
+      const messages = {
+        'cancelled': '❌ Annonce annulée',
+        'postponed': '⏸️ Annonce reportée',
+        'active': '✅ Annonce réactivée'
+      };
+      showNotification(messages[newStatus] || '✅ Statut mis à jour', 'success');
+      await loadEventsFromBackend();
+      showMesAnnoncesModal();
+    } else {
+      const err = await response.json();
+      showNotification('❌ ' + (err.error || 'Erreur'), 'error');
+    }
+  } catch (err) {
+    showNotification('❌ Erreur de connexion', 'error');
+  }
+}
+
+// Ouvrir le formulaire de modification d'une annonce (formulaire dédié)
+function openEditEventModal(itemType, itemId) {
+  // Récupérer les données de l'item
+  const dataArray = itemType === 'event' ? eventsData : itemType === 'booking' ? bookingsData : servicesData;
+  const item = dataArray.find(i => i.id === parseInt(itemId));
+  
+  if (!item) {
+    showNotification('❌ Annonce introuvable', 'error');
+    return;
+  }
+  
+  // Stocker les données de l'item à modifier
+  window.editingItem = { ...item, mode: itemType, id: itemId };
+  
+  const modal = document.getElementById('publish-modal-inner');
+  const backdrop = document.getElementById('publish-modal-backdrop');
+  if (!modal || !backdrop) return;
+  
+  // Images de statut
+  const statusImages = {
+    active: '/assets/event_overlays/eventdefault.jpg',
+    cancelled: '/assets/event_overlays/Event canceled.jpeg',
+    postponed: '/assets/event_overlays/postponed.jpeg',
+    completed: '/assets/event_overlays/completed.jpeg'
+  };
+  
+  const currentStatus = item.status || 'active';
+  
+  // Construire le formulaire de modification
+  const html = `
+    <div style="padding:24px;max-width:550px;margin:0 auto;position:relative;">
+      <button id="edit-back-btn" style="position:absolute;top:16px;left:16px;background:rgba(255,255,255,0.1);border:none;color:#fff;font-size:14px;cursor:pointer;padding:8px 16px;border-radius:8px;">← Retour</button>
+      <button id="edit-close-btn" style="position:absolute;top:16px;right:16px;background:none;border:none;color:var(--ui-text-muted);font-size:24px;cursor:pointer;">✕</button>
+      
+      <h2 style="text-align:center;margin:40px 0 24px;font-size:22px;color:#fff;">✏️ Modifier l'annonce</h2>
+      
+      <!-- Informations de base -->
+      <div style="margin-bottom:16px;">
+        <label style="display:block;font-size:12px;font-weight:600;color:#e2e8f0;margin-bottom:4px;">Titre *</label>
+        <input type="text" id="edit-title" value="${escapeHtml(item.title || item.name || '')}" style="width:100%;padding:10px;border-radius:8px;border:1px solid #334155;background:#0f172a;color:#fff;font-size:14px;">
+      </div>
+      
+      <div style="margin-bottom:16px;">
+        <label style="display:block;font-size:12px;font-weight:600;color:#e2e8f0;margin-bottom:4px;">Description</label>
+        <textarea id="edit-description" rows="3" style="width:100%;padding:10px;border-radius:8px;border:1px solid #334155;background:#0f172a;color:#fff;font-size:14px;resize:vertical;">${escapeHtml(item.description || '')}</textarea>
+      </div>
+      
+      <div style="margin-bottom:16px;">
+        <label style="display:block;font-size:12px;font-weight:600;color:#e2e8f0;margin-bottom:4px;">Adresse *</label>
+        <input type="text" id="edit-address" value="${escapeHtml(item.address || item.location || '')}" style="width:100%;padding:10px;border-radius:8px;border:1px solid #334155;background:#0f172a;color:#fff;font-size:14px;">
+      </div>
+      
+      <div style="display:flex;gap:12px;margin-bottom:16px;">
+        <div style="flex:1;">
+          <label style="display:block;font-size:12px;font-weight:600;color:#e2e8f0;margin-bottom:4px;">Email</label>
+          <input type="email" id="edit-email" value="${escapeHtml(item.email || '')}" style="width:100%;padding:10px;border-radius:8px;border:1px solid #334155;background:#0f172a;color:#fff;font-size:14px;">
+        </div>
+        <div style="flex:1;">
+          <label style="display:block;font-size:12px;font-weight:600;color:#e2e8f0;margin-bottom:4px;">Téléphone</label>
+          <input type="tel" id="edit-phone" value="${escapeHtml(item.phone || '')}" style="width:100%;padding:10px;border-radius:8px;border:1px solid #334155;background:#0f172a;color:#fff;font-size:14px;">
+        </div>
+      </div>
+      
+      ${itemType === 'event' ? `
+      <div style="display:flex;gap:12px;margin-bottom:16px;">
+        <div style="flex:1;">
+          <label style="display:block;font-size:12px;font-weight:600;color:#e2e8f0;margin-bottom:4px;">Date/Heure début</label>
+          <input type="datetime-local" id="edit-start" value="${item.startDate || ''}" style="width:100%;padding:10px;border-radius:8px;border:1px solid #334155;background:#0f172a;color:#fff;font-size:14px;">
+        </div>
+        <div style="flex:1;">
+          <label style="display:block;font-size:12px;font-weight:600;color:#e2e8f0;margin-bottom:4px;">Date/Heure fin</label>
+          <input type="datetime-local" id="edit-end" value="${item.endDate || ''}" style="width:100%;padding:10px;border-radius:8px;border:1px solid #334155;background:#0f172a;color:#fff;font-size:14px;">
+        </div>
+      </div>
+      ` : ''}
+      
+      <!-- Changement de statut avec images -->
+      <div style="margin:24px 0;padding:16px;background:rgba(15,23,42,0.8);border:1px solid rgba(255,255,255,0.1);border-radius:12px;">
+        <h3 style="margin:0 0 16px;font-size:14px;color:#00ffc3;">📌 Statut de l'annonce</h3>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
+          <label style="cursor:pointer;text-align:center;">
+            <input type="radio" name="edit-status" value="active" ${currentStatus === 'active' ? 'checked' : ''} style="display:none;">
+            <div class="status-option" style="padding:8px;border-radius:10px;border:2px solid ${currentStatus === 'active' ? '#22c55e' : 'transparent'};background:${currentStatus === 'active' ? 'rgba(34,197,94,0.1)' : 'rgba(0,0,0,0.2)'};">
+              <img src="${statusImages.active}" alt="Actif" style="width:100%;height:60px;object-fit:cover;border-radius:6px;margin-bottom:6px;">
+              <div style="font-size:11px;font-weight:600;color:#22c55e;">✅ Actif</div>
+            </div>
+          </label>
+          <label style="cursor:pointer;text-align:center;">
+            <input type="radio" name="edit-status" value="postponed" ${currentStatus === 'postponed' ? 'checked' : ''} style="display:none;">
+            <div class="status-option" style="padding:8px;border-radius:10px;border:2px solid ${currentStatus === 'postponed' ? '#f59e0b' : 'transparent'};background:${currentStatus === 'postponed' ? 'rgba(245,158,11,0.1)' : 'rgba(0,0,0,0.2)'};">
+              <img src="${statusImages.postponed}" alt="Reporté" style="width:100%;height:60px;object-fit:cover;border-radius:6px;margin-bottom:6px;">
+              <div style="font-size:11px;font-weight:600;color:#f59e0b;">⏸️ Reporté</div>
+            </div>
+          </label>
+          <label style="cursor:pointer;text-align:center;">
+            <input type="radio" name="edit-status" value="cancelled" ${currentStatus === 'cancelled' ? 'checked' : ''} style="display:none;">
+            <div class="status-option" style="padding:8px;border-radius:10px;border:2px solid ${currentStatus === 'cancelled' ? '#ef4444' : 'transparent'};background:${currentStatus === 'cancelled' ? 'rgba(239,68,68,0.1)' : 'rgba(0,0,0,0.2)'};">
+              <img src="${statusImages.cancelled}" alt="Annulé" style="width:100%;height:60px;object-fit:cover;border-radius:6px;margin-bottom:6px;">
+              <div style="font-size:11px;font-weight:600;color:#ef4444;">❌ Annulé</div>
+            </div>
+          </label>
+        </div>
+      </div>
+      
+      <!-- Boutons d'action -->
+      <div style="display:flex;gap:12px;margin-top:24px;">
+        <button id="edit-save-btn" style="flex:2;padding:14px;border-radius:12px;border:none;background:linear-gradient(135deg,#00ffc3,#00d4a0);color:#000;font-size:15px;font-weight:700;cursor:pointer;">
+          💾 Enregistrer les modifications
+        </button>
+        <button id="edit-delete-btn" style="flex:1;padding:14px;border-radius:12px;border:1px solid rgba(239,68,68,0.4);background:rgba(239,68,68,0.1);color:#ef4444;font-size:14px;font-weight:600;cursor:pointer;">
+          🗑️ Supprimer
+        </button>
+      </div>
+    </div>
+  `;
   
   modal.innerHTML = html;
   modal.style.display = 'block';
-  modal.style.visibility = 'visible';
-  modal.style.opacity = '1';
   backdrop.style.display = 'flex';
-  backdrop.style.visibility = 'visible';
-  backdrop.style.opacity = '1';
   backdrop.style.zIndex = '9999';
   
   // Attacher les event listeners
-  setTimeout(function() {
-    var backBtn = document.getElementById('mes-annonces-back-btn');
-    var closeBtn = document.getElementById('mes-annonces-close-btn');
-    var publishBtn = document.getElementById('mes-annonces-publish-btn');
+  setTimeout(() => {
+    document.getElementById('edit-back-btn')?.addEventListener('click', () => showMesAnnoncesModal());
+    document.getElementById('edit-close-btn')?.addEventListener('click', () => { window.editingItem = null; closePublishModal(); });
+    document.getElementById('edit-save-btn')?.addEventListener('click', () => saveEditedEvent(itemType, itemId));
+    document.getElementById('edit-delete-btn')?.addEventListener('click', () => confirmDeleteEvent(itemId, itemType));
     
-    if (backBtn) backBtn.addEventListener('click', function() { openAccountModal(); });
-    if (closeBtn) closeBtn.addEventListener('click', function() { closePublishModal(); });
-    if (publishBtn) publishBtn.addEventListener('click', function() { closePublishModal(); setTimeout(function() { openPublishModal(); }, 200); });
-    
-    // Items cliquables
-    var items = document.querySelectorAll('.annonce-item');
-    items.forEach(function(item) {
-      item.addEventListener('click', function() {
-        var type = this.getAttribute('data-type');
-        var id = this.getAttribute('data-id');
-        closePublishModal();
-        focusOnMapItem(type, parseInt(id));
-      });
-      item.addEventListener('mouseover', function() {
-        this.style.borderColor = 'rgba(0,255,195,0.5)';
-        this.style.background = 'rgba(0,255,195,0.1)';
-      });
-      item.addEventListener('mouseout', function() {
-        this.style.borderColor = 'rgba(255,255,255,0.1)';
-        this.style.background = 'rgba(15,23,42,0.5)';
+    // Mettre à jour les styles des options de statut au clic
+    document.querySelectorAll('input[name="edit-status"]').forEach(radio => {
+      radio.addEventListener('change', function() {
+        document.querySelectorAll('.status-option').forEach(opt => {
+          opt.style.border = '2px solid transparent';
+          opt.style.background = 'rgba(0,0,0,0.2)';
+        });
+        const selected = this.closest('label').querySelector('.status-option');
+        const colors = { active: '#22c55e', postponed: '#f59e0b', cancelled: '#ef4444' };
+        selected.style.border = `2px solid ${colors[this.value]}`;
+        selected.style.background = `rgba(${this.value === 'active' ? '34,197,94' : this.value === 'postponed' ? '245,158,11' : '239,68,68'},0.1)`;
       });
     });
-  }, 50);
+  }, 100);
+}
+
+// Sauvegarder les modifications d'une annonce
+async function saveEditedEvent(itemType, itemId) {
+  const title = document.getElementById('edit-title')?.value.trim();
+  const description = document.getElementById('edit-description')?.value.trim();
+  const address = document.getElementById('edit-address')?.value.trim();
+  const email = document.getElementById('edit-email')?.value.trim();
+  const phone = document.getElementById('edit-phone')?.value.trim();
+  const startDate = document.getElementById('edit-start')?.value;
+  const endDate = document.getElementById('edit-end')?.value;
+  const newStatus = document.querySelector('input[name="edit-status"]:checked')?.value || 'active';
+  
+  if (!title || !address) {
+    showNotification('⚠️ Le titre et l\'adresse sont obligatoires', 'warning');
+    return;
+  }
+  
+  showNotification('⏳ Enregistrement...', 'info');
+  
+  try {
+    const token = typeof getAuthToken === 'function' ? getAuthToken() : localStorage.getItem('accessToken');
+    const endpoint = itemType === 'event' ? 'events' : itemType === 'booking' ? 'bookings' : 'services';
+    
+    const updateData = {
+      title, description, location: address, address, email, phone, status: newStatus
+    };
+    
+    if (itemType === 'event') {
+      if (startDate) {
+        updateData.date = startDate.split('T')[0];
+        updateData.time = startDate.split('T')[1];
+      }
+      if (endDate) {
+        updateData.end_date = endDate.split('T')[0];
+        updateData.end_time = endDate.split('T')[1];
+      }
+    }
+    
+    const response = await fetch(`${window.API_BASE_URL}/${endpoint}/${itemId}`, {
+      method: 'PUT',
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify(updateData)
+    });
+    
+    if (response.ok) {
+      // Mettre à jour localement
+      const dataArray = itemType === 'event' ? eventsData : itemType === 'booking' ? bookingsData : servicesData;
+      const index = dataArray.findIndex(i => i.id === parseInt(itemId));
+      if (index !== -1) {
+        dataArray[index] = { ...dataArray[index], ...updateData, title, name: title };
+      }
+      
+      window.editingItem = null;
+      refreshMarkers();
+      playPaymentSound();
+      showNotification('✅ Modifications enregistrées !', 'success');
+      
+      setTimeout(() => showMesAnnoncesModal(), 500);
+    } else {
+      const err = await response.json();
+      showNotification('❌ Erreur: ' + (err.error || 'Impossible de modifier'), 'error');
+    }
+  } catch (error) {
+    console.error('Erreur modification:', error);
+    showNotification('❌ Erreur de connexion', 'error');
+  }
+}
+
+// Confirmation de suppression
+function confirmDeleteEvent(itemId, itemType) {
+  const modal = document.getElementById('publish-modal-inner');
+  if (!modal) return;
+  
+  modal.innerHTML = `
+    <div style="padding:40px;text-align:center;max-width:400px;margin:0 auto;">
+      <div style="font-size:64px;margin-bottom:20px;">🗑️</div>
+      <h2 style="color:#fff;margin-bottom:16px;">Supprimer cette annonce ?</h2>
+      <p style="color:var(--ui-text-muted);margin-bottom:24px;">Cette action est irréversible. L'annonce sera définitivement supprimée.</p>
+      <div style="display:flex;gap:12px;justify-content:center;">
+        <button id="delete-cancel-btn" style="padding:12px 24px;border-radius:12px;border:1px solid rgba(255,255,255,0.2);background:transparent;color:#fff;font-weight:600;cursor:pointer;">Annuler</button>
+        <button id="delete-confirm-btn" style="padding:12px 24px;border-radius:12px;border:none;background:#dc2626;color:#fff;font-weight:600;cursor:pointer;">🗑️ Supprimer</button>
+      </div>
+    </div>
+  `;
+  
+  document.getElementById('delete-cancel-btn')?.addEventListener('click', () => showMesAnnoncesModal());
+  document.getElementById('delete-confirm-btn')?.addEventListener('click', () => deleteEvent(itemId, itemType));
+}
+
+// Supprimer une annonce
+async function deleteEvent(itemId, itemType) {
+  const token = typeof getAuthToken === 'function' ? getAuthToken() : localStorage.getItem('accessToken');
+  if (!token) { showNotification('❌ Vous devez être connecté', 'error'); return; }
+  
+  try {
+    const endpoint = itemType === 'event' ? 'events' : itemType === 'booking' ? 'bookings' : 'services';
+    const response = await fetch(window.API_BASE_URL + '/' + endpoint + '/' + itemId, {
+      method: 'DELETE',
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    
+    if (response.ok) {
+      showNotification('🗑️ Annonce supprimée', 'success');
+      
+      // Supprimer localement aussi
+      if (itemType === 'event') {
+        eventsData = eventsData.filter(e => e.id !== itemId);
+        window.eventsData = eventsData;
+      } else if (itemType === 'booking') {
+        bookingsData = bookingsData.filter(b => b.id !== itemId);
+        window.bookingsData = bookingsData;
+      } else if (itemType === 'service') {
+        servicesData = servicesData.filter(s => s.id !== itemId);
+        window.servicesData = servicesData;
+      }
+      
+      refreshMarkers();
+      showMesAnnoncesModal();
+    } else {
+      const err = await response.json();
+      showNotification('❌ ' + (err.error || 'Erreur de suppression'), 'error');
+      showMesAnnoncesModal();
+    }
+  } catch (err) {
+    console.error('Erreur suppression:', err);
+    showNotification('❌ Erreur de connexion', 'error');
+    showMesAnnoncesModal();
+  }
 }
 
 // Fonction pour centrer la map sur un item et ouvrir sa popup
@@ -23513,7 +24290,12 @@ function showAccountModalTab(tab) {
     const agendaItems = (currentUser.agenda || []).map(key => {
       const [type, id] = key.split(":");
       const data = type === "event" ? eventsData : type === "booking" ? bookingsData : servicesData;
-      return data.find(i => i.id === parseInt(id));
+      const item = data.find(i => i.id === parseInt(id));
+      // ⚠️ CRITIQUE : S'assurer que item.type est défini
+      if (item && !item.type) {
+        item.type = type;
+      }
+      return item;
     }).filter(Boolean);
     
     tabContent = `
@@ -23529,20 +24311,21 @@ function showAccountModalTab(tab) {
           <div style="display:flex;flex-direction:column;gap:12px;">
             ${agendaItems.slice(0, 10).map(item => {
               const imgTag = buildMainImageTag(item, item.title || item.name || "");
+              const itemType = item.type || 'event';
               return `
-                <div onclick="openPopupFromList('${item.type}', ${item.id}); closePublishModal();" style="display:flex;gap:12px;padding:12px;border-radius:12px;background:rgba(15,23,42,0.5);border:1px solid var(--ui-card-border);cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='rgba(0,255,195,0.1)';this.style.borderColor='rgba(0,255,195,0.5)'" onmouseout="this.style.background='rgba(15,23,42,0.5)';this.style.borderColor='var(--ui-card-border)'">
+                <div onclick="openPopupFromList('${itemType}', ${item.id}); closePublishModal();" style="display:flex;gap:12px;padding:12px;border-radius:12px;background:rgba(15,23,42,0.5);border:1px solid var(--ui-card-border);cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='rgba(0,255,195,0.1)';this.style.borderColor='rgba(0,255,195,0.5)'" onmouseout="this.style.background='rgba(15,23,42,0.5)';this.style.borderColor='var(--ui-card-border)'">
                   <div style="width:80px;height:80px;border-radius:8px;overflow:hidden;flex-shrink:0;">
                     ${imgTag}
-          </div>
+                  </div>
                   <div style="flex:1;min-width:0;">
                     <div style="font-weight:600;font-size:14px;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(item.title || item.name || 'Sans titre')}</div>
                     <div style="font-size:12px;color:var(--ui-text-muted);margin-bottom:4px;">${getCategoryEmoji(item)} ${item.category || 'Autre'}</div>
                     ${item.startDate ? `<div style="font-size:11px;color:var(--ui-text-muted);">📅 ${formatDate(item.startDate)}</div>` : ''}
-          </div>
-          </div>
+                  </div>
+                </div>
               `;
             }).join('')}
-        </div>
+          </div>
         `}
       </div>
     `;
@@ -24464,6 +25247,7 @@ function focusOnItem(type, id) {
 // UTILITAIRES
 // ============================================
 function formatEventDateRange(startIso, endIso) {
+  // Date obligatoire - référence: js/core/utils.js
   if (!startIso || !endIso) return "";
   const s = new Date(startIso);
   const e = new Date(endIso);
@@ -24879,27 +25663,10 @@ function initWebSocket() {
 }
 
 // Vérifier les nouvelles notifications
+// DÉSACTIVÉ TEMPORAIREMENT - route /api/social/alerts pas encore créée
 async function checkForNewNotifications() {
-  if (!currentUser || !currentUser.isLoggedIn) return;
-  
-  try {
-    const response = await fetch(`${window.API_BASE_URL}/social/alerts?userId=${currentUser.id}&unreadOnly=true`);
-    if (response.ok) {
-      const data = await response.json();
-      if (data.alerts && data.alerts.length > 0) {
-        // Ajouter les nouvelles alertes
-        data.alerts.forEach(alert => {
-          if (!currentUser.socialAlerts.find(a => a.id === alert.id)) {
-            currentUser.socialAlerts.push(alert);
-          }
-        });
-        saveUserData();
-        updateSocialAlertsCount();
-      }
-    }
-  } catch (error) {
-    console.error('Erreur vérification notifications:', error);
-  }
+  // Route pas encore implémentée côté backend - évite le spam de 404
+  return;
 }
 
 // Vérifier les nouveaux messages dans les groupes actifs
@@ -26559,8 +27326,8 @@ async function loadCurrentUserFromAPI() {
         avatar: avatarUrl || '👤' // Fallback emoji
       };
       
-      // Sauvegarder dans localStorage
-      localStorage.setItem('currentUser', JSON.stringify(currentUser));
+      // NE PAS sauvegarder currentUser dans localStorage (trop volumineux, cause quota exceeded)
+      // Les tokens sont déjà stockés séparément, le profil est chargé depuis l'API à chaque fois
       console.log('[AUTH] Utilisateur charge depuis /api/user/me:', user.email);
       console.log('[AVATAR] Avatar normalise:', avatarUrl ? avatarUrl.substring(0, 50) + '...' : 'null (emoji)');
       
@@ -26638,7 +27405,7 @@ async function loadCurrentUserFromAPI() {
             avatar: avatarUrl || '👤' // Fallback emoji
           };
           
-          localStorage.setItem('currentUser', JSON.stringify(currentUser));
+          // NE PAS stocker currentUser dans localStorage (cause quota exceeded)
           console.log('[AUTH] Utilisateur charge apres refresh:', user.email);
           console.log('[AVATAR] Avatar normalise apres refresh:', avatarUrl ? avatarUrl.substring(0, 50) + '...' : 'null (emoji)');
           
@@ -28396,9 +29163,24 @@ async function loadEventsFromBackend() {
     // Traiter les événements du backend
     if (backendResponse.status === 'fulfilled' && backendResponse.value.ok) {
       try {
-        const backendEvents = await backendResponse.value.json();
+        const rawBackendEvents = await backendResponse.value.json();
+        // ⚠️ CRITIQUE : Transformer latitude/longitude en lat/lng pour la carte
+        const backendEvents = rawBackendEvents.map(e => ({
+          ...e,
+          type: 'event',
+          lat: e.latitude || e.lat,
+          lng: e.longitude || e.lng,
+          // Compatibilité avec le format frontend
+          startDate: e.date ? new Date(e.date + (e.time ? 'T' + e.time : '')) : null,
+          endDate: e.end_date ? new Date(e.end_date + (e.end_time ? 'T' + e.end_time : '')) : null,
+          address: e.location || e.address || '',
+          boost: '1.-',
+          likes: e.likes || 0,
+          favorites: e.favorites || 0,
+          participations: e.participations || 0
+        }));
         allNewEvents.push(...backendEvents);
-        console.log(`✅ ${backendEvents.length} événements du backend chargés`);
+        console.log(`✅ ${backendEvents.length} événements du backend chargés (transformés lat/lng)`);
       } catch (e) {
         console.warn('Erreur parsing backend:', e);
       }

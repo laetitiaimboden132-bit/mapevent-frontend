@@ -1,7 +1,41 @@
 /**
  * MODULE AUTHENTIFICATION - MapEventAI
- * VERSION: 2026-01-16-104800-FIX-NORMALIZED-PHOTODATA
- * 
+ * VERSION: 2026-02-04-v3
+ */
+
+// ===============================
+// PROTECTION LOCALSTORAGE MINIMALE
+// ===============================
+// On bloque SEULEMENT currentUser (cause du quota), on garde TOUT le reste
+(function() {
+  'use strict';
+  if (window.__storageProtected) return;
+  window.__storageProtected = true;
+  
+  // Supprimer UNIQUEMENT currentUser (c'est lui qui cause le quota exceeded)
+  try { localStorage.removeItem('currentUser'); } catch(e) {}
+  try { sessionStorage.removeItem('currentUser'); } catch(e) {}
+  
+  // Surcharger setItem pour bloquer UNIQUEMENT currentUser
+  const origSet = localStorage.setItem.bind(localStorage);
+  localStorage.setItem = function(key, value) {
+    if (key === 'currentUser') {
+      // Ignorer silencieusement - currentUser est en mémoire
+      return;
+    }
+    try {
+      origSet(key, value);
+    } catch(e) {
+      // Si erreur quota, supprimer currentUser et réessayer
+      try { localStorage.removeItem('currentUser'); } catch(e2) {}
+      try { origSet(key, value); } catch(e3) {}
+    }
+  };
+  
+  console.log('[AUTH] Protection currentUser activée');
+})();
+
+/**
  * Ce fichier contient toutes les fonctions liées à l'authentification :
  * - Gestion des tokens (getAuthToken, getRefreshToken)
  * - OAuth Google (startGoogleLogin, handleCognitoCallbackIfPresent)

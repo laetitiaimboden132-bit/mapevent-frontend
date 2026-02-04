@@ -102,18 +102,18 @@
         }
         
         .marker-cluster:hover div {
-            transform: scale(1.12);
-            box-shadow: 0 6px 20px rgba(0,0,0,0.4), 0 0 0 3px rgba(255,255,255,0.2);
+            transform: scale(1.08);
+            box-shadow: 0 3px 12px rgba(0,0,0,0.25), 0 0 0 2px rgba(255,255,255,0.12);
         }
         
-        /* Animation pulse sur les gros clusters (dégradé conservé) */
+        /* Animation pulse douce sur les gros clusters */
         .marker-cluster-large div {
-            animation: cluster-pulse 2s ease-in-out infinite;
+            animation: cluster-pulse 2.5s ease-in-out infinite;
         }
         
         @keyframes cluster-pulse {
-            0%, 100% { box-shadow: 0 4px 16px rgba(0,0,0,0.35), 0 0 0 2px rgba(255,255,255,0.15); }
-            50% { box-shadow: 0 6px 24px rgba(0,0,0,0.45), 0 0 0 3px rgba(255,255,255,0.25); }
+            0%, 100% { box-shadow: 0 2px 10px rgba(0,0,0,0.2), 0 0 0 1px rgba(255,255,255,0.1); }
+            50% { box-shadow: 0 4px 14px rgba(0,0,0,0.28), 0 0 0 2px rgba(255,255,255,0.15); }
         }
         
         /* Ligne de spiderfy */
@@ -2761,10 +2761,28 @@
 
     <!-- SCRIPT DE FALLBACK SUPPRIMÉ - Le formulaire s'affiche uniquement dans le callback OAuth après validation Google -->
     
+    <!-- ⚠️ NETTOYAGE AGRESSIF LOCALSTORAGE - Doit être AVANT tous les autres scripts -->
+    <script>
+    (function() {
+      try {
+        // Liste des clés ESSENTIELLES à garder - tout le reste sera supprimé
+        var KEEP = ['currentUser','accessToken','refreshToken','id_token','stayLoggedIn','theme','language','userLang','lastMode','filtersState','mapCenter','mapZoom','cookiesAccepted','userPosition','pendingPublishData'];
+        var allKeys = [];
+        for (var i = 0; i < localStorage.length; i++) { allKeys.push(localStorage.key(i)); }
+        var removed = 0;
+        allKeys.forEach(function(k) {
+          if (k && KEEP.indexOf(k) === -1) {
+            try { localStorage.removeItem(k); removed++; } catch(e) {}
+          }
+        });
+        if (removed > 0) { console.log('[STORAGE] Nettoyage agressif: ' + removed + ' entrées non-essentielles supprimées'); }
+      } catch (e) { console.warn('[STORAGE] Erreur nettoyage:', e); }
+    })();
+    </script>
     <!-- Modules core et services (doit être chargé avant auth.js) -->
     <script type="module" src="js/load-modules.js"></script>
     <!-- Module AUTH (fonctions d'authentification) -->
-    <script src="auth.js?v=20260126-100851-OAUTH-FIX"></script>
+    <script src="auth.js?v=20260204-105800-AGGRESSIVE-CLEAN"></script>
     <!-- Script de diagnostic username (développement uniquement) -->
     <script>
       // Exposer une fonction globale pour lancer le diagnostic
@@ -2784,7 +2802,7 @@
       console.log('%c💡 Ou ouvrez: tests/diagnostic/DIAGNOSTIC_USERNAME_CONSOLE.txt et copiez-collez le code', 'color: #00ffc3; font-weight: bold;');
     </script>
     <!-- Logique principale de la carte -->
-    <script src="map_logic.js?v=20260124-193500-FULL-RESTORE"></script>
+    <script src="map_logic.js?v=20260204-105800-AGGRESSIVE-CLEAN"></script>
     <!-- Script pour mettre à jour les métadonnées Open Graph immédiatement au chargement -->
     <script>
       // Mettre à jour les métadonnées Open Graph dès le chargement de la page
@@ -2933,31 +2951,49 @@
         
         const popup = document.createElement('div');
         popup.id = 'welcome-popup-overlay';
-        popup.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
+        popup.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;-webkit-tap-highlight-color:transparent;';
+        popup.setAttribute('role', 'dialog');
+        popup.setAttribute('aria-label', 'Bienvenue MapEvent');
+        popup.onclick = function(e) {
+          if (e.target === popup) {
+            if (typeof closeWelcomePopup === 'function') closeWelcomePopup();
+          }
+        };
         
         popup.innerHTML = `
-          <div style="background:var(--ui-card-bg, #1a1a2e);border-radius:20px;padding:30px;max-width:400px;text-align:center;border:1px solid rgba(148,163,184,0.3);">
+          <div class="welcome-popup-card" style="background:var(--ui-card-bg, #1a1a2e);border-radius:20px;padding:30px;max-width:400px;text-align:center;border:1px solid rgba(148,163,184,0.3);" onclick="event.stopPropagation();">
             <div style="font-size:48px;margin-bottom:16px;">🗺️</div>
             <h2 style="color:#fff;margin:0 0 12px;font-size:24px;">Bienvenue sur MapEvent</h2>
             <p style="color:#9ca3af;margin:0 0 20px;font-size:14px;line-height:1.5;">
               Site actif sauf abonnements et fonctions sociales à venir.
             </p>
             ${isMobile && window.pwaInstallPrompt ? `
-              <button onclick="installPWA().then(()=>closeWelcomePopup())" class="pwa-install-btn" style="margin-bottom:12px;display:flex;align-items:center;gap:8px;padding:14px 20px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border:none;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;width:100%;justify-content:center;">
+              <button type="button" class="pwa-install-btn" style="margin-bottom:12px;display:flex;align-items:center;gap:8px;padding:14px 20px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border:none;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;width:100%;justify-content:center;-webkit-tap-highlight-color:transparent;">
                 📱 Installer l'app mobile
               </button>
             ` : isMobile ? `
-              <button onclick="installPWA()" class="pwa-install-btn" style="margin-bottom:12px;display:flex;align-items:center;gap:8px;padding:14px 20px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border:none;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;width:100%;justify-content:center;">
+              <button type="button" class="pwa-install-btn" style="margin-bottom:12px;display:flex;align-items:center;gap:8px;padding:14px 20px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border:none;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;width:100%;justify-content:center;-webkit-tap-highlight-color:transparent;">
                 📱 Version smartphone
               </button>
             ` : ''}
-            <button onclick="closeWelcomePopup()" style="padding:12px 24px;background:rgba(255,255,255,0.1);color:#fff;border:1px solid rgba(255,255,255,0.2);border-radius:12px;font-size:14px;cursor:pointer;width:100%;">
+            <button type="button" id="welcome-continuer-btn" style="padding:14px 24px;min-height:48px;background:linear-gradient(135deg,#00ffc3,#3b82f6);color:#000;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;width:100%;-webkit-tap-highlight-color:transparent;">
               Continuer sur le site
             </button>
           </div>
         `;
         
         document.body.appendChild(popup);
+        var continuerBtn = document.getElementById('welcome-continuer-btn');
+        var pwaBtn = popup.querySelector('.pwa-install-btn');
+        function doClose() { if (typeof closeWelcomePopup === 'function') closeWelcomePopup(); }
+        if (continuerBtn) {
+          continuerBtn.addEventListener('click', doClose);
+          continuerBtn.addEventListener('touchend', function(e) { e.preventDefault(); doClose(); }, { passive: false });
+        }
+        if (pwaBtn) {
+          pwaBtn.addEventListener('click', function() { if (typeof installPWA === 'function') installPWA().then(doClose); });
+          pwaBtn.addEventListener('touchend', function(e) { e.preventDefault(); if (typeof installPWA === 'function') installPWA().then(doClose); }, { passive: false });
+        }
       };
       
       window.closeWelcomePopup = function() {

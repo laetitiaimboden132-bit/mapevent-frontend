@@ -302,7 +302,11 @@
         "CrossFit",
         "Football",
         "Volleyball",
-        "Tennis"
+        "Tennis",
+        "Handball",
+        "Rugby",
+        "Basket",
+        "Golf"
       ],
       "Aériens": [
         "Parapente",
@@ -316,6 +320,7 @@
         "Ski",
         "Snowboard",
         "Patinage",
+        "Hockey",
         "Luge",
         "Trottinette freestyle",
         "Longboard"

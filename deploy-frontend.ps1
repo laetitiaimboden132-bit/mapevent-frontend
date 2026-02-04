@@ -68,12 +68,14 @@ if ($CLOUDFRONT_DISTRIBUTION_ID) {
     Write-Host "   Distribution ID: $CLOUDFRONT_DISTRIBUTION_ID" -ForegroundColor Gray
     
     try {
-        # Invalider spécifiquement les fichiers modifiés
+        # Invalider spécifiquement les fichiers modifiés + arbre catégories + images
         $paths = @(
             "/map_logic.js*",
             "/auth.js*",
             "/mapevent.html*",
-            "/index.html*"
+            "/index.html*",
+            "/trees/*",
+            "/assets/category_images/*"
         )
         
         Write-Host "   Chemins a invalider:" -ForegroundColor Gray
@@ -81,8 +83,8 @@ if ($CLOUDFRONT_DISTRIBUTION_ID) {
             Write-Host "     - $path" -ForegroundColor Gray
         }
         
-        # Créer l'invalidation avec les chemins spécifiques
-        $invalidationId = aws cloudfront create-invalidation --distribution-id $CLOUDFRONT_DISTRIBUTION_ID --paths "/map_logic.js*" "/auth.js*" "/mapevent.html*" "/index.html*" --query "Invalidation.Id" --output text
+        # Créer l'invalidation avec les chemins spécifiques (arbre + assets catégories inclus)
+        $invalidationId = aws cloudfront create-invalidation --distribution-id $CLOUDFRONT_DISTRIBUTION_ID --paths "/map_logic.js*" "/auth.js*" "/mapevent.html*" "/index.html*" "/trees/*" "/assets/category_images/*" --query "Invalidation.Id" --output text
         
         if ($LASTEXITCODE -ne 0) {
             throw "Erreur lors de l'invalidation"
