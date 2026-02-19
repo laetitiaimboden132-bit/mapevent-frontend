@@ -1,36 +1,52 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="fr" style="background:#020617;">
 <head>
+    <!-- CRITICAL: Premier paint toujours sombre, jamais blanc -->
+    <style>html,body{background:#020617!important;margin:0;min-height:100vh;min-height:100dvh;overflow-x:hidden}#topbar{position:fixed!important;top:0!important;left:0!important;right:0!important;height:64px!important;z-index:100!important;background:#020617!important;display:flex!important;align-items:center!important;visibility:visible!important;opacity:1!important}#map{background:#020617!important;position:absolute;top:64px;left:0;right:0;bottom:0;min-height:50vh;min-height:calc(100dvh - 64px);z-index:5}.leaflet-container{background:#0f172a!important}@media(max-width:768px){#map{top:56px!important;bottom:60px!important;min-height:200px!important}#topbar{height:56px!important}}#app-loader{position:fixed;inset:0;z-index:9999;background:#020617;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity .4s}#app-loader.hide{opacity:0;pointer-events:none}#app-loader .spinner{width:40px;height:40px;border:3px solid rgba(0,255,195,.2);border-top-color:#00ffc3;border-radius:50%;animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}#app-loader .logo{color:#00ffc3;font-size:22px;font-weight:800;margin-bottom:16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}</style>
+    <!-- Preconnect CDN Cloudflare (Leaflet, MarkerCluster) -->
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
+    <!-- Preconnect vers l'API Lambda pour eviter le cold start -->
+    <link rel="preconnect" href="https://ctp67u5hgni2rbfr3kp4p74kxa0gxycf.lambda-url.eu-west-1.on.aws" crossorigin>
+    <link rel="dns-prefetch" href="https://ctp67u5hgni2rbfr3kp4p74kxa0gxycf.lambda-url.eu-west-1.on.aws">
+    <!-- Preconnect pour les tuiles de carte -->
+    <link rel="preconnect" href="https://a.tile.openstreetmap.org" crossorigin>
+    <link rel="dns-prefetch" href="https://a.tile.openstreetmap.org">
     <meta charset="UTF-8">
-    <title>MAP EVENT SUISSE – PRO</title>
+    <title>MapEvent – Carte mondiale des événements, bookings et services</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <!-- CSP SUPPRIMÉE - L'extension de navigateur injecte sa propre CSP restrictive -->
     <!-- Pas de CSP dans le HTML pour éviter les conflits avec l'extension -->
     
-    <!-- Open Graph / Facebook -->
+    <!-- Meta standard SEO -->
+    <meta name="description" content="Trouvez des événements, artistes à réserver et services professionnels partout dans le monde sur une seule carte interactive. Gratuit." id="meta-description">
+    <meta name="keywords" content="événements, carte, concerts, festivals, booking, artistes, services, agenda, gratuit, mapevent">
+    <meta name="author" content="MapEvent">
+    <link rel="canonical" href="https://mapevent.world/">
+
+    <!-- Open Graph / Facebook / WhatsApp / Discord -->
     <meta property="og:type" content="website" id="og-type">
     <meta property="og:url" content="https://mapevent.world/" id="og-url">
-    <meta property="og:title" content="MAP EVENT SUISSE – PRO" id="og-title">
-    <meta property="og:description" content="Découvrez les événements près de chez vous sur la carte interactive MapEvent" id="og-description">
-    <meta property="og:image" content="https://mapevent.world/assets/category_images/event/eventdefault.jpg" id="og-image">
+    <meta property="og:title" content="MapEvent – Événements, Bookings et Services sur une carte" id="og-title">
+    <meta property="og:description" content="Trouvez des événements, artistes à réserver et services professionnels partout dans le monde. 3 cartes en 1, gratuit." id="og-description">
+    <meta property="og:image" content="https://mapevent.world/assets/og-preview.png" id="og-image">
     <meta property="og:image:width" content="1200" id="og-image-width">
     <meta property="og:image:height" content="630" id="og-image-height">
+    <meta property="og:image:alt" content="MapEvent - Carte mondiale des événements">
     <meta property="og:site_name" content="MapEvent">
     <meta property="og:locale" content="fr_FR">
     
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" id="twitter-card">
     <meta name="twitter:url" content="https://mapevent.world/" id="twitter-url">
-    <meta name="twitter:title" content="MAP EVENT SUISSE – PRO" id="twitter-title">
-    <meta name="twitter:description" content="Découvrez les événements près de chez vous sur la carte interactive MapEvent" id="twitter-description">
-    <meta name="twitter:image" content="https://mapevent.world/assets/category_images/event/eventdefault.jpg" id="twitter-image">
-    
-    <!-- Meta standard -->
-    <meta name="description" content="Découvrez les événements près de chez vous sur la carte interactive MapEvent" id="meta-description">
+    <meta name="twitter:title" content="MapEvent – Événements, Bookings et Services sur une carte" id="twitter-title">
+    <meta name="twitter:description" content="Trouvez des événements, artistes à réserver et services professionnels partout dans le monde. 3 cartes en 1, gratuit." id="twitter-description">
+    <meta name="twitter:image" content="https://mapevent.world/assets/og-preview.png" id="twitter-image">
+    <meta name="twitter:image:alt" content="MapEvent - Carte mondiale des événements">
 
     <!-- PWA (id + start_url absolue dans manifest = raccourci plus persistant) -->
     <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="#667eea">
+    <meta name="theme-color" content="#020617">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="MapEvent">
@@ -40,32 +56,67 @@
     <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
     <link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512.png">
 
-    <!-- Leaflet -->
+    <!-- Leaflet (cdnjs - CDN rapide et fiable) -->
     <link
       rel="stylesheet"
-      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"
       crossorigin=""
     />
     <script
-      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"
       crossorigin=""
+      defer
     ></script>
     
-    <!-- Leaflet MarkerCluster - Regroupement intelligent des marqueurs (style pro) -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
-    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+    <!-- Leaflet MarkerCluster (cdnjs) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.js" defer></script>
     
-    <!-- Stripe.js -->
-    <script src="https://js.stripe.com/v3/"></script>
+    <!-- Stripe.js - chargé à la demande pour ne pas ralentir le premier affichage -->
+    <!-- Voir window.loadStripe() ci-dessous -->
 
-    <!-- Google Identity Services -->
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <!-- Google Identity Services - chargé à la demande pour ne pas ralentir le premier affichage -->
+    <!-- Voir window.loadGoogleIdentity() ci-dessous -->
     
-    <!-- Service IndexedDB (plus simple que Firestore, pas de configuration nécessaire) -->
-    <script src="indexeddb_service.js"></script>
+    <!-- Lazy-loaders pour scripts lourds non-critiques -->
+    <script>
+    // Stripe : chargé uniquement quand on ouvre un paiement
+    window._stripeLoaded = false;
+    window.loadStripe = function() {
+      return new Promise(function(resolve) {
+        if (window._stripeLoaded || window.Stripe) { resolve(); return; }
+        var s = document.createElement('script');
+        s.src = 'https://js.stripe.com/v3/';
+        s.onload = function() { window._stripeLoaded = true; resolve(); };
+        s.onerror = function() { resolve(); };
+        document.head.appendChild(s);
+      });
+    };
+    // Google Identity : chargé uniquement quand on ouvre la connexion
+    window._gsiLoaded = false;
+    window.loadGoogleIdentity = function() {
+      return new Promise(function(resolve) {
+        if (window._gsiLoaded || (window.google && window.google.accounts)) { resolve(); return; }
+        var s = document.createElement('script');
+        s.src = 'https://accounts.google.com/gsi/client';
+        s.onload = function() { window._gsiLoaded = true; resolve(); };
+        s.onerror = function() { resolve(); };
+        document.head.appendChild(s);
+      });
+    };
+    // Pré-charger ces scripts après le premier affichage (idle time)
+    if ('requestIdleCallback' in window) {
+      requestIdleCallback(function() { window.loadGoogleIdentity(); window.loadStripe(); }, {timeout: 5000});
+    } else {
+      setTimeout(function() { window.loadGoogleIdentity(); window.loadStripe(); }, 3000);
+    }
+    </script>
+    
+    <!-- VIEWPORT PROGRESSIF: Les events sont chargés dynamiquement selon le zoom/viewport -->
+    <!-- Plus de prefetch massif - chargement par zone visible uniquement -->
+    <!-- Service IndexedDB - defer pour ne pas bloquer le premier rendu -->
+    <script src="indexeddb_service.js" defer></script>
 
     <style>
         :root {
@@ -103,7 +154,7 @@
         
         .marker-cluster:hover div {
             transform: scale(1.08);
-            box-shadow: 0 3px 12px rgba(0,0,0,0.25), 0 0 0 2px rgba(255,255,255,0.12);
+            box-shadow: 0 3px 12px rgba(0,0,0,0.25), 0 0 0 1px rgba(255,255,255,0.15);
         }
         
         /* Animation pulse douce sur les gros clusters */
@@ -112,14 +163,29 @@
         }
         
         @keyframes cluster-pulse {
-            0%, 100% { box-shadow: 0 2px 10px rgba(0,0,0,0.2), 0 0 0 1px rgba(255,255,255,0.1); }
-            50% { box-shadow: 0 4px 14px rgba(0,0,0,0.28), 0 0 0 2px rgba(255,255,255,0.15); }
+            0%, 100% { box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+            50% { box-shadow: 0 3px 12px rgba(0,0,0,0.28), 0 0 0 1px rgba(255,255,255,0.12); }
         }
         
-        /* Ligne de spiderfy */
+        /* Ligne de spiderfy - animation fluide quand les marqueurs se déplient */
         .leaflet-cluster-anim .leaflet-marker-icon,
         .leaflet-cluster-anim .leaflet-marker-shadow {
             transition: transform 0.3s ease-out, opacity 0.3s ease-in !important;
+        }
+        
+        /* Lignes de connexion spiderfy (du cluster vers chaque marqueur) */
+        .leaflet-cluster-spider-leg .leaflet-cluster-spider-leg-line {
+            stroke: rgba(255, 255, 255, 0.5);
+            stroke-width: 2;
+        }
+        
+        /* Cluster avec nombre - curseur pointer */
+        .custom-cluster-icon {
+            cursor: pointer;
+        }
+        .custom-cluster-icon:hover {
+            transform: scale(1.1);
+            transition: transform 0.15s ease;
         }
         
         /* Style simple pour les inputs autofill */
@@ -128,9 +194,13 @@
             -webkit-text-fill-color: var(--ui-text-main) !important;
         }
 
-        body {
+        html, body {
             margin: 0;
+            height: 100%;
+            min-height: 100vh;
+            min-height: 100dvh;
             font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+            background: #020617;
             background: var(--ui-body-bg);
             color: var(--ui-text-main);
             overflow: hidden;
@@ -388,7 +458,7 @@
             color:#000;
         }
 
-        /* MAP */
+        /* MAP - visible immédiatement, pas d'écran blanc/noir */
         #map {
             position:absolute;
             top:64px;
@@ -396,6 +466,10 @@
             right:0;
             bottom:0;
             z-index: 5;
+            background:#020617;
+            min-height:50vh;
+            min-height:calc(100dvh - 64px);
+            will-change:transform;
         }
 
         /* SEARCH */
@@ -433,7 +507,7 @@
             box-shadow:var(--btn-main-shadow);
         }
 
-        /* FILTER PANEL */
+        /* FILTER PANEL - contenant optimisé pour réactivité */
         #left-panel {
             position:absolute;
             top:80px;
@@ -446,10 +520,11 @@
             padding:14px;
             overflow-y:auto;
             display:none;
-            z-index:80; /* Au-dessus du modal de publication (60) pour pouvoir travailler sur les deux */
+            z-index:80;
             color:var(--ui-text-main);
             font-size:13px;
             box-shadow:0 20px 60px rgba(0,0,0,0.5);
+            will-change:transform;
         }
 
         /* LIST VIEW */
@@ -2428,15 +2503,16 @@
                 font-size: 14px !important;
             }
             
-            /* CARTE - Ajuster les marges */
+            /* CARTE - Visible immédiatement sur mobile */
             #map {
                 top: 56px !important;
                 bottom: 60px !important;
+                min-height: 200px !important;
             }
             
-            /* BARRE D'ACTIONS MOBILE - En haut de la carte */
+            /* BARRE D'ACTIONS MOBILE - Sous la barre catégories (56px topbar + 46px chips + 8px gap) */
             #map-search-container {
-                top: 64px !important;
+                top: 110px !important;
                 left: 8px !important;
                 right: auto !important;
                 width: calc(100% - 130px) !important;
@@ -2448,9 +2524,9 @@
                 font-size: 14px !important;
             }
             
-            /* Bouton Publier - À droite sur mobile */
+            /* Bouton Publier - À droite, aligné avec la recherche */
             #map-publish-btn {
-                top: 64px !important;
+                top: 110px !important;
                 right: 8px !important;
                 padding: 10px 14px !important;
                 font-size: 13px !important;
@@ -2510,6 +2586,61 @@
                 margin-bottom: 2px !important;
             }
             
+            /* Chips catégories scrollables - visible sur mobile */
+            .category-chips-bar {
+                display: block !important;
+                position: fixed !important;
+                top: 56px !important;
+                left: 0 !important;
+                right: 0 !important;
+                height: 46px !important;
+                z-index: 75 !important;
+                background: rgba(2,6,23,0.92) !important;
+                backdrop-filter: blur(10px) !important;
+                -webkit-backdrop-filter: blur(10px) !important;
+                border-bottom: 1px solid rgba(148,163,184,0.2) !important;
+            }
+            .category-chips-bar::-webkit-scrollbar,
+            #category-chips-inner::-webkit-scrollbar { display: none !important; }
+            
+            /* Mode découverte - cartes swipe horizontales (au-dessus nav + mini-player) */
+            .discovery-carousel {
+                display: block !important;
+                position: fixed !important;
+                bottom: 72px !important;
+                left: 0 !important;
+                right: 0 !important;
+                height: 130px !important;
+                z-index: 70 !important;
+                overflow: hidden;
+                pointer-events: none;
+            }
+            .discovery-carousel.has-items { pointer-events: auto; }
+            #discovery-carousel-inner {
+                display: flex !important;
+                gap: 12px !important;
+                padding: 12px 16px !important;
+                overflow-x: auto !important;
+                scroll-snap-type: x mandatory !important;
+                -webkit-overflow-scrolling: touch !important;
+                scrollbar-width: none !important;
+                height: 100% !important;
+            }
+            #discovery-carousel-inner::-webkit-scrollbar { display: none !important; }
+            .discovery-card {
+                flex-shrink: 0 !important;
+                width: 260px !important;
+                min-height: 90px !important;
+                scroll-snap-align: center !important;
+                border-radius: 12px !important;
+                overflow: hidden !important;
+                background: var(--ui-card-bg) !important;
+                border: 1px solid var(--ui-card-border) !important;
+                cursor: pointer !important;
+                transition: transform 0.2s !important;
+            }
+            .discovery-card:active { transform: scale(0.98); }
+            
             /* Liste view sur mobile */
             #list-view {
                 top: 56px !important;
@@ -2519,6 +2650,43 @@
             /* Modals sur mobile - Plein écran */
             .modal-backdrop {
                 padding: 0 !important;
+            }
+            
+            /* Formulaire publication plein écran sur mobile */
+            #publish-modal-backdrop {
+                align-items: stretch !important;
+                justify-content: center !important;
+            }
+            #publish-modal {
+                top: 0 !important;
+                right: 0 !important;
+                left: 0 !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                height: 100% !important;
+                max-height: 100% !important;
+                border-radius: 0 !important;
+                margin: 0 !important;
+                display: flex !important;
+                flex-direction: column !important;
+            }
+            #publish-modal-inner {
+                flex: 1 !important;
+                min-height: 0 !important;
+                display: flex !important;
+                flex-direction: column !important;
+                overflow: hidden !important;
+            }
+            #publish-modal-inner form {
+                flex: 1 !important;
+                min-height: 0 !important;
+                display: flex !important;
+                flex-direction: column !important;
+            }
+            #publish-modal-inner form > div:first-of-type {
+                flex: 1 !important;
+                min-height: 0 !important;
+                overflow-y: auto !important;
             }
             
             .modal-container,
@@ -2555,68 +2723,221 @@
         .mobile-nav-bar {
             display: none;
         }
+        
+        .discovery-carousel {
+            display: none !important;
+        }
+        
+        /* Chips catégories - cachés sur desktop */
+        .category-chips-bar {
+            display: none;
+        }
+        
+        /* MINI-PLAYER AUDIO - Fixe en bas, reste visible sur la map (comme Spotify) */
+        #audio-mini-player {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 72px;
+            background: linear-gradient(180deg, rgba(15,23,42,0.98), rgba(15,23,42,0.99));
+            border-top: 1px solid rgba(139,92,246,0.4);
+            z-index: 100000;
+            display: none;
+            align-items: center;
+            gap: 12px;
+            padding: 0 16px;
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.4);
+        }
+        #audio-mini-player.visible {
+            display: flex !important;
+        }
+        @media (max-width: 768px) {
+            #audio-mini-player { bottom: 70px; height: 80px; }
+        }
+        
+        /* Popup bottom sheet style mobile (Google Maps) */
+        @media (max-width: 768px) {
+            #popup-modal-backdrop {
+                align-items: flex-end !important;
+                padding: 0 !important;
+                padding-top: 0 !important;
+            }
+            #popup-modal-content {
+                width: 100% !important;
+                max-width: 100% !important;
+                margin: 0 !important;
+                max-height: 85vh !important;
+                border-radius: 20px 20px 0 0 !important;
+                animation: bottomSheetSlideUp 0.35s cubic-bezier(0.32, 0.72, 0, 1) !important;
+            }
+            @keyframes bottomSheetSlideUp {
+                from { transform: translateY(100%); opacity: 0.9; }
+                to { transform: translateY(0); opacity: 1; }
+            }
+            .popup-drag-handle {
+                width: 40px;
+                height: 4px;
+                background: rgba(148,163,184,0.5);
+                border-radius: 2px;
+                margin: 10px auto 6px;
+                flex-shrink: 0;
+            }
+        }
+        /* Barre d'actions fixe en bas des popups (event/booking/service) */
+        .popup-actions-sticky {
+            background: var(--ui-card-bg, #1e293b) !important;
+            -webkit-backdrop-filter: blur(8px);
+            backdrop-filter: blur(8px);
+        }
+        @media (prefers-color-scheme: light) {
+            .popup-actions-sticky {
+                background: var(--ui-card-bg, #ffffff) !important;
+            }
+        }
     </style>
 </head>
-<body>
+<body style="background:#020617;">
+    <!-- Loading screen visible IMMEDIATEMENT pendant le chargement des scripts -->
+    <div id="app-loader"><div class="logo">MapEvent</div><div class="spinner"></div><div id="loader-status" style="color:#9ca3af;font-size:13px;margin-top:12px;font-family:-apple-system,sans-serif;text-align:center;"></div></div>
+    <!-- FALLBACK v7: Détection PWA ultra-rapide + retry agressif + pageshow + focus -->
+    <script>
+    (function(){
+      var KEY = '__mapevent_retry';
+      var retryCount = 0;
+      try { retryCount = parseInt(sessionStorage.getItem(KEY)) || 0; } catch(e){}
+      
+      // Détecter si on est en mode PWA standalone (raccourci écran d'accueil)
+      var isPWA = false;
+      try { isPWA = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true; } catch(e){}
+      
+      function checkAppLoaded() {
+        var loader = document.getElementById('app-loader');
+        if (!loader || loader.classList.contains('hide')) return;
+        
+        // Si map_logic.js est chargé (définit _hideAppLoader), laisser finir normalement
+        if (typeof window._hideAppLoader === 'function') {
+          setTimeout(function() {
+            var l = document.getElementById('app-loader');
+            if (l && !l.classList.contains('hide')) {
+              l.classList.add('hide');
+              setTimeout(function(){ if(l.parentNode) l.parentNode.removeChild(l); }, 500);
+            }
+          }, 3000);
+          try { sessionStorage.removeItem(KEY); } catch(e){}
+          return;
+        }
+        
+        // JS pas chargé : auto-reload (max 2 tentatives)
+        if (retryCount < 2) {
+          console.warn('[FALLBACK] JS non chargé, auto-reload #' + (retryCount + 1));
+          try { sessionStorage.setItem(KEY, String(retryCount + 1)); } catch(e){}
+          // Forcer update SW
+          if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+            navigator.serviceWorker.controller.postMessage({ type: 'SKIP_WAITING' });
+          }
+          location.reload();
+          return;
+        }
+        
+        // Après 2 auto-retries, montrer un bouton recharger
+        console.warn('[FALLBACK] JS non chargé après 2 retries, affichage bouton');
+        try { sessionStorage.removeItem(KEY); } catch(e){}
+        var status = document.getElementById('loader-status');
+        if (status) {
+          status.innerHTML = '<div>Chargement lent...</div>' +
+            '<button onclick="location.reload()" style="margin-top:16px;padding:12px 32px;background:linear-gradient(135deg,#22c55e,#4ade80);color:#022c22;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;-webkit-tap-highlight-color:transparent;">Recharger</button>' +
+            '<div style="margin-top:10px;font-size:11px;color:#6b7280;">V\u00e9rifiez votre connexion internet</div>';
+        }
+      }
+      
+      // Nettoyer le compteur au bout de 20s si l'app charge normalement
+      setTimeout(function(){ try { sessionStorage.removeItem(KEY); } catch(e){} }, 20000);
+      
+      // Masquer le loader après 2s max (safety net si map_logic lent ou erreur)
+      setTimeout(function() {
+        var l = document.getElementById('app-loader');
+        if (l && !l.classList.contains('hide')) {
+          l.classList.add('hide');
+          setTimeout(function(){ if(l.parentNode) l.parentNode.removeChild(l); }, 500);
+          console.log('[FALLBACK] Loader masqué après 2s');
+        }
+      }, 2000);
+      // PWA standalone = vérifier après 3s (plus agressif)
+      // Navigateur normal = vérifier après 5s
+      setTimeout(checkAppLoaded, isPWA ? 3000 : 5000);
+      
+      // === FIX: pageshow pour bfcache Android Chrome ===
+      window.addEventListener('pageshow', function(e) {
+        if (e.persisted) {
+          setTimeout(function() {
+            var mapEl = document.getElementById('map');
+            if (!mapEl || mapEl.children.length === 0) {
+              console.warn('[FALLBACK] Page bfcache cassée, reload...');
+              location.reload();
+            } else if (typeof L !== 'undefined' && typeof map !== 'undefined' && map && typeof map.invalidateSize === 'function') {
+              try { map.invalidateSize(); } catch(ex) {}
+            }
+          }, 500);
+        }
+      });
+      
+      // === FIX: focus handler pour certains navigateurs mobiles ===
+      var lastFocusCheck = 0;
+      window.addEventListener('focus', function() {
+        var now = Date.now();
+        if (now - lastFocusCheck < 3000) return;
+        lastFocusCheck = now;
+        setTimeout(function() {
+          if (typeof L !== 'undefined' && typeof map !== 'undefined' && map && typeof map.invalidateSize === 'function') {
+            try { map.invalidateSize(); } catch(ex) {}
+          }
+        }, 300);
+      });
+    })();
+    </script>
     <div id="topbar">
         <div class="topbar-left" style="display:flex;align-items:center;gap:12px;">
             <div id="logo-main" style="cursor:pointer;" onclick="openAboutModal()" title="À propos de MapEvent">
                 <div class="logo-icon" style="position:relative;">
-                    <svg width="40" height="40" viewBox="0 0 40 40" fill="none" style="filter:drop-shadow(0 2px 8px rgba(239,68,68,0.6));">
+                    <svg width="42" height="42" viewBox="0 0 42 42" fill="none" style="filter:drop-shadow(0 2px 6px rgba(0,255,195,0.4));">
                         <defs>
-                            <style>
-                                @keyframes logo-halo-pulse {
-                                    0%, 100% { 
-                                        r: 20;
-                                        opacity: 0.5;
-                                    }
-                                    50% { 
-                                        r: 22;
-                                        opacity: 0.8;
-                                    }
-                                }
-                                @keyframes logo-halo-pulse-2 {
-                                    0%, 100% { 
-                                        r: 18;
-                                        opacity: 0.3;
-                                    }
-                                    50% { 
-                                        r: 20;
-                                        opacity: 0.6;
-                                    }
-                                }
-                            </style>
                             <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
                                 <stop offset="0%" stop-color="#00ffc3"/>
                                 <stop offset="100%" stop-color="#3b82f6"/>
                             </linearGradient>
                         </defs>
                         
-                        <!-- Halo animé (Boost) - Double halo - Change avec le thème -->
-                        <circle id="logo-halo-1" cx="20" cy="20" r="20" fill="none" stroke="#00ffc3" stroke-width="2" opacity="0.6">
-                            <animate attributeName="r" values="19;22;19" dur="2s" repeatCount="indefinite"/>
-                            <animate attributeName="opacity" values="0.4;0.7;0.4" dur="2s" repeatCount="indefinite"/>
+                        <!-- Halo anime - Double cercle - Change avec le theme custom -->
+                        <circle id="logo-halo-1" cx="21" cy="21" r="20" fill="none" stroke="#00ffc3" stroke-width="1.5" opacity="0.5">
+                            <animate attributeName="r" values="19;21;19" dur="2.2s" repeatCount="indefinite"/>
+                            <animate attributeName="opacity" values="0.3;0.6;0.3" dur="2.2s" repeatCount="indefinite"/>
                         </circle>
-                        <circle id="logo-halo-2" cx="20" cy="20" r="18" fill="none" stroke="#00ffc3" stroke-width="1.5" opacity="0.4">
-                            <animate attributeName="r" values="17;20;17" dur="2.5s" repeatCount="indefinite"/>
-                            <animate attributeName="opacity" values="0.3;0.6;0.3" dur="2.5s" repeatCount="indefinite"/>
+                        <circle id="logo-halo-2" cx="21" cy="21" r="17" fill="none" stroke="#00ffc3" stroke-width="1" opacity="0.3">
+                            <animate attributeName="r" values="16;19;16" dur="2.8s" repeatCount="indefinite"/>
+                            <animate attributeName="opacity" values="0.2;0.5;0.2" dur="2.8s" repeatCount="indefinite"/>
                         </circle>
                         
-                        <!-- Logo 1 : Cible avec Points Événements (adapté pour 40x40) -->
-                        <g transform="translate(2,2)">
-                            <circle cx="18" cy="18" r="16" fill="url(#logoGrad)" stroke="rgba(255,255,255,0.2)" stroke-width="2"/>
-                            <path d="M18 8 L18 28 M8 18 L28 18" stroke="white" stroke-width="2" stroke-linecap="round" opacity="0.3"/>
-                            <circle cx="18" cy="18" r="6" fill="white"/>
-                            <circle cx="18" cy="18" r="3" fill="url(#logoGrad)"/>
-                            <circle cx="12" cy="12" r="2" fill="#00ffc3"/>
-                            <circle cx="24" cy="14" r="2" fill="#f59e0b"/>
-                            <circle cx="22" cy="24" r="2" fill="#ec4899"/>
+                        <!-- Logo App Mobile: Pin de carte stylise -->
+                        <g transform="translate(8,4)">
+                            <!-- Pin body -->
+                            <path d="M13 0C5.82 0 0 5.82 0 13c0 9.75 13 21 13 21s13-11.25 13-21C26 5.82 20.18 0 13 0z" fill="url(#logoGrad)" stroke="rgba(255,255,255,0.3)" stroke-width="1.5"/>
+                            <!-- Inner circle -->
+                            <circle cx="13" cy="12" r="7" fill="rgba(0,0,0,0.25)"/>
+                            <circle cx="13" cy="12" r="5.5" fill="white"/>
+                            <!-- M letter -->
+                            <text x="13" y="15.5" text-anchor="middle" font-family="system-ui,-apple-system,sans-serif" font-weight="900" font-size="10" fill="url(#logoGrad)">M</text>
+                            <!-- Small event dots -->
+                            <circle cx="5" cy="8" r="1.5" fill="#f59e0b" opacity="0.9"/>
+                            <circle cx="21" cy="8" r="1.5" fill="#ec4899" opacity="0.9"/>
+                            <circle cx="13" cy="4" r="1.2" fill="#fff" opacity="0.7"/>
                         </g>
                     </svg>
                 </div>
                 <div style="display:flex;flex-direction:column;align-items:center;">
                     <div class="text" style="background:linear-gradient(90deg,#00ffc3,#3b82f6);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;font-weight:800;font-size:18px;">MAP EVENT</div>
                     <div id="logo-tagline" style="font-size:12px;color:var(--ui-text-muted);line-height:1.2;text-align:center;">Votre plateforme événementielle</div>
+                    <div id="stats-counts-badge" style="font-size:11px;color:var(--ui-text-muted);margin-top:2px;">—</div>
                 </div>
             </div>
             
@@ -2653,22 +2974,17 @@
                 <span id="subscription-label">ABOS</span>
             </button>
             <script>
-                // Forcer "ABOS" immédiatement au chargement de la page
+                // Forcer "ABOS" au chargement (sans setInterval pour économiser CPU mobile)
                 (function() {
                     const forceABOS = () => {
                         const label = document.getElementById("subscription-label");
-                        if (label) {
-                            label.textContent = "ABOS";
-                            label.innerHTML = "ABOS";
-                        }
+                        if (label) { label.textContent = "ABOS"; }
                     };
                     if (document.readyState === 'loading') {
                         document.addEventListener('DOMContentLoaded', forceABOS);
                     } else {
                         forceABOS();
                     }
-                    // Vérifier périodiquement pour éviter tout changement
-                    setInterval(forceABOS, 100);
                 })();
             </script>
             <button id="alerts-btn" class="pill small" onclick="openProximityAlertsView()" style="position:relative;">
@@ -2696,7 +3012,18 @@
         </div>
     </div>
 
+    <!-- Chips catégories scrollables (mobile) -->
+    <div id="category-chips-bar" class="category-chips-bar">
+      <div id="category-chips-inner" style="display:flex;gap:8px;padding:8px 12px;overflow-x:auto;scroll-snap-type: inline mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;align-items:center;height:100%;">
+      </div>
+    </div>
+
     <div id="map"></div>
+
+    <!-- Mode découverte - Cartes horizontales swipe (mobile) -->
+    <div id="discovery-carousel" class="discovery-carousel">
+      <div id="discovery-carousel-inner"></div>
+    </div>
 
     <!-- NAVIGATION MOBILE - Barre fixe en bas (visible uniquement sur mobile via CSS) -->
     <nav class="mobile-nav-bar" id="mobile-nav">
@@ -2713,6 +3040,18 @@
             <span>Services</span>
         </button>
     </nav>
+
+    <!-- MINI-PLAYER AUDIO - Apparaît quand un son joue -->
+    <div id="audio-mini-player">
+        <button id="mini-player-play" style="width:48px;height:48px;border-radius:50%;border:none;background:linear-gradient(135deg,#a78bfa,#8b5cf6);color:white;cursor:pointer;font-size:18px;flex-shrink:0;display:flex;align-items:center;justify-content:center;">▶</button>
+        <div id="mini-player-info" style="flex:1;min-width:0;overflow:hidden;cursor:pointer;" onclick="openCurrentPlayingPopup()" title="Voir l'artiste">
+            <div id="mini-player-title" style="font-size:13px;font-weight:600;color:#e5e7eb;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">—</div>
+            <div id="mini-player-subtitle" style="font-size:11px;color:#a78bfa;">Piste 1</div>
+        </div>
+        <button id="mini-player-rewind" style="width:36px;height:36px;border-radius:50%;border:1px solid rgba(167,139,250,0.5);background:transparent;color:#a78bfa;cursor:pointer;font-size:14px;flex-shrink:0;" title="-15s">⏪</button>
+        <button id="mini-player-forward" style="width:36px;height:36px;border-radius:50%;border:1px solid rgba(167,139,250,0.5);background:transparent;color:#a78bfa;cursor:pointer;font-size:14px;flex-shrink:0;" title="+15s">⏩</button>
+        <span id="mini-player-time" style="font-size:11px;color:#a78bfa;font-variant-numeric:tabular-nums;min-width:70px;text-align:right;">0:00</span>
+    </div>
 
     <div id="map-search-container">
         <input
@@ -2782,7 +3121,7 @@
     <!-- Modules core et services (doit être chargé avant auth.js) -->
     <script type="module" src="js/load-modules.js"></script>
     <!-- Module AUTH (fonctions d'authentification) -->
-    <script src="auth.js?v=20260204-105800-AGGRESSIVE-CLEAN"></script>
+    <script src="auth.js?v=20260213-SWv7" defer></script>
     <!-- Script de diagnostic username (développement uniquement) -->
     <script>
       // Exposer une fonction globale pour lancer le diagnostic
@@ -2802,7 +3141,7 @@
       console.log('%c💡 Ou ouvrez: tests/diagnostic/DIAGNOSTIC_USERNAME_CONSOLE.txt et copiez-collez le code', 'color: #00ffc3; font-weight: bold;');
     </script>
     <!-- Logique principale de la carte -->
-    <script src="map_logic.js?v=20260204-105800-AGGRESSIVE-CLEAN"></script>
+    <script src="map_logic.js?v=20260217-fix" defer></script>
     <!-- Script pour mettre à jour les métadonnées Open Graph immédiatement au chargement -->
     <script>
       // Mettre à jour les métadonnées Open Graph dès le chargement de la page
@@ -2854,18 +3193,60 @@
         console.log('[PWA] App installée en mode standalone');
       }
       
-      // Enregistrement du Service Worker
+      // Enregistrement du Service Worker avec mise à jour automatique
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('/service-worker.js')
             .then((registration) => {
               console.log('[PWA] Service Worker enregistré:', registration.scope);
+              // Vérifier les mises à jour périodiquement (toutes les 30min)
+              setInterval(() => registration.update(), 30 * 60 * 1000);
+              // Vérifier immédiatement à chaque retour au premier plan
+              document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'visible') registration.update();
+              });
             })
             .catch((error) => {
               console.error('[PWA] Erreur enregistrement Service Worker:', error);
             });
         });
       }
+      
+      // ===== CORRECTION ÉCRAN BLANC MOBILE v6 =====
+      // Quand l'app PWA revient du background, vérifier que la carte est fonctionnelle
+      // Si le DOM est vide ou la carte cassée, recharger proprement
+      document.addEventListener('visibilitychange', function() {
+        if (document.visibilityState !== 'visible') return;
+        
+        // Attendre un peu que le navigateur restaure l'état (500ms au lieu de 1000ms)
+        setTimeout(function() {
+          var mapEl = document.getElementById('map');
+          var topbar = document.getElementById('topbar');
+          
+          // Si les éléments DOM essentiels ont disparu → page cassée
+          if (!mapEl || !topbar) {
+            console.warn('[PWA] DOM cassé après retour background, reload...');
+            location.reload();
+            return;
+          }
+          
+          // Vérifier que la carte Leaflet est toujours initialisée
+          if (typeof L !== 'undefined' && typeof map !== 'undefined' && map && typeof map.invalidateSize === 'function') {
+            // Forcer le recalcul de la taille (corrige les tuiles grises)
+            try { map.invalidateSize(); } catch(e) {}
+          } else if (mapEl.children.length === 0) {
+            // La carte n'a jamais été initialisée ou a été purgée
+            console.warn('[PWA] Carte non initialisée après retour, reload...');
+            location.reload();
+          }
+          
+          // Vérifier que le loader n'est pas resté bloqué
+          var loader = document.getElementById('app-loader');
+          if (loader && !loader.classList.contains('hide') && typeof window._hideAppLoader === 'function') {
+            window._hideAppLoader();
+          }
+        }, 500);
+      });
       
       // Capturer l'événement beforeinstallprompt pour l'installation PWA
       window.addEventListener('beforeinstallprompt', (e) => {
@@ -2881,12 +3262,11 @@
       // Fonction globale pour installer la PWA
       window.installPWA = async function() {
         if (!window.pwaInstallPrompt) {
-          // Si pas de prompt, donner les instructions manuelles
-          const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+          var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
           if (isIOS) {
-            alert('Pour installer MapEvent sur iOS:\n\n1. Appuyez sur le bouton Partager (carré avec flèche)\n2. Faites défiler et appuyez sur "Sur l\'écran d\'accueil"\n3. Appuyez sur "Ajouter"');
+            alert('Partager (↑) → Sur l\'écran d\'accueil → Ajouter');
           } else {
-            alert('Pour installer MapEvent:\n\n1. Ouvrez le menu du navigateur (3 points)\n2. Sélectionnez "Installer l\'application" ou "Ajouter à l\'écran d\'accueil"');
+            alert('Menu (⋮) → Installer l\'application');
           }
           return false;
         }
@@ -2928,11 +3308,37 @@
       
       // Fonction pour afficher le bouton d'installation PWA
       window.showPWAInstallButton = function() {
-        // Mettre à jour le bouton dans la popup si elle existe
         const installBtn = document.getElementById('pwa-install-popup-btn');
-        if (installBtn) {
-          installBtn.style.display = 'flex';
-        }
+        if (installBtn) installBtn.style.display = 'flex';
+        // Afficher aussi le bloc add-to-home si en attente
+        if (typeof window.showAddToHomeOverlay === 'function') window.showAddToHomeOverlay();
+      };
+      
+      // Overlay simple "Ajouter à l'écran d'accueil" - affiché à l'ouverture sur mobile, un clic suffit
+      window.showAddToHomeOverlay = function() {
+        if (window.isPWAInstalled) return;
+        var isMobile = window.innerWidth <= 768 || /Android|iPhone|iPad|iPod|webOS/i.test(navigator.userAgent);
+        if (!isMobile) return;
+        if (localStorage.getItem('addToHomeDismissed')) return;
+        
+        var overlay = document.getElementById('add-to-home-overlay');
+        if (overlay) return;
+        
+        overlay = document.createElement('div');
+        overlay.id = 'add-to-home-overlay';
+        overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;padding:16px;background:linear-gradient(135deg,rgba(102,126,234,0.95),rgba(118,75,162,0.95));display:flex;align-items:center;justify-content:space-between;gap:12px;box-shadow:0 4px 20px rgba(0,0,0,0.3);-webkit-tap-highlight-color:transparent;';
+        overlay.innerHTML = '<button type="button" id="add-to-home-btn" style="flex:1;padding:14px 20px;background:#fff;color:#667eea;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">📱 Ajouter à l\'écran d\'accueil</button><button type="button" id="add-to-home-skip" style="padding:10px 14px;background:transparent;color:rgba(255,255,255,0.9);border:1px solid rgba(255,255,255,0.5);border-radius:10px;font-size:13px;cursor:pointer;">Passer</button>';
+        document.body.insertBefore(overlay, document.body.firstChild);
+        
+        document.getElementById('add-to-home-btn').onclick = function() {
+          overlay.remove();
+          localStorage.setItem('addToHomeDismissed', Date.now());
+          if (typeof installPWA === 'function') installPWA();
+        };
+        document.getElementById('add-to-home-btn').ontouchend = function(e) { e.preventDefault(); this.onclick(); };
+        document.getElementById('add-to-home-skip').onclick = function() {
+          overlay.remove(); localStorage.setItem('addToHomeDismissed', Date.now());
+        };
       };
       
       // Popup d'accueil avec option PWA
@@ -3026,19 +3432,25 @@
         }, 12000);
       }
       
+      // Sur mobile : afficher le bouton "Ajouter à l'écran d'accueil" dès l'ouverture
+      window.addEventListener('load', function() {
+        if (window.isPWAInstalled) return;
+        var isMobile = window.innerWidth <= 768 || /Android|iPhone|iPad|iPod|webOS/i.test(navigator.userAgent);
+        if (!isMobile) return;
+        // Android : attendre beforeinstallprompt ou 500ms. iOS : afficher direct
+        if (window.pwaInstallPrompt) {
+          window.showAddToHomeOverlay();
+        } else {
+          setTimeout(function() { window.showAddToHomeOverlay(); }, 300);
+        }
+      });
+      
       // Afficher la popup "À propos" (logo) après un court délai
       setTimeout(() => {
-        // Ne pas afficher si déjà installée en PWA
         if (window.isPWAInstalled) return;
-        
-        // Ne pas afficher si déjà vue récemment (24h)
         const lastShown = localStorage.getItem('welcomePopupShown');
         const now = Date.now();
-        if (lastShown && (now - parseInt(lastShown)) < 24 * 60 * 60 * 1000) {
-          return;
-        }
-        
-        // Appeler openAboutModal (défini dans map_logic.js)
+        if (lastShown && (now - parseInt(lastShown)) < 24 * 60 * 60 * 1000) return;
         if (typeof window.openAboutModal === 'function') {
           window.openAboutModal();
           localStorage.setItem('welcomePopupShown', Date.now().toString());
@@ -3046,6 +3458,26 @@
       }, 2000);
       // Rappel raccourci iOS (après la popup d'accueil)
       setTimeout(showPwaRappelRaccourci, 5000);
+      
+      // Compteurs totaux (affichage immédiat, fetch non bloquant)
+      (function() {
+        var fmt = function(n) {
+          if (n >= 1000000) return (n/1e6).toFixed(1).replace(/\.0$/, '') + 'M';
+          if (n >= 1000) return (n/1000).toFixed(1).replace(/\.0$/, '') + 'k';
+          return String(n);
+        };
+        var api = (window.API_BASE_URL || 'https://ctp67u5hgni2rbfr3kp4p74kxa0gxycf.lambda-url.eu-west-1.on.aws/api');
+        fetch(api + '/stats/counts', { cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(d) {
+          var el = document.getElementById('stats-counts-badge');
+          if (el && d) {
+            var parts = [];
+            if (d.events != null) parts.push(fmt(d.events) + ' events');
+            if (d.bookings != null) parts.push(fmt(d.bookings) + ' bookings');
+            if (d.services != null) parts.push(fmt(d.services) + ' services');
+            el.textContent = parts.length ? parts.join(' • ') : '—';
+          }
+        }).catch(function() {});
+      })();
     </script>
 </body>
 </html>

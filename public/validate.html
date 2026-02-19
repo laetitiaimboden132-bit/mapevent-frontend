@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Validation d'événement - MapEvent</title>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: rgba(30, 41, 59, 0.95);
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+            text-align: center;
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .logo {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+        
+        h1 {
+            color: #00ffc3;
+            font-size: 28px;
+            margin-bottom: 8px;
+        }
+        
+        .subtitle {
+            color: #94a3b8;
+            font-size: 14px;
+            margin-bottom: 32px;
+        }
+        
+        .loading {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+        }
+        
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(0, 255, 195, 0.2);
+            border-top-color: #00ffc3;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .result {
+            display: none;
+        }
+        
+        .result.show {
+            display: block;
+        }
+        
+        .result-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+        
+        .result-title {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+        
+        .result-title.success {
+            color: #22c55e;
+        }
+        
+        .result-title.error {
+            color: #ef4444;
+        }
+        
+        .result-message {
+            color: #94a3b8;
+            font-size: 14px;
+            line-height: 1.6;
+            margin-bottom: 24px;
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 14px 32px;
+            border-radius: 999px;
+            font-size: 14px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.2s;
+            cursor: pointer;
+            border: none;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #00ffc3, #10b981);
+            color: #0f172a;
+        }
+        
+        .btn-primary:hover {
+            transform: scale(1.02);
+            box-shadow: 0 4px 20px rgba(0, 255, 195, 0.4);
+        }
+        
+        .btn-secondary {
+            background: rgba(148, 163, 184, 0.2);
+            color: #94a3b8;
+            border: 1px solid rgba(148, 163, 184, 0.3);
+        }
+        
+        .btn-secondary:hover {
+            background: rgba(148, 163, 184, 0.3);
+        }
+        
+        .buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">🗺️</div>
+        <h1>MapEvent</h1>
+        <p class="subtitle">Validation d'événement</p>
+        
+        <div id="loading" class="loading">
+            <div class="spinner"></div>
+            <p style="color: #94a3b8;">Traitement en cours...</p>
+        </div>
+        
+        <div id="result" class="result">
+            <div id="result-icon" class="result-icon"></div>
+            <h2 id="result-title" class="result-title"></h2>
+            <p id="result-message" class="result-message"></p>
+            <div class="buttons">
+                <a href="https://mapevent.world/mapevent.html" class="btn btn-primary">
+                    🗺️ Découvrir MapEvent
+                </a>
+                <a href="https://mapevent.world/mapevent.html?register=organizer" class="btn btn-secondary">
+                    👤 Créer un compte organisateur
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const API_BASE = 'https://ctp67u5hgni2rbfr3kp4p74kxa0gxycf.lambda-url.eu-west-1.on.aws';
+        
+        async function processValidation() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const token = urlParams.get('token');
+            const action = urlParams.get('action');
+            
+            const loadingEl = document.getElementById('loading');
+            const resultEl = document.getElementById('result');
+            const iconEl = document.getElementById('result-icon');
+            const titleEl = document.getElementById('result-title');
+            const messageEl = document.getElementById('result-message');
+            
+            if (!token || !action) {
+                showResult('error', '❌', 'Lien invalide', 'Le lien de validation est incomplet ou invalide.');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/events/validate?token=${encodeURIComponent(token)}&action=${encodeURIComponent(action)}`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    if (action === 'validate') {
+                        showResult('success', '✅', 'Événement validé !', data.message || 'Merci ! Votre événement est maintenant visible sur MapEvent avec le badge "Validé".');
+                    } else if (action === 'reject') {
+                        showResult('success', '🗑️', 'Événement supprimé', data.message || 'L\'événement a été supprimé de MapEvent comme demandé.');
+                    } else {
+                        showResult('success', '✓', 'Action effectuée', data.message);
+                    }
+                } else if (data.already_processed) {
+                    showResult('success', 'ℹ️', 'Déjà traité', data.message || 'Cet événement a déjà été traité.');
+                } else {
+                    showResult('error', '❌', 'Erreur', data.error || 'Une erreur est survenue lors du traitement.');
+                }
+            } catch (error) {
+                console.error('Erreur:', error);
+                showResult('error', '❌', 'Erreur de connexion', 'Impossible de contacter le serveur. Veuillez réessayer plus tard.');
+            }
+        }
+        
+        function showResult(type, icon, title, message) {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('result').classList.add('show');
+            document.getElementById('result-icon').textContent = icon;
+            document.getElementById('result-title').textContent = title;
+            document.getElementById('result-title').className = 'result-title ' + type;
+            document.getElementById('result-message').textContent = message;
+        }
+        
+        // Lancer le traitement au chargement
+        processValidation();
+    </script>
+</body>
+</html>

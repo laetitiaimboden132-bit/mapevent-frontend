@@ -46,7 +46,7 @@
     "name": "Artistes & Performers",
     "children": [
       {
-        "name": "DJs & Producteurs",
+        "name": "Electro",
         "children": [
           {
             "name": "Electronic",
@@ -114,6 +114,14 @@
               { "name": "Lofi" },
               { "name": "Downtempo" }
             ]
+          },
+          {
+            "name": "Disco",
+            "children": [
+              { "name": "Disco" },
+              { "name": "Nu-Disco" },
+              { "name": "Italo Disco" }
+            ]
           }
         ]
       },
@@ -176,8 +184,37 @@
           { "name": "Pop" },
           { "name": "Indie Pop" },
           { "name": "Electro Pop" },
+          { "name": "Disco" },
           { "name": "K-Pop" },
           { "name": "Chanson Française" }
+        ]
+      },
+      {
+        "name": "Classique",
+        "children": [
+          { "name": "Orchestre" },
+          { "name": "Chambre" },
+          { "name": "Opéra" },
+          { "name": "Piano solo" },
+          { "name": "Violon solo" }
+        ]
+      },
+      {
+        "name": "Folk & Acoustic",
+        "children": [
+          { "name": "Folk" },
+          { "name": "Country" },
+          { "name": "Acoustic" },
+          { "name": "Bluegrass" }
+        ]
+      },
+      {
+        "name": "Classique & Folk",
+        "children": [
+          { "name": "Classique" },
+          { "name": "Folk" },
+          { "name": "Country" },
+          { "name": "Soundtrack" }
         ]
       },
       {

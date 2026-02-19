@@ -1,0 +1,11 @@
+﻿User-agent: *
+Allow: /
+Disallow: /tests/
+Disallow: /patches/
+Disallow: /nettoyer-storage.html
+Disallow: /test-api.html
+Disallow: /test-apis.html
+Disallow: /test-payment.html
+Disallow: /test-source.html
+
+Sitemap: https://mapevent.world/sitemap.xml

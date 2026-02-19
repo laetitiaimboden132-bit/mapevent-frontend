@@ -3,6 +3,21 @@
 // ===============================
 console.log("BUILD_ID", "mes-annonces-v2", new Date().toISOString(), location.href);
 
+// Signal au loader HTML que le JS est bien chargé
+window._hideAppLoader = function() {
+  var loader = document.getElementById('app-loader');
+  if (loader && !loader.classList.contains('hide')) {
+    loader.classList.add('hide');
+    setTimeout(function(){ if(loader.parentNode) loader.parentNode.removeChild(loader); }, 500);
+  }
+};
+// Masquer le loader dès que le DOM est prêt
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', function() { window._hideAppLoader(); });
+} else {
+  window._hideAppLoader();
+}
+
 // ===============================
 // PROTECTION LOCALSTORAGE MINIMALE
 // ===============================
@@ -1686,6 +1701,14 @@ let tileLayer;
 let markersLayer;
 let markerMap = {};
 
+// --- VIEWPORT PROGRESSIF ---
+// Chargement progressif: cercles agrégés aux faibles zooms, events réels aux forts zooms
+let geoCirclesLayer = null;           // Layer pour les cercles agrégés (zoom < 10)
+let loadedEventIds = new Set();       // IDs des events déjà chargés (évite les doublons)
+let viewportFetchTimeout = null;      // Timer debounce pour les fetch viewport
+let lastViewportKey = '';             // Clé du dernier viewport chargé (évite re-fetch inutile)
+const VIEWPORT_ZOOM_THRESHOLD = 10;   // Zoom à partir duquel on charge les events réels
+
 let currentMode = "event"; // "event" | "booking" | "service"
 let currentLanguage = "fr";
 
@@ -1901,7 +1924,7 @@ const translationsDataObject = {
     
     // Formulaire de publication
     "publish_mode": "Publier – Mode", "main_category": "Catégorie principale", "choose_category": "Choisir catégorie…",
-    "start": "Début", "end": "Fin", "title_name": "Titre / Nom", "full_address": "Adresse complète",
+    "start": "Début", "end": "Fin", "title_name": "Titre", "full_address": "Adresse complète",
     "phone": "Téléphone", "email": "Email", "full_description": "Description complète",
     "main_photo": "Photo principale", "ticketing": "Billetterie", "ticket_link": "Lien billetterie",
     "social_links": "Liens réseaux", "video_links": "Liens vidéos", "sound_links": "Liens sons (SoundCloud, YouTube, Spotify…)",
@@ -1952,7 +1975,7 @@ const translationsDataObject = {
     "reset_all": "Reset all", "selected_categories": "Selected categories",
     "cumulative": "cumulative",
     "publish_mode": "Publish – Mode", "main_category": "Main category", "choose_category": "Choose category…",
-    "start": "Start", "end": "End", "title_name": "Title / Name", "full_address": "Full address",
+    "start": "Start", "end": "End", "title_name": "Title", "full_address": "Full address",
     "phone": "Phone", "email": "Email", "full_description": "Full description",
     "main_photo": "Main photo", "ticketing": "Ticketing", "ticket_link": "Ticket link",
     "social_links": "Social links", "video_links": "Video links", "sound_links": "Sound links (SoundCloud, YouTube, Spotify…)",
@@ -2067,9 +2090,9 @@ const translationsDataObject = {
     "translate": "अनुवाद करें", "hide_translation": "अनुवाद छुपाएं", "translation_error": "अनुवाद त्रुटि",
     "try_again": "पुनः प्रयास करें"
   },
-  de: { "filter": "Filtern", "list": "Liste", "events": "Events", "booking": "Booking", "services": "Dienste", "agenda": "Agenda", "alerts": "Abos", "account": "Konto", "cart": "Warenkorb", "search_city": "Stadt suchen...", "publish": "Veröffentlichen", "event_title": "Event", "date": "Datum", "address": "Adresse", "description": "Beschreibung", "category": "Kategorie", "organizer": "Veranstalter", "price": "Preis", "free": "Kostenlos", "add_to_agenda": "Zu meinem Kalender", "like": "Gefällt mir", "favorite": "Favoriten", "participate": "Teilnehmen", "leave_review": "Bewertung schreiben", "contact_ai": "KI-Kontakt", "report": "Melden", "participants": "Teilnehmer", "registered": "Registriert", "in_agenda": "Im Kalender", "share": "Teilen", "route": "Route", "review": "Bewertung", "contact": "Kontakt", "reviews": "Bewertungen", "ai_detected": "Von KI erkannt", "check_source": "Quelle prüfen", "booking_link": "Buchungslink", "rating": "Bewertung", "booking_title": "Buchung", "artist": "Künstler", "level": "Niveau", "sound_preview": "Hörprobe", "get_contact": "Kontakt", "pay": "Bezahlen", "view_subs": "Abos anzeigen", "add_to_cart": "In den Warenkorb", "verified": "Verifiziert", "website": "Webseite", "email": "E-Mail", "phone": "Telefon", "service_title": "Dienstleistung", "company": "Unternehmen", "contact_info": "Kontakt", "my_agenda": "Mein Kalender", "my_favorites": "Favoriten", "my_subscriptions": "Abos", "agenda_empty": "Kalender leer", "add_from_map": "Events von der Karte hinzufügen!", "remove_from_agenda": "Aus Kalender entfernen", "city_found": "gefunden!", "city_not_found": "nicht gefunden", "searching": "Suche", "language_changed": "Sprache geändert", "removed_from_agenda": "Aus Kalender entfernt", "filter_by_date": "Nach Datum filtern", "today": "Heute", "tomorrow": "Morgen", "weekend": "Dieses Wochenende", "week": "Diese Woche", "month": "Diesen Monat", "select_period": "Zeitraum wählen", "from": "Von", "to": "Bis", "reset_all": "Zurücksetzen", "selected_categories": "Kategorien", "cumulative": "kumulativ", "publish_mode": "Veröffentlichen – Modus", "main_category": "Hauptkategorie", "choose_category": "Kategorie wählen…", "start": "Start", "end": "Ende", "title_name": "Titel / Name", "full_address": "Adresse", "full_description": "Beschreibung", "main_photo": "Hauptfoto", "ticketing": "Ticketing", "ticket_link": "Ticket-Link", "social_links": "Soziale Links", "video_links": "Video-Links", "sound_links": "Sound-Links", "paste_sound_links": "Sound-Links einfügen", "price_estimate": "Preisschätzung", "price_example": "z. B. 500.– pro Abend", "price_not_detected": "Preis nicht erkannt.", "visibility_choice": "Sichtbarkeit (Zahlung im nächsten Schritt):", "standard_point": "1.– : Standard-Punkt", "bronze_boost": "5.– Bronze", "silver_boost": "10.– Silber", "platinum_boost": "TOP 10 – Platin", "subscription_recommended": "💎 Abo empfohlen", "save_on_events": "Sparen bei Events", "unlimited_contacts": "Unbegrenzte Kontakte", "publish_and_pay": "Veröffentlichen und zahlen", "close": "Schließen", "save": "Speichern", "cancel": "Abbrechen", "confirm": "Bestätigen", "loading": "Laden...", "error": "Fehler", "success": "Erfolg", "info": "Info", "translate": "Übersetzen", "hide_translation": "Übersetzung ausblenden", "translation_error": "Übersetzungsfehler", "try_again": "Erneut versuchen" },
-  it: { "filter": "Filtra", "list": "Lista", "events": "Eventi", "booking": "Booking", "services": "Servizi", "agenda": "Agenda", "alerts": "Abos", "account": "Account", "cart": "Carrello", "search_city": "Cerca città...", "publish": "Pubblica", "event_title": "Evento", "date": "Data", "address": "Indirizzo", "description": "Descrizione", "category": "Categoria", "organizer": "Organizzatore", "price": "Prezzo", "free": "Gratis", "add_to_agenda": "Aggiungi al calendario", "like": "Mi piace", "favorite": "Preferiti", "participate": "Partecipa", "leave_review": "Lascia una recensione", "contact_ai": "Contatto IA", "report": "Segnala", "participants": "partecipanti", "registered": "Iscritto", "in_agenda": "In agenda", "share": "Condividi", "route": "Percorso", "review": "Recensione", "contact": "Contatto", "reviews": "recensioni", "ai_detected": "Rilevato da IA", "check_source": "Verifica fonte", "booking_link": "Link prenotazione", "rating": "Valutazione", "booking_title": "Prenotazione", "artist": "Artista", "level": "Livello", "sound_preview": "Anteprima audio", "get_contact": "Contatto", "pay": "Paga", "view_subs": "Abbonamenti", "add_to_cart": "Aggiungi al carrello", "verified": "Verificato", "website": "Sito web", "email": "Email", "phone": "Telefono", "service_title": "Servizio", "company": "Azienda", "contact_info": "Contatti", "my_agenda": "La mia agenda", "my_favorites": "Preferiti", "my_subscriptions": "Abbonamenti", "agenda_empty": "Agenda vuota", "add_from_map": "Aggiungi eventi dalla mappa!", "remove_from_agenda": "Rimuovi da agenda", "city_found": "trovata!", "city_not_found": "non trovata", "searching": "Ricerca", "language_changed": "Lingua cambiata", "removed_from_agenda": "Rimosso da agenda", "filter_by_date": "Filtra per data", "today": "Oggi", "tomorrow": "Domani", "weekend": "Questo weekend", "week": "Questa settimana", "month": "Questo mese", "select_period": "Seleziona periodo", "from": "Da", "to": "A", "reset_all": "Reimposta", "selected_categories": "Categorie", "cumulative": "cumulativo", "publish_mode": "Pubblica – Modo", "main_category": "Categoria principale", "choose_category": "Scegli categoria…", "start": "Inizio", "end": "Fine", "title_name": "Titolo / Nome", "full_address": "Indirizzo completo", "full_description": "Descrizione", "main_photo": "Foto principale", "ticketing": "Biglietteria", "ticket_link": "Link biglietti", "social_links": "Link social", "video_links": "Link video", "sound_links": "Link audio", "paste_sound_links": "Incolla link audio", "price_estimate": "Stima prezzo", "price_example": "es. 500.– a serata", "price_not_detected": "Prezzo non rilevato.", "visibility_choice": "Visibilità (pagamento al passo successivo):", "standard_point": "1.– : Punto standard", "bronze_boost": "5.– Bronze", "silver_boost": "10.– Argento", "platinum_boost": "TOP 10 – Platino", "subscription_recommended": "💎 Abbonamento consigliato", "save_on_events": "Risparmia sugli eventi", "unlimited_contacts": "Contatti illimitati", "publish_and_pay": "Pubblica e paga", "close": "Chiudi", "save": "Salva", "cancel": "Annulla", "confirm": "Conferma", "loading": "Caricamento...", "error": "Errore", "success": "Successo", "info": "Info", "translate": "Traduci", "hide_translation": "Nascondi traduzione", "translation_error": "Errore traduzione", "try_again": "Riprova" },
-  pt: { "filter": "Filtrar", "list": "Lista", "events": "Eventos", "booking": "Reservas", "services": "Serviços", "agenda": "Agenda", "alerts": "Alertas", "account": "Conta", "cart": "Carrinho", "search_city": "Pesquisar cidade...", "publish": "Publicar", "event_title": "Evento", "date": "Data", "address": "Morada", "description": "Descrição", "category": "Categoria", "organizer": "Organizador", "price": "Preço", "free": "Grátis", "add_to_agenda": "Adicionar à agenda", "like": "Gosto", "favorite": "Favoritos", "participate": "Participar", "leave_review": "Deixar avaliação", "contact_ai": "Contacto IA", "report": "Reportar", "participants": "participantes", "registered": "Inscrito", "in_agenda": "Na agenda", "share": "Partilhar", "route": "Percurso", "review": "Avaliação", "contact": "Contacto", "reviews": "avaliações", "ai_detected": "Detetado por IA", "check_source": "Verificar fonte", "booking_link": "Link reserva", "rating": "Classificação", "booking_title": "Reserva", "artist": "Artista", "level": "Nível", "sound_preview": "Pré-visualização áudio", "get_contact": "Obter contacto", "pay": "Pagar", "view_subs": "Ver subscrições", "add_to_cart": "Adicionar ao carrinho", "verified": "Verificado", "website": "Site", "email": "Email", "phone": "Telefone", "service_title": "Serviço", "company": "Empresa", "contact_info": "Contacto", "my_agenda": "A minha agenda", "my_favorites": "Favoritos", "my_subscriptions": "Subscrições", "agenda_empty": "Agenda vazia", "add_from_map": "Adicione eventos do mapa!", "remove_from_agenda": "Remover da agenda", "city_found": "encontrada!", "city_not_found": "não encontrada", "searching": "A pesquisar", "language_changed": "Idioma alterado", "removed_from_agenda": "Removido da agenda", "filter_by_date": "Filtrar por data", "today": "Hoje", "tomorrow": "Amanhã", "weekend": "Este fim de semana", "week": "Esta semana", "month": "Este mês", "select_period": "Ou selecionar período", "from": "De", "to": "Até", "reset_all": "Repor", "selected_categories": "Categorias", "cumulative": "acumulável", "publish_mode": "Publicar – Modo", "main_category": "Categoria principal", "choose_category": "Escolher categoria…", "start": "Início", "end": "Fim", "title_name": "Título / Nome", "full_address": "Morada completa", "full_description": "Descrição", "main_photo": "Foto principal", "ticketing": "Bilhetes", "ticket_link": "Link bilhetes", "social_links": "Redes sociais", "video_links": "Links vídeo", "sound_links": "Links áudio", "paste_sound_links": "Colar links áudio", "price_estimate": "Estimativa de preço", "price_example": "ex.: 500.– por noite", "price_not_detected": "Preço não detetado.", "visibility_choice": "Visibilidade (pagamento no próximo passo):", "standard_point": "1.– : Ponto standard", "bronze_boost": "5.– Bronze", "silver_boost": "10.– Prata", "platinum_boost": "TOP 10 – Platina", "subscription_recommended": "💎 Subscrição recomendada", "save_on_events": "Poupe em eventos", "unlimited_contacts": "Contactos ilimitados", "publish_and_pay": "Publicar e pagar", "close": "Fechar", "save": "Guardar", "cancel": "Cancelar", "confirm": "Confirmar", "loading": "A carregar...", "error": "Erro", "success": "Sucesso", "info": "Informação", "translate": "Traduzir", "hide_translation": "Ocultar tradução", "translation_error": "Erro de tradução", "try_again": "Tentar novamente" },
+  de: { "filter": "Filtern", "list": "Liste", "events": "Events", "booking": "Booking", "services": "Dienste", "agenda": "Agenda", "alerts": "Abos", "account": "Konto", "cart": "Warenkorb", "search_city": "Stadt suchen...", "publish": "Veröffentlichen", "event_title": "Event", "date": "Datum", "address": "Adresse", "description": "Beschreibung", "category": "Kategorie", "organizer": "Veranstalter", "price": "Preis", "free": "Kostenlos", "add_to_agenda": "Zu meinem Kalender", "like": "Gefällt mir", "favorite": "Favoriten", "participate": "Teilnehmen", "leave_review": "Bewertung schreiben", "contact_ai": "KI-Kontakt", "report": "Melden", "participants": "Teilnehmer", "registered": "Registriert", "in_agenda": "Im Kalender", "share": "Teilen", "route": "Route", "review": "Bewertung", "contact": "Kontakt", "reviews": "Bewertungen", "ai_detected": "Von KI erkannt", "check_source": "Quelle prüfen", "booking_link": "Buchungslink", "rating": "Bewertung", "booking_title": "Buchung", "artist": "Künstler", "level": "Niveau", "sound_preview": "Hörprobe", "get_contact": "Kontakt", "pay": "Bezahlen", "view_subs": "Abos anzeigen", "add_to_cart": "In den Warenkorb", "verified": "Verifiziert", "website": "Webseite", "email": "E-Mail", "phone": "Telefon", "service_title": "Dienstleistung", "company": "Unternehmen", "contact_info": "Kontakt", "my_agenda": "Mein Kalender", "my_favorites": "Favoriten", "my_subscriptions": "Abos", "agenda_empty": "Kalender leer", "add_from_map": "Events von der Karte hinzufügen!", "remove_from_agenda": "Aus Kalender entfernen", "city_found": "gefunden!", "city_not_found": "nicht gefunden", "searching": "Suche", "language_changed": "Sprache geändert", "removed_from_agenda": "Aus Kalender entfernt", "filter_by_date": "Nach Datum filtern", "today": "Heute", "tomorrow": "Morgen", "weekend": "Dieses Wochenende", "week": "Diese Woche", "month": "Diesen Monat", "select_period": "Zeitraum wählen", "from": "Von", "to": "Bis", "reset_all": "Zurücksetzen", "selected_categories": "Kategorien", "cumulative": "kumulativ", "publish_mode": "Veröffentlichen – Modus", "main_category": "Hauptkategorie", "choose_category": "Kategorie wählen…", "start": "Start", "end": "Ende", "title_name": "Titel", "full_address": "Adresse", "full_description": "Beschreibung", "main_photo": "Hauptfoto", "ticketing": "Ticketing", "ticket_link": "Ticket-Link", "social_links": "Soziale Links", "video_links": "Video-Links", "sound_links": "Sound-Links", "paste_sound_links": "Sound-Links einfügen", "price_estimate": "Preisschätzung", "price_example": "z. B. 500.– pro Abend", "price_not_detected": "Preis nicht erkannt.", "visibility_choice": "Sichtbarkeit (Zahlung im nächsten Schritt):", "standard_point": "1.– : Standard-Punkt", "bronze_boost": "5.– Bronze", "silver_boost": "10.– Silber", "platinum_boost": "TOP 10 – Platin", "subscription_recommended": "💎 Abo empfohlen", "save_on_events": "Sparen bei Events", "unlimited_contacts": "Unbegrenzte Kontakte", "publish_and_pay": "Veröffentlichen und zahlen", "close": "Schließen", "save": "Speichern", "cancel": "Abbrechen", "confirm": "Bestätigen", "loading": "Laden...", "error": "Fehler", "success": "Erfolg", "info": "Info", "translate": "Übersetzen", "hide_translation": "Übersetzung ausblenden", "translation_error": "Übersetzungsfehler", "try_again": "Erneut versuchen" },
+  it: { "filter": "Filtra", "list": "Lista", "events": "Eventi", "booking": "Booking", "services": "Servizi", "agenda": "Agenda", "alerts": "Abos", "account": "Account", "cart": "Carrello", "search_city": "Cerca città...", "publish": "Pubblica", "event_title": "Evento", "date": "Data", "address": "Indirizzo", "description": "Descrizione", "category": "Categoria", "organizer": "Organizzatore", "price": "Prezzo", "free": "Gratis", "add_to_agenda": "Aggiungi al calendario", "like": "Mi piace", "favorite": "Preferiti", "participate": "Partecipa", "leave_review": "Lascia una recensione", "contact_ai": "Contatto IA", "report": "Segnala", "participants": "partecipanti", "registered": "Iscritto", "in_agenda": "In agenda", "share": "Condividi", "route": "Percorso", "review": "Recensione", "contact": "Contatto", "reviews": "recensioni", "ai_detected": "Rilevato da IA", "check_source": "Verifica fonte", "booking_link": "Link prenotazione", "rating": "Valutazione", "booking_title": "Prenotazione", "artist": "Artista", "level": "Livello", "sound_preview": "Anteprima audio", "get_contact": "Contatto", "pay": "Paga", "view_subs": "Abbonamenti", "add_to_cart": "Aggiungi al carrello", "verified": "Verificato", "website": "Sito web", "email": "Email", "phone": "Telefono", "service_title": "Servizio", "company": "Azienda", "contact_info": "Contatti", "my_agenda": "La mia agenda", "my_favorites": "Preferiti", "my_subscriptions": "Abbonamenti", "agenda_empty": "Agenda vuota", "add_from_map": "Aggiungi eventi dalla mappa!", "remove_from_agenda": "Rimuovi da agenda", "city_found": "trovata!", "city_not_found": "non trovata", "searching": "Ricerca", "language_changed": "Lingua cambiata", "removed_from_agenda": "Rimosso da agenda", "filter_by_date": "Filtra per data", "today": "Oggi", "tomorrow": "Domani", "weekend": "Questo weekend", "week": "Questa settimana", "month": "Questo mese", "select_period": "Seleziona periodo", "from": "Da", "to": "A", "reset_all": "Reimposta", "selected_categories": "Categorie", "cumulative": "cumulativo", "publish_mode": "Pubblica – Modo", "main_category": "Categoria principale", "choose_category": "Scegli categoria…", "start": "Inizio", "end": "Fine", "title_name": "Titolo", "full_address": "Indirizzo completo", "full_description": "Descrizione", "main_photo": "Foto principale", "ticketing": "Biglietteria", "ticket_link": "Link biglietti", "social_links": "Link social", "video_links": "Link video", "sound_links": "Link audio", "paste_sound_links": "Incolla link audio", "price_estimate": "Stima prezzo", "price_example": "es. 500.– a serata", "price_not_detected": "Prezzo non rilevato.", "visibility_choice": "Visibilità (pagamento al passo successivo):", "standard_point": "1.– : Punto standard", "bronze_boost": "5.– Bronze", "silver_boost": "10.– Argento", "platinum_boost": "TOP 10 – Platino", "subscription_recommended": "💎 Abbonamento consigliato", "save_on_events": "Risparmia sugli eventi", "unlimited_contacts": "Contatti illimitati", "publish_and_pay": "Pubblica e paga", "close": "Chiudi", "save": "Salva", "cancel": "Annulla", "confirm": "Conferma", "loading": "Caricamento...", "error": "Errore", "success": "Successo", "info": "Info", "translate": "Traduci", "hide_translation": "Nascondi traduzione", "translation_error": "Errore traduzione", "try_again": "Riprova" },
+  pt: { "filter": "Filtrar", "list": "Lista", "events": "Eventos", "booking": "Reservas", "services": "Serviços", "agenda": "Agenda", "alerts": "Alertas", "account": "Conta", "cart": "Carrinho", "search_city": "Pesquisar cidade...", "publish": "Publicar", "event_title": "Evento", "date": "Data", "address": "Morada", "description": "Descrição", "category": "Categoria", "organizer": "Organizador", "price": "Preço", "free": "Grátis", "add_to_agenda": "Adicionar à agenda", "like": "Gosto", "favorite": "Favoritos", "participate": "Participar", "leave_review": "Deixar avaliação", "contact_ai": "Contacto IA", "report": "Reportar", "participants": "participantes", "registered": "Inscrito", "in_agenda": "Na agenda", "share": "Partilhar", "route": "Percurso", "review": "Avaliação", "contact": "Contacto", "reviews": "avaliações", "ai_detected": "Detetado por IA", "check_source": "Verificar fonte", "booking_link": "Link reserva", "rating": "Classificação", "booking_title": "Reserva", "artist": "Artista", "level": "Nível", "sound_preview": "Pré-visualização áudio", "get_contact": "Obter contacto", "pay": "Pagar", "view_subs": "Ver subscrições", "add_to_cart": "Adicionar ao carrinho", "verified": "Verificado", "website": "Site", "email": "Email", "phone": "Telefone", "service_title": "Serviço", "company": "Empresa", "contact_info": "Contacto", "my_agenda": "A minha agenda", "my_favorites": "Favoritos", "my_subscriptions": "Subscrições", "agenda_empty": "Agenda vazia", "add_from_map": "Adicione eventos do mapa!", "remove_from_agenda": "Remover da agenda", "city_found": "encontrada!", "city_not_found": "não encontrada", "searching": "A pesquisar", "language_changed": "Idioma alterado", "removed_from_agenda": "Removido da agenda", "filter_by_date": "Filtrar por data", "today": "Hoje", "tomorrow": "Amanhã", "weekend": "Este fim de semana", "week": "Esta semana", "month": "Este mês", "select_period": "Ou selecionar período", "from": "De", "to": "Até", "reset_all": "Repor", "selected_categories": "Categorias", "cumulative": "acumulável", "publish_mode": "Publicar – Modo", "main_category": "Categoria principal", "choose_category": "Escolher categoria…", "start": "Início", "end": "Fim", "title_name": "Título", "full_address": "Morada completa", "full_description": "Descrição", "main_photo": "Foto principal", "ticketing": "Bilhetes", "ticket_link": "Link bilhetes", "social_links": "Redes sociais", "video_links": "Links vídeo", "sound_links": "Links áudio", "paste_sound_links": "Colar links áudio", "price_estimate": "Estimativa de preço", "price_example": "ex.: 500.– por noite", "price_not_detected": "Preço não detetado.", "visibility_choice": "Visibilidade (pagamento no próximo passo):", "standard_point": "1.– : Ponto standard", "bronze_boost": "5.– Bronze", "silver_boost": "10.– Prata", "platinum_boost": "TOP 10 – Platina", "subscription_recommended": "💎 Subscrição recomendada", "save_on_events": "Poupe em eventos", "unlimited_contacts": "Contactos ilimitados", "publish_and_pay": "Publicar e pagar", "close": "Fechar", "save": "Guardar", "cancel": "Cancelar", "confirm": "Confirmar", "loading": "A carregar...", "error": "Erro", "success": "Sucesso", "info": "Informação", "translate": "Traduzir", "hide_translation": "Ocultar tradução", "translation_error": "Erro de tradução", "try_again": "Tentar novamente" },
   ru: { "filter": "Фильтр", "list": "Список", "events": "События", "booking": "Бронирование", "services": "Услуги", "agenda": "Календарь", "alerts": "Оповещения", "account": "Аккаунт", "cart": "Корзина", "search_city": "Поиск города...", "publish": "Опубликовать", "event_title": "Событие", "date": "Дата", "address": "Адрес", "description": "Описание", "category": "Категория", "organizer": "Организатор", "price": "Цена", "free": "Бесплатно", "add_to_agenda": "В календарь", "like": "Нравится", "favorite": "Избранное", "participate": "Участвовать", "leave_review": "Оставить отзыв", "contact_ai": "Контакт ИИ", "report": "Пожаловаться", "participants": "участников", "registered": "Зарегистрирован", "in_agenda": "В календаре", "share": "Поделиться", "route": "Маршрут", "review": "Отзыв", "contact": "Контакт", "reviews": "отзывов", "ai_detected": "Определено ИИ", "check_source": "Проверить источник", "booking_link": "Ссылка бронирования", "rating": "Рейтинг", "booking_title": "Бронирование", "artist": "Артист", "level": "Уровень", "sound_preview": "Прослушать", "get_contact": "Контакт", "pay": "Оплатить", "view_subs": "Подписки", "add_to_cart": "В корзину", "verified": "Проверено", "website": "Сайт", "email": "Email", "phone": "Телефон", "service_title": "Услуга", "company": "Компания", "contact_info": "Контакты", "my_agenda": "Мой календарь", "my_favorites": "Избранное", "my_subscriptions": "Подписки", "agenda_empty": "Календарь пуст", "add_from_map": "Добавьте события с карты!", "remove_from_agenda": "Удалить из календаря", "city_found": "найдено!", "city_not_found": "не найдено", "searching": "Поиск", "language_changed": "Язык изменён", "removed_from_agenda": "Удалено из календаря", "filter_by_date": "По дате", "today": "Сегодня", "tomorrow": "Завтра", "weekend": "В эти выходные", "week": "На этой неделе", "month": "В этом месяце", "select_period": "Выберите период", "from": "С", "to": "По", "reset_all": "Сбросить", "selected_categories": "Категории", "cumulative": "суммарно", "publish_mode": "Публикация – Режим", "main_category": "Основная категория", "choose_category": "Выбрать категорию…", "start": "Начало", "end": "Конец", "title_name": "Название", "full_address": "Адрес", "full_description": "Описание", "main_photo": "Фото", "ticketing": "Билеты", "ticket_link": "Ссылка на билеты", "social_links": "Соцсети", "video_links": "Видео", "sound_links": "Аудио", "paste_sound_links": "Вставьте ссылки", "price_estimate": "Ориентир цены", "price_example": "напр. 500.– за вечер", "price_not_detected": "Цена не определена.", "visibility_choice": "Видимость (оплата на следующем шаге):", "standard_point": "1.– : Стандартная точка", "bronze_boost": "5.– Бронза", "silver_boost": "10.– Серебро", "platinum_boost": "TOP 10 – Платина", "subscription_recommended": "💎 Рекомендуем подписку", "save_on_events": "Экономия на событиях", "unlimited_contacts": "Безлимит контактов", "publish_and_pay": "Опубликовать и оплатить", "close": "Закрыть", "save": "Сохранить", "cancel": "Отмена", "confirm": "Подтвердить", "loading": "Загрузка...", "error": "Ошибка", "success": "Успех", "info": "Инфо", "translate": "Перевести", "hide_translation": "Скрыть перевод", "translation_error": "Ошибка перевода", "try_again": "Повторить" }
 };
 
@@ -2122,6 +2145,14 @@ let selectedCityForSorting = null; // Ville sélectionnée pour le tri par dista
 
 let uiThemeIndex = 0;
 let mapThemeIndex = 0;
+
+// Custom theme config (couleurs personnalisees par l'utilisateur)
+window.customThemeConfig = null;
+// Charger depuis localStorage en fallback
+try {
+  const saved = localStorage.getItem('customThemeConfig');
+  if (saved) window.customThemeConfig = JSON.parse(saved);
+} catch(e) {}
 
 // Arbres pour logique image
 let EVENTS_TREE = null;
@@ -2326,30 +2357,246 @@ let paidContacts = [];
 // Panier (contacts à acheter)
 let cart = [];
 
-// Simuler lecture audio
-function playPreview(bookingId, trackIndex) {
-  showNotification("🎵 Lecture de la piste " + (trackIndex + 1) + "...", "info");
-  
-  // Animation de la barre de progression
-  const progressBar = document.getElementById(`progress-${bookingId}-${trackIndex}`);
-  if (progressBar) {
-    let progress = 0;
-    const interval = setInterval(() => {
-      progress += 2;
-      progressBar.style.width = progress + "%";
-      if (progress >= 100) {
-        clearInterval(interval);
-        progressBar.style.width = "0%";
+// Lecteur audio réel pour bookings et events (écoute + seek + drag)
+// Variable globale pour le drag audio
+let _audioDragging = null; // { prefix, itemId, trackIndex }
+// État du mini-player (type Spotify)
+let _currentPlaying = null; // { prefix, itemId, trackIndex, title, subtitle }
+
+function formatAudioTime(seconds) {
+  if (!seconds || isNaN(seconds) || !isFinite(seconds)) return '0:00';
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return m + ':' + (s < 10 ? '0' : '') + s;
+}
+
+function seekAudio(prefix, itemId, trackIndex, ev) {
+  const audio = document.getElementById(`${prefix}-audio-${itemId}-${trackIndex}`);
+  const progBar = document.getElementById(`progress-${prefix}-${itemId}-${trackIndex}`);
+  const seekBar = document.getElementById(`seekbar-${prefix}-${itemId}-${trackIndex}`);
+  if (!audio || !seekBar) return;
+  const rect = seekBar.getBoundingClientRect();
+  const clientX = ev.touches ? ev.touches[0].clientX : ev.clientX;
+  const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+  if (audio.duration && !isNaN(audio.duration)) {
+    audio.currentTime = pct * audio.duration;
+  } else {
+    audio.load();
+    audio.addEventListener('loadedmetadata', function onMeta() {
+      audio.removeEventListener('loadedmetadata', onMeta);
+      if (audio.duration && !isNaN(audio.duration)) {
+        audio.currentTime = pct * audio.duration;
       }
-    }, 100);
-    
-    // Arrêter après 15 secondes (démo généreuse)
-    setTimeout(() => {
-      clearInterval(interval);
-      progressBar.style.width = "0%";
-      showNotification("⏹️ Fin de l'aperçu 15s – Débloquez pour écouter en entier !", "info");
-    }, 15000);
+      updateAudioTimeDisplay(prefix, itemId, trackIndex);
+    }, { once: true });
   }
+  if (progBar) progBar.style.width = (100 * pct) + '%';
+  updateAudioTimeDisplay(prefix, itemId, trackIndex);
+}
+
+function startAudioDrag(prefix, itemId, trackIndex, ev) {
+  ev.preventDefault();
+  ev.stopPropagation();
+  _audioDragging = { prefix, itemId, trackIndex };
+  seekAudio(prefix, itemId, trackIndex, ev);
+}
+
+function updateAudioTimeDisplay(prefix, itemId, trackIndex) {
+  const audio = document.getElementById(`${prefix}-audio-${itemId}-${trackIndex}`);
+  const timeEl = document.getElementById(`time-${prefix}-${itemId}-${trackIndex}`);
+  if (!audio || !timeEl) return;
+  const current = formatAudioTime(audio.currentTime);
+  const total = formatAudioTime(audio.duration);
+  timeEl.textContent = current + ' / ' + total;
+}
+
+// Drag global handlers (mouse + touch)
+document.addEventListener('mousemove', function(ev) {
+  if (!_audioDragging) return;
+  seekAudio(_audioDragging.prefix, _audioDragging.itemId, _audioDragging.trackIndex, ev);
+});
+document.addEventListener('mouseup', function() { _audioDragging = null; });
+document.addEventListener('touchmove', function(ev) {
+  if (!_audioDragging) return;
+  seekAudio(_audioDragging.prefix, _audioDragging.itemId, _audioDragging.trackIndex, ev);
+}, { passive: false });
+document.addEventListener('touchend', function() { _audioDragging = null; });
+
+function showMiniPlayer(prefix, itemId, trackIndex, title, subtitle) {
+  _currentPlaying = { prefix, itemId, trackIndex, title: title || '—', subtitle: subtitle || 'Piste ' + (trackIndex + 1) };
+  const el = document.getElementById('audio-mini-player');
+  if (!el) return;
+  el.classList.add('visible');
+  document.getElementById('mini-player-title').textContent = _currentPlaying.title;
+  document.getElementById('mini-player-subtitle').textContent = _currentPlaying.subtitle;
+  updateMiniPlayerUI();
+}
+
+function hideMiniPlayer() {
+  _currentPlaying = null;
+  const el = document.getElementById('audio-mini-player');
+  if (el) el.classList.remove('visible');
+}
+
+// Ouvrir la popup de l'artiste/event en cours d'écoute
+function openCurrentPlayingPopup() {
+  if (!_currentPlaying) return;
+  const { prefix, itemId } = _currentPlaying;
+  // Déterminer le type à partir du préfixe audio (booking, event, service)
+  const type = prefix;
+  const numId = parseInt(itemId);
+  
+  // Trouver l'item dans les données
+  const dataArr = type === 'booking' ? bookingsData : type === 'event' ? eventsData : servicesData;
+  const item = dataArr.find(i => i.id === numId);
+  
+  if (item) {
+    // Ouvrir la popup de l'item (même fonction que le clic depuis la liste)
+    if (typeof openPopupFromList === 'function') {
+      openPopupFromList(type, numId);
+    }
+  } else {
+    showNotification("L'artiste n'est plus visible sur la carte. Rapprochez-vous de sa position.", "info");
+  }
+}
+window.openCurrentPlayingPopup = openCurrentPlayingPopup;
+
+function updateMiniPlayerUI() {
+  if (!_currentPlaying) return;
+  const { prefix, itemId, trackIndex } = _currentPlaying;
+  const audio = document.getElementById(`${prefix}-audio-${itemId}-${trackIndex}`);
+  const timeEl = document.getElementById('mini-player-time');
+  const playBtn = document.getElementById('mini-player-play');
+  if (!audio) return;
+  if (timeEl) timeEl.textContent = formatAudioTime(audio.currentTime) + ' / ' + formatAudioTime(audio.duration);
+  if (playBtn) playBtn.innerHTML = audio.paused ? '▶' : '⏸';
+}
+
+function seekAudioOffset(prefix, itemId, trackIndex, deltaSeconds) {
+  const audio = document.getElementById(`${prefix}-audio-${itemId}-${trackIndex}`);
+  const progBar = document.getElementById(`progress-${prefix}-${itemId}-${trackIndex}`);
+  if (!audio) return;
+  let t = audio.currentTime + deltaSeconds;
+  t = Math.max(0, Math.min(audio.duration || 0, t));
+  audio.currentTime = t;
+  if (progBar && audio.duration) progBar.style.width = (100 * t / audio.duration) + '%';
+  updateAudioTimeDisplay(prefix, itemId, trackIndex);
+  updateMiniPlayerUI();
+}
+
+async function toggleAudioGeneric(prefix, itemId, trackIndex) {
+  if (navigator.vibrate) navigator.vibrate(10);
+  const audio = document.getElementById(`${prefix}-audio-${itemId}-${trackIndex}`);
+  const btn = document.getElementById(`btn-${prefix}-${itemId}-${trackIndex}`);
+  const progressBar = document.getElementById(`progress-${prefix}-${itemId}-${trackIndex}`);
+  const container = document.querySelector(`[data-audio-track] [id="btn-${prefix}-${itemId}-${trackIndex}"]`)?.closest('[data-audio-track]');
+  const title = container?.getAttribute('data-item-title') || '—';
+  const subtitle = container?.getAttribute('data-track-label') || ('Piste ' + (trackIndex + 1));
+  if (!audio) return;
+  
+  if (audio.paused) {
+    // Mode hors-ligne : utiliser le cache si disponible
+    const originalUrl = audio.getAttribute('data-original-src') || audio.src;
+    if (!navigator.onLine && window.indexedDBService?.getAudioCache) {
+      try {
+        const blobUrl = await window.indexedDBService.getAudioCache(originalUrl);
+        if (blobUrl) audio.src = blobUrl;
+      } catch (_) {}
+    }
+    // Stopper les autres audios (booking + event)
+    // Couper UNIQUEMENT les autres sons (pas celui qu'on lance) - un seul son à la fois
+    document.querySelectorAll('audio[id^="booking-audio-"], audio[id^="event-audio-"]').forEach(a => {
+      if (a !== audio) { a.pause(); a.currentTime = 0; }
+    });
+    document.querySelectorAll('[id^="progress-booking-"], [id^="progress-event-"]').forEach(p => {
+      if (p !== progressBar) p.style.width = '0%';
+    });
+    document.querySelectorAll('[id^="btn-booking-"], [id^="btn-event-"]').forEach(b => {
+      if (b !== btn) b.innerHTML = '▶';
+    });
+    // Reset tous les time displays
+    document.querySelectorAll('[id^="time-booking-"], [id^="time-event-"]').forEach(t => {
+      const tid = t.id;
+      if (!tid.includes(`${prefix}-${itemId}-${trackIndex}`)) t.textContent = '0:00';
+    });
+    
+    audio.play();
+    if (btn) btn.innerHTML = '⏸';
+    showMiniPlayer(prefix, itemId, trackIndex, title, subtitle);
+    // Cache pour mode hors-ligne (après chargement)
+    const origUrl = audio.getAttribute('data-original-src') || audio.src;
+    if (navigator.onLine && origUrl && window.indexedDBService?.setAudioCache && !origUrl.startsWith('blob:')) {
+      audio.oncanplay = async () => {
+        audio.oncanplay = null;
+        try {
+          const r = await fetch(origUrl, { mode: 'cors' });
+          if (r.ok) {
+            const blob = await r.blob();
+            await window.indexedDBService.setAudioCache(origUrl, blob);
+          }
+        } catch (_) {}
+      };
+    }
+    audio.onended = () => {
+      if (btn) btn.innerHTML = '▶';
+      if (progressBar) progressBar.style.width = '0%';
+      updateAudioTimeDisplay(prefix, itemId, trackIndex);
+      hideMiniPlayer();
+    };
+    audio.ontimeupdate = () => {
+      if (_audioDragging) return;
+      if (progressBar && audio.duration) {
+        progressBar.style.width = (100 * audio.currentTime / audio.duration) + '%';
+      }
+      updateAudioTimeDisplay(prefix, itemId, trackIndex);
+      updateMiniPlayerUI();
+    };
+  } else {
+    audio.pause();
+    if (btn) btn.innerHTML = '▶';
+    hideMiniPlayer();
+  }
+}
+
+function toggleBookingAudio(bookingId, trackIndex) {
+  toggleAudioGeneric('booking', bookingId, trackIndex);
+}
+function toggleEventAudio(eventId, trackIndex) {
+  toggleAudioGeneric('event', eventId, trackIndex);
+}
+
+window.toggleBookingAudio = toggleBookingAudio;
+window.toggleEventAudio = toggleEventAudio;
+window.seekBookingAudio = (id, i, ev) => seekAudio('booking', id, i, ev);
+window.seekEventAudio = (id, i, ev) => seekAudio('event', id, i, ev);
+window.startAudioDrag = startAudioDrag;
+window.seekAudioOffset = seekAudioOffset;
+
+// Initialiser les boutons du mini-player (après chargement DOM)
+function initMiniPlayerButtons() {
+  const playBtn = document.getElementById('mini-player-play');
+  const rewindBtn = document.getElementById('mini-player-rewind');
+  const forwardBtn = document.getElementById('mini-player-forward');
+  if (playBtn) playBtn.onclick = () => {
+    if (!_currentPlaying) return;
+    const { prefix, itemId, trackIndex } = _currentPlaying;
+    toggleAudioGeneric(prefix, itemId, trackIndex);
+  };
+  if (rewindBtn) rewindBtn.onclick = () => {
+    if (!_currentPlaying) return;
+    seekAudioOffset(_currentPlaying.prefix, _currentPlaying.itemId, _currentPlaying.trackIndex, -15);
+    if (navigator.vibrate) navigator.vibrate(10);
+  };
+  if (forwardBtn) forwardBtn.onclick = () => {
+    if (!_currentPlaying) return;
+    seekAudioOffset(_currentPlaying.prefix, _currentPlaying.itemId, _currentPlaying.trackIndex, 15);
+    if (navigator.vibrate) navigator.vibrate(10);
+  };
+}
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initMiniPlayerButtons);
+} else {
+  initMiniPlayerButtons();
 }
 
 // --- SYSTÈME DE MODÉRATION IA ---
@@ -2488,7 +2735,7 @@ const UI_THEMES = [
     cardBorder: "rgba(148,163,184,0.6)",
     textMain: "#e5e7eb",
     textMuted: "#9ca3af",
-    btnMainBg: "linear-gradient(135deg,#22c55e,#4ade80)",
+    btnMainBg: "linear-gradient(135deg,#22c55e 0%,#4ade80 100%)",
     btnMainText: "#022c22",
     btnMainShadow: "0 8px 22px rgba(34,197,94,0.75)",
     btnAltBg: "rgba(15,23,42,0.9)",
@@ -2507,7 +2754,7 @@ const UI_THEMES = [
     cardBorder: "rgba(148,163,184,0.6)",
     textMain: "#020617",
     textMuted: "#6b7280",
-    btnMainBg: "linear-gradient(135deg,#22c55e,#16a34a)",
+    btnMainBg: "linear-gradient(135deg,#22c55e 0%,#16a34a 100%)",
     btnMainText: "#022c22",
     btnMainShadow: "0 8px 22px rgba(22,163,74,0.6)",
     btnAltBg: "#f9fafb",
@@ -2522,11 +2769,11 @@ const UI_THEMES = [
     name: "Purple Cyberpunk",
     bodyBg: "#020617",
     topbarBg: "#020617",
-    cardBg: "radial-gradient(circle at 0 0,#4c1d95,#020617)",
+    cardBg: "linear-gradient(180deg,#4c1d95 0%,#020617 100%)",
     cardBorder: "rgba(192,132,252,0.8)",
     textMain: "#f9fafb",
     textMuted: "#a5b4fc",
-    btnMainBg: "linear-gradient(135deg,#a855f7,#ec4899)",
+    btnMainBg: "linear-gradient(135deg,#a855f7 0%,#ec4899 100%)",
     btnMainText: "#fdf2ff",
     btnMainShadow: "0 10px 24px rgba(168,85,247,0.8)",
     btnAltBg: "rgba(15,23,42,0.9)",
@@ -2539,13 +2786,13 @@ const UI_THEMES = [
   },
   {
     name: "Miami Sunset",
-    bodyBg: "radial-gradient(circle at top,#f97316,#1d1b67)",
+    bodyBg: "linear-gradient(180deg,#f97316 0%,#1d1b67 100%)",
     topbarBg: "rgba(15,23,42,0.9)",
     cardBg: "rgba(15,23,42,0.9)",
     cardBorder: "rgba(251,146,60,0.7)",
     textMain: "#fefce8",
     textMuted: "#fed7aa",
-    btnMainBg: "linear-gradient(135deg,#fb923c,#ec4899)",
+    btnMainBg: "linear-gradient(135deg,#fb923c 0%,#ec4899 100%)",
     btnMainText: "#111827",
     btnMainShadow: "0 10px 24px rgba(248,113,113,0.7)",
     btnAltBg: "rgba(15,23,42,0.9)",
@@ -2560,11 +2807,11 @@ const UI_THEMES = [
     name: "Blue Ice",
     bodyBg: "#020617",
     topbarBg: "#020617",
-    cardBg: "linear-gradient(135deg,#0f172a,#0b1120)",
+    cardBg: "linear-gradient(135deg,#0f172a 0%,#0b1120 100%)",
     cardBorder: "rgba(148,163,184,0.8)",
     textMain: "#e5e7eb",
     textMuted: "#94a3b8",
-    btnMainBg: "linear-gradient(135deg,#0ea5e9,#22c55e)",
+    btnMainBg: "linear-gradient(135deg,#0ea5e9 0%,#22c55e 100%)",
     btnMainText: "#022c22",
     btnMainShadow: "0 10px 24px rgba(56,189,248,0.7)",
     btnAltBg: "rgba(15,23,42,0.9)",
@@ -2578,12 +2825,31 @@ const UI_THEMES = [
 ];
 
 // Couleurs des marqueurs/clusters selon le thème UI actuel (bordure incluse)
+// Priorité: customThemeConfig > thème UI actuel > défaut
 function getThemeMarkerColors() {
+  const cfg = window.customThemeConfig;
+  if (cfg && cfg.markerColors && cfg.markerColors.length > 0) {
+    return {
+      accent: cfg.markerColors[0],
+      border: cfg.markerBorder || 'rgba(255,255,255,0.5)',
+      gradient: cfg.markerColors.length > 1 ? cfg.markerColors : null
+    };
+  }
   const t = UI_THEMES[typeof uiThemeIndex !== "undefined" ? uiThemeIndex : 0];
   return {
     accent: t && t.markerAccent ? t.markerAccent : "#667eea",
-    border: t && t.markerBorder ? t.markerBorder : (t && t.pillBorder ? t.pillBorder : "rgba(148,163,184,0.8)")
+    border: t && t.markerBorder ? t.markerBorder : (t && t.pillBorder ? t.pillBorder : "rgba(148,163,184,0.8)"),
+    gradient: null
   };
+}
+
+// Construire un CSS gradient a partir d'un tableau de couleurs (1-3)
+function buildMarkerGradient(colors, angle) {
+  if (!colors || colors.length === 0) return null;
+  if (colors.length === 1) return colors[0];
+  const a = angle || 135;
+  if (colors.length === 2) return `linear-gradient(${a}deg, ${colors[0]} 0%, ${colors[1]} 100%)`;
+  return `linear-gradient(${a}deg, ${colors[0]} 0%, ${colors[1]} 50%, ${colors[2]} 100%)`;
 }
 
 // ===============================
@@ -2638,49 +2904,9 @@ const demoEventBase = [
   }
 ];
 
-const demoBookingBase = [
-  {
-    id: 101,
-    type: "booking",
-    name: "DJ Test Booking",
-    description: "Artiste de test, profil booking.",
-    city: "Genève",
-    address: "Genève centre",
-    lat: 46.2044,
-    lng: 6.1432,
-    categories: ["Techno"],
-    mainCategory: "Techno",
-    categoryImage: null,
-    boost: "silver",
-    imageUrl: null,
-    soundLinks: [],
-    email: "booking@example.com",
-    phone: "+41 79 111 11 11",
-    isAI: false
-  }
-];
+const demoBookingBase = [];
 
-const demoServiceBase = [
-  {
-    id: 201,
-    type: "service",
-    name: "Lumières Pro Suisse",
-    description: "Prestataire lumière pour clubs, open airs et festivals.",
-    city: "Zurich",
-    address: "Lichtstrasse 9, 8000 Zürich",
-    lat: 47.3769,
-    lng: 8.5417,
-    categories: ["Lumière"],
-    mainCategory: "Lumière",
-    categoryImage: null,
-    boost: "bronze",
-    imageUrl: null,
-    email: "contact@lumieres-pro.ch",
-    phone: "+41 78 123 45 67",
-    isAI: false,
-    pricingMode: "Devis"
-  }
-];
+const demoServiceBase = [];
 
 // ============================================
 // INIT
@@ -2982,7 +3208,142 @@ function openServicePopupFromDeepLink(service) {
 // Variable pour stocker le marqueur actuel
 let currentPopupMarker = null;
 
+// ============================================================================
+// 📖 NAVIGATION "LIVRE" - Events à la même adresse
+// Quand 2+ events partagent les mêmes coordonnées, on affiche des flèches
+// pour naviguer de l'un à l'autre sans fermer la popup
+// ============================================================================
+let sameLocationMap = {};  // clé "lat,lng" → [item1, item2, ...]
+let currentLocationGroup = null; // items au même endroit que l'item actuel
+let currentLocationIndex = 0;    // position dans le groupe
+
+function buildSameLocationMap(items) {
+  sameLocationMap = {};
+  for (const item of items) {
+    if (!item || typeof item.lat !== 'number' || typeof item.lng !== 'number') continue;
+    // Arrondir à 4 décimales (≈ 11m) pour grouper les events vraiment à la même adresse
+    const key = `${item.lat.toFixed(4)},${item.lng.toFixed(4)}`;
+    if (!sameLocationMap[key]) sameLocationMap[key] = [];
+    sameLocationMap[key].push(item);
+  }
+  // Trier chaque groupe par date croissante (le plus proche dans le temps en premier)
+  const now = new Date();
+  for (const key in sameLocationMap) {
+    if (sameLocationMap[key].length > 1) {
+      sameLocationMap[key].sort((a, b) => {
+        const da = a.date ? new Date(a.date) : new Date('2099-12-31');
+        const db = b.date ? new Date(b.date) : new Date('2099-12-31');
+        // Les events futurs les plus proches d'abord
+        const diffA = Math.abs(da - now);
+        const diffB = Math.abs(db - now);
+        return diffA - diffB;
+      });
+    }
+  }
+}
+
+function getSameLocationItems(item) {
+  if (!item || typeof item.lat !== 'number') return [item];
+  const key = `${item.lat.toFixed(4)},${item.lng.toFixed(4)}`;
+  return sameLocationMap[key] || [item];
+}
+
+function navigateSameLocation(direction) {
+  if (!currentLocationGroup || currentLocationGroup.length <= 1) return;
+  currentLocationIndex += direction;
+  if (currentLocationIndex < 0) currentLocationIndex = currentLocationGroup.length - 1;
+  if (currentLocationIndex >= currentLocationGroup.length) currentLocationIndex = 0;
+  
+  const item = currentLocationGroup[currentLocationIndex];
+  const popupContent = buildPopupHtml(item);
+  
+  // Mettre à jour le contenu de la popup SANS fermer/rouvrir le modal
+  const scrollContainer = document.getElementById('popup-scroll-container');
+  if (scrollContainer) {
+    scrollContainer.innerHTML = popupContent;
+    scrollContainer.scrollTop = 0;
+  }
+  
+  // Mettre à jour le compteur de navigation
+  updateLocationNavCounter();
+}
+
+function updateLocationNavCounter() {
+  const counter = document.getElementById('location-nav-counter');
+  if (counter && currentLocationGroup) {
+    counter.textContent = `${currentLocationIndex + 1} / ${currentLocationGroup.length}`;
+  }
+}
+
+function buildLocationNavHtml(group, index) {
+  if (!group || group.length <= 1) return '';
+  const total = group.length;
+  return `
+    <div id="location-nav-bar" style="
+      display:flex; align-items:center; justify-content:space-between;
+      padding:10px 16px; background:rgba(15,23,42,0.92); backdrop-filter:blur(10px);
+      border-top:1px solid rgba(255,255,255,0.08);
+      user-select:none; flex-shrink:0;
+    ">
+      <button onclick="navigateSameLocation(-1)" style="
+        width:40px; height:40px; border-radius:50%; border:none;
+        background:rgba(255,255,255,0.08); color:#fff; cursor:pointer; font-size:22px;
+        display:flex; align-items:center; justify-content:center;
+        transition:all 0.15s; flex-shrink:0;
+      " onmouseover="this.style.background='rgba(0,255,195,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.08)'">&lsaquo;</button>
+      <div style="display:flex; flex-direction:column; align-items:center; gap:2px;">
+        <span id="location-nav-counter" style="
+          color:#fff; font-size:14px; font-weight:700; letter-spacing:0.5px;
+        ">${index + 1} / ${total}</span>
+        <span style="color:rgba(148,163,184,0.8); font-size:11px;">${total} events ici</span>
+      </div>
+      <button onclick="navigateSameLocation(1)" style="
+        width:40px; height:40px; border-radius:50%; border:none;
+        background:rgba(255,255,255,0.08); color:#fff; cursor:pointer; font-size:22px;
+        display:flex; align-items:center; justify-content:center;
+        transition:all 0.15s; flex-shrink:0;
+      " onmouseover="this.style.background='rgba(0,255,195,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.08)'">&rsaquo;</button>
+    </div>`;
+}
+
+window.navigateSameLocation = navigateSameLocation;
+
 function openPopupModal(content, item) {
+  // Enregistrer la vue popup (analytics organisateurs + promo)
+  if (item && item.id != null) {
+    const t = item.type || (typeof currentMode !== 'undefined' ? currentMode : 'event');
+    const api = (typeof window !== 'undefined' && window.API_BASE_URL) ? window.API_BASE_URL : '';
+    if (api && t) {
+      fetch(api + '/analytics/popup-view', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: t, id: item.id })
+      }).catch(function() {});
+    }
+  }
+  // Préserver l'audio en cours - NE JAMAIS couper le son à l'ouverture d'une popup
+  // Le son ne s'arrête QUE quand l'utilisateur clique sur un NOUVEAU bouton play
+  let persistentContainer = document.getElementById("audio-persistent-container");
+  if (!persistentContainer) {
+    persistentContainer = document.createElement("div");
+    persistentContainer.id = "audio-persistent-container";
+    persistentContainer.style.cssText = "position:fixed;bottom:70px;left:10px;width:1px;height:1px;overflow:hidden;pointer-events:none;opacity:0.01;z-index:99998;";
+    document.body.insertBefore(persistentContainer, document.body.firstChild);
+  }
+  let backdrop = document.getElementById("popup-modal-backdrop");
+  const scope = backdrop || document;
+  const playingAudios = [];
+  scope.querySelectorAll('audio[id^="booking-audio-"], audio[id^="event-audio-"]').forEach(a => {
+    if (!a.paused && a.readyState >= 2) {
+      playingAudios.push(a);
+    }
+  });
+  playingAudios.forEach(a => {
+    try {
+      persistentContainer.appendChild(a);
+    } catch (_) {}
+  });
+
   // Supprimer un modal existant
   const existingModal = document.getElementById("popup-modal");
   if (existingModal) existingModal.remove();
@@ -2993,22 +3354,38 @@ function openPopupModal(content, item) {
     currentPopupMarker = markerMap[key] || null;
   }
   
-  // Utiliser EXACTEMENT la même structure que le mode liste qui fonctionne
+  // 📖 Déterminer si cet item fait partie d'un groupe au même emplacement
+  let locationNavHtml = '';
+  if (item && typeof item.lat === 'number') {
+    currentLocationGroup = getSameLocationItems(item);
+    if (currentLocationGroup.length > 1) {
+      currentLocationIndex = currentLocationGroup.findIndex(i => i.id === item.id && i.type === item.type);
+      if (currentLocationIndex < 0) currentLocationIndex = 0;
+      locationNavHtml = buildLocationNavHtml(currentLocationGroup, currentLocationIndex);
+    } else {
+      currentLocationGroup = null;
+      currentLocationIndex = 0;
+    }
+  }
+  
+  const isMobile = window.innerWidth <= 768;
+  const dragHandleHtml = isMobile ? '<div class="popup-drag-handle" style="width:40px;height:4px;background:rgba(148,163,184,0.5);border-radius:2px;margin:8px auto 4px;cursor:grab;"></div>' : '';
+  const bottomSheetStyle = isMobile ? 'position:fixed;bottom:0;left:0;right:0;width:100%!important;max-width:100%!important;max-height:90vh!important;margin:0!important;border-radius:20px 20px 0 0!important;align-self:flex-end!important;' : '';
+  const backdropAlign = isMobile ? 'align-items:flex-end;justify-content:center;padding:0!important;' : 'align-items:center;justify-content:center;';
   const modalHtml = `
-    <div id="popup-modal-content" style="position:relative;width:380px;max-height:85vh;overflow:hidden;background:var(--ui-card-bg);border-radius:16px;border:1px solid var(--ui-card-border);margin:20px;box-shadow:0 20px 60px rgba(0,0,0,0.5);display:flex;flex-direction:column;padding:0;box-sizing:border-box;">
+    <div id="popup-modal-content" style="position:relative;width:380px;max-height:85vh;overflow:hidden;background:var(--ui-card-bg);border-radius:16px;border:1px solid var(--ui-card-border);margin:20px;box-shadow:0 20px 60px rgba(0,0,0,0.5);display:flex;flex-direction:column;padding:0;box-sizing:border-box;${bottomSheetStyle}">
+      ${dragHandleHtml}
       <button onclick="closePopupModal()" style="position:absolute;top:12px;right:12px;width:36px;height:36px;border-radius:50%;border:none;background:rgba(0,0,0,0.6);color:#fff;cursor:pointer;font-size:20px;z-index:1001;display:flex;align-items:center;justify-content:center;transition:all 0.2s;" onmouseover="this.style.background='rgba(239,68,68,0.8)'" onmouseout="this.style.background='rgba(0,0,0,0.6)'">✕</button>
       <div id="popup-scroll-container" style="flex:1;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;-webkit-overflow-scrolling:touch;width:100%;margin:0;padding:0;box-sizing:border-box;touch-action:pan-y;overscroll-behavior:contain;pointer-events:auto;position:relative;">
         ${content}
       </div>
+      ${locationNavHtml}
     </div>
   `;
   
-  // Créer ou réutiliser le backdrop - MÊME STRUCTURE QUE MODE LISTE
-  let backdrop = document.getElementById("popup-modal-backdrop");
   if (!backdrop) {
     backdrop = document.createElement("div");
     backdrop.id = "popup-modal-backdrop";
-    // z-index très élevé pour être devant tout + pointer-events pour bloquer Leaflet
     backdrop.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;z-index:99999;backdrop-filter:blur(2px);pointer-events:auto;padding-top:40px;padding-bottom:40px;box-sizing:border-box;";
     backdrop.onclick = (e) => {
       if (e.target === backdrop) closePopupModal();
@@ -3018,6 +3395,16 @@ function openPopupModal(content, item) {
   
   backdrop.innerHTML = modalHtml;
   backdrop.style.display = "flex";
+  if (isMobile) {
+    backdrop.style.alignItems = "flex-end";
+    backdrop.style.justifyContent = "center";
+    backdrop.style.padding = "0";
+  } else {
+    backdrop.style.alignItems = "center";
+    backdrop.style.justifyContent = "center";
+    backdrop.style.paddingTop = "40px";
+    backdrop.style.paddingBottom = "40px";
+  }
   
   // Empêcher le scroll du body quand la popup est ouverte
   document.body.style.overflow = 'hidden';
@@ -3085,6 +3472,99 @@ function openPopupModal(content, item) {
       scrollContainer.addEventListener('mousewheel', handleWheel, { passive: false, capture: true });
       scrollContainer.addEventListener('DOMMouseScroll', handleWheel, { passive: false, capture: true });
     }
+    // Bottom sheet: swipe down to close (mobile) - comme Google Maps, suit le doigt
+    if (isMobile && modalContent) {
+      let touchStartY = 0;
+      let dragging = false;
+      let didClose = false;
+      const dragHandle = modalContent.querySelector('.popup-drag-handle');
+      const startDrag = (e) => {
+        if (scrollContainer && scrollContainer.scrollTop > 0) return;
+        touchStartY = e.touches[0].clientY;
+        dragging = true;
+        didClose = false;
+      };
+      const onMove = (e) => {
+        if (!dragging || didClose) return;
+        if (scrollContainer && scrollContainer.scrollTop > 0) { dragging = false; return; }
+        const dy = e.touches[0].clientY - touchStartY;
+        if (dy > 0) modalContent.style.transform = `translateY(${Math.min(dy, 150)}px)`;
+      };
+      const onEnd = (e) => {
+        if (!dragging) return;
+        const dy = e.changedTouches[0].clientY - touchStartY;
+        modalContent.style.transition = '';
+        if (dy > 80 && scrollContainer && scrollContainer.scrollTop <= 0) {
+          didClose = true;
+          closePopupModal();
+        } else {
+          modalContent.style.transform = '';
+        }
+        dragging = false;
+      };
+      const h = dragHandle || modalContent;
+      h.addEventListener('touchstart', startDrag, { passive: true });
+      document.addEventListener('touchmove', onMove, { passive: true });
+      document.addEventListener('touchend', onEnd, { passive: true });
+      const cleanup = () => {
+        document.removeEventListener('touchmove', onMove);
+        document.removeEventListener('touchend', onEnd);
+        window._popupBottomSheetCleanup = null;
+      };
+      window._popupBottomSheetCleanup = cleanup;
+    }
+    
+    // 📖 Navigation clavier gauche/droite pour les events même adresse
+    if (currentLocationGroup && currentLocationGroup.length > 1) {
+      const keyHandler = (e) => {
+        if (e.key === 'ArrowLeft') { navigateSameLocation(-1); e.preventDefault(); }
+        if (e.key === 'ArrowRight') { navigateSameLocation(1); e.preventDefault(); }
+        if (e.key === 'Escape') { closePopupModal(); e.preventDefault(); }
+      };
+      document.addEventListener('keydown', keyHandler);
+      // Nettoyer à la fermeture
+      const origCleanup = window._popupBottomSheetCleanup;
+      window._popupBottomSheetCleanup = () => {
+        document.removeEventListener('keydown', keyHandler);
+        if (origCleanup) origCleanup();
+      };
+      
+      // 📱 Swipe gauche/droite sur mobile pour naviguer
+      const navBar = document.getElementById('location-nav-bar');
+      const scrollCont = document.getElementById('popup-scroll-container');
+      if (scrollCont) {
+        let swipeStartX = 0;
+        let swipeStartY = 0;
+        let swiping = false;
+        scrollCont.addEventListener('touchstart', (e) => {
+          swipeStartX = e.touches[0].clientX;
+          swipeStartY = e.touches[0].clientY;
+          swiping = true;
+        }, { passive: true });
+        scrollCont.addEventListener('touchend', (e) => {
+          if (!swiping) return;
+          swiping = false;
+          const dx = e.changedTouches[0].clientX - swipeStartX;
+          const dy = e.changedTouches[0].clientY - swipeStartY;
+          // Seulement si le swipe horizontal est plus grand que vertical et > 60px
+          if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+            if (dx > 0) navigateSameLocation(-1);
+            else navigateSameLocation(1);
+          }
+        }, { passive: true });
+      }
+    } else {
+      // Escape pour fermer même sans navigation
+      const keyHandler = (e) => {
+        if (e.key === 'Escape') { closePopupModal(); e.preventDefault(); }
+      };
+      document.addEventListener('keydown', keyHandler);
+      const origCleanup = window._popupBottomSheetCleanup;
+      window._popupBottomSheetCleanup = () => {
+        document.removeEventListener('keydown', keyHandler);
+        if (origCleanup) origCleanup();
+      };
+    }
   }, 100);
 }
 
@@ -3094,14 +3574,45 @@ function updateAuthButtons() {
   const authButtons = document.getElementById("auth-buttons");
   const accountBtn = document.getElementById("account-topbar-btn");
   
-  if (!authButtons || !accountBtn) return;
+  if (!authButtons || !accountBtn) {
+    console.warn('[AUTH BUTTONS] Elements introuvables, retry dans 500ms');
+    setTimeout(updateAuthButtons, 500);
+    return;
+  }
   
-  const isLoggedIn = currentUser && currentUser.isLoggedIn;
+  // Vérifier aussi localStorage/sessionStorage en plus de currentUser (fallback robuste)
+  let isLoggedIn = currentUser && currentUser.isLoggedIn;
+  
+  // Fallback : si currentUser n'est pas encore initialisé mais on a un token valide
+  if (!isLoggedIn) {
+    try {
+      const stored = localStorage.getItem('currentUser') || sessionStorage.getItem('currentUser');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed && parsed.isLoggedIn) {
+          isLoggedIn = true;
+          console.log('[AUTH BUTTONS] Fallback: utilisateur recupere depuis storage');
+          // Restaurer currentUser si vide
+          if (!currentUser || !currentUser.isLoggedIn) {
+            if (typeof currentUser === 'undefined' || !currentUser) {
+              currentUser = parsed;
+            } else {
+              Object.assign(currentUser, parsed);
+            }
+          }
+        }
+      }
+    } catch(e) { /* ignore */ }
+  }
   
   if (isLoggedIn) {
-    // Utilisateur connecté : masquer les boutons auth, afficher le bouton compte
+    // Utilisateur connecte : masquer les boutons auth, afficher le bouton compte
     authButtons.style.display = 'none';
     accountBtn.style.display = 'flex';
+    // S'assurer que le bouton est TOUJOURS visible et cliquable (jamais cache par erreur)
+    accountBtn.style.visibility = 'visible';
+    accountBtn.style.opacity = '1';
+    accountBtn.style.pointerEvents = 'auto';
   } else {
     // Utilisateur non connecté : afficher les boutons auth, masquer le bouton compte
     authButtons.style.display = 'flex';
@@ -3223,8 +3734,30 @@ function updateAuthButtons() {
 window.updateAuthButtons = updateAuthButtons;
 
 document.addEventListener("DOMContentLoaded", () => {
-  console.log('🏗️ DOM Content Loaded - REGISTER MODAL FIX VERSION - TEST DEPLOYMENT');
-  console.log('🚀 REGISTER MODAL FIX DEPLOYED SUCCESSFULLY - VERSION 2024-12-31');
+  console.log('🏗️ DOM Content Loaded - MapEvent');
+  
+  const isMobile = window.innerWidth <= 768 || /Android|iPhone|iPad|iPod|webOS/i.test(navigator.userAgent);
+  
+  // Fonction pour masquer le loader (appelée quand la carte est VRAIMENT prête)
+  window._hideAppLoader = function() {
+    const loader = document.getElementById('app-loader');
+    if (loader && !loader.classList.contains('hide')) {
+      loader.classList.add('hide');
+      setTimeout(() => { if (loader.parentNode) loader.parentNode.removeChild(loader); }, 500);
+      console.log('✅ Loader masqué - carte prête');
+    }
+  };
+  
+  const doInit = () => {
+    initMapWithRetry();
+    initUI();
+    applyUITheme(typeof uiThemeIndex !== 'undefined' ? uiThemeIndex : 0);
+    applyMapTheme(typeof mapThemeIndex !== 'undefined' ? mapThemeIndex : 0);
+    // Sécurité : masquer le loader après 4s max si la carte n'a pas répondu
+    setTimeout(window._hideAppLoader, 4000);
+  };
+  // Init immédiat - pas de délai artificiel (le loader couvre la transition)
+  requestAnimationFrame(doInit);
   
   // ⚠️ CRITIQUE: Vérifier le retour Stripe IMMÉDIATEMENT au chargement
   const stripeParams = new URLSearchParams(window.location.search);
@@ -3388,6 +3921,12 @@ document.addEventListener("DOMContentLoaded", () => {
     window.loadSavedUser();
   }
   
+  // Charger agenda+favoris dès le départ si token présent (évite délai 500ms)
+  const token = typeof getAuthToken === 'function' ? getAuthToken() : (localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken'));
+  if (token) {
+    loadUserDataOnLogin().catch(err => console.warn('[INIT] Chargement données utilisateur:', err));
+  }
+  
   // ⚠️⚠️⚠️ FLUX STANDARD : Reconnexion automatique si "rester connecté" est activé
   setTimeout(async () => {
     const rememberMe = localStorage.getItem('rememberMe') === 'true';
@@ -3409,7 +3948,8 @@ document.addEventListener("DOMContentLoaded", () => {
           });
           
           if (response.ok) {
-            const userData = await response.json();
+            const data = await response.json();
+            const userData = data.user || data; // Backend retourne { user: {...} }
             console.log('[AUTH] ✅✅✅ Reconnexion automatique réussie:', userData.email);
             
             // Reconnecter l'utilisateur silencieusement
@@ -3433,13 +3973,7 @@ document.addEventListener("DOMContentLoaded", () => {
               connectUser(user, tokens, true);
             }
           } else {
-            console.log('[AUTH] ⚠️ Token invalide - Reconnexion automatique annulée');
-            // Nettoyer les tokens invalides
-            localStorage.removeItem('rememberMe');
-            localStorage.removeItem('accessToken');
-            localStorage.removeItem('refreshToken');
-            sessionStorage.removeItem('accessToken');
-            sessionStorage.removeItem('refreshToken');
+            console.log('[AUTH] ⚠️ Token invalide - Tokens conservés (règle: jamais supprimer)');
           }
         } catch (error) {
           console.error('[AUTH] ❌ Erreur reconnexion automatique:', error);
@@ -4023,29 +4557,71 @@ document.addEventListener("DOMContentLoaded", () => {
   // ⚠️ Cache des URLs d'avatar qui ont échoué (éviter les retries infinis - NS_BINDING_ABORTED)
   const failedAvatarUrls = new Set();
   
+  // FILET DE SECURITE : S'assurer que le bouton compte est TOUJOURS visible quand l'utilisateur est connecte
+  function ensureAccountButtonVisible() {
+    // Verifier toutes les sources possibles pour determiner si l'utilisateur est connecte
+    let isLoggedIn = (currentUser && currentUser.isLoggedIn);
+    if (!isLoggedIn) {
+      try {
+        const stored = localStorage.getItem('currentUser') || sessionStorage.getItem('currentUser');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed && parsed.isLoggedIn) isLoggedIn = true;
+        }
+      } catch(e) {}
+    }
+    
+    const btn = document.getElementById('account-topbar-btn');
+    if (!btn) return;
+    
+    if (isLoggedIn) {
+      if (btn.style.display === 'none' || btn.style.visibility === 'hidden' || getComputedStyle(btn).display === 'none') {
+        console.warn('[ACCOUNT SAFETY] Bouton compte cache alors que user connecte - FORCE visible');
+        btn.style.display = 'flex';
+        btn.style.visibility = 'visible';
+        btn.style.opacity = '1';
+        btn.style.pointerEvents = 'auto';
+      }
+      // S'assurer que le contenu n'est pas vide
+      const avatar = document.getElementById('account-avatar');
+      const name = document.getElementById('account-name');
+      if (avatar && !avatar.textContent && !avatar.querySelector('img')) {
+        avatar.textContent = '👤';
+      }
+      if (name && (!name.textContent || name.textContent.trim() === '')) {
+        name.textContent = currentUser?.username || currentUser?.name || 'Compte';
+      }
+    }
+  }
+  
+  // Verifier periodiquement que le bloc compte est visible (toutes les 5s)
+  setInterval(ensureAccountButtonVisible, 5000);
+  
   const updateAccountBlockLegitimately = (retryCount = 0) => {
+    // TOUJOURS appeler updateAuthButtons en premier - c'est ce qui montre/cache le bouton compte
+    // Meme si les sous-elements ne sont pas prets, le bouton lui-meme doit etre visible
+    updateAuthButtons();
+    
     const accountAvatar = document.getElementById("account-avatar");
     const accountName = document.getElementById("account-name");
     
     if (!accountAvatar || !accountName) {
-      // Retry automatique si DOM pas encore prêt (max 5 tentatives)
-      if (retryCount < 5) {
-        setTimeout(() => updateAccountBlockLegitimately(retryCount + 1), 200);
+      // Retry automatique si DOM pas encore pret (max 10 tentatives, plus de marge)
+      if (retryCount < 10) {
+        setTimeout(() => updateAccountBlockLegitimately(retryCount + 1), 300);
       } else {
-        console.warn('⚠️ account-avatar ou account-name non trouvé après 5 tentatives');
+        console.warn('[ACCOUNT] account-avatar ou account-name non trouve apres 10 tentatives');
       }
       return;
     }
     
-    // Mettre à jour les boutons auth
-    updateAuthButtons();
-    
     const validAvatar = getUserAvatar();
     const validName = getUserDisplayName();
     
-    // Vérifier si quelque chose a changé
+    // Verifier si quelque chose a change
     if (lastAccountState.avatar === validAvatar && lastAccountState.name === validName) {
-      // Rien n'a changé, ne pas mettre à jour
+      // Rien n'a change - mais s'assurer que le bouton est visible si connecte
+      ensureAccountButtonVisible();
       return;
     }
     
@@ -4065,12 +4641,15 @@ document.addEventListener("DOMContentLoaded", () => {
       // Extraire la base de l'URL (sans les paramètres d'auth qui changent)
       const avatarBaseUrl = validAvatar.split('?')[0];
       if (failedAvatarUrls.has(avatarBaseUrl)) {
-        console.log('[AVATAR UI] ⏭️ URL déjà échouée, utilisation fallback:', avatarBaseUrl.substring(0, 50));
+        console.log('[AVATAR UI] URL deja echouee, utilisation fallback:', avatarBaseUrl.substring(0, 50));
         accountAvatar.innerHTML = '';
         accountAvatar.textContent = "👤";
         accountAvatar.style.background = 'rgba(0, 255, 195, 0.1)';
         accountAvatar.style.border = '1px solid rgba(0, 255, 195, 0.2)';
-        return; // Sortir - ne pas réessayer
+        // CRITIQUE: Mettre a jour le nom AVANT de sortir, et s'assurer que le bouton est visible
+        if (accountName) accountName.textContent = validName;
+        ensureAccountButtonVisible();
+        return;
       }
       
       // C'est une URL d'image - FORCER l'affichage avec <img>
@@ -4093,15 +4672,14 @@ document.addEventListener("DOMContentLoaded", () => {
         img.style.objectFit = 'cover';
         img.style.display = 'block';
         img.onerror = function() {
-          console.error('[AVATAR UI] ❌ Erreur chargement image (URL complète):', validAvatar);
-          console.error('[AVATAR UI] Network error - vérifier CORS/CSP/403 dans DevTools > Network');
-          // ⚠️ Marquer cette URL comme échouée pour éviter les retries infinis
+          console.error('[AVATAR UI] Erreur chargement image:', validAvatar.substring(0, 80));
           failedAvatarUrls.add(avatarBaseUrl);
-          console.log('[AVATAR UI] URL ajoutée au cache des échecs (plus de retry)');
           accountAvatar.innerHTML = '';
           accountAvatar.textContent = "👤";
           accountAvatar.style.background = 'rgba(0, 255, 195, 0.1)';
           accountAvatar.style.border = '1px solid rgba(0, 255, 195, 0.2)';
+          // CRITIQUE: S'assurer que le bouton compte reste visible malgre l'erreur avatar
+          ensureAccountButtonVisible();
         };
         img.onload = function() {
           console.log('[AVATAR UI] ✅ Image chargée avec succès (URL complète):', validAvatar);
@@ -4117,14 +4695,14 @@ document.addEventListener("DOMContentLoaded", () => {
         accountAvatar.style.background = 'transparent';
         accountAvatar.style.border = 'none';
         existingImg.onerror = function() {
-          console.error('[AVATAR UI] ❌ Erreur chargement image mise à jour (URL complète):', validAvatar);
-          // ⚠️ Marquer cette URL comme échouée pour éviter les retries infinis
+          console.error('[AVATAR UI] Erreur chargement image maj:', validAvatar.substring(0, 80));
           failedAvatarUrls.add(avatarBaseUrl);
-          console.log('[AVATAR UI] URL ajoutée au cache des échecs (plus de retry)');
           accountAvatar.innerHTML = '';
           accountAvatar.textContent = "👤";
           accountAvatar.style.background = 'rgba(0, 255, 195, 0.1)';
           accountAvatar.style.border = '1px solid rgba(0, 255, 195, 0.2)';
+          // CRITIQUE: S'assurer que le bouton compte reste visible malgre l'erreur avatar
+          ensureAccountButtonVisible();
         };
         existingImg.onload = function() {
           console.log('[AVATAR UI] ✅ Image mise à jour chargée avec succès (URL complète):', validAvatar);
@@ -4252,11 +4830,7 @@ document.addEventListener("DOMContentLoaded", () => {
     console.log('ℹ️ Pas de callback OAuth dans l\'URL');
   }
   
-  initMap();
-  initUI();
-  applyUITheme(0);
-  applyMapTheme(0);
-  
+  // initMap/initUI déjà appelés en tête pour affichage instantané
   // Initialiser les alertes de proximité
   if (currentUser && currentUser.isLoggedIn) {
     checkProximityAlerts();
@@ -4313,13 +4887,30 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   initLanguage();
   
-  // ⚠️ CRITIQUE: Charger les événements réels depuis la base de données
-  // Cela ajoute les vrais événements créés par les utilisateurs aux données de démo
-  loadEventsFromBackend().then(() => {
-    console.log('[INIT] ✅ Événements réels chargés depuis la base de données');
-    refreshMarkers();
+  // ⚠️ CRITIQUE: Restaurer la session (user + agenda) si token présent
+  if (typeof getAuthToken === 'function' && getAuthToken()) {
+    loadUserDataOnLogin().catch(err => {
+      console.warn('[INIT] ⚠️ Restauration session (non bloquant):', err);
+    });
+  }
+  
+  // ⚠️ CHARGEMENT PROGRESSIF: Les events sont chargés via le viewport handler (onViewportChange)
+  // PAS de chargement massif de tous les events au démarrage
+  // loadEventsFromBackend() n'est plus appelé ici - le viewport handler gère tout
+  console.log('[INIT] 🌍 Mode viewport progressif activé - events chargés au zoom');
+  
+  // Charger les bookings réels depuis la base de données
+  loadBookingsFromBackend().then(() => {
+    console.log('[INIT] ✅ Bookings réels chargés depuis la base de données');
   }).catch(err => {
-    console.warn('[INIT] ⚠️ Erreur chargement événements backend (non bloquant):', err);
+    console.warn('[INIT] ⚠️ Erreur chargement bookings backend (non bloquant):', err);
+  });
+  
+  // Charger les services réels depuis la base de données
+  loadServicesFromBackend().then(() => {
+    console.log('[INIT] ✅ Services réels chargés depuis la base de données');
+  }).catch(err => {
+    console.warn('[INIT] ⚠️ Erreur chargement services backend (non bloquant):', err);
   });
   
   // Gérer le deep linking (ouvrir un event depuis l'URL)
@@ -4353,54 +4944,24 @@ document.addEventListener("DOMContentLoaded", () => {
     // Générer les points de base AVANT d'afficher
     ensureDemoPoints();
     
-    // S'assurer qu'on a au moins quelques données
-    if (eventsData.length === 0) {
-      console.warn(`⚠️ eventsData vide après ensureDemoPoints(), génération d'urgence...`);
-      generateEmergencyEvents();
-    }
-    
-    // Attendre un peu pour que les données soient prêtes
-    setTimeout(() => {
-      const data = getActiveData();
-      console.log(`🚀 Affichage initial - Mode: ${currentMode}, ${data.length} points disponibles (eventsData: ${eventsData.length})`);
-      
-      if (data.length > 0) {
-        // Un seul appel à refreshMarkers() ici
-        refreshMarkers();
-        refreshListView();
-        console.log(`✅ Mode EVENT activé par défaut - ${data.length} points affichés automatiquement`);
-      }
-    }, 100);
+    // MODE VIEWPORT: pas besoin de données demo, le viewport progressif gère le chargement
+    // Le premier loadViewportData() a déjà été déclenché dans initMap()
+    console.log(`🚀 Affichage initial via viewport progressif (eventsData sera rempli au zoom)`);
   }, 300); // Délai pour laisser le temps à la map de s'initialiser
 
-  // Charger les arbres et générer les points avec les bonnes catégories
+  // Charger les arbres de catégories
   loadCategoryTrees().then(() => {
-    // S'assurer que les points sont générés pour tous les modes
-    ensureDemoPoints();
+    // MODE VIEWPORT: pas de génération de données demo
+    // Les events réels sont chargés progressivement via loadViewportData()
+    console.log('[INIT] 🌍 Arbres de catégories chargés - events via viewport progressif');
     
-    // S'assurer qu'on a au moins quelques données
-    if (eventsData.length === 0) {
-      console.warn(`⚠️ eventsData vide après loadCategoryTrees(), génération d'urgence...`);
-      generateEmergencyEvents();
-    }
-    
-    // FORCER l'affichage de TOUS les points - CRITIQUE !
-    filteredData = null; // null = afficher TOUS les points
-    selectedCategories = []; // Aucune catégorie sélectionnée
+    // Réinitialiser les filtres
+    filteredData = null;
+    selectedCategories = [];
     timeFilter = null;
     dateRangeStart = null;
     dateRangeEnd = null;
     selectedDates = [];
-    
-    // Attendre un peu pour que les données soient prêtes
-    // UN SEUL appel à refreshMarkers() ici, pas plusieurs
-    setTimeout(() => {
-      const data = getActiveData();
-      if (data.length > 0 && !isRefreshingMarkers) {
-        refreshMarkers();
-        refreshListView();
-      }
-    }, 500); // Délai plus long pour éviter les conflits
     
     // Initialiser l'historique des statuts pour les alertes
     initEventStatusHistory();
@@ -4481,8 +5042,27 @@ function loadCategoryTrees() {
 // ============================================
 // MAP
 // ============================================
+function initMapWithRetry(attempt) {
+  attempt = attempt || 0;
+  const el = document.getElementById("map");
+  if (!el) {
+    if (attempt < 8) setTimeout(() => initMapWithRetry(attempt + 1), 50 * (attempt + 1));
+    return;
+  }
+  if (typeof L === "undefined") {
+    if (attempt < 8) setTimeout(() => initMapWithRetry(attempt + 1), 50 * (attempt + 1));
+    return;
+  }
+  try {
+    initMap();
+  } catch (e) {
+    console.warn("[MAP] initMap échec tentative", attempt + 1, e);
+    if (attempt < 5) setTimeout(() => initMapWithRetry(attempt + 1), 100 * (attempt + 1));
+  }
+}
+
 function initMap() {
-  map = L.map("map").setView([46.8182, 8.2275], 8);
+  map = L.map("map", { zoomControl: false }).setView([46.8182, 8.2275], 8);
 
   const theme = MAP_THEMES[mapThemeIndex];
   tileLayer = L.tileLayer(theme.url, {
@@ -4491,27 +5071,41 @@ function initMap() {
   });
   tileLayer.addTo(map);
 
+  // ✅ Masquer le loader dès que les premières tuiles sont chargées
+  tileLayer.once('load', function() {
+    if (typeof window._hideAppLoader === 'function') window._hideAppLoader();
+  });
+  // Fallback : aussi sur 'tileload' (première tuile visible)
+  tileLayer.once('tileload', function() {
+    setTimeout(function() {
+      if (typeof window._hideAppLoader === 'function') window._hideAppLoader();
+    }, 200);
+  });
+
   // ⭐ CLUSTERING PRO - Regroupement intelligent des marqueurs
   // Quand on zoom arrière, les marqueurs proches se regroupent automatiquement
+  // Quand on clique sur un cluster à zoom max, les marqueurs s'ouvrent en étoile (spiderfy)
   markersLayer = L.markerClusterGroup({
-    // Animation fluide lors du zoom
     animate: true,
-    animateAddingMarkers: false, // Désactivé pour perf avec beaucoup de marqueurs
+    animateAddingMarkers: false,
     
-    // Distance de regroupement (en pixels)
-    maxClusterRadius: 60, // Plus petit = moins de regroupement
+    // Distance de regroupement (en pixels) - augmenté pour garder les clusters groupés plus longtemps
+    maxClusterRadius: 100,
     
     // Afficher la zone couverte au survol du cluster
-    showCoverageOnHover: true,
+    showCoverageOnHover: false,
     
-    // Zoom au clic sur le cluster
+    // Zoom au clic sur le cluster (zoom d'abord, puis spiderfy si même endroit)
     zoomToBoundsOnClick: true,
     
-    // Spiderfication (explosion en araignée) quand trop proche
+    // ⭐ SPIDERFY : quand des marqueurs sont empilés au même endroit,
+    // un clic les déploie en cercle/spirale pour pouvoir cliquer sur chacun
     spiderfyOnMaxZoom: true,
+    spiderfyDistanceMultiplier: 1.8, // Écartement plus grand entre les marqueurs dépliés
     
-    // Désactiver le clustering au zoom max
-    disableClusteringAtZoom: 18,
+    // Ne PAS désactiver le clustering trop tôt - garder actif jusqu'au zoom max
+    // Comme ça les marqueurs au même endroit restent groupés et se "spiderfient" au clic
+    disableClusteringAtZoom: null, // null = ne jamais désactiver, toujours spiderfy
     
     // Personnalisation de l'icône du cluster - dégradé thème UI (accent + bordure)
     iconCreateFunction: function(cluster) {
@@ -4527,16 +5121,20 @@ function initMap() {
       }
       
       const theme = getThemeMarkerColors();
+      const t = UI_THEMES[typeof uiThemeIndex !== "undefined" ? uiThemeIndex : 0];
+      const clusterGrad = t && t.clusterGradient;
       const bgColor = theme.accent;
       const borderColor = theme.border;
-      const sizePx = size === 'small' ? 36 : size === 'medium' ? 44 : 52;
-      // Dégradé premium : radial (effet boule) + liner shine
-      const radial = `radial-gradient(circle at 32% 28%, rgba(255,255,255,0.35), ${borderColor} 25%, ${bgColor} 55%, ${borderColor} 100%)`;
-      const linearShine = `linear-gradient(145deg, rgba(255,255,255,0.2) 0%, transparent 40%, transparent 60%, rgba(0,0,0,0.15) 100%)`;
+      const sizePx = size === 'small' ? 32 : size === 'medium' ? 38 : 46;
+      // Priorite: gradient custom > gradient theme > fallback
+      const customGrad = theme.gradient ? buildMarkerGradient(theme.gradient, 135) : null;
+      const clusterBg = customGrad || clusterGrad || `linear-gradient(135deg,${bgColor} 0%,${borderColor} 100%)`;
+      const borderW = size === 'small' ? 1 : 1.5;
       
+      const totalSize = sizePx + 4;
       return L.divIcon({
         html: `<div style="
-          background: ${radial};
+          background: ${clusterBg};
           border-radius: 50%;
           width: ${sizePx}px;
           height: ${sizePx}px;
@@ -4544,21 +5142,72 @@ function initMap() {
           align-items: center;
           justify-content: center;
           font-weight: bold;
-          font-size: ${size === 'small' ? 12 : size === 'medium' ? 14 : 16}px;
+          font-size: ${size === 'small' ? 11 : size === 'medium' ? 13 : 15}px;
           color: #fff;
           text-shadow: 0 1px 2px rgba(0,0,0,0.5);
-          box-shadow: 0 4px 20px rgba(0,0,0,0.4), 0 0 0 2px ${borderColor}, inset 0 1px 0 rgba(255,255,255,0.2);
-          border: 2px solid ${borderColor};
+          box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+          border: ${borderW}px solid ${borderColor};
           position: relative;
-          overflow: hidden;
-        "><span style="position:absolute;inset:0;border-radius:50%;background:${linearShine};pointer-events:none;z-index:0;"></span><span style="position:relative;z-index:1;">${count}</span></div>`,
+        "><span style="position:relative;z-index:1;">${count}</span></div>`,
         className: 'custom-cluster-icon',
-        iconSize: L.point(sizePx + 8, sizePx + 8)
+        iconSize: L.point(totalSize, totalSize),
+        // Ancrer le cluster bien plus haut pour dégager les noms de villes
+        iconAnchor: L.point(totalSize / 2, totalSize + 10)
       });
     }
-  }).addTo(map);
+  });
+  // NE PAS ajouter markersLayer à la carte tout de suite - il sera ajouté quand zoom >= 10
+  // markersLayer.addTo(map) sera fait dans loadViewportData quand on passe en mode events
   
-  console.log('⭐ [CLUSTER] MarkerClusterGroup initialisé - Regroupement intelligent activé');
+  // 🌍 LAYER CERCLES GÉO - pour les agrégats aux faibles zooms
+  geoCirclesLayer = L.layerGroup().addTo(map);
+  
+  // 🔄 VIEWPORT HANDLER - chargement progressif au déplacement/zoom
+  map.on('moveend', onViewportChange);
+  map.on('zoomend', onViewportChange);
+  
+  // Charger les données initiales pour le viewport actuel
+  setTimeout(() => loadViewportData(), 500);
+  
+  // ⚠️ CRITIQUE ouverture mobile : forcer le rendu dès que possible (évite écran blanc/noir)
+  function ensureMapVisible() {
+    if (!map) return;
+    map.invalidateSize();
+  }
+  requestAnimationFrame(ensureMapVisible);
+  if (document.readyState === 'complete') {
+    ensureMapVisible();
+  } else {
+    window.addEventListener('load', ensureMapVisible);
+  }
+  const isMobile = window.innerWidth <= 768 || /Android|iPhone|iPad|iPod|webOS/i.test(navigator.userAgent);
+  setTimeout(ensureMapVisible, 100);
+  setTimeout(ensureMapVisible, 400);
+  setTimeout(ensureMapVisible, 800);
+  if (isMobile) {
+    setTimeout(ensureMapVisible, 1200);
+    setTimeout(ensureMapVisible, 1800);
+  }
+  window.addEventListener('pageshow', (e) => {
+    if (e.persisted) ensureMapVisible();
+    setTimeout(ensureMapVisible, 0);
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && map) {
+      ensureMapVisible();
+      setTimeout(ensureMapVisible, 50);
+      setTimeout(ensureMapVisible, 200);
+    }
+  });
+  window.addEventListener('resize', () => {
+    if (map) ensureMapVisible();
+  });
+  if (isMobile) {
+    window.addEventListener('orientationchange', () => {
+      setTimeout(ensureMapVisible, 100);
+      setTimeout(ensureMapVisible, 400);
+    });
+  }
 }
 
 function getCurrentData() {
@@ -4722,87 +5371,155 @@ function refreshMarkers() {
   let skipped = 0;
   let errors = 0;
   
-  data.forEach(item => {
-    if (!item) {
-      skipped++;
-      return;
-    }
-    
-    // Vérifier que l'item correspond au mode actuel
-    if (item.type !== currentMode) {
-      skipped++;
-      return;
-    }
-    
-    if (typeof item.lat !== "number" || typeof item.lng !== "number" || isNaN(item.lat) || isNaN(item.lng)) {
-      console.warn(`⚠️ Point invalide: ${item.id} (lat: ${item.lat}, lng: ${item.lng})`);
-      skipped++;
-      return;
-    }
-    
+  // ⚡ MOBILE PERF: Créer les marqueurs par lots pour ne pas bloquer le thread
+  const BATCH_SIZE = window.innerWidth <= 768 ? 150 : 500;
+  const validItems = [];
+  
+  // Phase 1: filtrer les items valides (rapide)
+  for (let i = 0; i < data.length; i++) {
+    const item = data[i];
+    if (!item || item.type !== currentMode) { skipped++; continue; }
+    if (typeof item.lat !== "number" || typeof item.lng !== "number" || isNaN(item.lat) || isNaN(item.lng)) { skipped++; continue; }
+    validItems.push(item);
+  }
+  
+  // Phase 1b: construire la map des items au même emplacement (pour navigation "livre")
+  buildSameLocationMap(validItems);
+  
+  // Phase 2: créer les marqueurs par lots
+  function processBatch(startIdx) {
+    const endIdx = Math.min(startIdx + BATCH_SIZE, validItems.length);
+    for (let i = startIdx; i < endIdx; i++) {
+      const item = validItems[i];
     try {
     const icon = buildMarkerIcon(item);
     const marker = L.marker([item.lat, item.lng], { icon });
-    marker.bindPopup(buildPopupHtml(item), { maxWidth: 360 });
+        
+        // ⚡ PERF: NE PAS appeler buildPopupHtml ici - c'est fait dans le handler click
+        // La popup Leaflet est immédiatement fermée et remplacée par notre modal
+        marker.bindPopup('', { maxWidth: 360 });
     
     // Intercepter l'ouverture de la popup Leaflet et la remplacer par notre modal avec scroll
     marker.on('popupopen', function() {
-      // Fermer la popup Leaflet immédiatement
       marker.closePopup();
-      
-      // Stocker le marqueur pour le recentrage à la fermeture
       currentPopupMarker = marker;
-      
-      // Ouvrir notre modal avec scroll
       const popupContent = buildPopupHtml(item);
       openPopupModal(popupContent, item);
     });
     
     markersLayer.addLayer(marker);
-
     const key = `${item.type}:${item.id}`;
     markerMap[key] = marker;
       added++;
     } catch (err) {
-      // Ne pas logger toutes les erreurs pour éviter les milliers de messages
       errors++;
-      skipped++;
-      // Logger seulement la première erreur pour diagnostiquer
       if (errors === 1) {
-        console.error(`❌ Première erreur lors de l'ajout d'un marqueur:`, err.message || err);
+          console.error(`❌ Première erreur marqueur:`, err.message || err);
+        }
       }
     }
-  });
+    
+    if (endIdx < validItems.length) {
+      // Encore des marqueurs à créer - yield au browser puis continuer
+      requestAnimationFrame(() => processBatch(endIdx));
+    } else {
+      // Tous les marqueurs créés - finaliser
+      finalizeBatch();
+    }
+  }
   
-  // Logger seulement si des erreurs ou si c'est le premier chargement
+  function finalizeBatch() {
   if (errors > 0 || added === 0) {
     console.log(`✅ ${added} marqueurs affichés (mode: ${currentMode})${skipped > 0 ? `, ${skipped} ignorés` : ''}${errors > 0 ? `, ${errors} erreurs` : ''}`);
   }
   
-  // Vérifier les alertes de proximité après le rafraîchissement des marqueurs
   if (currentUser && currentUser.isLoggedIn) {
     checkProximityAlerts();
   }
   
-  // Nettoyer les événements passés (sauf organisateurs)
   cleanExpiredEvents();
   
-  // Ajuster la vue pour voir tous les marqueurs si c'est le premier chargement
-  if (added > 0 && markersLayer && typeof markersLayer.getBounds === 'function') {
+    // fitBounds seulement au premier chargement (pas quand on rafraîchit les couleurs)
+    if (added > 0 && !window._mapInitialFitDone && markersLayer && typeof markersLayer.getBounds === 'function') {
     try {
       const bounds = markersLayer.getBounds();
       if (bounds && bounds.isValid && bounds.isValid()) {
         map.fitBounds(bounds.pad(0.1));
+          window._mapInitialFitDone = true;
       }
-    } catch (e) {
-      // Ne pas logger pour éviter les milliers de messages
-    }
+      } catch (e) {}
   }
   
-  // Réinitialiser le flag après un court délai pour permettre les appels légitimes
-  setTimeout(() => {
-    isRefreshingMarkers = false;
-  }, 100);
+    setTimeout(() => { isRefreshingMarkers = false; }, 100);
+  
+  refreshDiscoveryCarousel();
+  }
+  
+  // Lancer le traitement par lots
+  if (validItems.length > 0) {
+    processBatch(0);
+  } else {
+    finalizeBatch();
+  }
+}
+
+// Mode découverte par swipe - cartes horizontales en bas (mobile)
+function refreshDiscoveryCarousel() {
+  const container = document.getElementById("discovery-carousel");
+  const inner = document.getElementById("discovery-carousel-inner");
+  if (!container || !inner) return;
+  const isMobile = window.innerWidth <= 768;
+  if (!isMobile) {
+    container.classList.remove("has-items");
+    return;
+  }
+  const data = getActiveData();
+  const items = data.slice(0, 20);
+  if (items.length === 0) {
+    container.classList.remove("has-items");
+    inner.innerHTML = "";
+    return;
+  }
+  container.classList.add("has-items");
+  const getEmoji = (it) => {
+    if (!it) return "📌";
+    const c = (it.categories || [])[0] || "";
+    if (c.includes("Musique") || c.includes("Music")) return "🎵";
+    if (c.includes("Sport")) return "⚽";
+    if (c.includes("Culture")) return "🎭";
+    return "📌";
+  };
+  inner.innerHTML = items.map(item => {
+    const type = item.type || currentMode;
+    const id = item.id;
+    const title = escapeHtml((item.title || item.name || "—").substring(0, 40));
+    const sub = item.city || item.address || "";
+    const dateStr = item.startDate ? new Date(item.startDate).toLocaleDateString("fr-FR", { day: "numeric", month: "short" }) : "";
+    return `
+      <div class="discovery-card" data-type="${type}" data-id="${id}" data-lat="${item.lat}" data-lng="${item.lng}">
+        <div style="display:flex;align-items:center;gap:12px;padding:12px;height:100%;">
+          <span style="font-size:28px;">${getEmoji(item)}</span>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${title}</div>
+            <div style="font-size:11px;color:var(--ui-text-muted);">${dateStr ? "📅 " + dateStr : ""} ${sub ? "📍 " + escapeHtml(sub).substring(0, 25) : ""}</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join("");
+  inner.querySelectorAll(".discovery-card").forEach(card => {
+    card.addEventListener("click", () => {
+      if (navigator.vibrate) navigator.vibrate(10);
+      const type = card.dataset.type;
+      const id = card.dataset.id;
+      const lat = parseFloat(card.dataset.lat);
+      const lng = parseFloat(card.dataset.lng);
+      if (map && !isNaN(lat) && !isNaN(lng)) {
+        map.setView([lat, lng], Math.max(map.getZoom(), 15), { animate: true });
+      }
+      openPopupFromList(type, id);
+    });
+  });
 }
 
 // ============================================
@@ -4913,9 +5630,21 @@ function findBestImageMatch(categoryName, mode) {
     "festival musique": "festival & grandes fêtes", "festivalmusique": "festival & grandes fêtes",
     "carnaval": "Carnaval", "parade": "parade", "pride": "Pride",
     
-    // Sport
-    "sport": "sports", "course": "Sportsterrestre", "course à pied": "Sportsterrestre",
+    // Sport - formats "Sport > X" (catégories scrapées)
+    "sport > terrestre": "Sportsterrestre", "sport > course a pied": "Sportsterrestre",
+    "sport > course à pied": "Sportsterrestre", "sport > trail": "Sportsterrestre",
+    "sport > marathon": "Sportsterrestre", "sport > triathlon": "Sportsterrestre",
+    "sport > randonnee": "Sportsterrestre", "sport > randonnée": "Sportsterrestre",
+    "sport > glisse": "sportdeglisse", "sport > ski": "sportdeglisse",
+    "sport > aquatique": "sportaquatique", "sport > natation": "sportaquatique",
+    "sport > aerien": "sportsaériens", "sport > aérien": "sportsaériens",
+    "terrestre": "Sportsterrestre",
+    // Sport - noms simples
+    "sport": "sports", "course": "Sportsterrestre", "course a pied": "Sportsterrestre",
+    "course à pied": "Sportsterrestre",
     "trail": "Sportsterrestre", "cyclisme": "Sportsterrestre", "fitness": "Sportsterrestre",
+    "marathon": "Sportsterrestre", "triathlon": "Sportsterrestre",
+    "randonnee": "Sportsterrestre", "randonnée": "Sportsterrestre",
     "drill": "hiphop",
     "natation": "sportaquatique", "ski": "sportdeglisse", "snowboard": "sportdeglisse",
     
@@ -4983,33 +5712,80 @@ function getModeFolderForItem(item) {
 }
 
 // Retourne une liste de noms de catégories de la plus spécifique à la plus générale
-// PRIORITÉ : Sous-catégories les plus profondes d'abord, puis remonte
+// PRIORITÉ : Catégories spécifiques d'abord, catégories génériques (Culture, Sport...) en dernier
 function getCategoryLineageForItem(item) {
-  const result = [];
+  const specific = [];
+  const generic = [];
   
-  // 1. TOUTES les catégories spécifiques (sous-catégories) - PRIORITÉ MAXIMALE
+  // Catégories trop génériques qu'on met en fin de liste
+  const GENERIC_SET = new Set([
+    "culture", "culture générale", "sport", "sports", "musique", "music",
+    "art", "loisirs", "divertissement", "événement", "event"
+  ]);
+  
+  // 1. Trier les catégories : spécifiques d'abord, génériques en dernier
   if (item.categories && Array.isArray(item.categories)) {
-    // Les catégories dans l'array sont généralement les plus spécifiques
     item.categories.forEach(cat => {
-      if (cat && !result.includes(cat)) {
-        result.push(cat);
+      if (!cat) return;
+      const catLower = cat.toString().toLowerCase().trim();
+      
+      // Extraire la partie la plus spécifique pour tester si générique
+      const basePart = catLower.includes(" > ") ? catLower.split(" > ").pop().trim() : catLower;
+      
+      if (GENERIC_SET.has(basePart)) {
+        if (!generic.includes(cat)) generic.push(cat);
+      } else {
+        if (!specific.includes(cat)) specific.push(cat);
+        
+        // Si format "X > Y", ajouter aussi Y seul en priorité (plus spécifique)
+        if (cat.includes(" > ")) {
+          const parts = cat.split(" > ").map(p => p.trim());
+          for (let i = parts.length - 1; i >= 0; i--) {
+            if (!GENERIC_SET.has(parts[i].toLowerCase()) && !specific.includes(parts[i])) {
+              specific.push(parts[i]);
+            }
+          }
+        }
       }
     });
   }
   
-  // 2. MainCategory (catégorie principale) - si pas déjà inclus
-  if (item.mainCategory && !result.includes(item.mainCategory)) {
-    result.push(item.mainCategory);
+  // 2. MainCategory - ajouter si pas déjà inclus
+  if (item.mainCategory) {
+    const mc = item.mainCategory.toString().trim();
+    const mcLower = mc.toLowerCase();
+    if (GENERIC_SET.has(mcLower)) {
+      if (!generic.includes(mc)) generic.push(mc);
+    } else {
+      if (!specific.includes(mc)) specific.push(mc);
+    }
   }
   
-  // 3. Si aucune catégorie trouvée, essayer d'autres champs
+  // 3. Analyse du titre pour trouver des mots-clés de catégorie
+  const title = (item.title || '').toLowerCase();
+  const titleMatches = [
+    'exposition', 'concert', 'festival', 'théâtre', 'cinéma', 'danse', 'cirque', 'opéra',
+    'jazz', 'rock', 'techno', 'house', 'electro', 'rap', 'hip hop', 'reggae', 'blues', 'folk', 'pop', 'metal',
+    'ski', 'trail', 'randonnée', 'hockey', 'football', 'tennis', 'basketball', 'natation',
+    'marché', 'brocante', 'foire', 'carnaval', 'parade',
+    'dégustation', 'vin', 'bière', 'gastronomie',
+    'conférence', 'atelier', 'photo', 'peinture', 'sculpture'
+  ];
+  for (const kw of titleMatches) {
+    if (title.includes(kw) && !specific.includes(kw) && !specific.some(s => s.toLowerCase().includes(kw))) {
+      specific.push(kw);
+    }
+  }
+  
+  // 4. Combiner : spécifiques d'abord, génériques en dernier
+  const result = [...specific, ...generic];
+  
+  // 5. Si aucune catégorie trouvée, fallback
   if (result.length === 0) {
     const fallback = item.category || item.type || "";
     if (fallback) result.push(fallback);
   }
   
-  // Retourner dans l'ordre : plus spécifique → plus général
-  // (déjà dans le bon ordre : categories d'abord, puis mainCategory)
   return result;
 }
 
@@ -5021,6 +5797,30 @@ function getImageCandidatesForItem(item) {
   if (!modeFolder) {
     candidates.push(OVERLAY_IMAGES.DEFAULT);
     return candidates;
+  }
+
+  // 🔥 PRIORITÉ N°1 : Photo uploadée par l'utilisateur (image_url depuis S3)
+  // Cette image prend le dessus sur TOUT (catégorie, IA, fallback)
+  const userImage = item.image_url || item.imageUrl;
+  if (userImage && userImage.startsWith('http')) {
+    candidates.push(userImage);
+  }
+
+  // 0a) BOOKING : imageUrl (cover Audius) ou image par catégorie
+  if (item.type === "booking") {
+    if (item.imageUrl && item.imageUrl.startsWith('http') && item.imageUrl !== userImage) {
+      candidates.push(item.imageUrl);
+    }
+    const bookingImg = getCategoryImage(item);
+    if (bookingImg) candidates.push(bookingImg);
+  }
+
+  // 0) Catégorie image (fallback si pas de photo uploadée)
+  if (item.type === "event" || !item.type) {
+    const bestImg = getCategoryImage(item);
+    if (bestImg && !bestImg.includes('eventdefault')) {
+      candidates.push(bestImg);
+    }
   }
 
   // 1) si le back-end / IA fournit déjà un nom de fichier
@@ -5320,6 +6120,8 @@ const CATEGORY_IMAGE_MAP = {
   "musique": "music.jpg",
   
   // === ÉVÉNEMENTS CULTURELS ===
+  "culture": "culture générale.jpg",
+  "culture générale": "culture générale.jpg",
   "festival": "festival & grandes fêtes.jpg",
   "open air": "open air.jpg",
   "théâtre": "théâtre.jpg",
@@ -5351,20 +6153,35 @@ const CATEGORY_IMAGE_MAP = {
   // === SPORTS ===
   "sport": "sports.jpg",
   "sports": "sports.jpg",
+  // Catégories scrapées au format "Sport > X"
+  "sport > terrestre": "Sportsterrestre.jpg",
+  "sport > glisse": "sportdeglisse.jpg",
+  "sport > aquatique": "sportaquatique.png",
+  "sport > aérien": "sportsaériens.jpg",
+  "terrestre": "Sportsterrestre.jpg",
+  // Sports terrestres spécifiques
   "football": "Sportsterrestre.jpg",
   "tennis": "Sportsterrestre.jpg",
   "basketball": "Sportsterrestre.jpg",
-  "course à pied": "course à pied.jpg",
-  "running": "course à pied.jpg",
-  "marathon": "course à pied.jpg",
-  "trail": "course à pied.jpg",
-  "randonnée": "course à pied.jpg",
+  "hockey": "hockey sur glace.jpg",
+  "hockey sur glace": "hockey sur glace.jpg",
+  "match de hockey": "hockey sur glace.jpg",
+  "course à pied": "Sportsterrestre.jpg",
+  "running": "Sportsterrestre.jpg",
+  "marathon": "Sportsterrestre.jpg",
+  "trail": "Sportsterrestre.jpg",
+  "randonnée": "Sportsterrestre.jpg",
+  "randonnée guidée": "Sportsterrestre.jpg",
+  // Sports de glisse
   "ski": "sportdeglisse.jpg",
   "snowboard": "sportdeglisse.jpg",
   "glisse": "sportdeglisse.jpg",
+  "patinage": "sportdeglisse.jpg",
+  // Sports aquatiques
   "natation": "sportaquatique.png",
   "piscine": "sportaquatique.png",
   "aquatique": "sportaquatique.png",
+  // Sports aériens
   "aérien": "sportsaériens.jpg",
   "parachute": "sportsaériens.jpg",
   "parapente": "sportsaériens.jpg",
@@ -5448,32 +6265,106 @@ function getCategoryImage(item) {
   const categories = item.categories || [];
   const type = item.type || "event";
   
-  // Chercher du plus spécifique au plus général
-  for (let i = categories.length - 1; i >= 0; i--) {
+  // Catégories TROP GÉNÉRIQUES - on les utilise seulement en dernier recours
+  // pour éviter que "Culture" écrase "Concert", "Musique", "Exposition" etc.
+  const GENERIC_CATS = new Set([
+    "culture", "culture générale", "sport", "sports", "musique", "music",
+    "art", "loisirs", "divertissement", "événement", "event"
+  ]);
+  
+  // Helper pour chercher une image pour un mot-clé
+  function findImageForKeyword(keyword) {
+    const kw = keyword.toString().toLowerCase().trim();
+    
+    // 1. Correspondance exacte
+    if (CATEGORY_IMAGE_MAP[kw]) {
+      return `assets/category_images/event/${CATEGORY_IMAGE_MAP[kw]}`;
+    }
+    
+    // 2. Recherche partielle (le mot-clé est dans une clé du mapping)
+    for (const [key, img] of Object.entries(CATEGORY_IMAGE_MAP)) {
+      // Éviter les correspondances trop larges (ex: "sport" matchant tout)
+      if (kw.length > 3 && key.includes(kw)) {
+        return `assets/category_images/event/${img}`;
+      }
+    }
+    
+    return null;
+  }
+  
+  // Helper pour chercher dans une catégorie (gère le format "X > Y > Z")
+  function findImageForCategory(cat) {
+    // 1. D'abord essayer la catégorie complète (ex: "sport > glisse")
+    let img = findImageForKeyword(cat);
+    if (img) return img;
+    
+    // 2. Si catégorie au format "X > Y > Z", extraire les parties (plus spécifique d'abord)
+    if (cat.includes(" > ")) {
+      const parts = cat.split(" > ").map(p => p.trim());
+      for (let j = parts.length - 1; j >= 0; j--) {
+        img = findImageForKeyword(parts[j]);
+        if (img) return img;
+      }
+    }
+    return null;
+  }
+  
+  // === PASSE 1 : Chercher dans les catégories SPÉCIFIQUES (ignorer les génériques) ===
+  let genericFallback = null;
+  
+  for (let i = 0; i < categories.length; i++) {
     const cat = categories[i].toString().toLowerCase().trim();
     
+    // Services
     if (type === "service" && SERVICE_IMAGE_MAP[cat]) {
       return `assets/category_images/${SERVICE_IMAGE_MAP[cat]}`;
     }
     
-    if (CATEGORY_IMAGE_MAP[cat]) {
-      return `assets/category_images/event/${CATEGORY_IMAGE_MAP[cat]}`;
+    // Extraire le mot-clé le plus bas pour vérifier si c'est générique
+    const baseCat = cat.includes(" > ") ? cat.split(" > ").pop().trim() : cat;
+    
+    if (GENERIC_CATS.has(baseCat)) {
+      // Stocker comme fallback mais continuer à chercher du plus spécifique
+      if (!genericFallback) {
+        genericFallback = findImageForCategory(cat);
+      }
+      continue; // Passer aux catégories suivantes
     }
     
-    // Recherche partielle
-    for (const [key, img] of Object.entries(CATEGORY_IMAGE_MAP)) {
-      if (cat.includes(key) || key.includes(cat)) {
-        return `assets/category_images/event/${img}`;
-      }
+    // Catégorie spécifique : la prendre en priorité !
+    let img = findImageForCategory(cat);
+    if (img) return img;
+  }
+  
+  // === PASSE 2 : Essayer aussi dans le titre pour affiner ===
+  const title = (item.title || '').toLowerCase();
+  const titleKeywords = [
+    'concert', 'festival', 'exposition', 'expo', 'théâtre', 'cinéma', 'film',
+    'danse', 'cirque', 'opéra', 'spectacle', 'marché', 'brocante', 'foire',
+    'conférence', 'atelier', 'workshop', 'carnaval', 'parade',
+    'techno', 'house', 'jazz', 'rock', 'rap', 'electro', 'hip hop', 'reggae',
+    'blues', 'folk', 'pop', 'metal', 'punk', 'salsa', 'latin',
+    'ski', 'trail', 'randonnée', 'hockey', 'football', 'tennis', 'basketball',
+    'rugby', 'golf', 'natation', 'triathlon', 'marathon', 'course',
+    'dégustation', 'vin', 'bière', 'brunch', 'gastronomie', 'food',
+    'quiz', 'karaoke', 'karaoké', 'lotto', 'blind test',
+    'photo', 'peinture', 'sculpture'
+  ];
+  for (const kw of titleKeywords) {
+    if (title.includes(kw)) {
+      const img = findImageForKeyword(kw);
+      if (img) return img;
     }
   }
+  
+  // === PASSE 3 : Fallback sur la catégorie générique si trouvée ===
+  if (genericFallback) return genericFallback;
   
   // Essayer avec mainCategory
   if (item.mainCategory) {
     const mainCat = item.mainCategory.toString().toLowerCase().trim();
-    if (CATEGORY_IMAGE_MAP[mainCat]) {
-      return `assets/category_images/event/${CATEGORY_IMAGE_MAP[mainCat]}`;
-    }
+    let img = findImageForKeyword(mainCat);
+    if (img) return img;
   }
   
   // Image par défaut selon le type
@@ -5483,41 +6374,99 @@ function getCategoryImage(item) {
 }
 
 function getCategoryEmoji(item) {
-  const cat = (
-    item.mainCategory ||
-    (item.categories && item.categories[0]) ||
-    ""
-  )
-    .toString()
-    .toLowerCase();
+  // Concaténer TOUTES les catégories + le titre pour un matching plus intelligent
+  const categories = item.categories || [];
+  const allCats = categories.map(c => c.toString().toLowerCase()).join(' ');
+  const title = (item.title || '').toLowerCase();
+  const combined = allCats + ' ' + title;
 
-  if (
-    cat.includes("techno") ||
-    cat.includes("house") ||
-    cat.includes("trance") ||
-    cat.includes("electro")
-  )
+  // Vérifier du plus spécifique au plus générique
+  // Musique électronique
+  if (combined.includes("techno") || combined.includes("house") || 
+      combined.includes("trance") || combined.includes("electro") ||
+      combined.includes("drum") || combined.includes("dubstep"))
     return "🎧";
-  if (cat.includes("rap") || cat.includes("hip") || cat.includes("trap"))
+  // Musique urbaine
+  if (combined.includes("rap") || combined.includes("hip hop") || combined.includes("hip-hop") || combined.includes("trap"))
     return "🎤";
-  if (cat.includes("rock") || cat.includes("metal")) return "🎸";
-  if (cat.includes("jazz") || cat.includes("soul") || cat.includes("funk"))
+  // Rock/Metal
+  if (combined.includes("rock") || combined.includes("metal") || combined.includes("punk"))
+    return "🎸";
+  // Jazz/Soul/Funk/Blues
+  if (combined.includes("jazz") || combined.includes("soul") || combined.includes("funk") || combined.includes("blues"))
     return "🎷";
-  if (cat.includes("ciné") || cat.includes("film")) return "🎬";
-  if (cat.includes("festival") || cat.includes("open air")) return "🎪";
-  if (cat.includes("marché") || cat.includes("brocante")) return "🛒";
-  if (cat.includes("sport") || cat.includes("trail") || cat.includes("ski"))
+  // Reggae/World
+  if (combined.includes("reggae") || combined.includes("afro") || combined.includes("world") || combined.includes("latin"))
+    return "🎶";
+  // Concert/Musique live (après les genres spécifiques)
+  if (combined.includes("concert") || combined.includes("live musique") || combined.includes("musique > "))
+    return "🎵";
+  // Festival
+  if (combined.includes("festival") || combined.includes("open air"))
+    return "🎪";
+  // Cinéma
+  if (combined.includes("ciné") || combined.includes("film") || combined.includes("projection"))
+    return "🎬";
+  // Théâtre/Spectacle
+  if (combined.includes("théâtre") || combined.includes("spectacle") || combined.includes("cabaret") || combined.includes("cirque"))
+    return "🎭";
+  // Danse
+  if (combined.includes("danse") || combined.includes("ballet"))
+    return "💃";
+  // Exposition/Musée
+  if (combined.includes("exposition") || combined.includes("expo") || combined.includes("musée") || combined.includes("galerie"))
+    return "🖼️";
+  // Photo/Art
+  if (combined.includes("photo") || combined.includes("peinture") || combined.includes("sculpture") || combined.includes("street art"))
+    return "🎨";
+  // Sports spécifiques
+  if (combined.includes("ski") || combined.includes("snowboard") || combined.includes("glisse") || combined.includes("patinage"))
+    return "⛷️";
+  if (combined.includes("hockey"))
+    return "🏒";
+  if (combined.includes("football") || combined.includes("foot"))
+    return "⚽";
+  if (combined.includes("tennis"))
+    return "🎾";
+  if (combined.includes("basketball") || combined.includes("basket"))
+    return "🏀";
+  if (combined.includes("randonnée") || combined.includes("trail") || combined.includes("marche"))
+    return "🥾";
+  if (combined.includes("natation") || combined.includes("aquatique") || combined.includes("piscine"))
+    return "🏊";
+  if (combined.includes("vélo") || combined.includes("cyclisme") || combined.includes("vtt"))
+    return "🚴";
+  // Sport général (après les spécifiques)
+  if (combined.includes("sport") || combined.includes("course") || combined.includes("marathon") || combined.includes("triathlon"))
     return "🏅";
-  if (
-    cat.includes("food") ||
-    cat.includes("brunch") ||
-    cat.includes("bbq") ||
-    cat.includes("truck")
-  )
+  // Gastronomie
+  if (combined.includes("dégustation") || combined.includes("vin") || combined.includes("cave") || combined.includes("vigneron"))
+    return "🍷";
+  if (combined.includes("food") || combined.includes("brunch") || combined.includes("bbq") || combined.includes("gastronomie") || combined.includes("culinaire"))
     return "🍽️";
-  if (cat.includes("lumière")) return "💡";
-  if (cat.includes("son") || cat.includes("dj")) return "🔊";
-  if (cat.includes("sécurité")) return "🛡️";
+  if (combined.includes("bière") || combined.includes("beer"))
+    return "🍺";
+  // Marchés
+  if (combined.includes("marché") || combined.includes("brocante") || combined.includes("foire"))
+    return "🛒";
+  // Business/Conférence
+  if (combined.includes("conférence") || combined.includes("séminaire") || combined.includes("networking"))
+    return "🎙️";
+  if (combined.includes("atelier") || combined.includes("workshop"))
+    return "🔧";
+  // Carnaval/Fête
+  if (combined.includes("carnaval") || combined.includes("parade") || combined.includes("fête"))
+    return "🎉";
+  // Conte/Lecture
+  if (combined.includes("conte") || combined.includes("lecture") || combined.includes("littéra"))
+    return "📖";
+  // Musique générique (si on a "musique" mais pas de genre précis)
+  if (combined.includes("musique") || combined.includes("music") || combined.includes("concert"))
+    return "🎵";
+  // Services
+  if (combined.includes("lumière")) return "💡";
+  if (combined.includes("dj")) return "🔊";
+  if (combined.includes("sécurité")) return "🛡️";
 
   return "📍";
 }
@@ -5552,22 +6501,92 @@ function buildMarkerIcon(item) {
   const platinumRank = item.platinumRank || 10; // Rang dans le Top 10 (1 = Top 1, 10 = Top 10)
   const isAI = item.isAI || item.aiGenerated || false;
   const emoji = getCategoryEmoji(item);
+  const categoryImg = getCategoryImage(item);
+  
+  // ============================================
+  // MARQUEUR ROND ORANGE POUR ÉVÉNEMENTS SCRAPÉS
+  // ============================================
+  // Scrapé = a une source_url ET (validation auto_validated/pending OU creator est system_scraper OU pas de creator_id)
+  const isScraped = item.source_url && (
+    item.validation_status === 'auto_validated' || 
+    item.validation_status === 'pending' ||
+    item.creator_id === 'system_scraper' ||
+    !item.creator_id
+  );
+  
+  if (isScraped) {
+    const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
+    const sizePx = isMobile ? 44 : 40;
+    const pinHeight = 12;
+    
+    // Couleur orange pour tous les scrapés
+    const scrapedBorder = '#f59e0b';
+    
+    const scrapedHtml = `
+      <div class="marker-scraped" style="position:relative;">
+        <div style="
+          background:linear-gradient(145deg, #f59e0b, #d97706);
+          border:2.5px solid ${scrapedBorder};
+          box-shadow:0 3px 10px rgba(245,158,11,0.4);
+          width:${sizePx}px;
+          height:${sizePx}px;
+          border-radius:50%;
+          color:#fff;
+          font-size:18px;
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          position:relative;
+          z-index:2;
+        ">
+          <span style="filter:drop-shadow(0 1px 2px rgba(0,0,0,0.3));line-height:1;">${emoji}</span>
+        </div>
+        <div style="
+          width:0;height:0;
+          border-left:8px solid transparent;
+          border-right:8px solid transparent;
+          border-top:${pinHeight}px solid ${scrapedBorder};
+          margin:0 auto;
+          position:relative;
+          z-index:2;
+        "></div>
+      </div>
+    `;
+    
+    const totalH = sizePx + pinHeight;
+    return L.divIcon({
+      html: scrapedHtml,
+      className: 'marker-scraped',
+      iconSize: [sizePx, totalH],
+      iconAnchor: [sizePx / 2, totalH],
+      popupAnchor: [0, -sizePx + 6]
+    });
+  }
+  
+  // ============================================
+  // MARQUEUR STANDARD (CERCLE) POUR LES AUTRES
+  // ============================================
   
   // Effets selon le niveau de boost - marqueurs en rond 100% (cercle) + pin en dessous
   let markerClass = "";
   let extraStyles = "";
-  let sizePx = 40; // Cercle : même largeur et hauteur
+  const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
+  let sizePx = isMobile ? 44 : 40; // 44px sur mobile pour meilleure zone tactile
   let borderWidth = 2;
   let fontSize = 18;
   
-  // Bordure par défaut (on ne touche pas les couleurs des pointeurs individuels)
+  // Bordure par défaut - utiliser la couleur custom si définie
   let borderColor;
+  const _customBorder = window.customThemeConfig && window.customThemeConfig.markerBorder ? window.customThemeConfig.markerBorder : null;
+  const _isPremiumBoost = boost === "platinum" || boost === "gold" || boost === "silver" || boost === "bronze";
   if (isAI) {
     borderColor = "#000000";
-  } else if (boost === "basic" || boost === "1.-") {
-    borderColor = "var(--ui-card-border)";
-  } else {
+  } else if (_isPremiumBoost) {
+    // Les boosts premium gardent leurs couleurs spécifiques (rouge, or, argent, bronze)
     borderColor = getBoostColor(boost);
+  } else {
+    // Tous les marqueurs standard/basic/sans boost : utiliser la couleur custom ou défaut
+    borderColor = _customBorder || "var(--ui-card-border)";
   }
   
   const boostBorderColors = {
@@ -5723,7 +6742,7 @@ function buildMarkerIcon(item) {
     "></div>
   `;
 
-  // Marqueur : cercle 100% rond + pin en dessous
+  // Marqueur : cercle 100% rond avec emoji de catégorie + pin en dessous
   const html = `
     <div class="${markerClass}" style="position:relative;">
       ${haloHtml}
@@ -5741,7 +6760,7 @@ function buildMarkerIcon(item) {
         position:relative;
         z-index:2;
       ">
-        <span>${emoji}</span>
+        <span style="filter:drop-shadow(0 1px 2px rgba(0,0,0,0.3));line-height:1;">${emoji}</span>
       </div>
       ${pinHtml}
     </div>
@@ -6055,11 +7074,36 @@ function buildEventPopup(ev) {
     </span>
   ` : "";
   
+  // Badge de validation organisateur (pour événements scrapés)
+  let validationBadge = "";
+  if (ev.validation_status === 'validated') {
+    validationBadge = `
+      <div style="margin:8px 0;padding:8px 14px;background:linear-gradient(135deg,rgba(34,197,94,0.12),rgba(22,163,74,0.08));border:1px solid rgba(34,197,94,0.4);border-radius:10px;display:flex;align-items:center;gap:8px;">
+        <span style="font-size:16px;">✅</span>
+        <span style="font-size:11px;font-weight:700;color:#22c55e;line-height:1.3;">Informations validées par l'organisateur</span>
+      </div>
+    `;
+  } else if (ev.validation_status === 'pending') {
+    validationBadge = `
+      <span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:999px;background:rgba(245,158,11,0.2);border:1px solid rgba(245,158,11,0.5);color:#f59e0b;font-size:10px;font-weight:600;">
+        En attente de validation
+      </span>
+    `;
+  }
+  
+  // Lien vers la source originale (pour événements scrapés)
+  const evSourceUrl = ev.source_url || ev.sourceUrl;
+  const sourceLink = evSourceUrl ? `
+    <a href="${escapeHtml(evSourceUrl)}" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:999px;background:rgba(148,163,184,0.1);border:1px solid rgba(148,163,184,0.3);color:#94a3b8;font-size:10px;font-weight:500;text-decoration:none;transition:all 0.2s;" onmouseover="this.style.background='rgba(148,163,184,0.2)'" onmouseout="this.style.background='rgba(148,163,184,0.1)'">
+      🔗 Source
+    </a>
+  ` : "";
+  
   // Indicateur publication MapEvent
   const aiIndicator = ev.isAI ? `
     <div style="margin-top:8px;padding:8px 12px;background:linear-gradient(135deg,rgba(59,130,246,0.1),rgba(139,92,246,0.1));border:1px solid rgba(59,130,246,0.3);border-radius:10px;font-size:11px;color:#94a3b8;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
       <span style="font-size:14px;">📢</span>
-      <span>Publié par <strong style="color:#60a5fa;">MapEvent</strong> : il peut y avoir des erreurs, merci de <a href="${ev.sourceUrl || '#'}" target="_blank" style="color:#60a5fa;text-decoration:underline;font-weight:600;">vérifier la source</a></span>
+      <span>Publié par <strong style="color:#60a5fa;">MapEvent</strong> : il peut y avoir des erreurs, merci de <a href="${escapeHtml(evSourceUrl || '#')}" target="_blank" style="color:#60a5fa;text-decoration:underline;font-weight:600;">vérifier la source</a></span>
     </div>
   ` : "";
 
@@ -6118,9 +7162,10 @@ function buildEventPopup(ev) {
   const hasAlarms = eventAlarms.length > 0;
   const canAddAlarm = eventAlarms.length < 2 && inAgenda;
   
-  // Actions avec design moderne
+  // Actions avec design moderne (barre fixe en bas au scroll)
   const actionsRow = `
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;">
+    <div class="popup-actions-sticky" style="position:sticky;bottom:0;background:var(--ui-card-bg);z-index:10;padding:12px 0 8px;margin-top:12px;border-top:1px solid var(--ui-card-border);">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:0;">
       <button onclick="onAction('participate', 'event', ${ev.id})" style="padding:12px;border-radius:12px;border:none;font-weight:700;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.2s;
         ${isParticipating ? 
           'background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;box-shadow:0 4px 12px rgba(34,197,94,0.4);' : 
@@ -6176,6 +7221,7 @@ function buildEventPopup(ev) {
       <button onclick="onAction('report', 'event', ${ev.id})" style="padding:10px;border-radius:10px;border:1px solid rgba(239,68,68,0.3);background:rgba(239,68,68,0.1);color:#ef4444;font-size:12px;cursor:pointer;transition:all 0.2s;" title="Signaler">
         🚨
       </button>
+    </div>
     </div>
   `;
 
@@ -6248,23 +7294,41 @@ function buildEventPopup(ev) {
           <span style="font-size:28px;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.2));">${emoji}</span>
           <span style="font-size:12px;color:var(--ui-text-muted);padding:4px 10px;background:rgba(148,163,184,0.1);border-radius:999px;">${cats}</span>
           ${verifiedBadge}
+          ${sourceLink}
         </div>
         
         <!-- Title -->
         <h3 style="margin:0 0 10px;font-size:20px;font-weight:800;line-height:1.3;color:var(--ui-text-main);">${escapeHtml(evTranslated.title || ev.title || "")}</h3>
+        
+        <!-- Validation organisateur (bloc visible sous le titre) -->
+        ${validationBadge}
         
         <!-- Date & Location Cards -->
         <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;">
           <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:linear-gradient(135deg,rgba(0,255,195,0.1),rgba(16,185,129,0.05));border:1px solid rgba(0,255,195,0.2);border-radius:10px;">
             <span style="font-size:20px;">📅</span>
             <div>
-              <div style="font-size:13px;font-weight:600;color:#00ffc3;">${formatEventDateRange(startDate, endDate)}</div>
+              <div style="font-size:13px;font-weight:600;color:#00ffc3;">${formatEventDateRange(startDate, endDate, !!ev.source_url)}</div>
+              ${ev.source_url ? `<div style="font-size:11px;color:#f59e0b;margin-top:4px;">⚠️ Pour l'heure exacte, voir la publication originale</div>` : ''}
             </div>
           </div>
           <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.2);border-radius:10px;">
             <span style="font-size:20px;">📍</span>
-            <div style="font-size:13px;font-weight:500;color:var(--ui-text-main);flex:1;">${escapeHtml(ev.address || ev.city || "")}</div>
+            <div style="font-size:13px;font-weight:500;color:var(--ui-text-main);flex:1;">${escapeHtml(ev.address || ev.city || ev.location || "")}</div>
           </div>
+          ${(ev.source_url || ev.sourceUrl) ? `
+            <a href="${escapeHtml(ev.source_url || ev.sourceUrl || '#')}" target="_blank" rel="noopener noreferrer" style="display:flex;align-items:center;gap:10px;padding:12px;background:linear-gradient(135deg,rgba(245,158,11,0.15),rgba(234,88,12,0.1));border:2px solid rgba(245,158,11,0.5);border-radius:10px;text-decoration:none;transition:all 0.2s;" onmouseover="this.style.background='linear-gradient(135deg,rgba(245,158,11,0.25),rgba(234,88,12,0.2))';this.style.transform='scale(1.01)'" onmouseout="this.style.background='linear-gradient(135deg,rgba(245,158,11,0.15),rgba(234,88,12,0.1))';this.style.transform='scale(1)'">
+              <span style="font-size:24px;">🔗</span>
+              <div style="flex:1;">
+                <div style="font-size:13px;font-weight:700;color:#f59e0b;">VOIR LA PUBLICATION ORIGINALE</div>
+                <div style="font-size:11px;color:#94a3b8;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml((ev.source_url || ev.sourceUrl || '').substring(0, 50))}...</div>
+              </div>
+              <span style="font-size:18px;color:#f59e0b;">→</span>
+            </a>
+            <div style="margin-top:8px;padding:8px 12px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.25);border-radius:8px;font-size:11px;color:#f87171;text-align:center;">
+              ⚠️ Publié par MapEvent – peut contenir des erreurs
+            </div>
+          ` : ''}
         </div>
         
         <!-- Description -->
@@ -6273,6 +7337,41 @@ function buildEventPopup(ev) {
             ${escapeHtml(evTranslated.description || ev.description)}
           </div>
         ` : ""}
+        
+        <!-- Audio Player (si liens audio disponibles) -->
+        ${(ev.audioLinks && ev.audioLinks.length > 0) || (ev.soundLinks && ev.soundLinks.length > 0) ? (() => {
+          const evAudioLinks = [...(ev.soundLinks || []), ...(ev.audioLinks || [])].filter(Boolean);
+          const evTitle = (ev.title || ev.name || '').replace(/"/g, '&quot;');
+          return `
+          <div style="margin:8px 0 12px;padding:12px;background:linear-gradient(135deg,rgba(139,92,246,0.15),rgba(59,130,246,0.1));border-radius:12px;border:1px solid rgba(139,92,246,0.3);">
+            <div style="font-size:12px;color:#a78bfa;margin-bottom:10px;font-weight:600;">🎵 Écouter directement</div>
+            <div style="display:flex;flex-direction:column;gap:8px;">
+              ${evAudioLinks.slice(0, 5).map((link, i) => {
+                const safeUrl = (link || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                const trackLabel = 'Piste ' + (i + 1) + (link.includes('audius') ? ' • Audius' : link.includes('soundcloud') ? ' • SoundCloud' : link.includes('spotify') ? ' • Spotify' : '');
+                return `
+                <div data-audio-track data-item-title="${evTitle}" data-track-label="${trackLabel}" style="display:flex;flex-direction:column;gap:6px;padding:10px 12px;background:rgba(0,0,0,0.3);border-radius:10px;">
+                  <audio id="event-audio-${ev.id}-${i}" src="${safeUrl}" data-original-src="${safeUrl}" preload="metadata" style="display:none;"></audio>
+                  <div style="display:flex;align-items:center;gap:10px;">
+                    <button onclick="event.stopPropagation();toggleEventAudio('${ev.id}',${i})" id="btn-event-${ev.id}-${i}" style="width:36px;height:36px;border-radius:50%;border:none;background:linear-gradient(135deg,#a78bfa,#8b5cf6);color:white;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">▶</button>
+                    <div style="flex:1;min-width:0;">
+                      <div style="font-size:12px;color:#e5e7eb;font-weight:500;">Piste ${i + 1}</div>
+                      <div style="font-size:10px;color:var(--ui-text-muted);">${link.includes('audius') ? '🎵 Audius' : link.includes('soundcloud') ? '☁️ SoundCloud' : link.includes('spotify') ? '🟢 Spotify' : link.includes('youtube') ? '▶️ YouTube' : '🎵 Audio'}</div>
+                    </div>
+                    <button onclick="event.stopPropagation();seekAudioOffset('event','${ev.id}',${i},-15)" style="width:32px;height:32px;border-radius:50%;border:1px solid rgba(167,139,250,0.5);background:transparent;color:#a78bfa;cursor:pointer;font-size:12px;flex-shrink:0;display:flex;align-items:center;justify-content:center;">⏪</button>
+                    <button onclick="event.stopPropagation();seekAudioOffset('event','${ev.id}',${i},15)" style="width:32px;height:32px;border-radius:50%;border:1px solid rgba(167,139,250,0.5);background:transparent;color:#a78bfa;cursor:pointer;font-size:12px;flex-shrink:0;display:flex;align-items:center;justify-content:center;">⏩</button>
+                    <span id="time-event-${ev.id}-${i}" style="font-size:10px;color:#a78bfa;font-variant-numeric:tabular-nums;min-width:70px;text-align:right;flex-shrink:0;">0:00</span>
+                  </div>
+                  <div id="seekbar-event-${ev.id}-${i}" onmousedown="event.stopPropagation();startAudioDrag('event','${ev.id}',${i},event)" ontouchstart="event.stopPropagation();event.preventDefault();startAudioDrag('event','${ev.id}',${i},event)" onclick="event.stopPropagation();seekEventAudio('${ev.id}',${i},event)" style="width:100%;height:14px;padding:12px 0;margin:-12px 0;cursor:pointer;position:relative;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;" title="Cliquer pour aller à la position dans le son">
+                    <div style="height:14px;background:rgba(255,255,255,0.15);border-radius:7px;overflow:hidden;position:relative;">
+                      <div id="progress-event-${ev.id}-${i}" style="width:0%;height:100%;background:linear-gradient(90deg,#a78bfa,#8b5cf6);border-radius:7px;transition:width 0.05s;pointer-events:none;"></div>
+                    </div>
+                  </div>
+                </div>`;
+              }).join('')}
+            </div>
+          </div>`;
+        })() : ''}
         
         <!-- Stats -->
         ${statsRow}
@@ -6283,8 +7382,10 @@ function buildEventPopup(ev) {
         <!-- AI Indicator -->
         ${aiIndicator}
         
-        <!-- Actions -->
-        ${actionsRow}
+        <!-- Actions - barre fixe en bas quand scroll -->
+        <div class="popup-actions-sticky" style="position:sticky;bottom:0;background:var(--ui-card-bg);margin:12px -12px -12px -12px;padding:12px 12px 12px 12px;z-index:10;border-top:1px solid rgba(148,163,184,0.2);">
+          ${actionsRow}
+        </div>
       </div>
     </div>
   `;
@@ -6358,53 +7459,41 @@ function buildBookingPopup(b) {
   // ⚠️ GRATUIT : Coordonnées toujours affichées (plus de paiement requis)
   const hasPaidContact = true;
   
-  const soundsSection = b.soundLinks && b.soundLinks.length > 0 ? `
+  // Fusionner soundLinks (scraping) et audioLinks (publication utilisateur)
+  const allSoundLinks = [...(b.soundLinks || []), ...(b.audioLinks || [])].filter(Boolean);
+  
+  const soundsSection = allSoundLinks.length > 0 ? `
     <div style="margin:8px 0;padding:12px;background:linear-gradient(135deg,rgba(139,92,246,0.15),rgba(59,130,246,0.1));border-radius:12px;border:1px solid rgba(139,92,246,0.3);">
-      <div style="font-size:12px;color:#a78bfa;margin-bottom:10px;font-weight:600;">🎵 ${b.soundLinks.length} piste(s) disponible(s)</div>
+      <div style="font-size:12px;color:#a78bfa;margin-bottom:10px;font-weight:600;">🎵 Écouter directement</div>
       
-      <!-- Mini Player Intégré -->
       <div style="display:flex;flex-direction:column;gap:8px;">
-        ${b.soundLinks.slice(0, 3).map((link, i) => `
-          <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:rgba(0,0,0,0.3);border-radius:10px;">
-            <button onclick="event.stopPropagation();playPreview('${b.id}', ${i})" style="width:36px;height:36px;border-radius:50%;border:none;background:linear-gradient(135deg,#a78bfa,#8b5cf6);color:white;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;">
-              ▶
-            </button>
-            <div style="flex:1;">
-              <div style="font-size:12px;color:#e5e7eb;font-weight:500;">Piste ${i + 1}</div>
-              <div style="font-size:10px;color:var(--ui-text-muted);">
-                ${link.includes('soundcloud') ? '☁️ SoundCloud' : link.includes('spotify') ? '🟢 Spotify' : link.includes('youtube') ? '▶️ YouTube' : '🎵 Audio'}
+        ${allSoundLinks.slice(0, 12).map((link, i) => {
+          const safeUrl = (link || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+          const safeTitle = (b.name || '').replace(/"/g, '&quot;');
+          const trackLabel = 'Piste ' + (i + 1) + (link.includes('audius') ? ' • Audius' : link.includes('soundcloud') ? ' • SoundCloud' : link.includes('spotify') ? ' • Spotify' : '');
+          return `
+          <div data-audio-track data-item-title="${safeTitle}" data-track-label="${trackLabel}" style="display:flex;flex-direction:column;gap:6px;padding:10px 12px;background:rgba(0,0,0,0.3);border-radius:10px;">
+            <audio id="booking-audio-${b.id}-${i}" src="${safeUrl}" data-original-src="${safeUrl}" preload="metadata" style="display:none;"></audio>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <button onclick="event.stopPropagation();toggleBookingAudio('${b.id}',${i})" id="btn-booking-${b.id}-${i}" style="width:36px;height:36px;border-radius:50%;border:none;background:linear-gradient(135deg,#a78bfa,#8b5cf6);color:white;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">▶</button>
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:12px;color:#e5e7eb;font-weight:500;">Piste ${i + 1}</div>
+                <div style="font-size:10px;color:var(--ui-text-muted);">${link.includes('audius') ? '🎵 Audius' : link.includes('soundcloud') ? '☁️ SoundCloud' : link.includes('spotify') ? '🟢 Spotify' : link.includes('youtube') ? '▶️ YouTube' : '🎵 Audio'}</div>
+              </div>
+              <button onclick="event.stopPropagation();seekAudioOffset('booking','${b.id}',${i},-15)" style="width:32px;height:32px;border-radius:50%;border:1px solid rgba(167,139,250,0.5);background:transparent;color:#a78bfa;cursor:pointer;font-size:12px;flex-shrink:0;display:flex;align-items:center;justify-content:center;">⏪</button>
+              <button onclick="event.stopPropagation();seekAudioOffset('booking','${b.id}',${i},15)" style="width:32px;height:32px;border-radius:50%;border:1px solid rgba(167,139,250,0.5);background:transparent;color:#a78bfa;cursor:pointer;font-size:12px;flex-shrink:0;display:flex;align-items:center;justify-content:center;">⏩</button>
+              <span id="time-booking-${b.id}-${i}" style="font-size:10px;color:#a78bfa;font-variant-numeric:tabular-nums;min-width:70px;text-align:right;flex-shrink:0;">0:00</span>
+            </div>
+            <div id="seekbar-booking-${b.id}-${i}" onmousedown="event.stopPropagation();startAudioDrag('booking','${b.id}',${i},event)" ontouchstart="event.stopPropagation();event.preventDefault();startAudioDrag('booking','${b.id}',${i},event)" onclick="event.stopPropagation();seekBookingAudio('${b.id}',${i},event)"  style="width:100%;height:14px;padding:12px 0;margin:-12px 0;cursor:pointer;position:relative;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;" title="Cliquer pour aller à la position dans le son">
+              <div style="height:14px;background:rgba(255,255,255,0.15);border-radius:7px;overflow:hidden;position:relative;">
+                <div id="progress-booking-${b.id}-${i}" style="width:0%;height:100%;background:linear-gradient(90deg,#a78bfa,#8b5cf6);border-radius:7px;transition:width 0.05s;pointer-events:none;"></div>
               </div>
             </div>
-            <div style="width:60px;height:4px;background:rgba(255,255,255,0.2);border-radius:2px;overflow:hidden;">
-              <div id="progress-${b.id}-${i}" style="width:0%;height:100%;background:#a78bfa;transition:width 0.1s;"></div>
-            </div>
-          </div>
-        `).join('')}
+          </div>`;
+        }).join('')}
       </div>
-      
-      ${!hasPaidContact ? `
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(139,92,246,0.2);text-align:center;">
-          <div style="font-size:10px;color:var(--ui-text-muted);margin-bottom:6px;">🔒 Contact & liens complets masqués</div>
-        </div>
-      ` : `
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(139,92,246,0.2);">
-          <div style="font-size:10px;color:#00ffc3;margin-bottom:6px;">✅ Accès complet débloqué</div>
-          <div style="display:flex;gap:6px;flex-wrap:wrap;">
-            ${b.soundLinks.map((link, i) => `
-              <a href="${link}" target="_blank" style="padding:4px 10px;background:rgba(0,255,195,0.2);border-radius:999px;font-size:11px;color:#00ffc3;text-decoration:none;">
-                ${link.includes('soundcloud') ? '☁️ SoundCloud' : link.includes('spotify') ? '🟢 Spotify' : link.includes('youtube') ? '▶️ YouTube' : '🔗 Lien '+(i+1)}
-              </a>
-            `).join('')}
-          </div>
-        </div>
-      `}
     </div>
-  ` : `
-    <div style="margin:8px 0;padding:10px;background:rgba(239,68,68,0.1);border:1px dashed rgba(239,68,68,0.3);border-radius:8px;font-size:12px;color:#ef4444;text-align:center;">
-      ⚠️ Aucun lien audio fourni<br>
-      <span style="font-size:10px;color:var(--ui-text-muted);">Contactez l'artiste pour des démos</span>
-    </div>
-  `;
+  ` : '';
 
   // Rating
   const ratingStars = b.rating ? `
@@ -6415,15 +7504,29 @@ function buildBookingPopup(b) {
     </div>
   ` : "";
 
+  // Lien publication originale (si disponible)
+  const sourceUrl = b.sourceUrl || b.source_url;
+  const sourceLinkBlock = sourceUrl ? `
+    <a href="${escapeHtml(sourceUrl)}" target="_blank" rel="noopener noreferrer" style="display:flex;align-items:center;gap:10px;padding:10px 12px;margin:8px 0;background:linear-gradient(135deg,rgba(245,158,11,0.15),rgba(234,88,12,0.1));border:2px solid rgba(245,158,11,0.5);border-radius:10px;text-decoration:none;transition:all 0.2s;" onmouseover="this.style.background='linear-gradient(135deg,rgba(245,158,11,0.25),rgba(234,88,12,0.2))';this.style.transform='scale(1.01)'" onmouseout="this.style.background='linear-gradient(135deg,rgba(245,158,11,0.15),rgba(234,88,12,0.1))';this.style.transform='scale(1)'">
+      <span style="font-size:20px;">🔗</span>
+      <div style="flex:1;">
+        <div style="font-size:12px;font-weight:700;color:#f59e0b;">VOIR LA PUBLICATION ORIGINALE</div>
+        <div style="font-size:10px;color:#94a3b8;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(sourceUrl.substring(0, 45))}...</div>
+      </div>
+      <span style="font-size:16px;color:#f59e0b;">→</span>
+    </a>
+  ` : "";
+
   // Indicateur publication MapEvent
   const aiIndicator = b.isAI ? `
     <div style="margin:6px 0;padding:6px 10px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);border-radius:8px;font-size:11px;color:#94a3b8;">
-      📢 Publié par <strong style="color:#60a5fa;">MapEvent</strong> : il peut y avoir des erreurs, merci de <a href="${b.sourceUrl || '#'}" target="_blank" style="color:#60a5fa;text-decoration:underline;">vérifier la source</a>
+      📢 Publié par <strong style="color:#60a5fa;">MapEvent</strong> : il peut y avoir des erreurs, merci de <a href="${sourceUrl || '#'}" target="_blank" style="color:#60a5fa;text-decoration:underline;">vérifier la source</a>
     </div>
   ` : "";
 
   const actionsRow = `
-    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">
+    <div class="popup-actions-sticky" style="position:sticky;bottom:0;background:var(--ui-card-bg);z-index:10;padding:12px 0 8px;margin-top:12px;border-top:1px solid var(--ui-card-border);">
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:0;">
       <button onclick="onAction('like', 'booking', ${b.id})" class="pill small" style="flex:1;">
         ${currentUser.likes.includes('booking:'+b.id) ? '👍' : '👍'} Like
       </button>
@@ -6439,12 +7542,12 @@ function buildBookingPopup(b) {
       <button onclick="onAction('agenda', 'booking', ${b.id})" class="pill small" style="flex:1;">
         ${currentUser.agenda.includes('booking:'+b.id) ? '📅 ' + ((typeof window.t === 'function' ? window.t("in_agenda") : null) || "Dans agenda") : '📅 ' + (typeof window.t === 'function' ? window.t("agenda") : "Agenda")}
       </button>
-      <button onclick="onAction('route', 'booking', ${b.id})" class="pill small" style="flex:1;">🗺️ ${(typeof window.t === 'function' ? window.t("route") : null) || "Itinéraire"}</button>
     </div>
     <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">
       <button onclick="onAction('avis', 'booking', ${b.id})" class="pill small" style="flex:1;">⭐ Avis</button>
       <button onclick="onAction('discussion', 'booking', ${b.id})" class="pill small" style="flex:1;">💬 Contact</button>
       <button onclick="onAction('report', 'booking', ${b.id})" class="pill small" style="color:#ef4444;">🚨</button>
+    </div>
     </div>
   `;
 
@@ -6479,22 +7582,24 @@ function buildBookingPopup(b) {
         <div style="font-size:13px;color:#1f2937;background:rgba(255,255,255,0.95);padding:6px 8px;border-radius:8px;margin-bottom:6px;font-weight:500;">
           📍 ${hasPaidContact ? escapeHtml(b.address || b.city || "") : escapeHtml(maskAddressNumber(b.address || b.city || ""))}
         </div>
-        ${b.description ? `<div style="font-size:14px;color:#ffffff;margin-bottom:12px;line-height:1.7;padding:12px;background:transparent;border-radius:8px;">${escapeHtml(b.description)}</div>` : ""}
+        ${b.description ? `<div style="font-size:14px;color:#ffffff;margin-bottom:12px;line-height:1.7;padding:12px;background:transparent;border-radius:8px;">${escapeHtml(stripPhoneNumbers(b.description))}</div>` : ""}
         ${soundsSection}
+        ${sourceLinkBlock}
         ${aiIndicator}
         ${hasPaidContact ? `
           <div style="margin:8px 0;padding:12px;background:linear-gradient(135deg,rgba(0,255,195,0.15),rgba(34,197,94,0.1));border:1px solid rgba(0,255,195,0.3);border-radius:10px;">
-            <div style="font-size:12px;color:#00ffc3;font-weight:600;margin-bottom:8px;">✅ Contact débloqué</div>
-            <div style="font-size:13px;color:#e5e7eb;margin-bottom:4px;">📧 ${b.email || 'contact@artiste.ch'}</div>
-            <div style="font-size:13px;color:#e5e7eb;margin-bottom:4px;">📞 ${b.phone || '+41 79 123 45 67'}</div>
+            <div style="font-size:12px;color:#00ffc3;font-weight:600;margin-bottom:8px;">✅ Contact</div>
+            <div style="font-size:13px;color:#e5e7eb;">📧 ${b.email || 'contact@artiste.ch'}</div>
             <div style="font-size:10px;color:var(--ui-text-muted);margin-top:6px;">📅 Ajouté à votre agenda permanent</div>
         </div>
         ` : `
           <div style="font-size:11px;color:#6b7280;margin:8px 0;padding:8px;background:rgba(107,114,128,0.1);border-radius:8px;">
-            🔒 Coordonnées masquées • Email & téléphone disponibles après paiement
+            🔒 Coordonnées masquées • Email disponible après paiement
           </div>
         `}
-        ${actionsRow}
+        <div class="popup-actions-sticky" style="position:sticky;bottom:0;background:var(--ui-card-bg);margin:12px -12px -12px -12px;padding:12px;z-index:10;border-top:1px solid rgba(148,163,184,0.2);">
+          ${actionsRow}
+        </div>
         ${!hasPaidContact ? `
           <button onclick="onBuyContact('booking', ${b.id})" style="margin-top:10px;width:100%;padding:12px;border-radius:999px;border:none;cursor:pointer;font-size:14px;font-weight:700;background:var(--btn-main-bg);color:var(--btn-main-text);box-shadow:var(--btn-main-shadow);">
             💳 Débloquer contact + sons – CHF 1.–
@@ -6567,7 +7672,8 @@ function buildServicePopup(s) {
   ` : "";
 
   const actionsRow = `
-    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">
+    <div class="popup-actions-sticky" style="position:sticky;bottom:0;background:var(--ui-card-bg);z-index:10;padding:12px 0 8px;margin-top:12px;border-top:1px solid var(--ui-card-border);">
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:0;">
       <button onclick="onAction('like', 'service', ${s.id})" class="pill small" style="flex:1;">
         ${currentUser.likes.includes('service:'+s.id) ? '👍' : '👍'} Like
       </button>
@@ -6589,6 +7695,7 @@ function buildServicePopup(s) {
       <button onclick="onAction('avis', 'service', ${s.id})" class="pill small" style="flex:1;">⭐ Avis</button>
       <button onclick="onAction('discussion', 'service', ${s.id})" class="pill small" style="flex:1;">💬 Contact</button>
       <button onclick="onAction('report', 'service', ${s.id})" class="pill small" style="color:#ef4444;">🚨</button>
+    </div>
     </div>
   `;
 
@@ -6622,23 +7729,24 @@ function buildServicePopup(s) {
         <div style="font-size:13px;color:#1f2937;background:rgba(255,255,255,0.95);padding:6px 8px;border-radius:8px;margin-bottom:6px;font-weight:500;">
           📍 ${escapeHtml(s.address || s.city || "")}, Suisse
         </div>
-        ${s.description ? `<div style="font-size:14px;color:#ffffff;margin-bottom:12px;line-height:1.7;padding:12px;background:transparent;border-radius:8px;">${escapeHtml(s.description)}</div>` : ""}
+        ${s.description ? `<div style="font-size:14px;color:#ffffff;margin-bottom:12px;line-height:1.7;padding:12px;background:transparent;border-radius:8px;">${escapeHtml(stripPhoneNumbers(s.description))}</div>` : ""}
         ${aiIndicator}
         ${hasPaidContact ? `
           <div style="margin:8px 0;padding:12px;background:linear-gradient(135deg,rgba(0,255,195,0.15),rgba(34,197,94,0.1));border:1px solid rgba(0,255,195,0.3);border-radius:10px;">
-            <div style="font-size:12px;color:#00ffc3;font-weight:600;margin-bottom:8px;">✅ Contact débloqué</div>
-            <div style="font-size:13px;color:#e5e7eb;margin-bottom:4px;">📧 ${s.email || 'contact@service.ch'}</div>
-            <div style="font-size:13px;color:#e5e7eb;margin-bottom:4px;">📞 ${s.phone || '+41 79 123 45 67'}</div>
+            <div style="font-size:12px;color:#00ffc3;font-weight:600;margin-bottom:8px;">✅ Contact</div>
+            <div style="font-size:13px;color:#e5e7eb;">📧 ${s.email || 'contact@service.ch'}</div>
             ${s.website ? `<a href="${s.website}" target="_blank" style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:#3b82f6;margin-top:4px;">🌐 ${s.website}</a>` : ''}
             <div style="font-size:10px;color:var(--ui-text-muted);margin-top:6px;">📅 Ajouté à votre agenda permanent</div>
         </div>
         ` : `
           <div style="font-size:11px;color:#6b7280;margin:8px 0;padding:10px;background:rgba(107,114,128,0.1);border-radius:8px;">
-            🔒 <strong>Masqué :</strong> Email, téléphone, site web<br>
+            🔒 <strong>Masqué :</strong> Email, site web<br>
             <span style="font-size:10px;">Débloquez pour accéder aux coordonnées complètes</span>
           </div>
         `}
-        ${actionsRow}
+        <div class="popup-actions-sticky" style="position:sticky;bottom:0;background:var(--ui-card-bg);margin:12px -12px -12px -12px;padding:12px;z-index:10;border-top:1px solid rgba(148,163,184,0.2);">
+          ${actionsRow}
+        </div>
         ${!hasPaidContact ? `
           <button onclick="onBuyContact('service', ${s.id})" style="margin-top:10px;width:100%;padding:12px;border-radius:999px;border:none;cursor:pointer;font-size:14px;font-weight:700;background:var(--btn-main-bg);color:var(--btn-main-text);box-shadow:var(--btn-main-shadow);">
             💳 Débloquer contact + site – CHF 1.–
@@ -6851,16 +7959,14 @@ function refreshListView() {
         }
         
         // Seulement si les distances sont EXACTEMENT identiques (très rare), utiliser les autres critères
-        // 2. Catégories sélectionnées (si filtre actif)
-        if (selectedCategories.length > 0) {
-          const catA = a.categories || [];
-          const catB = b.categories || [];
-          const matchA = catA.some(c => selectedCategories.some(sc => 
-            c.toLowerCase().includes(sc.toLowerCase()) || sc.toLowerCase().includes(c.toLowerCase())
-          ));
-          const matchB = catB.some(c => selectedCategories.some(sc => 
-            c.toLowerCase().includes(sc.toLowerCase()) || sc.toLowerCase().includes(c.toLowerCase())
-          ));
+        // 2. Catégories sélectionnées (si filtre actif) - utilise getEffectiveCategoryParts + descendants pour cohérence avec le filtre
+        if (selectedCategories.length > 0 && explorerTree) {
+          const allowed = new Set(selectedCategories.map(sc => sc.toLowerCase()));
+          selectedCategories.forEach(sc => {
+            (findCategoryDescendants(sc.toLowerCase(), explorerTree) || []).forEach(d => allowed.add(d));
+          });
+          const matchA = Array.from(getEffectiveCategoryParts(a)).some(p => allowed.has(p));
+          const matchB = Array.from(getEffectiveCategoryParts(b)).some(p => allowed.has(p));
           if (matchA && !matchB) return -1;
           if (!matchA && matchB) return 1;
         }
@@ -7130,16 +8236,14 @@ function refreshListView() {
     data = base
       .slice()
       .sort((a, b) => {
-        // 1. Catégories sélectionnées (si filtre actif)
-        if (selectedCategories.length > 0) {
-          const catA = a.categories || [];
-          const catB = b.categories || [];
-          const matchA = catA.some(c => selectedCategories.some(sc => 
-            c.toLowerCase().includes(sc.toLowerCase()) || sc.toLowerCase().includes(c.toLowerCase())
-          ));
-          const matchB = catB.some(c => selectedCategories.some(sc => 
-            c.toLowerCase().includes(sc.toLowerCase()) || sc.toLowerCase().includes(c.toLowerCase())
-          ));
+        // 1. Catégories sélectionnées (si filtre actif) - utilise getEffectiveCategoryParts + descendants pour cohérence avec le filtre
+        if (selectedCategories.length > 0 && explorerTree) {
+          const allowed2 = new Set(selectedCategories.map(sc => sc.toLowerCase()));
+          selectedCategories.forEach(sc => {
+            (findCategoryDescendants(sc.toLowerCase(), explorerTree) || []).forEach(d => allowed2.add(d));
+          });
+          const matchA = Array.from(getEffectiveCategoryParts(a)).some(p => allowed2.has(p));
+          const matchB = Array.from(getEffectiveCategoryParts(b)).some(p => allowed2.has(p));
           if (matchA && !matchB) return -1;
           if (!matchA && matchB) return 1;
         }
@@ -7309,6 +8413,9 @@ function refreshListView() {
   
   // Nettoyer les événements passés (sauf organisateurs)
   cleanExpiredEvents();
+  
+  // Mode découverte
+  refreshDiscoveryCarousel();
 }
 
 // Cartes style Airbnb pour la liste
@@ -7423,7 +8530,7 @@ function buildBookingCard(b, distance = null) {
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;">
           <span style="color:var(--ui-text-muted);">⭐ ${b.rating || '—'}/5</span>
-          ${b.soundLinks && b.soundLinks.length > 0 ? '<span style="color:#a78bfa;">🎵 Audio</span>' : '<span style="color:#ef4444;">⚠️ Pas d\'audio</span>'}
+          ${(b.soundLinks && b.soundLinks.length > 0) || (b.audioLinks && b.audioLinks.length > 0) ? '<span style="color:#a78bfa;">🎵 Audio</span>' : '<span style="color:#ef4444;">⚠️ Pas d\'audio</span>'}
         </div>
       </div>
     </div>
@@ -7487,6 +8594,22 @@ function openPopupFromList(type, id) {
     return;
   }
   
+  // Préserver l'audio en cours - ne couper le son que quand on clique sur un autre play
+  let persistentContainer = document.getElementById("audio-persistent-container");
+  if (!persistentContainer) {
+    persistentContainer = document.createElement("div");
+    persistentContainer.id = "audio-persistent-container";
+    persistentContainer.style.cssText = "position:fixed;bottom:70px;left:10px;width:1px;height:1px;overflow:hidden;pointer-events:none;opacity:0.01;z-index:99998;";
+    document.body.insertBefore(persistentContainer, document.body.firstChild);
+  }
+  let backdrop = document.getElementById("popup-modal-backdrop");
+  const scope = backdrop || document;
+  Array.from(scope.querySelectorAll('audio[id^="booking-audio-"], audio[id^="event-audio-"]')).forEach(a => {
+    if (!a.paused && a.readyState >= 2) {
+      try { persistentContainer.appendChild(a); } catch (_) {}
+    }
+  });
+  
   // Construire le HTML de la popup
   let popupHtml = "";
   if (type === "event") {
@@ -7510,7 +8633,6 @@ function openPopupFromList(type, id) {
   `;
   
   // Créer ou réutiliser le backdrop - EN MODE LISTE, devant la liste (z-index élevé)
-  let backdrop = document.getElementById("popup-modal-backdrop");
   if (!backdrop) {
     backdrop = document.createElement("div");
     backdrop.id = "popup-modal-backdrop";
@@ -7535,6 +8657,14 @@ function openPopupFromList(type, id) {
 }
 
 function closePopupModal() {
+  if (window._popupBottomSheetCleanup) {
+    window._popupBottomSheetCleanup();
+    window._popupBottomSheetCleanup = null;
+  }
+  // Réinitialiser la navigation par emplacement
+  currentLocationGroup = null;
+  currentLocationIndex = 0;
+  document.body.style.overflow = '';
   const modal = document.getElementById("popup-modal");
   if (modal) {
     modal.remove();
@@ -7548,8 +8678,6 @@ function closePopupModal() {
       backdrop.dataset.fromList = "false";
     }
   }
-  // Restaurer le scroll du body
-  document.body.style.overflow = '';
   
   // Recentrer la map sur le marqueur qu'on venait de consulter
   if (currentPopupMarker && map) {
@@ -7936,7 +9064,9 @@ function loadExplorerTree() {
       }
 
       explorerPath = [];
+      buildCategoryMappingFromTree(explorerTree);
       renderExplorer();
+      renderCategoryChips();
     })
     .catch(err => {
       console.error("❌ Erreur chargement arbre :", err);
@@ -8047,7 +9177,7 @@ function renderExplorer() {
       <div style="font-size:15px;font-weight:700;">Filtrer – ${currentMode}</div>
       <button onclick="closeLeftPanel()" style="background:none;border:none;color:var(--ui-text-muted);font-size:20px;cursor:pointer;padding:4px 8px;border-radius:6px;transition:all 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.1)';this.style.color='#fff'" onmouseout="this.style.background='none';this.style.color='var(--ui-text-muted)'">✕</button>
     </div>
-    <div style="font-size:12px;color:var(--ui-text-muted);margin-bottom:10px;">Cochez les catégories souhaitées.</div>
+    <div style="font-size:12px;color:var(--ui-text-muted);margin-bottom:10px;">Choisissez les catégories à filtrer. Le filtre affiche uniquement les events correspondant à ces catégories.</div>
 
     ${dateControls}
 
@@ -8169,7 +9299,7 @@ function updateDateRangeDisplay() {
 function renderSelectedTags() {
   const box = document.getElementById("explorer-selected");
   if (!box) return;
-  box.innerHTML = "";
+  box.innerHTML = selectedCategories.length > 0 ? `<span style="font-size:11px;color:var(--ui-text-muted);align-self:center;margin-right:6px;">${selectedCategories.length}</span>` : "";
 
   selectedCategories.forEach(cat => {
     const safe = escapeHtml(cat);
@@ -8199,6 +9329,7 @@ function removeSelectedCategory(cat) {
   renderSelectedTags(); // Mettre à jour les tags
   
   applyExplorerFilter();
+  renderCategoryChips();
 }
 
 function resetExplorerFilter() {
@@ -8210,6 +9341,7 @@ function resetExplorerFilter() {
   selectedDates = [];
   filteredData = null; // null = afficher TOUS les points
   renderExplorer();
+  renderCategoryChips();
   // IMPORTANT : refreshMarkers et refreshListView utilisent getActiveData() qui retourne filteredData || getCurrentData()
   // Donc si filteredData est null, tous les points sont affichés
   refreshMarkers();
@@ -8242,6 +9374,7 @@ function findNode(obj, name) {
 }
 
 function buildColumn(colBox, node, level) {
+  const isMob = window.innerWidth <= 768;
   const div = document.createElement("div");
   div.style.minWidth = "200px";
   div.style.maxWidth = "200px";
@@ -8250,7 +9383,7 @@ function buildColumn(colBox, node, level) {
   div.style.borderRadius = "10px";
   div.style.padding = "8px";
   div.style.color = "var(--ui-text-main)";
-  div.style.fontSize = "13px";
+  div.style.fontSize = isMob ? "14px" : "13px";
   div.style.maxHeight = "280px";
   div.style.overflowY = "auto";
 
@@ -8262,7 +9395,7 @@ function buildColumn(colBox, node, level) {
       const safe = escapeHtml(item);
       const isChecked = selectedCategories.includes(item);
       html += `
-        <label style="display:flex;align-items:center;gap:8px;padding:6px;cursor:pointer;border-radius:6px;transition:background 0.15s;"
+        <label style="display:flex;align-items:center;gap:8px;padding:${isMob ? '7px' : '6px'};cursor:pointer;border-radius:6px;transition:background 0.15s;"
              onmouseover="this.style.background='rgba(0,255,195,0.12)'"
                onmouseout="this.style.background='transparent'"
                onclick="event.stopPropagation()">
@@ -8270,8 +9403,8 @@ function buildColumn(colBox, node, level) {
                  ${isChecked ? 'checked' : ''} 
                  onchange="toggleCategory('${safe}', event); event.stopPropagation();"
                  onclick="event.stopPropagation()"
-                 style="width:16px;height:16px;accent-color:#00ffc3;cursor:pointer;">
-          <span style="flex:1;font-size:12px;">${safe}</span>
+                 style="width:${isMob ? '18' : '16'}px;height:${isMob ? '18' : '16'}px;accent-color:#00ffc3;cursor:pointer;">
+          <span style="flex:1;font-size:${isMob ? '14' : '12'}px;">${safe}</span>
         </label>
       `;
     });
@@ -8283,7 +9416,7 @@ function buildColumn(colBox, node, level) {
       const hasChildren = node[key] && (Array.isArray(node[key]) ? node[key].length > 0 : Object.keys(node[key]).length > 0);
       
       html += `
-        <div style="display:flex;align-items:center;gap:6px;padding:6px;border-radius:6px;transition:background 0.15s;"
+        <div style="display:flex;align-items:center;gap:6px;padding:${isMob ? '7px' : '6px'};border-radius:6px;transition:background 0.15s;"
              onmouseover="this.style.background='rgba(0,255,195,0.12)'"
              onmouseout="this.style.background='transparent'"
              onclick="event.stopPropagation()">
@@ -8291,10 +9424,10 @@ function buildColumn(colBox, node, level) {
                  ${isChecked ? 'checked' : ''} 
                  onchange="toggleCategory('${safeKey}', event); event.stopPropagation();"
                  onclick="event.stopPropagation()"
-                 style="width:16px;height:16px;accent-color:#00ffc3;cursor:pointer;">
+                 style="width:${isMob ? '18' : '16'}px;height:${isMob ? '18' : '16'}px;accent-color:#00ffc3;cursor:pointer;">
           <div style="flex:1;display:flex;align-items:center;justify-content:space-between;cursor:pointer;"
              onclick="openNextLevel('${safeKey}', ${level})">
-            <span style="font-size:12px;font-weight:500;">📁 ${safeKey}</span>
+            <span style="font-size:${isMob ? '14' : '12'}px;font-weight:500;">📁 ${safeKey}</span>
             ${hasChildren ? '<span style="color:#00ffc3;font-size:14px;">›</span>' : ''}
           </div>
         </div>
@@ -8305,6 +9438,20 @@ function buildColumn(colBox, node, level) {
   div.innerHTML = html;
   colBox.appendChild(div);
 }
+
+// Chips catégories scrollables (mobile)
+function renderCategoryChips() {
+  const container = document.getElementById("category-chips-inner");
+  if (!container) return;
+  const topCats = explorerTree ? Object.keys(explorerTree) : [];
+  if (topCats.length === 0) return;
+  const emoji = (c) => c.includes("Musique") || c.includes("Music") ? "🎵" : c.includes("Sport") ? "⚽" : c.includes("Culture") ? "🎭" : c.includes("DJ") ? "🎧" : c.includes("Live") ? "🎤" : "📌";
+  container.innerHTML = topCats.map(cat => {
+    const isActive = selectedCategories.includes(cat);
+    return `<button type="button" class="category-chip" data-cat="${cat.replace(/"/g, '&quot;')}" onclick="event.stopPropagation();toggleCategory('${cat.replace(/'/g, "\\'")}', event);renderCategoryChips();if(navigator.vibrate)navigator.vibrate(10);" style="flex-shrink:0;padding:6px 14px;border-radius:999px;border:1.5px solid ${isActive ? '#22c55e' : 'rgba(148,163,184,0.25)'};background:${isActive ? 'rgba(34,197,94,0.2)' : 'rgba(255,255,255,0.06)'};color:${isActive ? '#22c55e' : '#cbd5e1'};font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;scroll-snap-align:start;transition:all .2s;">${emoji(cat)} ${cat}</button>`;
+  }).join("");
+}
+window.renderCategoryChips = renderCategoryChips;
 
 // Toggle une catégorie (cocher/décocher)
 function toggleCategory(cat, event) {
@@ -8359,7 +9506,7 @@ function toggleCategory(cat, event) {
     return; // Ne pas filtrer la carte
   }
   
-  // Mode normal : toggle le filtre
+  // Mode normal : toggle le filtre (illimité)
   if (selectedCategories.includes(cat)) {
     selectedCategories = selectedCategories.filter(c => c !== cat);
   } else {
@@ -8367,6 +9514,7 @@ function toggleCategory(cat, event) {
   }
   renderSelectedTags();
   applyExplorerFilter();
+  renderCategoryChips();
 }
 
 function openNextLevel(key, level) {
@@ -8435,63 +9583,291 @@ function setTimeFilter(mode) {
   applyExplorerFilter();
 }
 
+// Alias scrapers → termes arbre (variations de nom, langues, formats utilisés par les scrapers)
+const SCRAPER_ALIASES = {
+  // Music
+  "musique": "music", "electro": "electronic", "electro / dj": "electronic",
+  "music > electro": "electronic", "musique > electro": "electronic", "musique > electronic": "electronic",
+  "concert": "music", "spectacle musical": "music",
+  "rock / pop": "rock", "jazz / blues": "jazz", "classique / baroque": "classique", "punk": "punk rock",
+  "hip hop": "hip-hop", "afrobeats": "afro / afrobeats",
+  "rave": "electronic", "open air": "festival musique", "soirée": "electronic",
+  // Culture
+  "art et culture": "culture", "art": "culture", "arts": "culture",
+  "exposition": "expositions", "expo": "expositions",
+  "conférence": "conférences & rencontres", "conférences": "conférences & rencontres",
+  "visite": "visites & patrimoine", "patrimoine": "visites & patrimoine",
+  "histoire": "visites & patrimoine", "visite guidée": "visites & patrimoine", "musée": "visites & patrimoine",
+  "littérature": "littérature & conte", "conte": "littérature & conte", "lecture": "littérature & conte",
+  "cinéma": "cinéma & projections", "cinema": "cinéma & projections", "film": "cinéma & projections",
+  // Ateliers (ex-Workshops)
+  "atelier": "ateliers", "workshop": "ateliers", "workshops": "ateliers", "stage": "ateliers",
+  "culture > workshops": "culture > ateliers",
+  // Arts vivants
+  "spectacle": "théâtre", "théatre": "théâtre", "theatre": "théâtre", "spectacles": "théâtre",
+  "humour": "humour", "improvisation": "théâtre", "stand-up": "humour",
+  "danse": "danse", "ballet": "danse classique / ballet",
+  // Food
+  "dégustation": "dégustations", "gastronomie": "dégustations",
+  "vin": "dégustation vin", "bière": "dégustation bière",
+  "food and drinks": "food & drinks", "food": "food & drinks",
+  // Festivals
+  "festival": "festivals & grandes fêtes", "foire": "festivals & grandes fêtes", "salon": "festivals & grandes fêtes",
+  // Loisirs
+  "loisirs": "loisirs & animation", "animation": "loisirs & animation",
+  "brocante": "défilés & fêtes", "marché": "défilés & fêtes", "carnaval": "défilés & fêtes",
+  "fête": "défilés & fêtes", "fêtes": "défilés & fêtes",
+  // Nature
+  "nature": "nature & plein air", "plein air": "nature & plein air", "balade": "nature & plein air",
+  "randonnée": "nature & plein air",
+  // Famille
+  "famille": "famille & enfants", "enfants": "famille & enfants", "enfant": "famille & enfants",
+  // Bien-être
+  "yoga": "bien-être", "méditation": "bien-être", "sophrologie": "bien-être",
+  "yoga & bien-être": "bien-être", "wellness": "bien-être",
+  // Business
+  "networking": "business & communauté", "business": "business & communauté",
+  "business & networking": "business & communauté",
+  // Événement générique
+  "événement": "culture", "divers": "culture"
+};
+
+// Construit le mapping complet depuis l'arbre : chaque terme → [lui-même, parent, grand-parent, ...]
+let categoryMappingCache = {};
+function buildCategoryMappingFromTree(tree, parentPath = []) {
+  if (!tree) return;
+  const out = {};
+  function walk(node, path) {
+    if (!node) return;
+    if (Array.isArray(node)) {
+      node.forEach(item => {
+        const name = (typeof item === 'string' ? item : item.name || '').toLowerCase();
+        if (!name) return;
+        const fullPath = [...path, name];
+        if (!out[name]) out[name] = new Set();
+        fullPath.forEach(p => out[name].add(p));
+      });
+      return;
+    }
+    for (const key in node) {
+      const keyLower = key.toLowerCase();
+      const fullPath = [...path, keyLower];
+      if (!out[keyLower]) out[keyLower] = new Set();
+      fullPath.forEach(p => out[keyLower].add(p));
+      walk(node[key], fullPath);
+    }
+  }
+  walk(tree, []);
+  categoryMappingCache = {};
+  for (const k in out) {
+    categoryMappingCache[k] = Array.from(out[k]);
+  }
+}
+
+// Retourne les parties de catégories effectives pour le matching filtre
+// Utilise l'arbre (hiérarchie) + alias scrapers pour TOUTES les catégories
+function getEffectiveCategoryParts(item) {
+  const itemCats = (item.categories || []).map(c => c.toLowerCase());
+  const itemMainCat = (item.mainCategory || "").toLowerCase();
+  const parts = new Set();
+  
+  function addPart(p) { if (p && p.length > 0) parts.add(p.trim()); }
+  
+  itemCats.forEach(cat => {
+    addPart(cat);
+    cat.split(/\s*>\s*/).forEach(part => addPart(part));
+    cat.split('>').forEach(part => addPart(part));
+  });
+  addPart(itemMainCat);
+  
+  const toAdd = new Set();
+  parts.forEach(p => {
+    const resolved = SCRAPER_ALIASES[p] || p;
+    if (categoryMappingCache[resolved]) {
+      categoryMappingCache[resolved].forEach(e => toAdd.add(e.toLowerCase()));
+    } else if (categoryMappingCache[p]) {
+      categoryMappingCache[p].forEach(e => toAdd.add(e.toLowerCase()));
+    } else {
+      toAdd.add(resolved);
+      toAdd.add(p);
+    }
+  });
+  toAdd.forEach(x => parts.add(x));
+  return parts;
+}
+
+let applyExplorerFilterRaf = 0;
+let _allEventsLoaded = false;
+let _allEventsLoading = false;
+
+// Charger TOUS les events pour que le filtre fonctionne à n'importe quel zoom
+async function loadAllEventsForFilter() {
+  if (_allEventsLoaded || _allEventsLoading) return;
+  _allEventsLoading = true;
+  console.log('[FILTER] Chargement de TOUS les events pour le filtre...');
+  
+  try {
+    const r = await fetch(`${window.API_BASE_URL}/events/viewport?zoom=10&south=-90&north=90&west=-180&east=180`);
+    if (!r.ok) { _allEventsLoading = false; return; }
+    const data = await r.json();
+    if (data.type !== 'events' || !data.k || !data.d) { _allEventsLoading = false; return; }
+    
+    const keys = data.k;
+    let newCount = 0;
+    data.d.forEach(row => {
+      const obj = {};
+      for (let i = 0; i < keys.length; i++) {
+        if (row[i] !== null && row[i] !== undefined) obj[keys[i]] = row[i];
+      }
+      if (loadedEventIds.has(obj.id)) return;
+      loadedEventIds.add(obj.id);
+      
+      const event = {
+        ...obj, type: 'event',
+        lat: obj.latitude, lng: obj.longitude,
+        startDate: obj.date ? new Date(obj.date + (obj.time ? 'T' + obj.time : '')) : null,
+        endDate: obj.end_date ? new Date(obj.end_date) : null,
+        address: obj.location || '', boost: '1.-', likes: 0, favorites: 0, participations: 0
+      };
+      if (typeof event.lat !== 'number' || typeof event.lng !== 'number' || isNaN(event.lat) || isNaN(event.lng)) return;
+      eventsData.push(event);
+      newCount++;
+    });
+    
+    if (newCount > 0) {
+      window.eventsData = eventsData;
+      console.log(`[FILTER] +${newCount} events chargés (total: ${eventsData.length})`);
+    }
+    _allEventsLoaded = true;
+  } catch (e) {
+    console.warn('[FILTER] Erreur chargement complet:', e);
+  }
+  _allEventsLoading = false;
+}
+
+const FILTER_ALIASES = {
+  // Music
+  "electronic": ["electro"], "electro": ["electronic"], "music": ["musique"], "musique": ["music", "concert"],
+  "concert": ["musique", "music"],
+  // Culture
+  "théâtre": ["spectacle", "théatre", "theatre", "spectacles"], "spectacle": ["théâtre", "theatre", "spectacles"],
+  "theatre": ["théâtre", "spectacle"],
+  "expositions": ["exposition", "expo", "galerie", "vernissage"], "exposition": ["expositions"],
+  "culture": ["conférence", "conférences & rencontres", "arts vivants", "exposition", "expositions", "cinéma", "littérature", "atelier", "ateliers"],
+  "conférences & rencontres": ["conférence", "conférences", "débat", "séminaire"], "conférence": ["conférences & rencontres"],
+  "cinéma & projections": ["cinéma", "cinema", "film", "projection"], "cinéma": ["cinéma & projections"],
+  "littérature & conte": ["littérature", "conte", "lecture"], "littérature": ["littérature & conte"],
+  "visites & patrimoine": ["visite", "patrimoine", "musée", "histoire"], "visite": ["visites & patrimoine"],
+  "humour": ["stand-up", "one-man show", "sketch", "improvisation comique"],
+  // Ateliers (ex-Workshops)
+  "ateliers": ["atelier", "workshops", "workshop", "stage"], "atelier": ["ateliers", "workshops"],
+  "workshops": ["ateliers", "atelier"],
+  // Sport
+  "terrestre": ["sport terrestre", "sport"], "sport terrestre": ["terrestre"],
+  "aquatique": ["sport aquatique"], "sport aquatique": ["aquatique"],
+  "glisse": ["ski", "snowboard", "patinage", "hockey", "luge"],
+  // Food
+  "food & drinks": ["dégustation", "dégustations", "restauration", "gastronomie", "food"],
+  "dégustations": ["dégustation", "gastronomie"], "gastronomie": ["dégustations", "food & drinks"],
+  // Loisirs
+  "défilés & fêtes": ["fête", "fêtes", "brocante", "marché", "carnaval", "défilé"],
+  "fête": ["défilés & fêtes"], "marché": ["défilés & fêtes", "brocante"],
+  "brocante": ["marché & brocante", "défilés & fêtes", "marché"],
+  // Festivals
+  "festivals & grandes fêtes": ["festival", "festivals", "foire", "salon"],
+  "festival": ["festivals & grandes fêtes"], "foire": ["festivals & grandes fêtes"],
+  // Famille
+  "famille & enfants": ["famille", "enfants", "enfant"],
+  "famille": ["famille & enfants"], "enfants": ["famille & enfants"],
+  // Nature
+  "nature & plein air": ["nature", "plein air", "randonnée", "balade"],
+  "nature": ["nature & plein air"],
+  // Bien-être
+  "bien-être": ["yoga", "méditation", "sophrologie", "spa", "yoga & bien-être"],
+  "yoga": ["bien-être", "yoga & bien-être"], "yoga & bien-être": ["bien-être", "yoga"],
+  // Business
+  "business & communauté": ["business", "networking", "business & networking"],
+  "business & networking": ["business & communauté"],
+  // Événement générique → tout
+  "événement": []
+};
+
 function applyExplorerFilter() {
   renderSelectedTags();
+  if (applyExplorerFilterRaf) cancelAnimationFrame(applyExplorerFilterRaf);
 
-  const base = getCurrentData();
+  // CRITIQUE : quand un filtre est activé, basculer de geoCircles vers markersLayer
+  if (typeof geoCirclesLayer !== 'undefined' && geoCirclesLayer) {
+    geoCirclesLayer.clearLayers();
+  }
+  if (markersLayer && map && !map.hasLayer(markersLayer)) {
+    markersLayer.addTo(map);
+  }
+
   const lowerCats = selectedCategories.map(c => c.toLowerCase());
 
-  // Si aucun filtre actif, afficher tout
   if (lowerCats.length === 0 && !timeFilter && !dateRangeStart && !dateRangeEnd && selectedDates.length === 0) {
     filteredData = null;
+    isRefreshingMarkers = false;
     refreshMarkers();
     refreshListView();
     return;
   }
 
-  // Construire la liste complète des catégories autorisées (incluant descendants)
+  // Si un filtre catégorie est actif, charger TOUS les events (pour voir de loin)
+  if (lowerCats.length > 0 && !_allEventsLoaded) {
+    loadAllEventsForFilter().then(() => {
+      _applyFilterCore(lowerCats);
+    });
+    // En attendant, appliquer sur ce qu'on a déjà
+    _applyFilterCore(lowerCats);
+    return;
+  }
+
+  _applyFilterCore(lowerCats);
+}
+
+function _applyFilterCore(lowerCats) {
+  const base = getCurrentData();
+  console.log(`[FILTER] ${lowerCats.length} catégories, base: ${base.length} items`);
+
   let allowedCategories = new Set();
   
   if (lowerCats.length > 0 && explorerTree) {
     lowerCats.forEach(selectedCat => {
-      // Ajouter la catégorie sélectionnée elle-même
       allowedCategories.add(selectedCat);
-      
-      // Ajouter tous les descendants de cette catégorie
       const descendants = findCategoryDescendants(selectedCat, explorerTree);
       descendants.forEach(d => allowedCategories.add(d));
+      (FILTER_ALIASES[selectedCat] || []).forEach(a => {
+        allowedCategories.add(a);
+        const aliasDesc = findCategoryDescendants(a, explorerTree);
+        aliasDesc.forEach(d => allowedCategories.add(d));
+      });
     });
   }
 
   filteredData = base.filter(item => {
-    // filtre catégories
     let catOk = true;
     if (lowerCats.length > 0) {
-      const itemCats = (item.categories || []).map(c => c.toLowerCase());
-      const itemMainCat = (item.mainCategory || "").toLowerCase();
-      
-      // Vérifier si la catégorie de l'item est dans les catégories autorisées
-      catOk = itemCats.some(cat => allowedCategories.has(cat)) || 
-              allowedCategories.has(itemMainCat);
+      const itemCatParts = getEffectiveCategoryParts(item);
+      catOk = Array.from(itemCatParts).some(cat => allowedCategories.has(cat));
     }
-
-    // filtre dates (events uniquement)
     let dateOk = true;
     if (item.type === "event") {
       dateOk = eventMatchesTimeFilter(item);
     }
-
     return catOk && dateOk;
   });
 
-  console.log(`Filtre: ${selectedCategories.join(', ')} → ${filteredData.length} résultats`);
-  console.log('Catégories autorisées:', Array.from(allowedCategories));
+  console.log(`[FILTER] Résultat: ${filteredData.length}/${base.length} passent le filtre`);
 
+  isRefreshingMarkers = false;
   refreshMarkers();
   refreshListView();
 }
 
-// Trouve tous les descendants d'une catégorie dans l'arbre
+// Trouve la catégorie cible + tous ses descendants dans l'arbre (hiérarchie stricte)
+// Electronic → techno, house, trance, acid techno, etc. | Techno → acid techno, detroit techno, etc. | Reggae → reggae seul
 function findCategoryDescendants(targetCat, tree) {
   const results = new Set();
   
@@ -8499,25 +9875,31 @@ function findCategoryDescendants(targetCat, tree) {
     if (!node) return;
     
     if (Array.isArray(node)) {
-      // C'est une liste de feuilles
       if (found) {
         node.forEach(item => {
           const name = (typeof item === 'string' ? item : item.name || '').toLowerCase();
           if (name) results.add(name);
         });
+      } else {
+        // Cible peut être une feuille dans un array (ex: "Reggae" dans ["Reggae","Dub","Ska"])
+        const idx = node.findIndex(item => {
+          const name = (typeof item === 'string' ? item : item.name || '').toLowerCase();
+          return name === targetCat;
+        });
+        if (idx >= 0) {
+          const name = (typeof node[idx] === 'string' ? node[idx] : node[idx].name || '').toLowerCase();
+          results.add(name); // feuille = pas de descendants, juste elle-même
+        }
       }
       return;
     }
     
     for (const key in node) {
       const keyLower = key.toLowerCase();
-      
       if (keyLower === targetCat || found) {
-        // On a trouvé la catégorie cible ou on est déjà dans ses descendants
         results.add(keyLower);
         searchNode(node[key], true);
       } else {
-        // Continuer la recherche
         searchNode(node[key], false);
       }
     }
@@ -8829,14 +10211,27 @@ function switchMode(mode) {
     console.log(`🔒 Filtre fermé automatiquement lors du changement de mode`);
   }
   
-  // SUPPRIMER TOUS LES MARQUEURS AVANT DE CHANGER DE MODE
+  // SUPPRIMER TOUS LES MARQUEURS ET CLUSTERS AVANT DE CHANGER DE MODE
   if (markersLayer) {
     markersLayer.clearLayers();
     markerMap = {};
     console.log(`🗑️ Tous les marqueurs supprimés`);
   }
+  // Supprimer aussi les cercles de clusters géographiques (events zoom faible)
+  if (typeof geoCirclesLayer !== 'undefined' && geoCirclesLayer) {
+    geoCirclesLayer.clearLayers();
+    console.log(`🗑️ Cercles de clusters supprimés`);
+  }
+  // Reset le viewport key pour forcer un reload quand on revient en mode event
+  lastViewportKey = '';
+  
+  // Ré-ajouter markersLayer à la map si absent (loadViewportData le retire en mode clusters)
+  if (markersLayer && map && !map.hasLayer(markersLayer)) {
+    markersLayer.addTo(map);
+  }
   
   currentMode = mode;
+  
   
   // FORCER l'affichage de TOUS les points (pas de filtre) - CRITIQUE !
   filteredData = null;
@@ -8863,28 +10258,9 @@ function switchMode(mode) {
   filteredData = null; // S'assurer qu'on affiche TOUS les points
   selectedCategories = []; // Réinitialiser les catégories
   
-  // Rafraîchir les marqueurs et la liste IMMÉDIATEMENT
-  const data = getActiveData();
-  console.log(`📊 Données disponibles pour mode ${mode}: ${data.length} items (filteredData: ${filteredData}, eventsData: ${eventsData.length}, bookingsData: ${bookingsData.length}, servicesData: ${servicesData.length})`);
-  
-  // Afficher immédiatement
+  // Afficher immédiatement - pas de délai
   refreshMarkers();
   refreshListView();
-
-  // Vérifier après un court délai si les points sont bien affichés
-  setTimeout(() => {
-    const dataAfter = getActiveData();
-    if (dataAfter && dataAfter.length > 0) {
-      console.log(`✅ Mode changé : ${mode} - ${dataAfter.length} points affichés`);
-    } else {
-      console.warn(`⚠️ Aucun point affiché pour le mode ${mode}, nouvelle tentative...`);
-      ensureDemoPoints();
-      filteredData = null;
-      selectedCategories = [];
-      refreshMarkers();
-      refreshListView();
-    }
-  }, 100);
 }
 
 function toggleListView() {
@@ -8975,8 +10351,10 @@ function buildPublishFormHtml() {
         <label style="font-size:12px;font-weight:600;color:#e2e8f0;">${window.t("main_category")} *</label>
         <button type="button" id="pub-open-filter-btn" onclick="openFilterForPublish()" style="padding:4px 10px;border-radius:6px;border:1px solid rgba(0,255,195,0.5);background:rgba(0,255,195,0.1);color:#00ffc3;font-size:11px;cursor:pointer;font-weight:600;transition:all 0.2s;" onmouseover="this.style.background='rgba(0,255,195,0.2)';this.style.borderColor='rgba(0,255,195,0.8)'" onmouseout="this.style.background='rgba(0,255,195,0.1)';this.style.borderColor='rgba(0,255,195,0.5)'">🔍 Ouvrir filtre</button>
       </div>
-      <input id="pub-main-category" placeholder="Commencez à taper ou sélectionnez dans le filtre"
+      <input id="pub-main-category" placeholder="1ère catégorie (obligatoire)"
                style="width:100%;padding:8px 10px;border-radius:8px;border:2px solid #334155;background:#0f172a !important;color:#00ffc3 !important;font-size:13px;font-weight:600;-webkit-text-fill-color:#00ffc3 !important;">
+      <input id="pub-main-category-2" placeholder="2ème catégorie (optionnel)"
+               style="width:100%;padding:8px 10px;border-radius:8px;border:2px solid #334155;background:#0f172a !important;color:#00ffc3 !important;font-size:13px;margin-top:6px;-webkit-text-fill-color:#00ffc3 !important;">
       <div id="pub-category-suggestions" style="display:none;margin-top:4px;max-height:150px;overflow-y:auto;border:1px solid #334155;border-radius:8px;background:#0f172a;padding:4px;position:relative;z-index:1000;"></div>
     </div>
   `;
@@ -9031,12 +10409,17 @@ function buildPublishFormHtml() {
     : "";
 
   const audioBlock =
-    currentMode === "booking"
+    currentMode === "booking" || currentMode === "service"
       ? `
       <div style="margin-bottom:10px;">
-        <label style="font-size:12px;font-weight:600;">${window.t("sound_links")}</label>
-        <textarea id="pub-audio" rows="2" placeholder="${window.t("paste_sound_links")}"
-                  style="width:100%;padding:6px;border-radius:8px;border:1px solid var(--ui-card-border);background:transparent;color:var(--ui-text-main);"></textarea>
+        <label style="font-size:12px;font-weight:600;">🎵 Liens Sons (écoute directe)</label>
+        <div style="display:flex;gap:8px;margin-bottom:6px;">
+          <textarea id="pub-audio" rows="3" placeholder="SoundCloud, Spotify, Mixcloud, Audius... (un lien par ligne, plusieurs pistes possibles)"
+                    oninput="updateAudioPreview()" style="flex:1;padding:6px;border-radius:8px;border:1px solid var(--ui-card-border);background:transparent;color:var(--ui-text-main);font-size:13px;"></textarea>
+          <button type="button" onclick="pasteAudioLinks()" style="height:40px;padding:0 14px;border-radius:8px;border:1px solid var(--ui-card-border);background:rgba(139,92,246,0.2);color:#a78bfa;cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap;flex-shrink:0;" title="Coller depuis le presse-papiers">📋 Coller</button>
+        </div>
+        <div style="font-size:10px;color:var(--ui-text-muted);margin-top:2px;">💡 Les visiteurs pourront écouter directement depuis la fiche</div>
+        <div id="pub-audio-preview" style="margin-top:10px;display:none;"></div>
       </div>
     `
       : "";
@@ -9105,7 +10488,8 @@ function buildPublishFormHtml() {
   `;
 
   return `
-    <form onsubmit="return onSubmitPublishForm(event)">
+    <form onsubmit="return onSubmitPublishForm(event)" style="display:flex;flex-direction:column;min-height:100%;">
+      <div style="flex:1;overflow-y:auto;padding-bottom:16px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
         <h2 style="margin:0;font-size:16px;">${window.t("publish_mode")} ${modeLabel}</h2>
         <div style="display:flex;gap:8px;align-items:center;">
@@ -9115,8 +10499,8 @@ function buildPublishFormHtml() {
       </div>
 
       <div style="margin-bottom:10px;">
-        <label style="font-size:12px;font-weight:600;color:#e2e8f0;">${window.t("title_name")} <span style="color:#ff4444;">*</span></label>
-        <input id="pub-title" required placeholder="Nom de votre événement"
+        <label style="font-size:12px;font-weight:600;color:#e2e8f0;display:block;margin-bottom:4px;">${window.t("title_name")}</label>
+        <input id="pub-title" required
                style="width:100%;padding:8px 10px;border-radius:8px;border:2px solid #334155;background:#0f172a;color:#fff;font-size:13px;">
       </div>
 
@@ -9137,11 +10521,13 @@ function buildPublishFormHtml() {
       </div>
 
       <div style="display:flex;gap:8px;margin-bottom:10px;">
+        ${currentMode !== "booking" && currentMode !== "service" ? `
         <div style="flex:1;">
           <label style="font-size:12px;font-weight:600;">${window.t("phone")}</label>
           <input id="pub-phone"
                  style="width:100%;padding:6px;border-radius:8px;border:1px solid var(--ui-card-border);background:transparent;color:var(--ui-text-main);font-size:13px;">
         </div>
+        ` : ''}
         <div style="flex:1;">
           <label style="font-size:12px;font-weight:600;">${window.t("email")} *</label>
           <input id="pub-email" type="email" required
@@ -9170,10 +10556,10 @@ function buildPublishFormHtml() {
                  style="width:100%;padding:6px;border-radius:8px;border:1px solid var(--ui-card-border);background:rgba(15,23,42,0.9);color:#fff;">
         </div>
         
-        <!-- LIENS SONS - SoundCloud, Spotify, etc. -->
+        <!-- LIENS SONS - SoundCloud, Spotify, etc. (événements) -->
         <div style="margin-bottom:10px;">
           <label style="font-size:12px;font-weight:600;">🎵 Liens Sons (écoute directe)</label>
-          <textarea id="pub-audio-links" rows="2" placeholder="SoundCloud, Spotify, Mixcloud... (un lien par ligne)"
+          <textarea id="pub-audio-links" rows="3" placeholder="SoundCloud, Spotify, Mixcloud, Audius... (un lien par ligne, plusieurs pistes possibles)"
                     style="width:100%;padding:6px;border-radius:8px;border:1px solid var(--ui-card-border);background:rgba(15,23,42,0.9);color:#fff;font-size:12px;"></textarea>
           <div style="font-size:10px;color:var(--ui-text-muted);margin-top:2px;">
             💡 Les visiteurs pourront écouter directement depuis la fiche événement
@@ -9216,17 +10602,19 @@ function buildPublishFormHtml() {
         </div>
       </div>
 
-      <div style="margin-top:14px;text-align:right;">
-        <button type="button" onclick="closePublishModal()" style="
-          padding:6px 14px;border-radius:999px;background:transparent;border:1px solid var(--ui-card-border);color:var(--ui-text-main);cursor:pointer;">
-          ${window.t("cancel")}
-        </button>
-
-        <button type="submit" style="
-          padding:6px 14px;border-radius:999px;border:none;
-          background:var(--btn-main-bg);color:var(--btn-main-text);font-weight:700;cursor:pointer;">
-          ${window.t("publish_and_pay")}
-        </button>
+      </div>
+      <div id="publish-form-footer" style="flex-shrink:0;padding:12px 0;border-top:1px solid var(--ui-card-border);margin-top:auto;background:var(--ui-card-bg);">
+        <div style="display:flex;gap:10px;justify-content:flex-end;">
+          <button type="button" onclick="closePublishModal()" style="
+            padding:10px 20px;border-radius:999px;background:transparent;border:1px solid var(--ui-card-border);color:var(--ui-text-main);cursor:pointer;">
+            ${window.t("cancel")}
+          </button>
+          <button type="submit" style="
+            padding:10px 24px;border-radius:999px;border:none;
+            background:var(--btn-main-bg);color:var(--btn-main-text);font-weight:700;cursor:pointer;">
+            ${window.t("publish_and_pay")}
+          </button>
+        </div>
       </div>
     </form>
   `;
@@ -9413,63 +10801,60 @@ function setupCategoryInputWithFilter() {
     suggestionsDiv.style.display = "block";
   }
   
-  // Event listener sur l'input
-  categoryInput.addEventListener("input", function(e) {
+  const categoryInput2 = document.getElementById("pub-main-category-2");
+  const onInput = function(e) {
     const query = e.target.value.trim();
-    
     if (query.length >= 2) {
-      // Ouvrir le filtre si pas déjà ouvert
-      if (!explorerOpen) {
-        openFilterForPublish();
-      }
-      
-      // Filtrer et afficher les suggestions
-      const matches = filterCategories(query);
-      showSuggestions(matches);
+      if (!explorerOpen) openFilterForPublish();
+      showSuggestions(filterCategories(query));
     } else {
       suggestionsDiv.style.display = "none";
     }
-  });
+  };
+  categoryInput.addEventListener("input", onInput);
+  if (categoryInput2) categoryInput2.addEventListener("input", onInput);
   
-  // Fermer les suggestions quand on clique ailleurs
   document.addEventListener("click", function(e) {
-    if (!categoryInput.contains(e.target) && !suggestionsDiv.contains(e.target)) {
+    const inCat1 = categoryInput && categoryInput.contains(e.target);
+    const inCat2 = categoryInput2 && categoryInput2.contains(e.target);
+    if (!inCat1 && !inCat2 && !suggestionsDiv.contains(e.target)) {
       suggestionsDiv.style.display = "none";
     }
   });
   
-  // Focus sur le champ catégorie
-  categoryInput.focus();
+  if (categoryInput) categoryInput.focus();
 }
 
-// ⚠️⚠️⚠️ NOUVEAU : Sélectionner une catégorie depuis les suggestions
+// ⚠️⚠️⚠️ NOUVEAU : Sélectionner une catégorie depuis les suggestions (1ère ou 2ème)
 function selectCategoryForPublish(category) {
-  console.log('[PUBLISH] selectCategoryForPublish appelé avec:', category);
-  
-  const categoryInput = document.getElementById("pub-main-category");
+  const cat1 = document.getElementById("pub-main-category");
+  const cat2 = document.getElementById("pub-main-category-2");
   const suggestionsDiv = document.getElementById("pub-category-suggestions");
   
-  if (categoryInput) {
-    // Extraire juste le nom de la catégorie finale (après le dernier >)
-    const finalCategory = category.split(">").pop().trim();
-    categoryInput.value = finalCategory;
-    console.log('[PUBLISH] ✅ Catégorie sélectionnée depuis suggestions:', finalCategory);
-    
-    // Effet visuel pour confirmer la sélection
-    categoryInput.style.background = 'rgba(0, 255, 195, 0.2)';
-    categoryInput.style.borderColor = '#00ffc3';
-    setTimeout(() => {
-      categoryInput.style.background = '';
-      categoryInput.style.borderColor = '';
-    }, 500);
-    
-    // ⚠️ NE PAS appeler toggleCategory ici - cela pourrait filtrer la carte
-    // La catégorie est juste insérée dans le formulaire
+  const finalCategory = (category || "").trim();
+  let targetInput = null;
+  
+  if (cat1 && !cat1.value.trim()) {
+    targetInput = cat1;
+  } else if (cat2 && !cat2.value.trim()) {
+    targetInput = cat2;
+  } else if (cat2) {
+    targetInput = cat2;
+  } else {
+    targetInput = cat1;
   }
   
-  if (suggestionsDiv) {
-    suggestionsDiv.style.display = "none";
+  if (targetInput) {
+    targetInput.value = finalCategory;
+    targetInput.style.background = 'rgba(0, 255, 195, 0.2)';
+    targetInput.style.borderColor = '#00ffc3';
+    setTimeout(() => {
+      targetInput.style.background = '';
+      targetInput.style.borderColor = '';
+    }, 500);
   }
+  
+  if (suggestionsDiv) suggestionsDiv.style.display = "none";
 }
 
 // Fonction pour gérer les répétitions
@@ -9773,6 +11158,8 @@ function savePublishFormData() {
       mode: currentMode,
       title: document.getElementById("pub-title")?.value || "",
       mainCategory: document.getElementById("pub-main-category")?.value || "",
+      mainCategory2: document.getElementById("pub-main-category-2")?.value || "",
+      mainCategory2: document.getElementById("pub-main-category-2")?.value || "",
       address: document.getElementById("pub-address")?.value || "",
       addressLat: document.getElementById("pub-address-lat")?.value || "",
       addressLng: document.getElementById("pub-address-lng")?.value || "",
@@ -9788,6 +11175,7 @@ function savePublishFormData() {
       eventType: document.getElementById("pub-event-type")?.value || "",
       ticketLink: document.getElementById("pub-ticket-link")?.value || "",
       audioLinks: document.getElementById("pub-audio-links")?.value || "",
+      audio: document.getElementById("pub-audio")?.value || "",
       socialLinks: document.getElementById("pub-social-links")?.value || "",
       website: document.getElementById("pub-website")?.value || "",
       tags: document.getElementById("pub-tags")?.value || "",
@@ -9802,6 +11190,50 @@ function savePublishFormData() {
     console.error('[FORM] Erreur sauvegarde:', error);
   }
 }
+
+async function pasteAudioLinks() {
+  try {
+    const text = await navigator.clipboard.readText();
+    const ta = document.getElementById("pub-audio");
+    if (ta) {
+      ta.value = ta.value ? ta.value.trim() + "\n" + text.trim() : text.trim();
+      updateAudioPreview();
+      if (typeof showNotification === 'function') showNotification('✅ Liens collés', 'success');
+    }
+  } catch (e) {
+    if (typeof showNotification === 'function') showNotification('❌ Accès presse-papiers refusé', 'error');
+  }
+}
+
+function updateAudioPreview() {
+  const ta = document.getElementById("pub-audio");
+  const preview = document.getElementById("pub-audio-preview");
+  if (!ta || !preview) return;
+  const links = ta.value.split('\n').map(l => l.trim()).filter(l => l && (l.startsWith('http://') || l.startsWith('https://')));
+  if (links.length === 0) {
+    preview.style.display = 'none';
+    preview.innerHTML = '';
+    return;
+  }
+  preview.style.display = 'block';
+  preview.innerHTML = `
+    <div style="font-size:11px;color:#a78bfa;font-weight:600;margin-bottom:8px;">🎧 Aperçu (${links.length} piste${links.length > 1 ? 's' : ''})</div>
+    <div style="display:flex;flex-direction:column;gap:6px;max-height:120px;overflow-y:auto;">
+      ${links.slice(0, 5).map((url, i) => {
+        const safe = (url || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        return `
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:rgba(0,0,0,0.3);border-radius:8px;">
+          <audio id="preview-audio-${i}" src="${safe}" preload="none" style="display:none;"></audio>
+          <button type="button" onclick="event.stopPropagation();var a=document.getElementById('preview-audio-${i}');a.paused?a.play():a.pause();this.innerHTML=a.paused?'▶':'⏸';" style="width:28px;height:28px;border-radius:50%;border:none;background:#a78bfa;color:white;cursor:pointer;font-size:10px;display:flex;align-items:center;justify-content:center;">▶</button>
+          <span style="font-size:11px;color:var(--ui-text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Piste ${i + 1} • ${url.includes('audius') ? 'Audius' : url.includes('soundcloud') ? 'SoundCloud' : url.includes('spotify') ? 'Spotify' : 'Audio'}</span>
+        </div>`;
+      }).join('')}
+    </div>
+  `;
+}
+
+window.pasteAudioLinks = pasteAudioLinks;
+window.updateAudioPreview = updateAudioPreview;
 
 function restorePublishFormData() {
   try {
@@ -9825,6 +11257,8 @@ function restorePublishFormData() {
       
       setVal("pub-title", formData.title);
       setVal("pub-main-category", formData.mainCategory);
+      setVal("pub-main-category-2", formData.mainCategory2 || "");
+      setVal("pub-main-category-2", formData.mainCategory2 || "");
       setVal("pub-address", formData.address);
       setVal("pub-address-lat", formData.addressLat);
       setVal("pub-address-lng", formData.addressLng);
@@ -9839,6 +11273,7 @@ function restorePublishFormData() {
       setVal("pub-event-type", formData.eventType);
       setVal("pub-ticket-link", formData.ticketLink);
       setVal("pub-audio-links", formData.audioLinks);
+      setVal("pub-audio", formData.audio || "");
       setVal("pub-social-links", formData.socialLinks);
       setVal("pub-website", formData.website);
       setVal("pub-tags", formData.tags);
@@ -9858,6 +11293,8 @@ function restorePublishFormData() {
       if (formData.platinumBid) {
         currentPlatinumBid = formData.platinumBid;
       }
+      
+      if (formData.audio && typeof updateAudioPreview === 'function') updateAudioPreview();
       
       // Style pour la catégorie
       const catInput = document.getElementById("pub-main-category");
@@ -10487,6 +11924,7 @@ async function onSubmitPublishForm(e) {
   // Récupérer les données du formulaire
   const title = document.getElementById("pub-title")?.value.trim();
   const mainCategory = document.getElementById("pub-main-category")?.value.trim();
+  const mainCategory2 = document.getElementById("pub-main-category-2")?.value.trim();
   const address = document.getElementById("pub-address")?.value.trim();
   const phone = document.getElementById("pub-phone")?.value.trim();
   const email = document.getElementById("pub-email")?.value.trim();
@@ -10520,6 +11958,42 @@ async function onSubmitPublishForm(e) {
   // PHOTOS MULTIPLES
   const mainImageFile = document.getElementById("pub-image")?.files[0];
   const additionalImages = Array.from(document.getElementById("pub-images-multiple")?.files || []);
+  
+  // Convertir l'image principale en base64 pour envoi au backend
+  let mainImageBase64 = null;
+  if (mainImageFile) {
+    try {
+      mainImageBase64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          // Redimensionner l'image pour optimiser la taille (max 1200px)
+          const img = new window.Image();
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const maxSize = 1200;
+            let w = img.width, h = img.height;
+            if (w > maxSize || h > maxSize) {
+              const ratio = Math.min(maxSize / w, maxSize / h);
+              w = Math.round(w * ratio);
+              h = Math.round(h * ratio);
+            }
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, w, h);
+            resolve(canvas.toDataURL('image/jpeg', 0.82));
+          };
+          img.onerror = () => resolve(reader.result); // fallback: base64 brut
+          img.src = reader.result;
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(mainImageFile);
+      });
+      console.log('[PUBLISH] ✅ Image convertie en base64:', mainImageBase64?.substring(0, 50) + '...');
+    } catch (imgError) {
+      console.warn('[PUBLISH] ⚠️ Erreur conversion image:', imgError);
+    }
+  }
   
   // Pour les bookings : audio et niveau
   const audioLinks = document.getElementById("pub-audio")?.value.trim();
@@ -10580,12 +12054,13 @@ async function onSubmitPublishForm(e) {
   const newId = Date.now();
   const now = new Date().toISOString();
   
+  const categoriesArr = [mainCategory, mainCategory2].filter(Boolean);
   let newItem = {
     id: newId,
     title: title,
     name: title,
-    categories: [mainCategory],
-    mainCategory: mainCategory,
+    categories: categoriesArr,
+    mainCategory: categoriesArr[0] || mainCategory,
     address: address,
     location: address, // Backend attend "location"
     city: city,
@@ -10594,6 +12069,7 @@ async function onSubmitPublishForm(e) {
     latitude: lat,   // Backend attend "latitude"
     longitude: lng,  // Backend attend "longitude"
     description: description,
+    imageData: mainImageBase64, // Photo uploadée par l'utilisateur (base64 -> S3)
     email: email,
     phone: phone,
     socialLinks: socialLinks ? socialLinks.split('\n').filter(l => l.trim()) : [],
@@ -10731,26 +12207,24 @@ async function handleEditSubmit(e) {
   // Récupérer les données du formulaire
   const title = document.getElementById("pub-title")?.value.trim();
   const mainCategory = document.getElementById("pub-main-category")?.value.trim();
+  const mainCategory2 = document.getElementById("pub-main-category-2")?.value.trim();
   const address = document.getElementById("pub-address")?.value.trim();
   const phone = document.getElementById("pub-phone")?.value.trim();
   const email = document.getElementById("pub-email")?.value.trim();
   const description = document.getElementById("pub-description")?.value.trim();
   
-  // Coordonnées
   const lat = parseFloat(document.getElementById("pub-address-lat")?.value) || editingItem.lat;
   const lng = parseFloat(document.getElementById("pub-address-lng")?.value) || editingItem.lng;
   
-  // Pour les events : dates
   const startDate = document.getElementById("pub-start")?.value;
   const endDate = document.getElementById("pub-end")?.value;
   
-  // Validation de base
   if (!title || !address) {
     showNotification("⚠️ Veuillez remplir les champs obligatoires", "warning");
     return false;
   }
   
-  // Préparer les données à envoyer
+  const categoriesArr = [mainCategory, mainCategory2].filter(Boolean);
   const updateData = {
     title: title,
     description: description,
@@ -10760,7 +12234,7 @@ async function handleEditSubmit(e) {
     longitude: lng,
     email: email,
     phone: phone,
-    categories: mainCategory ? [mainCategory] : editingItem.categories
+    categories: categoriesArr.length > 0 ? categoriesArr : editingItem.categories
   };
   
   if (itemType === 'event') {
@@ -10980,6 +12454,10 @@ async function processStripePayment(amount) {
       // Redirection directe vers l'URL de checkout
       window.location.href = result.url;
     } else if (result.sessionId) {
+      // Charger Stripe.js si pas encore chargé
+      if (typeof Stripe === 'undefined' && typeof window.loadStripe === 'function') {
+        await window.loadStripe();
+      }
       // Utiliser Stripe.js pour rediriger
       if (typeof Stripe !== 'undefined') {
         const stripeInstance = Stripe(result.publicKey || 'pk_live_51Sfg8g2YO5zMBO7yRz2yRw9SZMJhYY8bfxLYT7v6VgQ77lFFwaUOGa5WYD1h7SDUgNkyABKnGFu3KN5p4PwT1Eqr00CisIZv67');
@@ -11058,6 +12536,12 @@ async function finalizePublish() {
         if (result.creator_id) {
           console.log('[PUBLISH] ✅ creator_id confirmé:', result.creator_id);
         }
+        // Récupérer l'URL de l'image uploadée vers S3
+        if (result.image_url) {
+          data.newItem.image_url = result.image_url;
+          data.newItem.imageUrl = result.image_url;
+          console.log('[PUBLISH] ✅ Image URL S3 reçue:', result.image_url.substring(0, 80) + '...');
+        }
       } catch (e) {
         console.warn('[PUBLISH] Impossible de parser la réponse:', e);
       }
@@ -11102,40 +12586,463 @@ async function finalizePublish() {
 // ============================================
 // THÈMES UI + MAP
 // ============================================
+// VERROUILLÉ: Le fond reste TOUJOURS noir. Seuls les pointeurs, le bouton Publier et le halo du logo changent.
 function cycleUITheme() {
-  uiThemeIndex = (uiThemeIndex + 1) % UI_THEMES.length;
-  applyUITheme(uiThemeIndex);
+  // Ne fait plus rien - le fond reste noir, les couleurs se changent via le color picker
+  openColorPickerModal();
 }
 
 function applyUITheme(i) {
-  const t = UI_THEMES[i];
-  const root = document.documentElement;
+  // VERROUILLÉ: on ne change PLUS les variables CSS globales (fond, cartes, popups, filtres = toujours noir)
+  // Seul applyCustomColors() modifie les éléments autorisés
+  applyCustomColors();
+}
 
-  root.style.setProperty("--ui-body-bg", t.bodyBg);
-  root.style.setProperty("--ui-topbar-bg", t.topbarBg);
-  root.style.setProperty("--ui-card-bg", t.cardBg);
-  root.style.setProperty("--ui-card-border", t.cardBorder);
-  root.style.setProperty("--ui-text-main", t.textMain);
-  root.style.setProperty("--ui-text-muted", t.textMuted);
-  root.style.setProperty("--btn-main-bg", t.btnMainBg);
-  root.style.setProperty("--btn-main-text", t.btnMainText);
-  root.style.setProperty("--btn-main-shadow", t.btnMainShadow);
-  root.style.setProperty("--btn-alt-bg", t.btnAltBg);
-  root.style.setProperty("--btn-alt-text", t.btnAltText);
-  root.style.setProperty("--pill-border", t.pillBorder);
-
-  const logoMain = document.querySelector("#logo-main .text");
-  const logoIcon = document.querySelector("#logo-main .icon");
-  const tagline = document.querySelector("#logo-tagline");
-
-  if (logoMain) logoMain.style.color = t.logoColor;
-  if (logoIcon) logoIcon.style.color = t.logoColor;
-  if (tagline) tagline.style.color = t.taglineColor;
+// Appliquer les couleurs custom UNIQUEMENT sur : pointeurs regroupés, bouton Publier, halo logo
+// JAMAIS sur : fond, popups, filtres, blocs intérieurs, topbar, textes
+function applyCustomColors() {
+  const cfg = window.customThemeConfig;
+  if (!cfg) return;
   
-  // Rafraîchir marqueurs et clusters pour appliquer les nouvelles couleurs (accent + bordure)
-  if (typeof refreshMarkers === "function") {
-    refreshMarkers();
+  // 1. Bouton Publier - seulement le fond du bouton
+  if (cfg.markerColors && cfg.markerColors.length > 0) {
+    const publishBtn = document.getElementById('map-publish-btn');
+    if (publishBtn) {
+      const grad = cfg.markerColors.length > 1
+        ? `linear-gradient(135deg, ${cfg.markerColors.join(', ')})`
+        : cfg.markerColors[0];
+      publishBtn.style.background = grad;
+    }
   }
+  
+  // 2. Halo du logo - suit la couleur accent du marqueur
+  if (cfg.markerColors && cfg.markerColors.length > 0) {
+    const haloColor = cfg.markerColors[0];
+    const halo1 = document.getElementById('logo-halo-1');
+    const halo2 = document.getElementById('logo-halo-2');
+    if (halo1) halo1.setAttribute('stroke', haloColor);
+    if (halo2) halo2.setAttribute('stroke', haloColor);
+    // Gradient du logo SVG
+    const stop0 = document.querySelector('#logoGrad stop:first-child');
+    const stop1 = document.querySelector('#logoGrad stop:last-child');
+    if (stop0) stop0.setAttribute('stop-color', cfg.markerColors[0]);
+    if (stop1) stop1.setAttribute('stop-color', cfg.markerColors[cfg.markerColors.length > 1 ? 1 : 0]);
+  }
+  
+  // 3. Les pointeurs regroupés (clusters + geo-clusters) sont gérés par getThemeMarkerColors() + iconCreateFunction + showGeoClusters
+  // Pas besoin de code ici - ils lisent window.customThemeConfig directement
+}
+
+// ============================================
+// COLOR PICKER PRO - HSV + Modal
+// ============================================
+
+// Conversion HSV -> RGB -> Hex
+function hsvToRgb(h, s, v) {
+  let r, g, b;
+  const i = Math.floor(h / 60) % 6;
+  const f = h / 60 - Math.floor(h / 60);
+  const p = v * (1 - s);
+  const q = v * (1 - f * s);
+  const t = v * (1 - (1 - f) * s);
+  switch (i) {
+    case 0: r = v; g = t; b = p; break;
+    case 1: r = q; g = v; b = p; break;
+    case 2: r = p; g = v; b = t; break;
+    case 3: r = p; g = q; b = v; break;
+    case 4: r = t; g = p; b = v; break;
+    case 5: r = v; g = p; b = q; break;
+  }
+  return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+}
+
+function rgbToHex(r, g, b) {
+  return '#' + [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('');
+}
+
+function hexToRgb(hex) {
+  hex = hex.replace('#', '');
+  if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
+  return [parseInt(hex.slice(0,2),16), parseInt(hex.slice(2,4),16), parseInt(hex.slice(4,6),16)];
+}
+
+function rgbToHsv(r, g, b) {
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  const d = max - min;
+  let h = 0, s = max === 0 ? 0 : d / max, v = max;
+  if (d !== 0) {
+    switch (max) {
+      case r: h = ((g - b) / d + (g < b ? 6 : 0)) * 60; break;
+      case g: h = ((b - r) / d + 2) * 60; break;
+      case b: h = ((r - g) / d + 4) * 60; break;
+    }
+  }
+  return [h, s, v];
+}
+
+// Dessiner le carre SV sur un canvas
+function drawSVCanvas(canvas, hue) {
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+  for (let x = 0; x < w; x++) {
+    for (let y = 0; y < h; y++) {
+      const s = x / w;
+      const v = 1 - y / h;
+      const [r, g, b] = hsvToRgb(hue, s, v);
+      ctx.fillStyle = `rgb(${r},${g},${b})`;
+      ctx.fillRect(x, y, 1, 1);
+    }
+  }
+}
+
+// Dessiner le slider Hue (vertical arc-en-ciel)
+function drawHueSlider(canvas) {
+  const ctx = canvas.getContext('2d');
+  const h = canvas.height;
+  for (let y = 0; y < h; y++) {
+    const hue = (y / h) * 360;
+    const [r, g, b] = hsvToRgb(hue, 1, 1);
+    ctx.fillStyle = `rgb(${r},${g},${b})`;
+    ctx.fillRect(0, y, canvas.width, 1);
+  }
+}
+
+// Variable globale du color picker
+let _cpState = { hue: 0, sat: 1, val: 1, callback: null };
+
+function openColorPickerModal() {
+  // Fermer le settings modal si ouvert
+  const settingsModal = document.getElementById('modal-overlay');
+  if (settingsModal) settingsModal.style.display = 'none';
+  
+  // Config actuelle ou defaut
+  const cfg = window.customThemeConfig || {
+    markerColors: ['#00ffc3'],
+    markerBorder: '#ffffff'
+  };
+  
+  // Copie de travail (seulement marqueur)
+  const draft = {
+    markerColors: cfg.markerColors ? [...cfg.markerColors] : ['#00ffc3'],
+    markerBorder: cfg.markerBorder || '#ffffff'
+  };
+  
+  let existingModal = document.getElementById('color-picker-modal');
+  if (existingModal) existingModal.remove();
+  
+  // Quel slot est actif pour le HSV picker
+  let activeSlotType = null; // 'interior-0', 'interior-1', 'interior-2', 'border'
+  
+  const modal = document.createElement('div');
+  modal.id = 'color-picker-modal';
+  modal.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(6px);';
+  
+  modal.innerHTML = `
+    <div style="background:#0f172a;border-radius:18px;border:1px solid rgba(255,255,255,0.08);width:360px;max-width:92vw;max-height:88vh;overflow-y:auto;padding:20px;color:#e2e8f0;font-family:system-ui,-apple-system,sans-serif;">
+      
+      <!-- Header -->
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <span style="font-size:15px;font-weight:700;">Personnaliser le pointeur</span>
+        <button id="cp-close" style="background:none;border:none;color:#64748b;font-size:20px;cursor:pointer;padding:2px 6px;line-height:1;">&times;</button>
+      </div>
+      
+      <!-- PREVIEW LIVE du marqueur - cliquable pour voir le resultat -->
+      <div style="text-align:center;margin-bottom:18px;padding:20px 16px;background:linear-gradient(135deg,#1a1a2e,#16213e);border-radius:14px;border:1px solid rgba(255,255,255,0.05);">
+        <div id="cp-preview" style="display:flex;align-items:flex-end;justify-content:center;gap:20px;min-height:70px;"></div>
+      </div>
+      
+      <!-- INTERIEUR DU MARQUEUR : 1-3 couleurs pour le degrade -->
+      <div style="margin-bottom:16px;">
+        <div style="font-size:11px;color:#94a3b8;margin-bottom:8px;font-weight:600;letter-spacing:0.3px;">COULEURS INTERIEUR <span style="color:#475569;font-weight:400;">(cliquer pour changer, + pour ajouter)</span></div>
+        <div id="cp-interior-slots" style="display:flex;gap:8px;align-items:center;"></div>
+      </div>
+      
+      <!-- BORDURE DU MARQUEUR -->
+      <div style="margin-bottom:16px;">
+        <div style="font-size:11px;color:#94a3b8;margin-bottom:8px;font-weight:600;letter-spacing:0.3px;">COULEUR BORDURE</div>
+        <div id="cp-border-slot" style="display:flex;gap:8px;align-items:center;"></div>
+      </div>
+      
+      <!-- HSV PICKER (apparait quand on clique sur un slot) -->
+      <div id="cp-hsv-area" style="display:none;margin-bottom:16px;padding:14px;background:#1e293b;border-radius:12px;">
+        <div style="display:flex;gap:10px;">
+          <canvas id="cp-sv-canvas" width="200" height="200" style="border-radius:8px;cursor:crosshair;flex-shrink:0;"></canvas>
+          <canvas id="cp-hue-slider" width="28" height="200" style="border-radius:8px;cursor:pointer;flex-shrink:0;"></canvas>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:10px;">
+          <div id="cp-swatch" style="width:30px;height:30px;border-radius:8px;border:2px solid rgba(255,255,255,0.2);flex-shrink:0;"></div>
+          <input id="cp-hex" type="text" maxlength="7" style="background:#0f172a;border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#e2e8f0;padding:6px 10px;font-size:13px;font-family:monospace;width:85px;" placeholder="#00ffc3">
+          <button id="cp-hex-ok" style="background:#334155;border:none;color:#e2e8f0;padding:6px 12px;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">OK</button>
+        </div>
+      </div>
+      
+      <!-- BOUTONS -->
+      <div style="display:flex;gap:10px;margin-top:4px;">
+        <button id="cp-validate" style="flex:1;padding:11px;border-radius:12px;border:none;background:linear-gradient(135deg,#00ffc3,#3b82f6);color:#000;font-weight:700;font-size:13px;cursor:pointer;transition:transform 0.15s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">Valider</button>
+        <button id="cp-reset" style="padding:11px 16px;border-radius:12px;border:1px solid rgba(255,255,255,0.1);background:transparent;color:#64748b;font-size:12px;cursor:pointer;">Reset</button>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+  
+  // --- HSV picker setup ---
+  const svCanvas = document.getElementById('cp-sv-canvas');
+  const hueSlider = document.getElementById('cp-hue-slider');
+  const hexInput = document.getElementById('cp-hex');
+  const swatch = document.getElementById('cp-swatch');
+  const hsvArea = document.getElementById('cp-hsv-area');
+  
+  drawHueSlider(hueSlider);
+  drawSVCanvas(svCanvas, _cpState.hue);
+  
+  function updatePickerUI() {
+    const [r, g, b] = hsvToRgb(_cpState.hue, _cpState.sat, _cpState.val);
+    const hex = rgbToHex(r, g, b);
+    hexInput.value = hex;
+    swatch.style.background = hex;
+    if (_cpState.callback) _cpState.callback(hex);
+  }
+  
+  // SV canvas drag
+  function handleSV(e) {
+    const rect = svCanvas.getBoundingClientRect();
+    _cpState.sat = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    _cpState.val = 1 - Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+    updatePickerUI();
+  }
+  let svDrag = false;
+  svCanvas.addEventListener('mousedown', e => { svDrag = true; handleSV(e); });
+  svCanvas.addEventListener('touchstart', e => { svDrag = true; handleSV(e.touches[0]); e.preventDefault(); }, {passive:false});
+  document.addEventListener('mousemove', e => { if (svDrag) handleSV(e); });
+  document.addEventListener('touchmove', e => { if (svDrag) handleSV(e.touches[0]); }, {passive:false});
+  document.addEventListener('mouseup', () => svDrag = false);
+  document.addEventListener('touchend', () => svDrag = false);
+  
+  // Hue slider drag
+  function handleHue(e) {
+    const rect = hueSlider.getBoundingClientRect();
+    _cpState.hue = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height)) * 360;
+    drawSVCanvas(svCanvas, _cpState.hue);
+    updatePickerUI();
+  }
+  let hueDrag = false;
+  hueSlider.addEventListener('mousedown', e => { hueDrag = true; handleHue(e); });
+  hueSlider.addEventListener('touchstart', e => { hueDrag = true; handleHue(e.touches[0]); e.preventDefault(); }, {passive:false});
+  document.addEventListener('mousemove', e => { if (hueDrag) handleHue(e); });
+  document.addEventListener('touchmove', e => { if (hueDrag) handleHue(e.touches[0]); }, {passive:false});
+  document.addEventListener('mouseup', () => hueDrag = false);
+  document.addEventListener('touchend', () => hueDrag = false);
+  
+  // Hex manual input
+  document.getElementById('cp-hex-ok').addEventListener('click', () => {
+    const hex = hexInput.value.trim();
+    if (/^#[0-9a-fA-F]{6}$/.test(hex)) {
+      const [r, g, b] = hexToRgb(hex);
+      const [h, s, v] = rgbToHsv(r, g, b);
+      _cpState.hue = h; _cpState.sat = s; _cpState.val = v;
+      drawSVCanvas(svCanvas, _cpState.hue);
+      updatePickerUI();
+    }
+  });
+  
+  // --- Preview du marqueur live ---
+  function updatePreview() {
+    const preview = document.getElementById('cp-preview');
+    if (!preview) return;
+    const grad = buildMarkerGradient(draft.markerColors, 135);
+    const bg = grad || draft.markerColors[0];
+    const border = draft.markerBorder;
+    preview.innerHTML = `
+      <div style="display:flex;flex-direction:column;align-items:center;">
+        <div style="width:42px;height:42px;border-radius:50%;background:${bg};border:3px solid ${border};box-shadow:0 3px 12px rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;font-size:16px;">🎵</div>
+        <div style="width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-top:10px solid ${border};margin-top:-2px;"></div>
+        <div style="font-size:9px;color:#64748b;margin-top:6px;">Marqueur</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;">
+        <div style="width:48px;height:48px;border-radius:50%;background:${bg};border:2.5px solid ${border};box-shadow:0 3px 12px rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,0.6);">247</div>
+        <div style="font-size:9px;color:#64748b;margin-top:6px;">Cluster</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;">
+        <div style="position:relative;width:32px;height:32px;">
+          <svg width="32" height="32" viewBox="0 0 42 42">
+            <circle cx="21" cy="21" r="18" fill="none" stroke="${draft.markerColors[0]}" stroke-width="2" opacity="0.5">
+              <animate attributeName="r" values="16;19;16" dur="2s" repeatCount="indefinite"/>
+              <animate attributeName="opacity" values="0.3;0.6;0.3" dur="2s" repeatCount="indefinite"/>
+            </circle>
+            <circle cx="21" cy="21" r="10" fill="url(#logoGrad)" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
+            <text x="21" y="25" text-anchor="middle" font-weight="900" font-size="12" fill="#fff">M</text>
+          </svg>
+        </div>
+        <div style="font-size:9px;color:#64748b;margin-top:6px;">Halo</div>
+      </div>
+    `;
+  }
+  
+  // --- Ouvrir le HSV pour un slot ---
+  function activatePickerFor(color, onChange) {
+    hsvArea.style.display = 'block';
+    const [r, g, b] = hexToRgb(color);
+    const [h, s, v] = rgbToHsv(r, g, b);
+    _cpState.hue = h; _cpState.sat = s; _cpState.val = v;
+    _cpState.callback = onChange;
+    drawSVCanvas(svCanvas, _cpState.hue);
+    updatePickerUI();
+  }
+  
+  // --- Rendre les slots interieurs ---
+  function renderInteriorSlots() {
+    const c = document.getElementById('cp-interior-slots');
+    c.innerHTML = '';
+    draft.markerColors.forEach((color, i) => {
+      const slot = document.createElement('div');
+      slot.style.cssText = `width:36px;height:36px;border-radius:10px;background:${color};border:2px solid rgba(255,255,255,0.25);cursor:pointer;transition:transform 0.15s,box-shadow 0.15s;position:relative;`;
+      slot.addEventListener('mouseenter', () => { slot.style.transform = 'scale(1.12)'; slot.style.boxShadow = '0 0 14px rgba(255,255,255,0.3)'; });
+      slot.addEventListener('mouseleave', () => { slot.style.transform = 'scale(1)'; slot.style.boxShadow = 'none'; });
+      slot.addEventListener('click', () => {
+        activeSlotType = 'interior-' + i;
+        // Highlight active slot
+        c.querySelectorAll('div[data-slot]').forEach(s => s.style.outline = 'none');
+        slot.style.outline = '2px solid #00ffc3';
+        slot.style.outlineOffset = '2px';
+        activatePickerFor(color, (hex) => {
+          draft.markerColors[i] = hex;
+          slot.style.background = hex;
+          updatePreview();
+        });
+      });
+      slot.setAttribute('data-slot', 'interior');
+      // Bouton supprimer (si >1 couleur)
+      if (draft.markerColors.length > 1) {
+        const rm = document.createElement('div');
+        rm.style.cssText = 'position:absolute;top:-6px;right:-6px;width:16px;height:16px;border-radius:50%;background:#ef4444;color:#fff;font-size:10px;font-weight:bold;display:flex;align-items:center;justify-content:center;cursor:pointer;line-height:1;';
+        rm.textContent = 'x';
+        rm.addEventListener('click', e => { e.stopPropagation(); draft.markerColors.splice(i, 1); renderInteriorSlots(); updatePreview(); });
+        slot.appendChild(rm);
+      }
+      c.appendChild(slot);
+    });
+    // Bouton + (si <3 couleurs)
+    if (draft.markerColors.length < 3) {
+      const addBtn = document.createElement('div');
+      addBtn.style.cssText = 'width:36px;height:36px;border-radius:10px;border:2px dashed rgba(255,255,255,0.15);cursor:pointer;display:flex;align-items:center;justify-content:center;color:#475569;font-size:20px;transition:border-color 0.2s;';
+      addBtn.textContent = '+';
+      addBtn.addEventListener('mouseenter', () => addBtn.style.borderColor = 'rgba(255,255,255,0.4)');
+      addBtn.addEventListener('mouseleave', () => addBtn.style.borderColor = 'rgba(255,255,255,0.15)');
+      addBtn.addEventListener('click', () => { draft.markerColors.push('#ffffff'); renderInteriorSlots(); updatePreview(); });
+      c.appendChild(addBtn);
+    }
+  }
+  
+  // --- Rendre le slot bordure ---
+  function renderBorderSlot() {
+    const c = document.getElementById('cp-border-slot');
+    c.innerHTML = '';
+    const slot = document.createElement('div');
+    slot.style.cssText = `width:36px;height:36px;border-radius:10px;background:${draft.markerBorder};border:2px solid rgba(255,255,255,0.25);cursor:pointer;transition:transform 0.15s,box-shadow 0.15s;`;
+    slot.setAttribute('data-slot', 'border');
+    slot.addEventListener('mouseenter', () => { slot.style.transform = 'scale(1.12)'; slot.style.boxShadow = '0 0 14px rgba(255,255,255,0.3)'; });
+    slot.addEventListener('mouseleave', () => { slot.style.transform = 'scale(1)'; slot.style.boxShadow = 'none'; });
+    slot.addEventListener('click', () => {
+      activeSlotType = 'border';
+      document.querySelectorAll('[data-slot]').forEach(s => s.style.outline = 'none');
+      slot.style.outline = '2px solid #00ffc3';
+      slot.style.outlineOffset = '2px';
+      activatePickerFor(draft.markerBorder, (hex) => {
+        draft.markerBorder = hex;
+        slot.style.background = hex;
+        hexLabel.textContent = hex;
+        updatePreview();
+      });
+    });
+    c.appendChild(slot);
+    const hexLabel = document.createElement('span');
+    hexLabel.style.cssText = 'font-size:11px;color:#475569;font-family:monospace;';
+    hexLabel.textContent = draft.markerBorder;
+    c.appendChild(hexLabel);
+  }
+  
+  // Init
+  renderInteriorSlots();
+  renderBorderSlot();
+  updatePreview();
+  
+  // --- Fermer ---
+  document.getElementById('cp-close').addEventListener('click', () => modal.remove());
+  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+  
+  // --- VALIDER ---
+  document.getElementById('cp-validate').addEventListener('click', async () => {
+    window.customThemeConfig = { markerColors: [...draft.markerColors], markerBorder: draft.markerBorder };
+    applyCustomColors();
+    
+    // IMPORTANT: Vider TOUS les marqueurs existants pour les recréer avec les nouvelles couleurs
+    // Sans cela, loadedEventIds empêche la recréation des marqueurs (bug couleur bordure ignorée)
+    if (markersLayer) markersLayer.clearLayers();
+    markerMap = {};
+    loadedEventIds.clear();
+    eventsData = [];
+    window.eventsData = eventsData;
+    
+    // Rafraichir geo-clusters et clusters Leaflet SANS bouger la map
+    lastViewportKey = '';
+    if (typeof loadViewportData === 'function' && map) loadViewportData();
+    
+    // Sauvegarder en BDD si connecte
+    try {
+      const token = typeof getAuthToken === 'function' ? getAuthToken() : null;
+      if (token) {
+        await fetch(`${window.API_BASE_URL}/user/theme`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify(window.customThemeConfig)
+        });
+        showNotification('Couleurs sauvegardees !', 'success');
+      } else {
+        showNotification('Connectez-vous pour sauvegarder vos couleurs', 'info');
+      }
+    } catch (e) {
+      console.warn('[THEME] Erreur sauvegarde:', e);
+    }
+    modal.remove();
+  });
+  
+  // --- RESET ---
+  document.getElementById('cp-reset').addEventListener('click', () => {
+    window.customThemeConfig = null;
+    localStorage.removeItem('customThemeConfig');
+    // Reset halo logo aux couleurs par defaut
+    const halo1 = document.getElementById('logo-halo-1');
+    const halo2 = document.getElementById('logo-halo-2');
+    if (halo1) halo1.setAttribute('stroke', '#00ffc3');
+    if (halo2) halo2.setAttribute('stroke', '#00ffc3');
+    // Reset bouton publier
+    const pubBtn = document.getElementById('map-publish-btn');
+    if (pubBtn) pubBtn.style.background = '';
+    // IMPORTANT: Vider TOUS les marqueurs pour les recréer avec les couleurs par défaut
+    if (markersLayer) markersLayer.clearLayers();
+    markerMap = {};
+    loadedEventIds.clear();
+    eventsData = [];
+    window.eventsData = eventsData;
+    // Rafraichir
+    lastViewportKey = '';
+    if (typeof loadViewportData === 'function' && map) loadViewportData();
+    // Supprimer en BDD si connecte
+    try {
+      const token = typeof getAuthToken === 'function' ? getAuthToken() : null;
+      if (token) {
+        fetch(`${window.API_BASE_URL}/user/theme`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify(null)
+        });
+      }
+    } catch(e) {}
+    showNotification('Couleurs par defaut restaurees', 'success');
+    modal.remove();
+  });
 }
 
 function cycleMapTheme() {
@@ -11242,467 +13149,15 @@ function extractDeepestCategories(tree, result = [], visited = new WeakSet(), de
   return result;
 }
 
-// Générer des événements d'urgence si aucune donnée n'est disponible
+// Fonction désactivée - les events viennent du backend uniquement
 function generateEmergencyEvents() {
-  console.log(`🚨 Génération d'urgence d'événements de base...`);
-  const emergencyCities = SWISS_CITIES && SWISS_CITIES.length > 0 ? [SWISS_CITIES[0]] : 
-                         FRENCH_CITIES && FRENCH_CITIES.length > 0 ? [FRENCH_CITIES[0]] : 
-                         [{ name: "Lausanne", lat: 46.5197, lng: 6.6323, canton: "VD" }];
-  
-  if (emergencyCities.length === 0) {
-    console.error("❌ Impossible de générer des événements d'urgence : aucune ville disponible");
-    return;
-  }
-  
-  const emergencyCategories = ["Techno", "House", "Festival", "Rock", "Jazz"];
-  const emergencyTitles = ["Événement Test", "Soirée Musicale", "Festival Local", "Concert", "Rave Party"];
-  
-  for (let i = 0; i < 10; i++) {
-    const city = emergencyCities[i % emergencyCities.length];
-    const category = emergencyCategories[i % emergencyCategories.length];
-    const title = `${emergencyTitles[i % emergencyTitles.length]} @ ${city.name}`;
-    const daysFromNow = i * 2;
-    const startDate = generateRandomDate(daysFromNow);
-    const endDate = generateRandomDate(daysFromNow, 4);
-    
-    eventsData.push({
-      id: 10000 + i,
-      type: "event",
-      title: title,
-      description: "Événement généré automatiquement pour assurer le fonctionnement du site.",
-      status: "OK",
-      startDate: startDate,
-      endDate: endDate,
-      city: city.name,
-      canton: city.canton || city.region,
-      country: city.canton ? "CH" : "FR",
-      address: `Centre-ville, ${city.name}`,
-      lat: city.lat + (Math.random() - 0.5) * 0.05,
-      lng: city.lng + (Math.random() - 0.5) * 0.05,
-      categories: [category],
-      mainCategory: category,
-      categoryImage: null,
-      boost: "basic",
-      imageUrl: null,
-      sourceUrl: "https://example.com",
-      isAI: true,
-      pricingMode: "Gratuit",
-      likes: Math.floor(Math.random() * 50),
-      comments: Math.floor(Math.random() * 10),
-      participants: Math.floor(Math.random() * 100),
-      verified: false,
-      rating: (3.5 + Math.random() * 1.5).toFixed(1)
-    });
-  }
-  
-  console.log(`✅ ${eventsData.length} événements d'urgence générés`);
+  console.log('Events chargés depuis le backend uniquement - pas de génération de faux events');
 }
 
 function ensureDemoPoints() {
-  // Nettoyer les événements passés MAIS garder au moins quelques événements futurs
-  const now = new Date();
-  const beforeCount = eventsData.length;
-  const futureEvents = eventsData.filter(ev => {
-    if (!ev.endDate) return true;
-    return new Date(ev.endDate) > now;
-  });
-  
-  // Si on a moins de 10 événements futurs, ne pas filtrer pour éviter de tout supprimer
-  if (futureEvents.length < 10 && eventsData.length > 0) {
-    console.log(`⚠️ Seulement ${futureEvents.length} événements futurs, conservation de tous les événements`);
-    // Ne pas filtrer si on a trop peu d'événements
-  } else {
-    eventsData = futureEvents;
-  }
-  
-  const afterFilterCount = eventsData.length;
-  console.log(`🔍 ensureDemoPoints() - Avant: ${beforeCount}, Après filtrage: ${afterFilterCount}, Cible: 600`);
-
-  // Extraire TOUTES les sous-catégories les plus profondes de l'arbre Events
-  let deepestEventCategories = [];
-  if (EVENTS_TREE) {
-    deepestEventCategories = extractDeepestCategories(EVENTS_TREE);
-  }
-  
-  // Si l'arbre n'est pas encore chargé ou vide, utiliser des catégories de base
-  if (deepestEventCategories.length === 0) {
-    deepestEventCategories = [
-      "Acid Techno", "Minimal Techno", "Hard Techno", "Melodic Techno",
-      "Deep House", "Tech House", "Progressive House", "Afro House",
-      "Psytrance", "Full On", "Goa", "Progressive Psy", "Dark Psy", "Forest", "Hi-Tech", "Uplifting Trance",
-      "Neurofunk", "Jungle", "Liquid DnB", "Jump Up",
-      "Dubstep", "Riddim", "Future Bass",
-      "Hardstyle", "Hardcore", "Gabber",
-      "Ambient", "Chillout", "Lofi",
-      "Rap", "Trap", "Drill", "Hip-Hop", "RnB", "Afrobeats",
-      "Indie Rock", "Alternative Rock", "Punk Rock",
-      "Heavy Metal", "Thrash Metal", "Metalcore",
-      "Jazz", "Soul", "Funk", "Blues",
-      "Reggae", "Dub", "Ska", "Latin", "Balkan",
-      "Pop", "Indie Pop", "Electro Pop",
-      "Festival musique", "Open Air", "Street Parade",
-      "Marché", "Brocante", "Foire",
-      "Cinéma", "Théâtre", "Exposition",
-      "Sport", "Course à pied", "Cyclisme"
-    ];
-  }
-  
-  const boosts = ["basic", "basic", "basic", "basic", "bronze", "bronze", "silver", "gold", "platinum"];
-  const statuses = ["OK", "OK", "OK", "OK", "OK", "OK", "OK", "COMPLET", "REPORTÉ"];
-
-  // Utiliser ALL_CITIES ou créer depuis SWISS_CITIES et FRENCH_CITIES
-  const citiesToUse = ALL_CITIES && ALL_CITIES.length > 0 ? ALL_CITIES : [...(SWISS_CITIES || []), ...(FRENCH_CITIES || [])];
-  if (!citiesToUse || citiesToUse.length === 0) {
-    console.error("❌ Aucune ville disponible ! Impossible de générer des événements.");
-    // Générer des événements d'urgence avec une ville par défaut
-    generateEmergencyEvents();
-    return;
-  }
-  
-  // Générer au moins 1 point par pays (CH et FR)
-  const swissCities = SWISS_CITIES || [];
-  const frenchCities = FRENCH_CITIES || [];
-  const countries = [
-    { code: "CH", cities: swissCities },
-    { code: "FR", cities: frenchCities }
-  ];
-  
-  // S'assurer qu'on a au moins 1 point par pays
-  countries.forEach(({ code, cities }) => {
-    if (cities && cities.length > 0) {
-      const city = cities[0]; // Prendre la première ville de chaque pays
-      const id = 1000 + eventsData.length;
-      const deepCat = deepestEventCategories[id % deepestEventCategories.length];
-      const boost = boosts[Math.floor(Math.random() * boosts.length)];
-      const status = statuses[Math.floor(Math.random() * statuses.length)];
-      
-      // Mapping amélioré des titres
-      let parentCat = "Festival";
-      let titlePrefix = "";
-      if (deepCat.includes("Techno")) parentCat = "Techno";
-      else if (deepCat.includes("House")) parentCat = "House";
-      else if (deepCat.includes("Trance") || deepCat.includes("Psy")) parentCat = "Trance";
-      else if (deepCat.includes("DnB") || deepCat.includes("Drum")) parentCat = "DnB";
-      else if (deepCat.includes("Rap") || deepCat.includes("Hip")) parentCat = "Rap";
-      else if (deepCat.includes("Rock")) parentCat = "Rock";
-      else if (deepCat.includes("Metal")) parentCat = "Metal";
-      else if (deepCat.includes("Jazz") || deepCat.includes("Soul")) parentCat = "Jazz";
-      else if (deepCat.includes("Festival") || deepCat.includes("Open")) parentCat = "Festival";
-      else if (deepCat.includes("Marché") || deepCat.includes("Brocante")) parentCat = "Marché";
-      else if (deepCat.includes("Cinéma")) parentCat = "Cinéma";
-      else if (deepCat.includes("Théâtre")) parentCat = "Théâtre";
-      else if (deepCat.includes("Sport")) parentCat = "Sport";
-      
-      const titles = EVENT_TITLES[parentCat] || EVENT_TITLES["Festival"];
-      const baseTitle = titles[Math.floor(Math.random() * titles.length)];
-      const title = titlePrefix ? `${titlePrefix}${baseTitle}` : baseTitle;
-      const venue = VENUES[Math.floor(Math.random() * VENUES.length)];
-      const desc = DESCRIPTIONS[Math.floor(Math.random() * DESCRIPTIONS.length)];
-      
-      const daysFromNow = Math.floor(Math.random() * 60);
-      const startDate = generateRandomDate(daysFromNow);
-      const endDate = generateRandomDate(daysFromNow, 4 + Math.floor(Math.random() * 4));
-      
-      const latOffset = (Math.random() - 0.5) * 0.05;
-      const lngOffset = (Math.random() - 0.5) * 0.05;
-      
-      eventsData.push({
-        id,
-        type: "event",
-        title: `${title} @ ${city.name}`,
-        description: desc,
-        status,
-        startDate,
-        endDate,
-        city: city.name,
-        canton: city.canton || city.region,
-        country: code,
-        address: `${venue}, ${Math.floor(Math.random() * 100) + 1} Rue du Centre, ${city.name}`,
-        lat: city.lat + latOffset,
-        lng: city.lng + lngOffset,
-        categories: [deepCat],
-        mainCategory: parentCat,
-        categoryImage: null,
-        boost,
-        imageUrl: null,
-        sourceUrl: "https://example.com",
-        isAI: Math.random() > 0.7,
-        pricingMode: Math.random() > 0.3 ? "Entrée payante" : "Gratuit",
-        likes: Math.floor(Math.random() * 150),
-        comments: Math.floor(Math.random() * 30),
-        participants: Math.floor(Math.random() * 200),
-        verified: Math.random() > 0.6,
-        rating: (3.5 + Math.random() * 1.5).toFixed(1)
-      });
-    }
-  });
-  
-  // S'assurer qu'on génère au moins quelques événements même si les conditions ne sont pas optimales
-  const minEvents = 50; // Minimum d'événements à générer
-  
-  // Générer 600 événements avec sous-catégories profondes (Suisse + France)
-  const targetCount = Math.max(600, minEvents);
-  while (eventsData.length < targetCount) {
-    const id = 1000 + eventsData.length;
-    const city = citiesToUse[id % citiesToUse.length];
-    
-    // Vérifier que la ville est valide
-    if (!city || !city.name || typeof city.lat !== 'number' || typeof city.lng !== 'number') {
-      console.error(`❌ Ville invalide à l'index ${id % citiesToUse.length}:`, city);
-      break;
-    }
-    // Utiliser une sous-catégorie profonde au lieu d'une catégorie générale
-    const deepCat = deepestEventCategories[id % deepestEventCategories.length];
-    const boost = boosts[Math.floor(Math.random() * boosts.length)];
-    const status = statuses[Math.floor(Math.random() * statuses.length)];
-    
-    // Trouver une catégorie parente pour les titres - MAPPING AMÉLIORÉ
-    let parentCat = "Festival";
-    let titlePrefix = "";
-    
-    if (deepCat.includes("Acid Techno") || deepCat.includes("Minimal Techno") || deepCat.includes("Hard Techno") || deepCat.includes("Melodic Techno")) {
-      parentCat = "Techno";
-      titlePrefix = deepCat.includes("Acid") ? "Acid " : deepCat.includes("Minimal") ? "Minimal " : deepCat.includes("Hard") ? "Hard " : "Melodic ";
-    } else if (deepCat.includes("Deep House") || deepCat.includes("Tech House") || deepCat.includes("Progressive House") || deepCat.includes("Afro House")) {
-      parentCat = "House";
-      titlePrefix = deepCat.includes("Deep") ? "Deep " : deepCat.includes("Tech") ? "Tech " : deepCat.includes("Progressive") ? "Progressive " : "Afro ";
-    } else if (deepCat.includes("Psytrance") || deepCat.includes("Full On") || deepCat.includes("Goa") || deepCat.includes("Progressive Psy") || deepCat.includes("Dark Psy") || deepCat.includes("Forest") || deepCat.includes("Hi-Tech") || deepCat.includes("Uplifting Trance")) {
-      parentCat = "Trance";
-      titlePrefix = deepCat.includes("Psytrance") ? "Psytrance " : deepCat.includes("Full On") ? "Full On " : deepCat.includes("Goa") ? "Goa " : deepCat.includes("Progressive Psy") ? "Progressive Psy " : deepCat.includes("Dark Psy") ? "Dark Psy " : deepCat.includes("Forest") ? "Forest " : deepCat.includes("Hi-Tech") ? "Hi-Tech " : "Uplifting ";
-    } else if (deepCat.includes("Neurofunk") || deepCat.includes("Jungle") || deepCat.includes("Liquid DnB") || deepCat.includes("Jump Up") || deepCat.includes("Drum & Bass")) {
-      parentCat = "DnB";
-      titlePrefix = deepCat.includes("Neurofunk") ? "Neurofunk " : deepCat.includes("Jungle") ? "Jungle " : deepCat.includes("Liquid") ? "Liquid " : deepCat.includes("Jump Up") ? "Jump Up " : "";
-    } else if (deepCat.includes("Rap") || deepCat.includes("Trap") || deepCat.includes("Drill") || deepCat.includes("Hip-Hop") || deepCat.includes("RnB") || deepCat.includes("Afrobeats")) {
-      parentCat = "Rap";
-      titlePrefix = deepCat.includes("Trap") ? "Trap " : deepCat.includes("Drill") ? "Drill " : deepCat.includes("Hip-Hop") ? "Hip-Hop " : deepCat.includes("RnB") ? "RnB " : deepCat.includes("Afrobeats") ? "Afrobeats " : "";
-    } else if (deepCat.includes("Rock") || deepCat.includes("Punk") || deepCat.includes("Indie Rock") || deepCat.includes("Alternative Rock")) {
-      parentCat = "Rock";
-      titlePrefix = deepCat.includes("Punk") ? "Punk " : deepCat.includes("Indie") ? "Indie " : deepCat.includes("Alternative") ? "Alternative " : "";
-    } else if (deepCat.includes("Metal") || deepCat.includes("Heavy Metal") || deepCat.includes("Thrash Metal") || deepCat.includes("Metalcore")) {
-      parentCat = "Metal";
-      titlePrefix = deepCat.includes("Heavy") ? "Heavy " : deepCat.includes("Thrash") ? "Thrash " : deepCat.includes("Metalcore") ? "Metalcore " : "";
-    } else if (deepCat.includes("Jazz") || deepCat.includes("Soul") || deepCat.includes("Funk") || deepCat.includes("Blues")) {
-      parentCat = "Jazz";
-      titlePrefix = deepCat.includes("Soul") ? "Soul " : deepCat.includes("Funk") ? "Funk " : deepCat.includes("Blues") ? "Blues " : "";
-    } else if (deepCat.includes("Festival") || deepCat.includes("Open Air") || deepCat.includes("Street Parade")) {
-      parentCat = "Festival";
-    } else if (deepCat.includes("Marché") || deepCat.includes("Brocante") || deepCat.includes("Foire")) {
-      parentCat = "Marché";
-    } else if (deepCat.includes("Cinéma")) {
-      parentCat = "Cinéma";
-    } else if (deepCat.includes("Théâtre")) {
-      parentCat = "Théâtre";
-    } else if (deepCat.includes("Sport") || deepCat.includes("Course à pied") || deepCat.includes("Cyclisme")) {
-      parentCat = "Sport";
-      titlePrefix = deepCat.includes("Course") ? "Course " : deepCat.includes("Cyclisme") ? "Cyclisme " : "";
-    }
-    
-    const titles = EVENT_TITLES[parentCat] || EVENT_TITLES["Festival"];
-    const baseTitle = titles[Math.floor(Math.random() * titles.length)];
-    // Ajouter le préfixe de sous-catégorie si disponible
-    const title = titlePrefix ? `${titlePrefix}${baseTitle}` : baseTitle;
-    const venue = VENUES[Math.floor(Math.random() * VENUES.length)];
-    const desc = DESCRIPTIONS[Math.floor(Math.random() * DESCRIPTIONS.length)];
-    
-    // Dates variées : de aujourd'hui à +60 jours
-    const daysFromNow = Math.floor(Math.random() * 60);
-    const startDate = generateRandomDate(daysFromNow);
-    const endDate = generateRandomDate(daysFromNow, 4 + Math.floor(Math.random() * 4));
-    
-    // Position avec variation aléatoire
-    const latOffset = (Math.random() - 0.5) * 0.15;
-    const lngOffset = (Math.random() - 0.5) * 0.15;
-
-    eventsData.push({
-      id,
-      type: "event",
-      title: `${title} @ ${city.name}`,
-      description: desc,
-      status,
-      startDate,
-      endDate,
-      city: city.name,
-      canton: city.canton || city.region, // Suisse = canton, France = region
-      country: city.canton ? "CH" : "FR",
-      address: `${venue}, ${Math.floor(Math.random() * 100) + 1} Rue du Centre, ${city.name}`,
-      lat: city.lat + latOffset,
-      lng: city.lng + lngOffset,
-      categories: [deepCat], // SOUS-CATÉGORIE PROFONDE !
-      mainCategory: parentCat, // Catégorie parente pour référence
-      categoryImage: null,
-      boost,
-      imageUrl: null,
-      sourceUrl: "https://example.com",
-      isAI: Math.random() > 0.7,
-      pricingMode: Math.random() > 0.3 ? "Entrée payante" : "Gratuit",
-      likes: Math.floor(Math.random() * 150),
-      comments: Math.floor(Math.random() * 30),
-      participants: Math.floor(Math.random() * 200),
-      verified: Math.random() > 0.6,
-      rating: (3.5 + Math.random() * 1.5).toFixed(1) // Rating entre 3.5 et 5.0
-    });
-  }
-  
-  console.log(`✅ ensureDemoPoints() terminé - ${eventsData.length} événements générés`);
-  
-  // Attribuer des enchères Platinum aléatoires pour la démo
-  eventsData.forEach(ev => {
-    if (ev.boost === "platinum" && !ev.platinumBid) {
-      ev.platinumBid = 15 + Math.floor(Math.random() * 40); // 15 à 55.-
-    }
-  });
-  
-  // Calculer les rangs Platinum par région
+  // Events et bookings viennent du backend uniquement - PAS de génération de faux data
+  console.log(`ensureDemoPoints() - ${eventsData.length} events, ${bookingsData.length} bookings du backend`);
   calculatePlatinumRanks();
-
-  // Générer 80 bookings avec sous-catégories profondes
-  let deepestBookingCategories = [];
-  if (BOOKING_TREE) {
-    // BOOKING_TREE peut être l'objet complet avec "categories" ou directement l'arbre
-    const treeToExtract = BOOKING_TREE.categories || BOOKING_TREE;
-    deepestBookingCategories = extractDeepestCategories(treeToExtract);
-  }
-  
-  // Si l'arbre n'est pas encore chargé, utiliser des catégories de base
-  if (deepestBookingCategories.length === 0) {
-    deepestBookingCategories = [
-      "Acid Techno", "Minimal Techno", "Hard Techno", "Melodic Techno",
-      "Deep House", "Tech House", "Progressive House", "Afro House",
-      "Psytrance", "Full On", "Goa", "Progressive Psy", "Dark Psy", "Forest", "Hi-Tech", "Uplifting Trance",
-      "Drum & Bass", "Neurofunk", "Jungle", "Liquid DnB",
-      "Dubstep", "Riddim", "Future Bass",
-      "Hardstyle", "Hardcore", "Gabber",
-      "Ambient", "Chillout", "Lofi",
-      "Rap", "Trap", "Drill", "Hip-Hop", "RnB", "Afrobeats",
-      "Rock", "Indie Rock", "Punk Rock",
-      "Metal", "Heavy Metal", "Metalcore",
-      "Jazz", "Soul", "Funk", "Blues",
-      "Reggae", "Dub", "Ska", "Latin", "Balkan",
-      "Pop", "Indie Pop", "Electro Pop",
-      "Synth Live", "Modular", "Chant / Vocal", "Guitare", "Percussions",
-      "Danseurs", "Jongleurs", "Fire Show", "LED Show", "Acrobates",
-      "VJ Software", "Mapping 3D", "Projections", "Laser Artist",
-      "MC", "Animateur", "Speaker"
-    ];
-  }
-  
-  const bookingLevels = ["Débutant", "Semi-pro", "Pro", "Headliner", "International", "Non détecté"];
-  const djNames = ["DJ ", "MC ", "The ", "", "DJ ", ""];
-  const djSuffixes = ["Sound", "Beats", "Music", "Vibes", "Flow", "Mix", "Bass", "Groove", "Wave", "Pulse"];
-  
-  // Générer 200 bookings avec adresses précises à 1km
-  const streetNames = ["Rue du Centre", "Avenue de la Gare", "Rue de la Poste", "Chemin des Vignes", "Route de la Plage", "Place du Marché", "Rue des Artisans", "Avenue des Sports", "Rue de la Musique", "Chemin des Artistes"];
-  
-  while (bookingsData.length < 200) {
-    const id = 2000 + bookingsData.length;
-    const city = SWISS_CITIES[id % SWISS_CITIES.length];
-    // Utiliser une sous-catégorie profonde
-    const deepCat = deepestBookingCategories[id % deepestBookingCategories.length];
-    const boost = boosts[Math.floor(Math.random() * boosts.length)];
-    const level = bookingLevels[Math.floor(Math.random() * bookingLevels.length)];
-    const prefix = djNames[Math.floor(Math.random() * djNames.length)];
-    const suffix = djSuffixes[Math.floor(Math.random() * djSuffixes.length)];
-    const name = `${prefix}${["Alex", "Max", "Sam", "Leo", "Nico", "Marco", "Chris", "David", "Nina", "Sarah", "Lisa", "Emma", "Tom", "Lucas", "Noah", "Mia", "Sofia", "Luna"][id % 18]} ${suffix}`;
-    
-    // Trouver la catégorie parente
-    const parentCat = deepCat.includes("Techno") ? "Techno" :
-                     deepCat.includes("House") ? "House" :
-                     deepCat.includes("Trance") || deepCat.includes("Psy") ? "Trance" :
-                     deepCat.includes("DnB") || deepCat.includes("Drum") ? "DnB" :
-                     deepCat.includes("Rap") || deepCat.includes("Hip") ? "Rap" :
-                     deepCat.includes("Rock") ? "Rock" :
-                     deepCat.includes("Metal") ? "Metal" :
-                     deepCat.includes("Jazz") || deepCat.includes("Soul") ? "Jazz" :
-                     deepCat.includes("Live") || deepCat.includes("Modular") ? "Live Acts" :
-                     deepCat.includes("Danse") || deepCat.includes("Jongleur") || deepCat.includes("Fire") ? "Performers" :
-                     deepCat.includes("VJ") || deepCat.includes("Mapping") || deepCat.includes("Laser") ? "VJ & Visuels" :
-                     deepCat.includes("MC") || deepCat.includes("Animateur") ? "MCs & Animateurs" :
-                     deepCat;
-    
-    // Adresse précise à 1km (variation de ~0.01 degré = ~1km)
-    const latOffset = (Math.random() - 0.5) * 0.02; // ~1km
-    const lngOffset = (Math.random() - 0.5) * 0.015; // ~1km
-    const streetName = streetNames[Math.floor(Math.random() * streetNames.length)];
-    const streetNumber = Math.floor(Math.random() * 150) + 1;
-    const preciseAddress = `${streetNumber} ${streetName}, ${city.name}`;
-
-    bookingsData.push({
-      id,
-      type: "booking",
-      name,
-      description: `Artiste ${deepCat} basé à ${city.name}. ${level === "Headliner" || level === "International" ? "Artiste reconnu avec de nombreuses performances." : "Passionné de musique, disponible pour vos événements."}`,
-      city: city.name,
-      canton: city.canton,
-      address: preciseAddress, // Adresse précise à 1km
-      lat: city.lat + latOffset,
-      lng: city.lng + lngOffset,
-      categories: [deepCat], // SOUS-CATÉGORIE PROFONDE !
-      mainCategory: parentCat, // Catégorie parente
-      categoryImage: null,
-      boost,
-      level,
-      soundLinks: [
-        `https://soundcloud.com/${name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')}`,
-        `https://youtube.com/watch?v=${Math.random().toString(36).substring(2, 11)}`,
-        `https://soundcloud.com/${name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')}-${deepCat.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')}`
-      ],
-      imageUrl: null,
-      email: "contact@example.com",
-      phone: "+41 79 000 00 00",
-      isAI: Math.random() > 0.5,
-      verified: Math.random() > 0.7,
-      likes: Math.floor(Math.random() * 100),
-      rating: (3 + Math.random() * 2).toFixed(1)
-    });
-  }
-
-  // Générer 50 services
-  const serviceCats = ["Son", "Lumière", "Sécurité", "Décoration", "Traiteur", "Transport", "Photo", "Vidéo", "Scène", "Bar"];
-  const serviceNames = {
-    "Son": ["SoundPro", "AudioMax", "Bass System", "MegaSound"],
-    "Lumière": ["LightShow", "LumiPro", "LED Masters", "Laser Art"],
-    "Sécurité": ["SecuEvent", "SafeGuard", "Protection Plus"],
-    "Décoration": ["DecoPro", "ArtEvent", "Design Studio"],
-    "Traiteur": ["GourmetEvent", "CateringPro", "Délices Suisses"],
-    "Transport": ["EventTransport", "NavettePro", "MobilEvent"],
-    "Photo": ["PhotoEvent", "Capture Pro", "Souvenirs HD"],
-    "Vidéo": ["VideoLive", "FilmEvent", "Stream Pro"],
-    "Scène": ["StageBuilder", "ScenePro", "Podium Event"],
-    "Bar": ["BarMobile", "Cocktail Pro", "DrinkEvent"]
-  };
-
-  while (servicesData.length < 50) {
-    const id = 3000 + servicesData.length;
-    const city = SWISS_CITIES[id % SWISS_CITIES.length];
-    const cat = serviceCats[id % serviceCats.length];
-    const boost = boosts[Math.floor(Math.random() * boosts.length)];
-    const names = serviceNames[cat] || ["Service Pro"];
-    const name = `${names[Math.floor(Math.random() * names.length)]} ${city.name}`;
-
-    servicesData.push({
-      id,
-      type: "service",
-      name,
-      description: `Service de ${cat.toLowerCase()} professionnel pour vos événements. Basé à ${city.name}, intervention dans toute la Suisse.`,
-      city: city.name,
-      canton: city.canton,
-      address: `Zone industrielle, ${city.name}`,
-      lat: city.lat + (Math.random() - 0.5) * 0.1,
-      lng: city.lng + (Math.random() - 0.5) * 0.1,
-      categories: [cat],
-      mainCategory: cat,
-      categoryImage: null,
-      boost,
-      imageUrl: null,
-      email: "contact@service.ch",
-      phone: "+41 79 000 00 00",
-      website: "https://example.ch",
-      isAI: Math.random() > 0.6,
-      verified: Math.random() > 0.5,
-      likes: Math.floor(Math.random() * 50),
-      rating: (3.5 + Math.random() * 1.5).toFixed(1)
-    });
-  }
 }
 
 // Appeler le calcul des rangs Platinum après la génération des données
@@ -11787,6 +13242,7 @@ function onAction(action, type, id) {
 
 // Toggle Like (juste le compteur, pas de sauvegarde)
 async function toggleLike(type, id) {
+  if (navigator.vibrate) navigator.vibrate(10);
   const key = `${type}:${id}`;
   const index = currentUser.likes.indexOf(key);
   
@@ -11858,6 +13314,7 @@ async function toggleLike(type, id) {
 
 // Toggle Favorite (sauvegarde dans "Mes favoris", pas dans l'agenda)
 async function toggleFavorite(type, id) {
+  if (navigator.vibrate) navigator.vibrate(10);
   const key = `${type}:${id}`;
   
   // Trouver l'item pour obtenir son nom
@@ -12042,8 +13499,8 @@ function toggleParticipation(type, id) {
   }
 }
 
-// Toggle Agenda avec limite selon abonnement
-function toggleAgenda(type, id) {
+// Toggle Agenda avec limite selon abonnement - PERSISTANT EN BASE DE DONNÉES
+async function toggleAgenda(type, id) {
   // Vérifier si l'utilisateur est connecté
   if (!currentUser || !currentUser.isLoggedIn) {
     openLoginModal();
@@ -12052,9 +13509,45 @@ function toggleAgenda(type, id) {
   
   const key = `${type}:${id}`;
   const index = currentUser.agenda.indexOf(key);
+  const action = index > -1 ? 'remove' : 'add';
+  
+  // Vérifier limite AVANT d'appeler l'API (pour add)
+  if (action === 'add') {
+    const maxAgenda = getAgendaLimit();
+    if (currentUser.agenda.length >= maxAgenda) {
+      showNotification(`⚠️ Limite d'agenda atteinte (${maxAgenda} places). Retirez un événement ou passez à un abonnement supérieur pour plus de places !`, "warning");
+      openSubscriptionModal();
+      return;
+    }
+  }
+  
+  // Appeler l'API pour persister en base
+  try {
+    const response = await fetch(`${window.API_BASE_URL}/user/agenda`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: currentUser.id.toString(),
+        itemId: id,
+        itemMode: type,
+        action: action
+      })
+    });
+    
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || 'Erreur API');
+    }
+  } catch (error) {
+    console.error('[AGENDA] Erreur persistance:', error);
+    showNotification("❌ Impossible de sauvegarder l'agenda. Réessayez.", "error");
+    return;
+  }
   
   if (index > -1) {
     currentUser.agenda.splice(index, 1);
+    if (typeof saveUserData === 'function') saveUserData();
+    try { localStorage.setItem('user_agenda_backup', JSON.stringify(currentUser.agenda)); } catch(e) {}
     showNotification("📅 Retiré de l'agenda", "info");
     refreshMarkers();
     refreshListView();
@@ -12088,15 +13581,9 @@ function toggleAgenda(type, id) {
       }
     }
   } else {
-    // Vérifier la limite selon l'abonnement
-    const maxAgenda = getAgendaLimit();
-    if (currentUser.agenda.length >= maxAgenda) {
-      showNotification(`⚠️ Limite d'agenda atteinte (${maxAgenda} places). Retirez un événement ou passez à un abonnement supérieur pour plus de places !`, "warning");
-      openSubscriptionModal();
-      return;
-    }
-    
     currentUser.agenda.push(key);
+    if (typeof saveUserData === 'function') saveUserData();
+    try { localStorage.setItem('user_agenda_backup', JSON.stringify(currentUser.agenda)); } catch(e) {}
     showNotification(`📅 Ajouté à votre agenda ! (${currentUser.agenda.length}/${maxAgenda})`, "success");
     refreshMarkers();
     refreshListView();
@@ -12290,6 +13777,11 @@ function inviteFriendsToEvent(type, id) {
   const item = getItemById(type, id);
   if (!item) return;
   
+  // Utiliser le nouveau système d'invitation par API
+  openInviteFriendsModal(type, id, item.title || item.name || 'Événement');
+  return;
+  
+  // --- Ancien code local ci-dessous (désactivé) ---
   const friendsList = currentUser.friends || [];
   if (friendsList.length === 0) {
     showNotification("👥 Vous n'avez pas encore d'amis. Ajoutez-en depuis le menu Amis !", "info");
@@ -13069,7 +14561,22 @@ window.updateMetaTag = updateMetaTag;
 // Fonction pour créer le modal de partage (séparée pour réutilisation)
 function shareItemModal(type, id, item, title) {
   
-  const url = `${window.location.origin}${window.location.pathname}?${type}=${id}`;
+  // URL de partage via l'API pour que les crawlers sociaux (Facebook, Twitter) voient les bonnes meta OG
+  const shareUrl = `${window.API_BASE_URL}/share/${type}/${id}`;
+  // URL directe pour le clipboard et le navigateur
+  const url = shareUrl;
+
+  // Sur mobile, essayer l'API Web Share native (menu système du téléphone)
+  const isMobile = window.innerWidth <= 768 || /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+  if (isMobile && navigator.share) {
+    navigator.share({
+      title: title || 'MapEvent',
+      text: title + ' — sur MapEvent',
+      url: url
+    }).catch(function() { /* utilisateur a annulé, pas d'erreur */ });
+    return;
+  }
+
   const text = encodeURIComponent(title);
   const encodedUrl = encodeURIComponent(url);
   
@@ -13086,6 +14593,8 @@ function shareItemModal(type, id, item, title) {
   // Créer le modal de partage professionnel
   const shareModal = document.createElement('div');
   shareModal.id = 'share-modal';
+  shareModal.dataset.type = type;
+  shareModal.dataset.id = String(id);
   shareModal.innerHTML = `
     <div style="position:fixed;inset:0;background:rgba(0,0,0,0.8);backdrop-filter:blur(8px);z-index:99999;display:flex;align-items:center;justify-content:center;" onclick="closeShareModal(event)">
       <div style="background:var(--ui-card-bg, #1a1a2e);border-radius:20px;padding:24px;max-width:400px;width:90%;box-shadow:0 25px 50px rgba(0,0,0,0.5);border:1px solid var(--ui-card-border, rgba(255,255,255,0.1));" onclick="event.stopPropagation()">
@@ -13153,6 +14662,14 @@ function shareItemModal(type, id, item, title) {
           
         </div>
         
+        <!-- Partager en Story (image 1080x1920) -->
+        <button onclick="closeShareModal();generateShareStory(this.closest('#share-modal').dataset.type, this.closest('#share-modal').dataset.id);" 
+                style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:14px;border-radius:12px;background:linear-gradient(135deg,rgba(0,255,195,0.2),rgba(59,130,246,0.2));border:1px solid rgba(0,255,195,0.4);color:#00ffc3;font-weight:600;font-size:14px;cursor:pointer;margin-bottom:12px;transition:all 0.2s;"
+                onmouseover="this.style.transform='scale(1.02)'"
+                onmouseout="this.style.transform='scale(1)'">
+          📱 Partager en Story (image 1080×1920)
+        </button>
+        
         <!-- Copier le lien -->
         <div style="display:flex;gap:8px;align-items:center;background:rgba(0,0,0,0.3);border-radius:12px;padding:12px;border:1px solid var(--ui-card-border, rgba(255,255,255,0.1));">
           <input type="text" value="${url}" readonly 
@@ -13179,6 +14696,118 @@ function shareItemModal(type, id, item, title) {
   
   document.body.appendChild(shareModal);
 }
+
+// Génère une image Story 1080×1920 pour partage Instagram/Stories
+async function generateShareStory(type, id) {
+  const idNum = typeof id === 'string' ? parseInt(id, 10) : id;
+  let item = null;
+  let title = "Découvrez sur MapEvent !";
+  if (type === "event") {
+    item = eventsData.find(e => e.id === idNum);
+    if (item) title = item.title || item.name || title;
+  } else if (type === "booking") {
+    item = bookingsData.find(b => b.id === idNum);
+    if (item) title = item.title || item.name || title;
+  } else if (type === "service") {
+    item = servicesData.find(s => s.id === idNum);
+    if (item) title = item.title || item.name || title;
+  }
+  const url = `${window.location.origin}${window.location.pathname}?${type}=${idNum}`;
+  const W = 1080, H = 1920;
+  const canvas = document.createElement('canvas');
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  
+  // Fond gradient
+  const grad = ctx.createLinearGradient(0, 0, W, H);
+  grad.addColorStop(0, '#0f172a');
+  grad.addColorStop(0.5, '#1e293b');
+  grad.addColorStop(1, '#020617');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+  
+  // Image de l'item (si disponible)
+  let imgUrl = item && typeof getImageCandidatesForItem === 'function' 
+    ? (getImageCandidatesForItem(item)[0] || '') 
+    : '';
+  if (imgUrl && !imgUrl.startsWith('http')) {
+    imgUrl = (imgUrl.startsWith('/') ? window.location.origin : '') + imgUrl;
+  }
+  if (imgUrl) {
+    try {
+      const img = await new Promise((resolve, reject) => {
+        const i = new Image();
+        i.crossOrigin = 'anonymous';
+        i.onload = () => resolve(i);
+        i.onerror = reject;
+        i.src = imgUrl;
+      });
+      const maxH = H * 0.45;
+      const ratio = img.naturalWidth / img.naturalHeight;
+      const drawH = Math.min(maxH, img.naturalHeight);
+      const drawW = ratio * drawH;
+      const sx = (W - drawW) / 2;
+      ctx.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight, sx, 0, drawW, drawH);
+    } catch (_) {}
+  }
+  
+  // Overlay sombre
+  ctx.fillStyle = 'rgba(0,0,0,0.4)';
+  ctx.fillRect(0, 0, W, H);
+  
+  // Zone contenu
+  const pad = 60;
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 52px system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  const lines = (title || '').match(/.{1,28}/g) || [''];
+  lines.slice(0, 3).forEach((line, i) => {
+    ctx.fillText(line, W / 2, H * 0.5 + i * 60, W - pad * 2);
+  });
+  
+  // Date/lieu
+  if (item) {
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = 'bold 32px system-ui, sans-serif';
+    let sub = '';
+    if (item.startDate) sub = new Date(item.startDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+    if (item.city || item.address) sub += (sub ? ' • ' : '') + (item.city || item.address || '').substring(0, 40);
+    if (sub) ctx.fillText(sub, W / 2, H * 0.62, W - pad * 2);
+  }
+  
+  // QR code (API publique)
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url)}`;
+  try {
+    const qrImg = await new Promise((resolve, reject) => {
+      const i = new Image();
+      i.crossOrigin = 'anonymous';
+      i.onload = () => resolve(i);
+      i.onerror = reject;
+      i.src = qrUrl;
+    });
+    ctx.fillStyle = '#fff';
+    ctx.fillRect((W - 240) / 2, H - 320, 240, 240);
+    ctx.drawImage(qrImg, (W - 200) / 2, H - 310, 200, 200);
+  } catch (_) {}
+  
+  // Branding MapEvent
+  ctx.fillStyle = '#00ffc3';
+  ctx.font = 'bold 36px system-ui, sans-serif';
+  ctx.fillText('MapEvent', W / 2, H - 50);
+  
+  // Télécharger ou partager
+  canvas.toBlob(blob => {
+    const u = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = u;
+    a.download = `mapevent-story-${type}-${idNum}.png`;
+    a.click();
+    URL.revokeObjectURL(u);
+    if (typeof showNotification === 'function') showNotification('📱 Image Story téléchargée ! Partagez-la dans vos Stories.', 'success');
+  }, 'image/png');
+}
+window.generateShareStory = generateShareStory;
 
 function closeShareModal(event) {
   if (event && event.target !== event.currentTarget) return;
@@ -13271,8 +14900,8 @@ function showNotification(message, type = "info", options = {}) {
     border-radius: 12px;
     font-size: 14px;
     font-weight: 500;
-    z-index: 100000;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+    z-index: 2147483647;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
     animation: slideUp 0.3s ease;
     pointer-events: ${actionLabel ? 'auto' : 'none'};
     max-width: 90%;
@@ -19555,7 +21184,7 @@ function submitReview(type, id) {
   openReviewModal(type, id); // Rafraîchir pour afficher le nouvel avis
 }
 
-function openDiscussionModal(type, id) {
+async function openDiscussionModal(type, id) {
   // Échappement HTML sûr (au cas où escapeHtml n'est pas encore défini)
   const esc = (typeof escapeHtml === 'function') ? escapeHtml : function(s) {
     if (s == null || s === undefined) return '';
@@ -19570,29 +21199,58 @@ function openDiscussionModal(type, id) {
   
   const itemTitle = item?.title || item?.name || 'Événement';
   
+  // Charger depuis l'API backend (persistant) avec fallback localStorage pour migration
   const postsKey = `discussion_${type}_${id}`;
-  let posts = JSON.parse(localStorage.getItem(postsKey) || '[]');
+  let posts = [];
   
-  // ⚠️ PROTECTION : Filtrer les posts corrompus (contenu suspect ou trop long)
+  // Charger les posts de manière asynchrone mais afficher un loading
+  window._discussionLoadingType = type;
+  window._discussionLoadingId = id;
+  
+  // Tentative de chargement depuis l'API
+  try {
+    const resp = await fetch(`${window.API_BASE_URL}/discussions/${type}/${id}`);
+    if (resp.ok) {
+      const data = await resp.json();
+      if (data.posts && Array.isArray(data.posts) && data.posts.length > 0) {
+        posts = data.posts;
+        console.log(`[Discussion] ${posts.length} posts charges depuis API`);
+      } else {
+        // Fallback : migrer depuis localStorage si existe
+        const localPosts = JSON.parse(localStorage.getItem(postsKey) || '[]');
+        if (localPosts.length > 0) {
+          posts = localPosts;
+          // Migrer vers le backend
+          fetch(`${window.API_BASE_URL}/discussions/${type}/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ posts: localPosts })
+          }).then(() => {
+            localStorage.removeItem(postsKey);
+            console.log('[Discussion] Migration localStorage -> API OK');
+          }).catch(e => console.warn('[Discussion] Migration echouee:', e));
+        }
+      }
+    }
+  } catch(e) {
+    console.warn('[Discussion] API indisponible, fallback localStorage:', e);
+    posts = JSON.parse(localStorage.getItem(postsKey) || '[]');
+  }
+  
+  // PROTECTION : Filtrer les posts corrompus
   const isPostCorrupted = (post) => {
     if (!post || !post.text) return true;
     const text = post.text;
-    // Post trop long (> 5000 caractères)
     if (text.length > 5000) return true;
-    // Contient beaucoup de caractères spéciaux consécutifs (ressemble à du code/token)
     if (/[A-Za-z0-9+/=]{100,}/.test(text)) return true;
-    // Contient des patterns de code JS
     if (/function\s*\(|const\s+\w+\s*=|window\.|document\./.test(text)) return true;
     return false;
   };
   
-  // Filtrer et nettoyer les posts corrompus
   const originalLength = posts.length;
   posts = posts.filter(p => !isPostCorrupted(p));
   if (posts.length !== originalLength) {
-    // Sauvegarder les posts nettoyés
-    localStorage.setItem(postsKey, JSON.stringify(posts));
-    console.log(`[Discussion] ${originalLength - posts.length} posts corrompus supprimés`);
+    console.log(`[Discussion] ${originalLength - posts.length} posts corrompus supprimes`);
   }
   
   // Fonction pour formater le temps
@@ -19641,7 +21299,7 @@ function openDiscussionModal(type, id) {
             ${reply.avatar || '👤'}
           </div>
           <div style="flex:1;min-width:0;overflow:hidden;">
-            <div style="background:#3a3b3c;border-radius:18px;padding:8px 12px;max-width:100%;overflow-wrap:break-word;word-break:break-word;">
+            <div style="background:rgba(30,41,59,0.6);border-radius:18px;padding:8px 12px;max-width:100%;overflow-wrap:break-word;word-break:break-word;">
               <span style="font-weight:600;font-size:13px;color:#e4e6eb;margin-right:4px;">${esc(reply.author || 'Utilisateur')}</span>
               <span style="font-size:13px;color:#e4e6eb;line-height:1.33;white-space:pre-wrap;word-wrap:break-word;overflow-wrap:break-word;word-break:break-word;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">${esc(reply.text)}</span>
             </div>
@@ -19661,7 +21319,7 @@ function openDiscussionModal(type, id) {
               ${currentUser?.avatar || '👤'}
             </div>
             <div style="flex:1;position:relative;">
-              <textarea id="reply-input-${postId}-${replyPath}" placeholder="Répondre à ${esc(reply.author || 'Utilisateur')}..." style="width:100%;min-height:36px;max-height:100px;padding:8px 12px;border-radius:20px;border:none;background:rgba(58,59,60,0.8);color:#e4e6eb;font-size:14px;resize:none;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;line-height:1.33;" onkeydown="if(event.key==='Enter' && !event.shiftKey) { event.preventDefault(); submitReply('${type}', '${id}', '${postId}', '${replyPath}'); }" oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px';"></textarea>
+              <textarea id="reply-input-${postId}-${replyPath}" placeholder="Répondre à ${esc(reply.author || 'Utilisateur')}..." style="width:100%;min-height:36px;max-height:100px;padding:8px 12px;border-radius:20px;border:none;background:rgba(15,23,42,0.8);color:#e4e6eb;font-size:14px;resize:none;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;line-height:1.33;" onkeydown="if(event.key==='Enter' && !event.shiftKey) { event.preventDefault(); submitReply('${type}', '${id}', '${postId}', '${replyPath}'); }" oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px';"></textarea>
             </div>
           </div>
         </div>
@@ -19692,7 +21350,7 @@ function openDiscussionModal(type, id) {
     const repliesCount = post.replies ? post.replies.length : 0;
     
     return `
-      <div style="background:#242526;border-radius:8px;padding:12px;margin-bottom:12px;min-width:0;overflow:hidden;">
+      <div style="background:rgba(30,41,59,0.8);border-radius:8px;padding:12px;margin-bottom:12px;min-width:0;overflow:hidden;border:1px solid rgba(255,255,255,0.06);">
         <!-- En-tête du post -->
         <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:8px;min-width:0;">
           <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#1877f2,#42a5f5);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;font-weight:700;color:#fff;">
@@ -19745,7 +21403,7 @@ function openDiscussionModal(type, id) {
               ${currentUser?.avatar || '👤'}
             </div>
             <div style="flex:1;position:relative;">
-              <textarea id="reply-input-${post.id}" placeholder="Écrivez un commentaire..." style="width:100%;min-height:36px;max-height:100px;padding:8px 12px;border-radius:20px;border:none;background:rgba(58,59,60,0.8);color:#e4e6eb;font-size:14px;resize:none;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;line-height:1.33;" onkeydown="if(event.key==='Enter' && !event.shiftKey) { event.preventDefault(); submitReply('${type}', '${id}', '${post.id}'); }" oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px';"></textarea>
+              <textarea id="reply-input-${post.id}" placeholder="Écrivez un commentaire..." style="width:100%;min-height:36px;max-height:100px;padding:8px 12px;border-radius:20px;border:none;background:rgba(15,23,42,0.8);color:#e4e6eb;font-size:14px;resize:none;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;line-height:1.33;" onkeydown="if(event.key==='Enter' && !event.shiftKey) { event.preventDefault(); submitReply('${type}', '${id}', '${post.id}'); }" oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px';"></textarea>
             </div>
           </div>
         </div>
@@ -19794,7 +21452,7 @@ function openDiscussionModal(type, id) {
   const html = `
     <div style="display:flex;flex-direction:column;height:100%;max-height:90vh;">
       <!-- En-tête style Facebook -->
-      <div style="display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid rgba(255,255,255,0.1);background:#242526;flex-shrink:0;">
+      <div style="display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid rgba(255,255,255,0.1);background:var(--ui-card-bg, #0f172a);flex-shrink:0;">
         <button onclick="closeDiscussionAndReturnToPopup()" style="background:none;border:none;color:#b0b3b8;font-size:20px;cursor:pointer;padding:4px;border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;transition:all 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.1)';this.style.color='#fff'" onmouseout="this.style.background='none';this.style.color='#b0b3b8'">←</button>
         <div style="flex:1;">
           <div style="font-weight:600;font-size:16px;color:#e4e6eb;">Discussion</div>
@@ -19804,7 +21462,7 @@ function openDiscussionModal(type, id) {
       </div>
       
       <!-- Zone de scroll avec posts -->
-      <div id="discussion-posts-container" style="flex:1;overflow-y:auto;overflow-x:hidden;padding:16px 20px;background:#18191a;">
+      <div id="discussion-posts-container" style="flex:1;overflow-y:auto;overflow-x:hidden;padding:16px 20px;background:var(--ui-card-bg, #020617);">
         ${posts.length > 0 ? posts.map(p => renderPost(p)).join('') : `
           <div style="text-align:center;padding:80px 20px;color:#b0b3b8;font-size:14px;">
             <div style="font-size:64px;margin-bottom:16px;opacity:0.5;">💬</div>
@@ -19821,7 +21479,7 @@ function openDiscussionModal(type, id) {
             ${currentUser?.avatar || '👤'}
           </div>
           <div style="flex:1;position:relative;">
-            <textarea id="discussion-input" placeholder="Écrivez un commentaire..." style="width:100%;min-height:38px;max-height:120px;padding:8px 12px;border-radius:20px;border:none;background:rgba(58,59,60,0.8);color:#e4e6eb;font-size:15px;resize:none;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;line-height:1.33;" onkeydown="if(event.key==='Enter' && !event.shiftKey) { event.preventDefault(); submitDiscussionComment('${type}', '${id}'); }" oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,120)+'px';"></textarea>
+            <textarea id="discussion-input" placeholder="Écrivez un commentaire..." style="width:100%;min-height:38px;max-height:120px;padding:8px 12px;border-radius:20px;border:1px solid rgba(255,255,255,0.1);background:rgba(15,23,42,0.8);color:#e4e6eb;font-size:15px;resize:none;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;line-height:1.33;" onkeydown="if(event.key==='Enter' && !event.shiftKey) { event.preventDefault(); submitDiscussionComment('${type}', '${id}'); }" oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,120)+'px';"></textarea>
           </div>
           <button onclick="submitDiscussionComment('${type}', '${id}')" style="padding:8px 16px;border-radius:18px;border:none;background:#1877f2;color:#fff;cursor:pointer;font-size:14px;font-weight:600;transition:all 0.2s;flex-shrink:0;" onmouseover="this.style.background='#166fe5'" onmouseout="this.style.background='#1877f2'">
             Publier
@@ -19903,8 +21561,30 @@ function closeDiscussionAndReturnToPopup() {
 
 window.closeDiscussionAndReturnToPopup = closeDiscussionAndReturnToPopup;
 
+// Helper : Sauvegarder les posts de discussion en API (avec fallback localStorage)
+async function saveDiscussionToAPI(type, id, posts) {
+  try {
+    const resp = await fetch(`${window.API_BASE_URL}/discussions/${type}/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ posts })
+    });
+    if (resp.ok) {
+      console.log('[Discussion] Sauvegarde API OK');
+      // Nettoyer localStorage si migration OK
+      try { localStorage.removeItem(`discussion_${type}_${id}`); } catch(e) {}
+      return true;
+    }
+  } catch(e) {
+    console.warn('[Discussion] API save failed, fallback localStorage:', e);
+  }
+  // Fallback localStorage
+  try { localStorage.setItem(`discussion_${type}_${id}`, JSON.stringify(posts)); } catch(e) {}
+  return false;
+}
+
 // Fonction pour soumettre un post (style Facebook) - reste dans la discussion
-window.submitDiscussionComment = function(type, id) {
+window.submitDiscussionComment = async function(type, id) {
   const input = document.getElementById("discussion-input");
   if (!input || !input.value.trim()) return;
   
@@ -19918,161 +21598,27 @@ window.submitDiscussionComment = function(type, id) {
     replies: []
   };
   
-  const postsKey = `discussion_${type}_${id}`;
-  let posts = JSON.parse(localStorage.getItem(postsKey) || '[]');
-  posts.unshift(post); // Ajouter au début pour afficher les plus récents en premier
-  localStorage.setItem(postsKey, JSON.stringify(posts));
+  // Charger posts actuels depuis API
+  let posts = [];
+  try {
+    const resp = await fetch(`${window.API_BASE_URL}/discussions/${type}/${id}`);
+    if (resp.ok) {
+      const data = await resp.json();
+      posts = data.posts || [];
+    }
+  } catch(e) {
+    posts = JSON.parse(localStorage.getItem(`discussion_${type}_${id}`) || '[]');
+  }
   
-  // Vider le champ de saisie et réinitialiser la hauteur
+  posts.unshift(post);
+  await saveDiscussionToAPI(type, id, posts);
+  
+  // Vider le champ de saisie
   input.value = '';
   input.style.height = 'auto';
   
-  // Rafraîchir uniquement la liste des posts sans fermer la modal
-  const postsContainer = document.getElementById("discussion-posts-container");
-  if (postsContainer) {
-    // Recharger les posts depuis localStorage
-    const updatedPosts = JSON.parse(localStorage.getItem(postsKey) || '[]');
-    
-    // Reconstruire le HTML des posts
-    const formatTime = (timestamp) => {
-      const now = Date.now();
-      const diff = now - timestamp;
-      const minutes = Math.floor(diff / 60000);
-      const hours = Math.floor(diff / 3600000);
-      const days = Math.floor(diff / 86400000);
-      
-      if (minutes < 1) return 'À l\'instant';
-      if (minutes < 60) return `Il y a ${minutes} min`;
-      if (hours < 24) return `Il y a ${hours}h`;
-      if (days < 7) return `Il y a ${days}j`;
-      return new Date(timestamp).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
-    };
-    
-    // Fonction renderReply (doit être redéfinie ici pour le contexte)
-    const renderReply = (reply, postId, parentPath = '', depth = 0) => {
-      const replyPath = parentPath ? `${parentPath}-${reply.id}` : reply.id;
-      const avatarSize = depth === 0 ? 32 : 28;
-      
-      return `
-        <div style="margin-bottom:${reply.replies && reply.replies.length > 0 ? '8px' : '12px'};">
-          <div style="display:flex;gap:8px;">
-            <div style="width:${avatarSize}px;height:${avatarSize}px;border-radius:50%;background:linear-gradient(135deg,#1877f2,#42a5f5);display:flex;align-items:center;justify-content:center;font-size:${avatarSize === 32 ? '14px' : '12px'};flex-shrink:0;font-weight:700;color:#fff;">
-              ${reply.avatar || '👤'}
-            </div>
-            <div style="flex:1;">
-              <div style="background:#3a3b3c;border-radius:12px;padding:8px 12px;margin-bottom:4px;">
-                <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;">
-                  <span style="font-weight:600;font-size:13px;color:#e4e6eb;">${escapeHtml(reply.author || 'Utilisateur')}</span>
-                  <span style="font-size:12px;color:#b0b3b8;">${formatTime(reply.timestamp || Date.now())}</span>
-                </div>
-                <div style="font-size:14px;color:#e4e6eb;line-height:1.33;white-space:pre-wrap;word-wrap:break-word;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">${escapeHtml(reply.text)}</div>
-              </div>
-              <button onclick="showReplyForm('${postId}', '${replyPath}')" style="display:flex;align-items:center;gap:4px;background:none;border:none;color:#b0b3b8;font-size:12px;font-weight:600;cursor:pointer;padding:4px 8px;border-radius:4px;transition:all 0.15s;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='none'">
-                <span>Répondre</span>
-              </button>
-            </div>
-          </div>
-          <div id="reply-form-${postId}-${replyPath}" style="display:none;margin-left:${avatarSize + 8}px;margin-top:8px;">
-            <div style="display:flex;gap:8px;align-items:flex-start;">
-              <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#1877f2,#42a5f5);display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;font-weight:700;color:#fff;">
-                ${currentUser?.avatar || '👤'}
-              </div>
-              <div style="flex:1;position:relative;">
-                <textarea id="reply-input-${postId}-${replyPath}" placeholder="Répondre à ${escapeHtml(reply.author || 'Utilisateur')}..." style="width:100%;min-height:36px;max-height:100px;padding:8px 12px;border-radius:20px;border:none;background:rgba(58,59,60,0.8);color:#e4e6eb;font-size:14px;resize:none;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;line-height:1.33;" onkeydown="if(event.key==='Enter' && !event.shiftKey) { event.preventDefault(); submitReply('${type}', '${id}', '${postId}', '${replyPath}'); }" oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px';"></textarea>
-              </div>
-            </div>
-          </div>
-          ${reply.replies && reply.replies.length > 0 ? `
-            <div style="margin-left:${avatarSize + 8}px;margin-top:8px;">
-              ${reply.replies.map(nestedReply => renderReply(nestedReply, postId, replyPath, depth + 1)).join('')}
-            </div>
-          ` : ''}
-        </div>
-      `;
-    };
-    
-    const renderPost = (post) => {
-      const isLiked = (post.likes || []).includes(currentUser?.id || currentUser?.username);
-      const likesCount = post.likes ? post.likes.length : 0;
-      const repliesCount = post.replies ? post.replies.length : 0;
-      
-      return `
-        <div style="background:#242526;border-radius:8px;padding:12px;margin-bottom:12px;">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-            <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#1877f2,#42a5f5);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;font-weight:700;color:#fff;">
-              ${post.avatar || '👤'}
-            </div>
-            <div style="flex:1;">
-              <div style="font-weight:600;font-size:15px;color:#e4e6eb;line-height:1.2;">${escapeHtml(post.author || 'Utilisateur')}</div>
-              <div style="font-size:13px;color:#b0b3b8;line-height:1.2;">${formatTime(post.timestamp || Date.now())}</div>
-            </div>
-          </div>
-          <div style="font-size:15px;color:#e4e6eb;line-height:1.33;margin-bottom:8px;white-space:pre-wrap;word-wrap:break-word;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">${escapeHtml(post.text)}</div>
-          ${(likesCount > 0 || repliesCount > 0) ? `
-            <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.1);margin-bottom:4px;">
-              ${likesCount > 0 ? `
-                <div style="display:flex;align-items:center;gap:4px;font-size:13px;color:#b0b3b8;">
-                  <span style="font-size:16px;">👍</span>
-                  <span>${likesCount}</span>
-                </div>
-              ` : '<div></div>'}
-              ${repliesCount > 0 ? `
-                <div style="font-size:13px;color:#b0b3b8;cursor:pointer;" onclick="document.getElementById('reply-form-${post.id}').style.display='block';document.getElementById('reply-input-${post.id}').focus();">
-                  ${repliesCount} commentaire${repliesCount > 1 ? 's' : ''}
-                </div>
-              ` : '<div></div>'}
-            </div>
-          ` : ''}
-          <div style="display:flex;align-items:center;gap:4px;padding:4px 0;border-top:1px solid rgba(255,255,255,0.1);">
-            <button onclick="togglePostLike('${type}', '${id}', '${post.id}')" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:none;border:none;color:${isLiked ? '#1877f2' : '#b0b3b8'};font-size:14px;font-weight:600;cursor:pointer;padding:6px;border-radius:4px;transition:all 0.15s;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='none'">
-              <span style="font-size:18px;">👍</span>
-              <span>J'aime</span>
-            </button>
-            <button onclick="showReplyForm('${post.id}')" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:none;border:none;color:#b0b3b8;font-size:14px;font-weight:600;cursor:pointer;padding:6px;border-radius:4px;transition:all 0.15s;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='none'">
-              <span style="font-size:18px;">💬</span>
-              <span>Commenter</span>
-            </button>
-          </div>
-          <div id="reply-form-${post.id}" style="display:none;margin-top:8px;padding-top:8px;">
-            <div style="display:flex;gap:8px;align-items:flex-start;">
-              <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#1877f2,#42a5f5);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;font-weight:700;color:#fff;">
-                ${currentUser?.avatar || '👤'}
-              </div>
-              <div style="flex:1;position:relative;">
-                <textarea id="reply-input-${post.id}" placeholder="Écrivez un commentaire..." style="width:100%;min-height:36px;max-height:100px;padding:8px 12px;border-radius:20px;border:none;background:rgba(58,59,60,0.8);color:#e4e6eb;font-size:14px;resize:none;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;line-height:1.33;" onkeydown="if(event.key==='Enter' && !event.shiftKey) { event.preventDefault(); submitReply('${type}', '${id}', '${post.id}'); }" oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px';"></textarea>
-              </div>
-            </div>
-          </div>
-          ${post.replies && post.replies.length > 0 ? `
-            <div style="margin-top:8px;padding-left:48px;">
-              ${post.replies.map(reply => renderReply(reply, post.id, '', 0)).join('')}
-            </div>
-          ` : ''}
-        </div>
-      `;
-    };
-    
-    postsContainer.innerHTML = updatedPosts.length > 0 
-      ? updatedPosts.map(p => renderPost(p)).join('')
-      : `
-        <div style="text-align:center;padding:80px 20px;color:var(--ui-text-muted);font-size:14px;">
-          <div style="font-size:64px;margin-bottom:16px;opacity:0.5;">💬</div>
-          <div style="font-weight:600;margin-bottom:8px;color:var(--ui-text-main);font-size:16px;">Aucune publication</div>
-          <div style="font-size:13px;">Soyez le premier à partager quelque chose !</div>
-        </div>
-      `;
-    
-    // Scroll vers le haut pour voir le nouveau post
-    postsContainer.scrollTop = 0;
-    
-    // Remettre le focus sur le textarea
-    setTimeout(() => {
-      if (input) input.focus();
-    }, 100);
-  } else {
-    // Si le container n'existe pas, réouvrir la modal
+  // Rafraichir l'affichage depuis l'API
     openDiscussionModal(type, id);
-  }
 };
 
 // Fonction pour afficher/masquer le formulaire de réponse (avec support pour chemins)
@@ -20167,7 +21713,7 @@ function findReplyByPath(replies, pathArray, currentIndex = 0) {
 }
 
 // Fonction pour soumettre une réponse à un post (avec support pour chemins imbriqués)
-window.submitReply = function(type, id, postId, replyPath = null) {
+window.submitReply = async function(type, id, postId, replyPath = null) {
   const inputId = replyPath ? `reply-input-${postId}-${replyPath}` : `reply-input-${postId}`;
   const input = document.getElementById(inputId);
   if (!input || !input.value.trim()) return;
@@ -20178,16 +21724,25 @@ window.submitReply = function(type, id, postId, replyPath = null) {
     avatar: currentUser?.avatar || '👤',
     text: input.value.trim(),
     timestamp: Date.now(),
-    replies: [] // Permet les réponses imbriquées illimitées
+    replies: []
   };
   
-  const postsKey = `discussion_${type}_${id}`;
-  let posts = JSON.parse(localStorage.getItem(postsKey) || '[]');
+  // Charger posts actuels depuis API
+  let posts = [];
+  try {
+    const resp = await fetch(`${window.API_BASE_URL}/discussions/${type}/${id}`);
+    if (resp.ok) {
+      const data = await resp.json();
+      posts = data.posts || [];
+    }
+  } catch(e) {
+    posts = JSON.parse(localStorage.getItem(`discussion_${type}_${id}`) || '[]');
+  }
+  
   const post = posts.find(p => p.id === postId);
   
   if (post) {
     if (replyPath) {
-      // Répondre à une réponse existante (peut être à n'importe quel niveau)
       const pathArray = replyPath.split('-');
       const parentReply = findReplyByPath(post.replies || [], pathArray);
       
@@ -20196,160 +21751,31 @@ window.submitReply = function(type, id, postId, replyPath = null) {
         parentReply.replies.push(reply);
       }
     } else {
-      // Répondre directement au post
       if (!post.replies) post.replies = [];
       post.replies.push(reply);
     }
     
-    localStorage.setItem(postsKey, JSON.stringify(posts));
+    await saveDiscussionToAPI(type, id, posts);
     
-    // Masquer le formulaire et vider le champ
-    hideReplyForm(postId, replyPath);
-    
-    // Rafraîchir uniquement la liste des posts sans fermer la modal
-    const postsContainer = document.getElementById("discussion-posts-container");
-    if (postsContainer) {
-      // Recharger les posts depuis localStorage
-      const updatedPosts = JSON.parse(localStorage.getItem(postsKey) || '[]');
-      
-      // Reconstruire le HTML (même logique que dans submitDiscussionComment)
-      const formatTime = (timestamp) => {
-        const now = Date.now();
-        const diff = now - timestamp;
-        const minutes = Math.floor(diff / 60000);
-        const hours = Math.floor(diff / 3600000);
-        const days = Math.floor(diff / 86400000);
-        
-        if (minutes < 1) return 'À l\'instant';
-        if (minutes < 60) return `Il y a ${minutes} min`;
-        if (hours < 24) return `Il y a ${hours}h`;
-        if (days < 7) return `Il y a ${days}j`;
-        return new Date(timestamp).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
-      };
-      
-      const renderReply = (reply, postId, parentPath = '', depth = 0) => {
-        const replyPath = parentPath ? `${parentPath}-${reply.id}` : reply.id;
-        const avatarSize = depth === 0 ? 32 : 28;
-        
-        return `
-          <div style="margin-bottom:${reply.replies && reply.replies.length > 0 ? '8px' : '12px'};">
-            <div style="display:flex;gap:8px;">
-              <div style="width:${avatarSize}px;height:${avatarSize}px;border-radius:50%;background:linear-gradient(135deg,#1877f2,#42a5f5);display:flex;align-items:center;justify-content:center;font-size:${avatarSize === 32 ? '14px' : '12px'};flex-shrink:0;font-weight:700;color:#fff;">
-                ${reply.avatar || '👤'}
-              </div>
-              <div style="flex:1;">
-                <div style="background:#3a3b3c;border-radius:12px;padding:8px 12px;margin-bottom:4px;">
-                  <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;">
-                    <span style="font-weight:600;font-size:13px;color:#e4e6eb;">${escapeHtml(reply.author || 'Utilisateur')}</span>
-                    <span style="font-size:12px;color:#b0b3b8;">${formatTime(reply.timestamp || Date.now())}</span>
-                  </div>
-                  <div style="font-size:14px;color:#e4e6eb;line-height:1.33;white-space:pre-wrap;word-wrap:break-word;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">${escapeHtml(reply.text)}</div>
-                </div>
-                <button onclick="showReplyForm('${postId}', '${replyPath}')" style="display:flex;align-items:center;gap:4px;background:none;border:none;color:#b0b3b8;font-size:12px;font-weight:600;cursor:pointer;padding:4px 8px;border-radius:4px;transition:all 0.15s;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='none'">
-                  <span>Répondre</span>
-                </button>
-              </div>
-            </div>
-            <div id="reply-form-${postId}-${replyPath}" style="display:none;margin-left:${avatarSize + 8}px;margin-top:8px;">
-              <div style="display:flex;gap:8px;align-items:flex-start;">
-                <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#1877f2,#42a5f5);display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;font-weight:700;color:#fff;">
-                  ${currentUser?.avatar || '👤'}
-                </div>
-                <div style="flex:1;position:relative;">
-                  <textarea id="reply-input-${postId}-${replyPath}" placeholder="Répondre à ${escapeHtml(reply.author || 'Utilisateur')}..." style="width:100%;min-height:36px;max-height:100px;padding:8px 12px;border-radius:20px;border:none;background:rgba(58,59,60,0.8);color:#e4e6eb;font-size:14px;resize:none;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;line-height:1.33;" onkeydown="if(event.key==='Enter' && !event.shiftKey) { event.preventDefault(); submitReply('${type}', '${id}', '${postId}', '${replyPath}'); }" oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px';"></textarea>
-                </div>
-              </div>
-            </div>
-            ${reply.replies && reply.replies.length > 0 ? `
-              <div style="margin-left:${avatarSize + 8}px;margin-top:8px;">
-                ${reply.replies.map(nestedReply => renderReply(nestedReply, postId, replyPath, depth + 1)).join('')}
-              </div>
-            ` : ''}
-          </div>
-        `;
-      };
-      
-      const renderPost = (post) => {
-        const isLiked = (post.likes || []).includes(currentUser?.id || currentUser?.username);
-        const likesCount = post.likes ? post.likes.length : 0;
-        const repliesCount = post.replies ? post.replies.length : 0;
-        
-        return `
-          <div style="background:#242526;border-radius:8px;padding:12px;margin-bottom:12px;">
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-              <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#1877f2,#42a5f5);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;font-weight:700;color:#fff;">
-                ${post.avatar || '👤'}
-              </div>
-              <div style="flex:1;">
-                <div style="font-weight:600;font-size:15px;color:#e4e6eb;line-height:1.2;">${escapeHtml(post.author || 'Utilisateur')}</div>
-                <div style="font-size:13px;color:#b0b3b8;line-height:1.2;">${formatTime(post.timestamp || Date.now())}</div>
-              </div>
-            </div>
-            <div style="font-size:15px;color:#e4e6eb;line-height:1.33;margin-bottom:8px;white-space:pre-wrap;word-wrap:break-word;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">${escapeHtml(post.text)}</div>
-            ${(likesCount > 0 || repliesCount > 0) ? `
-              <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.1);margin-bottom:4px;">
-                ${likesCount > 0 ? `
-                  <div style="display:flex;align-items:center;gap:4px;font-size:13px;color:#b0b3b8;">
-                    <span style="font-size:16px;">👍</span>
-                    <span>${likesCount}</span>
-                  </div>
-                ` : '<div></div>'}
-                ${repliesCount > 0 ? `
-                  <div style="font-size:13px;color:#b0b3b8;cursor:pointer;" onclick="document.getElementById('reply-form-${post.id}').style.display='block';document.getElementById('reply-input-${post.id}').focus();">
-                    ${repliesCount} commentaire${repliesCount > 1 ? 's' : ''}
-                  </div>
-                ` : '<div></div>'}
-              </div>
-            ` : ''}
-            <div style="display:flex;align-items:center;gap:4px;padding:4px 0;border-top:1px solid rgba(255,255,255,0.1);">
-              <button onclick="togglePostLike('${type}', '${id}', '${post.id}')" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:none;border:none;color:${isLiked ? '#1877f2' : '#b0b3b8'};font-size:14px;font-weight:600;cursor:pointer;padding:6px;border-radius:4px;transition:all 0.15s;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='none'">
-                <span style="font-size:18px;">👍</span>
-                <span>J'aime</span>
-              </button>
-              <button onclick="showReplyForm('${post.id}')" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:none;border:none;color:#b0b3b8;font-size:14px;font-weight:600;cursor:pointer;padding:6px;border-radius:4px;transition:all 0.15s;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='none'">
-                <span style="font-size:18px;">💬</span>
-                <span>Commenter</span>
-              </button>
-            </div>
-            <div id="reply-form-${post.id}" style="display:none;margin-top:8px;padding-top:8px;">
-              <div style="display:flex;gap:8px;align-items:flex-start;">
-                <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#1877f2,#42a5f5);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;font-weight:700;color:#fff;">
-                  ${currentUser?.avatar || '👤'}
-                </div>
-                <div style="flex:1;position:relative;">
-                  <textarea id="reply-input-${post.id}" placeholder="Écrivez un commentaire..." style="width:100%;min-height:36px;max-height:100px;padding:8px 12px;border-radius:20px;border:none;background:rgba(58,59,60,0.8);color:#e4e6eb;font-size:14px;resize:none;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;line-height:1.33;" onkeydown="if(event.key==='Enter' && !event.shiftKey) { event.preventDefault(); submitReply('${type}', '${id}', '${post.id}'); }" oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px';"></textarea>
-                </div>
-              </div>
-            </div>
-            ${post.replies && post.replies.length > 0 ? `
-              <div style="margin-top:8px;padding-left:48px;">
-                ${post.replies.map(reply => renderReply(reply, post.id, '', 0)).join('')}
-              </div>
-            ` : ''}
-          </div>
-        `;
-      };
-      
-      postsContainer.innerHTML = updatedPosts.length > 0 
-        ? updatedPosts.map(p => renderPost(p)).join('')
-        : `
-          <div style="text-align:center;padding:80px 20px;color:var(--ui-text-muted);font-size:14px;">
-            <div style="font-size:64px;margin-bottom:16px;opacity:0.5;">💬</div>
-            <div style="font-weight:600;margin-bottom:8px;color:var(--ui-text-main);font-size:16px;">Aucune publication</div>
-            <div style="font-size:13px;">Soyez le premier à partager quelque chose !</div>
-          </div>
-        `;
-    } else {
-      // Si le container n'existe pas, réouvrir la modal
-      openDiscussionModal(type, id);
-    }
+    // Rafraichir l'affichage depuis l'API
+    openDiscussionModal(type, id);
   }
 };
 
 // Fonction pour liker/unliker un post
-window.togglePostLike = function(type, id, postId) {
-  const postsKey = `discussion_${type}_${id}`;
-  let posts = JSON.parse(localStorage.getItem(postsKey) || '[]');
+window.togglePostLike = async function(type, id, postId) {
+  // Charger posts depuis API
+  let posts = [];
+  try {
+    const resp = await fetch(`${window.API_BASE_URL}/discussions/${type}/${id}`);
+    if (resp.ok) {
+      const data = await resp.json();
+      posts = data.posts || [];
+    }
+  } catch(e) {
+    posts = JSON.parse(localStorage.getItem(`discussion_${type}_${id}`) || '[]');
+  }
+  
   const post = posts.find(p => p.id === postId);
   
   if (post) {
@@ -20358,19 +21784,805 @@ window.togglePostLike = function(type, id, postId) {
     const index = post.likes.indexOf(userId);
     
     if (index > -1) {
-      // Retirer le like
       post.likes.splice(index, 1);
     } else {
-      // Ajouter le like
       post.likes.push(userId);
     }
     
-    localStorage.setItem(postsKey, JSON.stringify(posts));
+    await saveDiscussionToAPI(type, id, posts);
     
     // Réouvrir le modal pour afficher le changement
     openDiscussionModal(type, id);
   }
 };
+
+// ============================================
+// SYSTÈME D'AMIS - UI COMPLÈTE
+// ============================================
+
+function openFriendsModal() {
+  const esc = (typeof escapeHtml === 'function') ? escapeHtml : (s) => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  
+  if (!currentUser || !currentUser.isLoggedIn) {
+    openAuthModal('login');
+    return;
+  }
+  
+  const token = typeof getAuthToken === 'function' ? getAuthToken() : null;
+  const authHeaders = token ? { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' };
+  
+  let backdrop = document.getElementById('popup-modal-backdrop');
+  if (!backdrop) {
+    backdrop = document.createElement('div');
+    backdrop.id = 'popup-modal-backdrop';
+    backdrop.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;z-index:99999;backdrop-filter:blur(2px);';
+    document.body.appendChild(backdrop);
+  }
+  
+  backdrop.style.display = 'flex';
+  backdrop.innerHTML = `
+    <div id="popup-modal-content" style="background:#1e293b;border-radius:20px;width:90%;max-width:500px;max-height:85vh;overflow-y:auto;position:relative;">
+      <div style="padding:20px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+          <h2 style="margin:0;font-size:20px;font-weight:700;color:#fff;">👥 Mes Amis</h2>
+          <button onclick="document.getElementById('popup-modal-backdrop').style.display='none'" style="background:none;border:none;color:#64748b;font-size:22px;cursor:pointer;">✕</button>
+        </div>
+        
+        <!-- Recherche d'amis -->
+        <div style="margin-bottom:20px;">
+            <div style="display:flex;gap:8px;">
+            <input id="friend-search-input" type="text" placeholder="Rechercher par nom ou email..." 
+              style="flex:1;padding:10px 14px;border-radius:12px;border:1px solid rgba(255,255,255,0.1);background:#0f172a;color:#e2e8f0;font-size:14px;"
+              oninput="searchFriends(this.value)" />
+          </div>
+          <div id="friend-search-results" style="margin-top:8px;"></div>
+        </div>
+        
+        <!-- Demandes reçues -->
+        <div id="friend-requests-section" style="margin-bottom:20px;">
+          <div style="font-size:13px;font-weight:600;color:#94a3b8;margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px;">Demandes reçues</div>
+          <div id="friend-requests-list" style="color:#64748b;font-size:13px;">Chargement...</div>
+        </div>
+        
+        <!-- Liste d'amis -->
+        <div>
+          <div style="font-size:13px;font-weight:600;color:#94a3b8;margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px;">Mes amis</div>
+          <div id="friends-list" style="color:#64748b;font-size:13px;">Chargement...</div>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  backdrop.onclick = (e) => { if (e.target === backdrop) backdrop.style.display = 'none'; };
+  
+  // Charger les données
+  loadFriendRequests(authHeaders);
+  loadFriendsList(authHeaders);
+}
+
+window.searchFriends = async function(query) {
+  const resultsDiv = document.getElementById('friend-search-results');
+  if (!resultsDiv) return;
+  if (!query || query.length < 2) { resultsDiv.innerHTML = ''; return; }
+  
+  const token = typeof getAuthToken === 'function' ? getAuthToken() : null;
+  if (!token) { resultsDiv.innerHTML = '<div style="color:#ef4444;font-size:12px;">Connexion requise</div>'; return; }
+  
+  try {
+    const resp = await fetch(`${window.API_BASE_URL}/friends/search?q=${encodeURIComponent(query)}`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (!resp.ok) throw new Error('Erreur recherche');
+    const data = await resp.json();
+    
+    if (!data.users || data.users.length === 0) {
+      resultsDiv.innerHTML = '<div style="padding:8px;color:#64748b;font-size:13px;">Aucun utilisateur trouvé</div>';
+      return;
+    }
+    
+    resultsDiv.innerHTML = data.users.map(u => `
+      <div style="display:flex;align-items:center;gap:10px;padding:10px;border-radius:10px;background:rgba(15,23,42,0.5);margin-bottom:6px;">
+        <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#3b82f6,#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff;font-weight:700;flex-shrink:0;">
+          ${u.avatar ? `<img src="${u.avatar}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" onerror="this.outerHTML='👤'">` : (u.username||'U').charAt(0).toUpperCase()}
+        </div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:600;font-size:14px;color:#e2e8f0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(u.username || 'Utilisateur')}</div>
+        </div>
+        <button onclick="sendFriendRequest('${u.id}')" style="padding:6px 14px;border-radius:8px;border:none;background:#3b82f6;color:#fff;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">+ Ajouter</button>
+      </div>
+    `).join('');
+  } catch(e) {
+    resultsDiv.innerHTML = '<div style="color:#ef4444;font-size:12px;">Erreur de recherche</div>';
+  }
+};
+
+window.sendFriendRequest = async function(toUserId) {
+  const token = typeof getAuthToken === 'function' ? getAuthToken() : null;
+  if (!token) return;
+  
+  try {
+    const resp = await fetch(`${window.API_BASE_URL}/friends/request`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ toUserId })
+    });
+    const data = await resp.json();
+    
+    if (data.status === 'accepted') {
+      showNotification('Vous etes maintenant amis !', 'success');
+      openFriendsModal(); // Rafraichir
+    } else if (data.status === 'pending') {
+      showNotification('Demande d\'ami envoyee !', 'success');
+    } else if (data.error) {
+      showNotification(data.error, 'warning');
+    }
+  } catch(e) {
+    showNotification('Erreur lors de l\'envoi', 'error');
+  }
+};
+
+async function loadFriendRequests(authHeaders) {
+  const div = document.getElementById('friend-requests-list');
+  if (!div) return;
+  
+  try {
+    const resp = await fetch(`${window.API_BASE_URL}/friends/requests`, { headers: authHeaders });
+    if (!resp.ok) throw new Error();
+    const data = await resp.json();
+    
+    if (!data.requests || data.requests.length === 0) {
+      div.innerHTML = '<div style="padding:8px;color:#64748b;font-size:13px;">Aucune demande en attente</div>';
+      // Cacher la section
+      const section = document.getElementById('friend-requests-section');
+      if (section) section.style.display = 'none';
+      return;
+    }
+    
+    div.innerHTML = data.requests.map(r => `
+      <div style="display:flex;align-items:center;gap:10px;padding:10px;border-radius:10px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.2);margin-bottom:6px;">
+        <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#3b82f6,#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff;font-weight:700;flex-shrink:0;">
+          ${(r.username||'U').charAt(0).toUpperCase()}
+              </div>
+              <div style="flex:1;">
+          <div style="font-weight:600;font-size:14px;color:#e2e8f0;">${escapeHtml(r.username)}</div>
+          <div style="font-size:11px;color:#64748b;">Demande d'ami</div>
+                  </div>
+        <button onclick="respondFriendRequest(${r.requestId},'accept')" style="padding:6px 12px;border-radius:8px;border:none;background:#22c55e;color:#fff;font-size:12px;font-weight:600;cursor:pointer;">Accepter</button>
+        <button onclick="respondFriendRequest(${r.requestId},'reject')" style="padding:6px 12px;border-radius:8px;border:none;background:#ef4444;color:#fff;font-size:12px;font-weight:600;cursor:pointer;">Refuser</button>
+                </div>
+    `).join('');
+  } catch(e) {
+    div.innerHTML = '<div style="color:#ef4444;font-size:12px;">Erreur chargement</div>';
+  }
+}
+
+window.respondFriendRequest = async function(requestId, action) {
+  const token = typeof getAuthToken === 'function' ? getAuthToken() : null;
+  if (!token) return;
+  
+  try {
+    await fetch(`${window.API_BASE_URL}/friends/respond`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ requestId, action })
+    });
+    showNotification(action === 'accept' ? 'Ami accepte !' : 'Demande refusee', action === 'accept' ? 'success' : 'info');
+    openFriendsModal(); // Rafraichir
+  } catch(e) {
+    showNotification('Erreur', 'error');
+  }
+};
+
+async function loadFriendsList(authHeaders) {
+  const div = document.getElementById('friends-list');
+  if (!div) return;
+  
+  try {
+    const resp = await fetch(`${window.API_BASE_URL}/friends/list`, { headers: authHeaders });
+    if (!resp.ok) throw new Error();
+    const data = await resp.json();
+    
+    if (!data.friends || data.friends.length === 0) {
+      div.innerHTML = '<div style="text-align:center;padding:30px;"><div style="font-size:48px;margin-bottom:12px;opacity:0.5;">👥</div><div style="color:#64748b;font-size:14px;">Pas encore d\'amis</div><div style="color:#475569;font-size:12px;margin-top:4px;">Recherchez des utilisateurs ci-dessus !</div></div>';
+      return;
+    }
+    
+    // Stocker pour utiliser ailleurs (invitations)
+    window._friendsList = data.friends;
+    
+    div.innerHTML = data.friends.map(f => `
+      <div style="display:flex;align-items:center;gap:10px;padding:10px;border-radius:10px;background:rgba(15,23,42,0.5);margin-bottom:6px;">
+        <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#3b82f6,#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:16px;color:#fff;font-weight:700;flex-shrink:0;">
+          ${f.avatar ? `<img src="${f.avatar}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" onerror="this.outerHTML='${(f.username||'U').charAt(0).toUpperCase()}'">` : (f.username||'U').charAt(0).toUpperCase()}
+              </div>
+        <div style="flex:1;">
+          <div style="font-weight:600;font-size:14px;color:#e2e8f0;">${escapeHtml(f.username)}</div>
+          <div style="font-size:11px;color:#64748b;">Ami depuis ${f.since ? new Date(f.since).toLocaleDateString('fr-FR', {day:'numeric',month:'short',year:'numeric'}) : '...'}</div>
+            </div>
+        <button onclick="openPrivateChat('${f.id}','${escapeHtml(f.username)}')" style="padding:6px 10px;border-radius:8px;border:1px solid rgba(59,130,246,0.3);background:transparent;color:#3b82f6;font-size:12px;cursor:pointer;" title="Discuter">💬</button>
+        <button onclick="removeFriend('${f.id}')" style="padding:6px 10px;border-radius:8px;border:1px solid rgba(239,68,68,0.3);background:transparent;color:#ef4444;font-size:12px;cursor:pointer;" title="Retirer">✕</button>
+                </div>
+    `).join('');
+  } catch(e) {
+    div.innerHTML = '<div style="color:#ef4444;font-size:12px;">Erreur chargement</div>';
+  }
+}
+
+window.removeFriend = async function(friendId) {
+  if (!confirm('Retirer cet ami ?')) return;
+  const token = typeof getAuthToken === 'function' ? getAuthToken() : null;
+  if (!token) return;
+  
+  try {
+    await fetch(`${window.API_BASE_URL}/friends/remove`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ friendId })
+    });
+    showNotification('Ami retire', 'info');
+    openFriendsModal();
+  } catch(e) {}
+};
+
+window.openPrivateChat = function(friendId, friendName) {
+  showNotification('Discussion privee avec ' + friendName + ' - bientot disponible !', 'info');
+};
+
+// ============================================
+// INVITER DES AMIS À UN EVENT
+// ============================================
+
+function openInviteFriendsModal(itemType, itemId, itemTitle) {
+  if (!currentUser || !currentUser.isLoggedIn) { openAuthModal('login'); return; }
+  
+  const token = typeof getAuthToken === 'function' ? getAuthToken() : null;
+  if (!token) return;
+  
+  // Créer le modal d'invitation
+  let modal = document.getElementById('invite-friends-modal');
+  if (modal) modal.remove();
+  
+  modal = document.createElement('div');
+  modal.id = 'invite-friends-modal';
+  modal.style.cssText = 'position:fixed;inset:0;z-index:100001;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);';
+  modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+  
+  modal.innerHTML = `
+    <div style="background:#1e293b;border-radius:18px;width:90%;max-width:420px;max-height:80vh;overflow-y:auto;padding:20px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+        <div>
+          <div style="font-size:16px;font-weight:700;color:#fff;">Inviter des amis</div>
+          <div style="font-size:12px;color:#64748b;margin-top:2px;">${escapeHtml(itemTitle || '')}</div>
+                </div>
+        <button onclick="this.closest('#invite-friends-modal').remove()" style="background:none;border:none;color:#64748b;font-size:20px;cursor:pointer;">✕</button>
+              </div>
+      <input id="invite-search-input" type="text" placeholder="Chercher un ami..." 
+        style="width:100%;padding:10px 14px;border-radius:10px;border:1px solid rgba(255,255,255,0.1);background:#0f172a;color:#e2e8f0;font-size:14px;margin-bottom:12px;box-sizing:border-box;"
+        oninput="filterInviteList(this.value)" />
+      <div id="invite-friends-list" style="color:#64748b;">Chargement...</div>
+            </div>
+  `;
+  document.body.appendChild(modal);
+  
+  // Charger la liste d'amis
+  fetch(`${window.API_BASE_URL}/friends/list`, {
+    headers: { 'Authorization': `Bearer ${token}` }
+  }).then(r => r.json()).then(data => {
+    const listDiv = document.getElementById('invite-friends-list');
+    if (!listDiv) return;
+    
+    const friends = data.friends || [];
+    if (friends.length === 0) {
+      listDiv.innerHTML = '<div style="text-align:center;padding:20px;color:#64748b;">Pas encore d\'amis a inviter</div>';
+      return;
+    }
+    
+    window._inviteFriends = friends;
+    renderInviteList(friends, itemType, itemId);
+  }).catch(() => {
+    const listDiv = document.getElementById('invite-friends-list');
+    if (listDiv) listDiv.innerHTML = '<div style="color:#ef4444;">Erreur chargement</div>';
+  });
+}
+
+window.filterInviteList = function(query) {
+  if (!window._inviteFriends) return;
+  const filtered = query.length < 1 ? window._inviteFriends : window._inviteFriends.filter(f => 
+    (f.username||'').toLowerCase().includes(query.toLowerCase()) ||
+    (f.email||'').toLowerCase().includes(query.toLowerCase())
+  );
+  const itemType = window._currentInviteType || 'event';
+  const itemId = window._currentInviteId || 0;
+  renderInviteList(filtered, itemType, itemId);
+};
+
+function renderInviteList(friends, itemType, itemId) {
+  window._currentInviteType = itemType;
+  window._currentInviteId = itemId;
+  const listDiv = document.getElementById('invite-friends-list');
+  if (!listDiv) return;
+  
+  listDiv.innerHTML = friends.map(f => `
+    <div style="display:flex;align-items:center;gap:10px;padding:10px;border-radius:10px;background:rgba(15,23,42,0.5);margin-bottom:6px;">
+      <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#3b82f6,#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff;font-weight:700;flex-shrink:0;">
+        ${(f.username||'U').charAt(0).toUpperCase()}
+              </div>
+      <div style="flex:1;font-weight:600;font-size:14px;color:#e2e8f0;">${escapeHtml(f.username)}</div>
+      <button onclick="inviteFriendToEvent('${f.id}','${itemType}',${itemId})" style="padding:6px 14px;border-radius:8px;border:none;background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;font-size:12px;font-weight:600;cursor:pointer;">Inviter</button>
+    </div>
+  `).join('');
+}
+
+window.inviteFriendToEvent = async function(friendId, itemType, itemId) {
+  const token = typeof getAuthToken === 'function' ? getAuthToken() : null;
+  if (!token) return;
+  
+  try {
+    const resp = await fetch(`${window.API_BASE_URL}/friends/invite`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ friendId, itemType, itemId })
+    });
+    if (resp.ok) {
+      showNotification('Invitation envoyee !', 'success');
+    } else {
+      const data = await resp.json();
+      showNotification(data.error || 'Erreur', 'error');
+    }
+  } catch(e) {
+    showNotification('Erreur d\'envoi', 'error');
+  }
+};
+
+window.openInviteFriendsModal = openInviteFriendsModal;
+window.openFriendsModal = openFriendsModal;
+
+// ============================================
+// NOTIFICATIONS - UI
+// ============================================
+
+async function openNotificationsModal() {
+  if (!currentUser || !currentUser.isLoggedIn) { openAuthModal('login'); return; }
+  
+  const token = typeof getAuthToken === 'function' ? getAuthToken() : null;
+  if (!token) return;
+  
+  let backdrop = document.getElementById('popup-modal-backdrop');
+  if (!backdrop) {
+    backdrop = document.createElement('div');
+    backdrop.id = 'popup-modal-backdrop';
+    backdrop.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;z-index:99999;backdrop-filter:blur(2px);';
+    document.body.appendChild(backdrop);
+  }
+  backdrop.style.display = 'flex';
+  backdrop.onclick = (e) => { if (e.target === backdrop) backdrop.style.display = 'none'; };
+  
+  backdrop.innerHTML = `
+    <div id="popup-modal-content" style="background:#1e293b;border-radius:20px;width:90%;max-width:500px;max-height:85vh;overflow-y:auto;padding:20px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+        <h2 style="margin:0;font-size:20px;font-weight:700;color:#fff;">🔔 Notifications</h2>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <button onclick="markAllNotificationsRead()" style="padding:6px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);background:transparent;color:#64748b;font-size:11px;cursor:pointer;">Tout lire</button>
+          <button onclick="document.getElementById('popup-modal-backdrop').style.display='none'" style="background:none;border:none;color:#64748b;font-size:22px;cursor:pointer;">✕</button>
+        </div>
+      </div>
+      <div id="notifications-list" style="color:#64748b;">Chargement...</div>
+          </div>
+        `;
+  
+  try {
+    const resp = await fetch(`${window.API_BASE_URL}/notifications`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (!resp.ok) throw new Error();
+    const data = await resp.json();
+    const listDiv = document.getElementById('notifications-list');
+    if (!listDiv) return;
+    
+    if (!data.notifications || data.notifications.length === 0) {
+      listDiv.innerHTML = '<div style="text-align:center;padding:40px;"><div style="font-size:48px;margin-bottom:12px;opacity:0.5;">🔔</div><div style="color:#64748b;">Aucune notification</div></div>';
+      return;
+    }
+    
+    const typeIcons = { 'friend_request': '👥', 'friend_accepted': '🤝', 'event_invite': '📅', 'social_like': '❤️', 'social_comment': '💬' };
+    const typeLabels = { 'friend_request': 'Demande d\'ami', 'friend_accepted': 'Ami accepte', 'event_invite': 'Invitation event', 'social_like': 'A aime votre post', 'social_comment': 'A commente' };
+    
+    listDiv.innerHTML = data.notifications.map(n => `
+      <div style="display:flex;gap:12px;padding:12px;border-radius:12px;background:${n.isRead ? 'transparent' : 'rgba(59,130,246,0.08)'};border:1px solid ${n.isRead ? 'rgba(255,255,255,0.05)' : 'rgba(59,130,246,0.15)'};margin-bottom:8px;cursor:pointer;" onclick="markNotificationRead(${n.id})">
+        <div style="width:40px;height:40px;border-radius:50%;background:rgba(59,130,246,0.15);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">
+          ${typeIcons[n.type] || '🔔'}
+        </div>
+        <div style="flex:1;">
+          <div style="font-size:14px;color:#e2e8f0;"><strong>${escapeHtml(n.fromUsername)}</strong> ${typeLabels[n.type] || n.message || ''}</div>
+          <div style="font-size:11px;color:#64748b;margin-top:4px;">${n.date ? new Date(n.date).toLocaleDateString('fr-FR', {day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}) : ''}</div>
+        </div>
+        ${!n.isRead ? '<div style="width:8px;height:8px;border-radius:50%;background:#3b82f6;flex-shrink:0;align-self:center;"></div>' : ''}
+      </div>
+    `).join('');
+  } catch(e) {
+    const listDiv = document.getElementById('notifications-list');
+    if (listDiv) listDiv.innerHTML = '<div style="color:#ef4444;">Erreur chargement notifications</div>';
+  }
+}
+
+window.markNotificationRead = async function(notifId) {
+  const token = typeof getAuthToken === 'function' ? getAuthToken() : null;
+  if (!token) return;
+  try {
+    await fetch(`${window.API_BASE_URL}/notifications/read`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ notificationId: notifId })
+    });
+  } catch(e) {}
+};
+
+window.markAllNotificationsRead = async function() {
+  const token = typeof getAuthToken === 'function' ? getAuthToken() : null;
+  if (!token) return;
+  try {
+    await fetch(`${window.API_BASE_URL}/notifications/read`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    });
+    showNotification('Toutes les notifications marquees comme lues', 'success');
+    openNotificationsModal();
+  } catch(e) {}
+};
+
+window.openNotificationsModal = openNotificationsModal;
+
+// ============================================
+// MAP FRIEND - FIL SOCIAL TYPE FACEBOOK
+// ============================================
+
+async function openMapFriendModal() {
+  if (!currentUser || !currentUser.isLoggedIn) { openAuthModal('login'); return; }
+  
+  const token = typeof getAuthToken === 'function' ? getAuthToken() : null;
+  if (!token) return;
+  
+  let backdrop = document.getElementById('popup-modal-backdrop');
+  if (!backdrop) {
+    backdrop = document.createElement('div');
+    backdrop.id = 'popup-modal-backdrop';
+    backdrop.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;z-index:99999;backdrop-filter:blur(2px);';
+    document.body.appendChild(backdrop);
+  }
+  backdrop.style.display = 'flex';
+  backdrop.onclick = (e) => { if (e.target === backdrop) backdrop.style.display = 'none'; };
+  
+  backdrop.innerHTML = `
+    <div id="popup-modal-content" style="background:var(--ui-card-bg, #0f172a);border-radius:20px;width:95%;max-width:550px;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;">
+      <!-- Header -->
+      <div style="padding:16px 20px;border-bottom:1px solid rgba(255,255,255,0.1);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="font-size:22px;">🌐</span>
+          <span style="font-size:18px;font-weight:700;color:#e4e6eb;">Map Friend</span>
+        </div>
+        <button onclick="document.getElementById('popup-modal-backdrop').style.display='none'" style="background:none;border:none;color:#b0b3b8;font-size:22px;cursor:pointer;">✕</button>
+      </div>
+      
+      <!-- Zone de creation de post -->
+      <div style="padding:16px 20px;border-bottom:1px solid rgba(255,255,255,0.1);flex-shrink:0;">
+        <div style="display:flex;gap:10px;align-items:flex-start;">
+          <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#3b82f6,#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:16px;color:#fff;font-weight:700;flex-shrink:0;">
+            ${(currentUser.username||'U').charAt(0).toUpperCase()}
+              </div>
+              <div style="flex:1;">
+            <textarea id="social-post-input" placeholder="Quoi de neuf ? Partagez un event, un lien, un message..." 
+              style="width:100%;min-height:60px;max-height:150px;padding:10px 14px;border-radius:14px;border:none;background:#3a3b3c;color:#e4e6eb;font-size:15px;resize:none;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;box-sizing:border-box;"
+              oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,150)+'px';"></textarea>
+            <div style="display:flex;gap:8px;margin-top:8px;align-items:center;">
+              <button onclick="showShareEventPicker()" style="padding:6px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);background:transparent;color:#45bd62;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px;">📅 Event</button>
+              <button onclick="addLinkToPost()" style="padding:6px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);background:transparent;color:#3b82f6;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px;">🔗 Lien</button>
+              <div style="flex:1;"></div>
+              <button onclick="submitSocialPost()" style="padding:8px 20px;border-radius:10px;border:none;background:#1877f2;color:#fff;font-size:13px;font-weight:600;cursor:pointer;">Publier</button>
+              </div>
+            </div>
+                  </div>
+                  </div>
+      
+      <!-- Fil social -->
+      <div id="social-feed" style="flex:1;overflow-y:auto;padding:12px 20px;">
+        <div style="text-align:center;padding:20px;color:#b0b3b8;">Chargement du fil...</div>
+              </div>
+            </div>
+  `;
+  
+  // Charger le fil social
+  loadSocialFeed(token);
+}
+
+async function loadSocialFeed(token, page = 1) {
+  const feedDiv = document.getElementById('social-feed');
+  if (!feedDiv) return;
+  
+  try {
+    const resp = await fetch(`${window.API_BASE_URL}/social/feed?page=${page}`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (!resp.ok) throw new Error();
+    const data = await resp.json();
+    
+    if (!data.posts || data.posts.length === 0) {
+      feedDiv.innerHTML = `
+        <div style="text-align:center;padding:60px 20px;">
+          <div style="font-size:64px;margin-bottom:16px;opacity:0.5;">🌐</div>
+          <div style="font-size:18px;font-weight:700;color:#e4e6eb;margin-bottom:8px;">Bienvenue sur Map Friend !</div>
+          <div style="font-size:14px;color:#b0b3b8;max-width:300px;margin:0 auto;">Ajoutez des amis et partagez vos evenements, liens et messages. Tout le monde peut voir et repondre !</div>
+                </div>
+      `;
+      return;
+    }
+    
+    const userId = String(currentUser.id || '');
+    
+    feedDiv.innerHTML = data.posts.map(p => {
+      const isLiked = (p.likes || []).includes(userId);
+      const likesCount = (p.likes || []).length;
+      const isOwn = p.userId === userId;
+      const timeStr = p.date ? formatSocialTime(p.date) : '';
+      
+      // Contenu de l'event partagé si présent
+      const eventCard = p.eventId && p.eventTitle ? `
+        <div style="margin:8px 0;padding:12px;border-radius:12px;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.15);cursor:pointer;" onclick="openEventById(${p.eventId})">
+          <div style="font-size:14px;font-weight:600;color:#e4e6eb;">📅 ${escapeHtml(p.eventTitle)}</div>
+          ${p.eventDate ? `<div style="font-size:12px;color:#b0b3b8;margin-top:4px;">${p.eventDate}${p.eventCity ? ' - ' + escapeHtml(p.eventCity) : ''}</div>` : ''}
+                </div>
+      ` : '';
+      
+      const linkCard = p.linkUrl ? `
+        <div style="margin:8px 0;padding:12px;border-radius:12px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);">
+          <a href="${p.linkUrl}" target="_blank" rel="noopener" style="color:#3b82f6;font-size:13px;word-break:break-all;">${escapeHtml(p.linkTitle || p.linkUrl)}</a>
+              </div>
+      ` : '';
+      
+      return `
+        <div style="background:rgba(15,23,42,0.6);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:14px;margin-bottom:12px;">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+            <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#3b82f6,#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:16px;color:#fff;font-weight:700;flex-shrink:0;">
+              ${p.avatar ? `<img src="${p.avatar}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" onerror="this.outerHTML='${(p.username||'U').charAt(0).toUpperCase()}'">` : (p.username||'U').charAt(0).toUpperCase()}
+            </div>
+            <div style="flex:1;">
+              <div style="font-weight:600;font-size:15px;color:#e4e6eb;">${escapeHtml(p.username)}</div>
+              <div style="font-size:12px;color:#b0b3b8;">${timeStr}</div>
+              </div>
+            ${isOwn ? `<button onclick="deleteSocialPost(${p.id})" style="background:none;border:none;color:#64748b;font-size:16px;cursor:pointer;" title="Supprimer">🗑️</button>` : ''}
+          </div>
+          ${p.content ? `<div style="font-size:15px;color:#e4e6eb;line-height:1.4;margin-bottom:8px;white-space:pre-wrap;word-break:break-word;">${escapeHtml(p.content)}</div>` : ''}
+          ${eventCard}
+          ${linkCard}
+          
+          <!-- Actions -->
+          <div style="display:flex;align-items:center;gap:4px;padding:4px 0;margin-top:4px;border-top:1px solid rgba(255,255,255,0.08);">
+            <button onclick="toggleSocialLike(${p.id})" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:none;border:none;color:${isLiked ? '#1877f2' : '#b0b3b8'};font-size:14px;font-weight:600;cursor:pointer;padding:8px;border-radius:6px;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='none'">
+              <span>👍</span> <span>J'aime${likesCount > 0 ? ' (' + likesCount + ')' : ''}</span>
+            </button>
+            <button onclick="openSocialComments(${p.id})" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:none;border:none;color:#b0b3b8;font-size:14px;font-weight:600;cursor:pointer;padding:8px;border-radius:6px;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='none'">
+              <span>💬</span> <span>Commenter${p.commentCount > 0 ? ' (' + p.commentCount + ')' : ''}</span>
+            </button>
+          </div>
+          
+          <!-- Zone commentaires (cachée par défaut) -->
+          <div id="social-comments-${p.id}" style="display:none;margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.05);"></div>
+          </div>
+        `;
+    }).join('');
+  } catch(e) {
+    feedDiv.innerHTML = '<div style="text-align:center;padding:20px;color:#ef4444;">Erreur de chargement du fil social</div>';
+  }
+}
+
+function formatSocialTime(dateStr) {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diff = now - date;
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'A l\'instant';
+  if (mins < 60) return `Il y a ${mins} min`;
+  const hours = Math.floor(diff / 3600000);
+  if (hours < 24) return `Il y a ${hours}h`;
+  const days = Math.floor(diff / 86400000);
+  if (days < 7) return `Il y a ${days}j`;
+  return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+}
+
+window.submitSocialPost = async function() {
+  const input = document.getElementById('social-post-input');
+  if (!input || !input.value.trim()) { showNotification('Ecrivez quelque chose !', 'warning'); return; }
+  
+  const token = typeof getAuthToken === 'function' ? getAuthToken() : null;
+  if (!token) return;
+  
+  const content = input.value.trim();
+  const eventId = window._socialPostEventId || null;
+  const linkUrl = window._socialPostLinkUrl || null;
+  const linkTitle = window._socialPostLinkTitle || null;
+  
+  try {
+    const resp = await fetch(`${window.API_BASE_URL}/social/post`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content, eventId, linkUrl, linkTitle, type: eventId ? 'event_share' : linkUrl ? 'link' : 'text' })
+    });
+    if (resp.ok) {
+      input.value = '';
+      window._socialPostEventId = null;
+      window._socialPostLinkUrl = null;
+      window._socialPostLinkTitle = null;
+      showNotification('Publication partagee !', 'success');
+      loadSocialFeed(token);
+    }
+  } catch(e) {
+    showNotification('Erreur de publication', 'error');
+  }
+};
+
+window.toggleSocialLike = async function(postId) {
+  const token = typeof getAuthToken === 'function' ? getAuthToken() : null;
+  if (!token) return;
+  
+  try {
+    await fetch(`${window.API_BASE_URL}/social/post/${postId}/like`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    loadSocialFeed(token);
+  } catch(e) {}
+};
+
+window.deleteSocialPost = async function(postId) {
+  if (!confirm('Supprimer cette publication ?')) return;
+  const token = typeof getAuthToken === 'function' ? getAuthToken() : null;
+  if (!token) return;
+  
+  try {
+    await fetch(`${window.API_BASE_URL}/social/post/${postId}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    showNotification('Publication supprimee', 'info');
+    loadSocialFeed(token);
+  } catch(e) {}
+};
+
+window.openSocialComments = async function(postId) {
+  const commentsDiv = document.getElementById(`social-comments-${postId}`);
+  if (!commentsDiv) return;
+  
+  // Toggle visibilité
+  if (commentsDiv.style.display === 'block') {
+    commentsDiv.style.display = 'none';
+    return;
+  }
+  commentsDiv.style.display = 'block';
+  commentsDiv.innerHTML = '<div style="padding:8px;color:#64748b;font-size:13px;">Chargement...</div>';
+  
+  try {
+    const resp = await fetch(`${window.API_BASE_URL}/social/post/${postId}/comments`);
+    if (!resp.ok) throw new Error();
+    const data = await resp.json();
+    
+    const comments = data.comments || [];
+    const userId = String(currentUser.id || '');
+    
+    commentsDiv.innerHTML = `
+      ${comments.map(c => `
+        <div style="display:flex;gap:8px;margin-bottom:8px;">
+          <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#3b82f6,#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:12px;color:#fff;font-weight:700;flex-shrink:0;">
+            ${(c.username||'U').charAt(0).toUpperCase()}
+          </div>
+          <div style="flex:1;">
+            <div style="background:#3a3b3c;border-radius:14px;padding:8px 12px;">
+              <span style="font-weight:600;font-size:13px;color:#e4e6eb;">${escapeHtml(c.username)}</span>
+              <span style="font-size:13px;color:#e4e6eb;"> ${escapeHtml(c.content)}</span>
+            </div>
+            <div style="font-size:11px;color:#b0b3b8;margin-top:2px;margin-left:12px;">${c.date ? formatSocialTime(c.date) : ''}</div>
+          </div>
+        </div>
+      `).join('')}
+      <div style="display:flex;gap:8px;margin-top:8px;">
+        <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#3b82f6,#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:12px;color:#fff;font-weight:700;flex-shrink:0;">
+          ${(currentUser.username||'U').charAt(0).toUpperCase()}
+        </div>
+        <div style="flex:1;">
+          <textarea id="social-comment-input-${postId}" placeholder="Ecrire un commentaire..." 
+            style="width:100%;min-height:32px;padding:8px 12px;border-radius:18px;border:none;background:#3a3b3c;color:#e4e6eb;font-size:13px;resize:none;box-sizing:border-box;"
+            onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();submitSocialComment(${postId});}"></textarea>
+        </div>
+          </div>
+        `;
+  } catch(e) {
+    commentsDiv.innerHTML = '<div style="color:#ef4444;font-size:12px;">Erreur</div>';
+  }
+};
+
+window.submitSocialComment = async function(postId) {
+  const input = document.getElementById(`social-comment-input-${postId}`);
+  if (!input || !input.value.trim()) return;
+  
+  const token = typeof getAuthToken === 'function' ? getAuthToken() : null;
+  if (!token) return;
+  
+  try {
+    const resp = await fetch(`${window.API_BASE_URL}/social/post/${postId}/comment`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: input.value.trim() })
+    });
+    if (resp.ok) {
+      input.value = '';
+      openSocialComments(postId); // Rafraichir
+    }
+  } catch(e) {}
+};
+
+window.showShareEventPicker = function() {
+  // Afficher un mini-picker d'events de l'agenda
+  const agendaItems = (currentUser.agenda || []).map(key => {
+    const [type, id] = key.split(':');
+    if (type !== 'event') return null;
+    const ev = eventsData.find(e => e.id === parseInt(id));
+    return ev;
+  }).filter(Boolean);
+  
+  if (agendaItems.length === 0) {
+    showNotification('Ajoutez d\'abord des events a votre agenda !', 'info');
+    return;
+  }
+  
+  let picker = document.getElementById('event-share-picker');
+  if (picker) { picker.remove(); return; }
+  
+  picker = document.createElement('div');
+  picker.id = 'event-share-picker';
+  picker.style.cssText = 'position:fixed;bottom:200px;left:50%;transform:translateX(-50%);width:90%;max-width:400px;max-height:250px;overflow-y:auto;background:#2d2d30;border-radius:14px;border:1px solid rgba(255,255,255,0.1);z-index:100002;padding:8px;box-shadow:0 8px 32px rgba(0,0,0,0.5);';
+  
+  picker.innerHTML = `
+    <div style="font-size:12px;color:#94a3b8;padding:8px;font-weight:600;">Choisir un event a partager :</div>
+    ${agendaItems.map(ev => `
+      <div onclick="selectEventForShare(${ev.id},'${escapeHtml(ev.title||'')}')" style="padding:10px;border-radius:8px;cursor:pointer;color:#e4e6eb;font-size:13px;" onmouseover="this.style.background='rgba(59,130,246,0.1)'" onmouseout="this.style.background='none'">
+        📅 ${escapeHtml(ev.title || 'Sans titre')} ${ev.city ? '- ' + escapeHtml(ev.city) : ''}
+      </div>
+    `).join('')}
+  `;
+  document.body.appendChild(picker);
+};
+
+window.selectEventForShare = function(eventId, title) {
+  window._socialPostEventId = eventId;
+  const picker = document.getElementById('event-share-picker');
+  if (picker) picker.remove();
+  const input = document.getElementById('social-post-input');
+  if (input && !input.value.includes(title)) {
+    input.value = (input.value ? input.value + '\n' : '') + '📅 ' + title;
+  }
+  showNotification('Event ajoute au post !', 'success');
+};
+
+window.addLinkToPost = function() {
+  const url = prompt('Collez votre lien :');
+  if (!url) return;
+  window._socialPostLinkUrl = url;
+  window._socialPostLinkTitle = url;
+  const input = document.getElementById('social-post-input');
+  if (input && !input.value.includes(url)) {
+    input.value = (input.value ? input.value + '\n' : '') + '🔗 ' + url;
+  }
+  showNotification('Lien ajoute !', 'success');
+};
+
+window.openEventById = function(eventId) {
+  const ev = eventsData.find(e => e.id === eventId);
+  if (ev) {
+    const html = buildEventPopup(ev);
+    openPopupModal(html, ev);
+  }
+};
+
+window.openMapFriendModal = openMapFriendModal;
 
 function openReportModal(type, id, parentType = null, parentId = null) {
   // Déterminer le type d'affichage
@@ -20913,12 +23125,35 @@ function toggleAgendaWindow() {
   }
 }
 
-function showAgendaMiniWindow() {
-  const agendaItems = currentUser.agenda.map(key => {
+async function showAgendaMiniWindow() {
+  // Résoudre les items agenda - chercher d'abord en mémoire, puis fetch si manquant
+  const agendaItems = [];
+  for (const key of currentUser.agenda) {
     const [type, id] = key.split(":");
+    const numId = parseInt(id);
     const data = type === "event" ? eventsData : type === "booking" ? bookingsData : servicesData;
-    return data.find(i => i.id === parseInt(id));
-  }).filter(Boolean);
+    let item = data.find(i => i.id === numId);
+    
+    // Si pas en mémoire (event hors viewport), fetch depuis l'API
+    if (!item && type === "event") {
+      try {
+        const resp = await fetch(`${window.API_BASE_URL}/events/${numId}`);
+        if (resp.ok) {
+          const eventData = await resp.json();
+          if (eventData && eventData.id) {
+            eventData.type = 'event';
+            eventsData.push(eventData); // Ajouter en cache mémoire
+            item = eventData;
+          }
+        }
+      } catch(e) { console.warn('[AGENDA] Fetch event', numId, 'failed:', e); }
+    }
+    
+    if (item) {
+      if (!item.type) item.type = type;
+      agendaItems.push(item);
+    }
+  }
 
   let agendaView = document.getElementById("agenda-mini-window");
   if (!agendaView) {
@@ -22113,10 +24348,10 @@ function openAboutModal() {
           <div style="font-size:14px;font-weight:600;color:var(--ui-text-main);">${lastLogin}</div>
         </div>
       ` : `
-        <div style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:16px;padding:16px;margin-bottom:20px;text-align:center;">
-          <div style="font-size:14px;color:#f59e0b;margin-bottom:8px;">👋 Bienvenue !</div>
-          <button style="padding:10px 24px;border-radius:999px;border:none;background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;font-weight:600;cursor:pointer;" id="register-modal-btn">
-            Créer un compte gratuit
+        <div style="background:rgba(0,255,195,0.05);border:2px solid rgba(0,255,195,0.4);border-radius:16px;padding:20px;margin-bottom:20px;text-align:center;">
+          <div style="font-size:15px;font-weight:700;color:#00ffc3;margin-bottom:12px;">👋 Bienvenue sur MapEvent !</div>
+          <button onclick="closePublishModal();setTimeout(function(){if(typeof window.openAuthModal==='function'){window.openAuthModal('register');}else if(typeof window.showProRegisterForm==='function'){window.showProRegisterForm();}else if(typeof window.openRegisterModal==='function'){window.openRegisterModal();}},300);" style="width:100%;padding:14px 24px;border-radius:12px;border:none;background:linear-gradient(135deg,#00ffc3,#3b82f6);color:#000;font-weight:700;font-size:16px;cursor:pointer;box-shadow:0 4px 20px rgba(0,255,195,0.4);" id="register-modal-btn">
+            Créer un compte
           </button>
         </div>
       `}
@@ -22146,6 +24381,11 @@ function openAboutModal() {
     backdrop.style.boxSizing = "border-box";
   }
 }
+
+// ============================================
+// MODAL D'ANNONCE - POINTS TEST
+// ============================================
+// openTestAnnouncementModal supprimé - plus de points test
 
 // ============================================
 // SYSTÈME D'AMIS ET MESSAGERIE
@@ -22703,11 +24943,28 @@ function openAccountModal() {
     return;
   }
   
-  const backdrop = document.getElementById('publish-modal-backdrop');
-  const modal = document.getElementById('publish-modal-inner');
+  let backdrop = document.getElementById('publish-modal-backdrop');
+  let modal = document.getElementById('publish-modal-inner');
   
   if (!backdrop || !modal) {
-    console.error('[ACCOUNT MODAL] Modal elements not found', { backdrop: !!backdrop, modal: !!modal });
+    if (!backdrop) {
+      backdrop = document.createElement('div');
+      backdrop.id = 'publish-modal-backdrop';
+      backdrop.style.cssText = 'position:fixed!important;inset:0!important;background:rgba(0,0,0,0.8)!important;z-index:99999!important;display:flex!important;align-items:center!important;justify-content:center!important;visibility:visible!important;opacity:1!important;padding:40px!important;box-sizing:border-box!important;';
+      backdrop.onclick = function(e) {
+        if (e.target === backdrop) closePublishModal();
+      };
+      document.body.appendChild(backdrop);
+    }
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'publish-modal-inner';
+      modal.style.cssText = 'background:#1e293b!important;border-radius:20px!important;padding:0!important;max-width:600px!important;width:90%!important;max-height:90vh!important;overflow-y:auto!important;';
+      if (backdrop) backdrop.appendChild(modal);
+    }
+  }
+  if (!backdrop || !modal) {
+    console.error('[ACCOUNT MODAL] Impossible de créer les éléments modal');
     return;
   }
   
@@ -22891,7 +25148,7 @@ function openAccountModal() {
       
       <!-- Blocs cliquables - OUVERTURE FENÊTRES EXTERNES -->
       <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-bottom:24px;">
-        <div onclick="openAccountWindow('agenda')" style="padding:24px;border-radius:16px;background:rgba(15,23,42,0.5);border:2px solid rgba(255,255,255,0.1);cursor:pointer;transition:all 0.3s;" onmouseover="this.style.borderColor='rgba(0,255,195,0.5)';this.style.background='rgba(0,255,195,0.1)';this.style.transform='translateY(-2px)';" onmouseout="this.style.borderColor='rgba(255,255,255,0.1)';this.style.background='rgba(15,23,42,0.5)';this.style.transform='translateY(0)';">
+        <div onclick="closePublishModal();setTimeout(() => openAgendaModal(), 300);" style="padding:24px;border-radius:16px;background:rgba(15,23,42,0.5);border:2px solid rgba(255,255,255,0.1);cursor:pointer;transition:all 0.3s;" onmouseover="this.style.borderColor='rgba(0,255,195,0.5)';this.style.background='rgba(0,255,195,0.1)';this.style.transform='translateY(-2px)';" onmouseout="this.style.borderColor='rgba(255,255,255,0.1)';this.style.background='rgba(15,23,42,0.5)';this.style.transform='translateY(0)';">
           <div style="font-size:32px;margin-bottom:8px;">📅</div>
           <div style="font-weight:600;font-size:14px;color:#fff;">Agenda</div>
         </div>
@@ -22924,6 +25181,12 @@ function openAccountModal() {
         <div onclick="event.stopPropagation(); openAccountWindow('mes-annonces')" style="padding:24px;border-radius:16px;background:rgba(15,23,42,0.5);border:2px solid rgba(139,92,246,0.3);cursor:pointer;transition:all 0.3s;" onmouseover="this.style.borderColor='rgba(139,92,246,0.6)';this.style.background='rgba(139,92,246,0.15)';this.style.transform='translateY(-2px)';" onmouseout="this.style.borderColor='rgba(139,92,246,0.3)';this.style.background='rgba(15,23,42,0.5)';this.style.transform='translateY(0)';">
           <div style="font-size:32px;margin-bottom:8px;">📢</div>
           <div style="font-weight:600;font-size:14px;color:#fff;">Mes annonces</div>
+        </div>
+        
+        <div onclick="closePublishModal();setTimeout(() => openMapFriendModal(), 300);" style="padding:24px;border-radius:16px;background:rgba(15,23,42,0.5);border:2px solid rgba(59,130,246,0.3);cursor:pointer;transition:all 0.3s;grid-column:span 2;" onmouseover="this.style.borderColor='rgba(59,130,246,0.6)';this.style.background='rgba(59,130,246,0.15)';this.style.transform='translateY(-2px)';" onmouseout="this.style.borderColor='rgba(59,130,246,0.3)';this.style.background='rgba(15,23,42,0.5)';this.style.transform='translateY(0)';">
+          <div style="font-size:32px;margin-bottom:8px;">🌐</div>
+          <div style="font-weight:600;font-size:14px;color:#fff;">Map Friend</div>
+          <div style="font-size:11px;color:#94a3b8;margin-top:4px;">Fil social - Partage d'events et messages</div>
         </div>
       </div>
       
@@ -23197,18 +25460,19 @@ async function confirmDeleteAccount() {
       return;
     }
     
-    // Suppression réussie - déconnecter et nettoyer
+    // Suppression réussie - tout supprimer (compte n'existe plus)
     showNotification('✅ Compte supprimé avec succès', 'success');
     
-    // Nettoyer toutes les données locales
     localStorage.removeItem('currentUser');
     sessionStorage.removeItem('currentUser');
     localStorage.removeItem('accessToken');
-    sessionStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
+    localStorage.removeItem('rememberMe');
+    sessionStorage.removeItem('accessToken');
     sessionStorage.removeItem('refreshToken');
+    sessionStorage.removeItem('rememberMe');
     
-    // Réinitialiser currentUser
+    currentUser = getDefaultUser();
     currentUser = null;
     
     // Fermer le modal
@@ -23265,23 +25529,12 @@ function openAccountWindow(blockType) {
       </body>
       </html>
     `;
+  } else if (blockType === 'amis') {
+    openFriendsModal();
+    return;
   } else if (blockType === 'notifications') {
-    windowContent = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Notifications - MapEvent</title>
-        <style>
-          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: #fff; margin: 0; padding: 20px; }
-          h1 { margin: 0 0 20px; font-size: 24px; }
-        </style>
-      </head>
-      <body>
-        <h1>🔔 Mes Notifications</h1>
-        <p>Fonctionnalité à venir</p>
-      </body>
-      </html>
-    `;
+    openNotificationsModal();
+    return;
   } else if (blockType === 'modifier-profil') {
     // ⚠️⚠️⚠️ CRITIQUE : Pour modifier-profil, afficher le formulaire dans le modal au lieu d'une nouvelle fenêtre
     console.log('[ACCOUNT WINDOW] modifier-profil détecté - Affichage dans modal au lieu de nouvelle fenêtre');
@@ -23472,18 +25725,9 @@ function confirmLogoutWithRememberMe(rememberMe) {
         console.log('[LOGOUT] Tokens sauvegardés dans localStorage pour la prochaine fois');
       }
     } else {
-      // Supprimer complètement les tokens
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('refresh_token');
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
-      sessionStorage.removeItem('access_token');
-      sessionStorage.removeItem('refresh_token');
-      sessionStorage.removeItem('accessToken');
-      sessionStorage.removeItem('refreshToken');
-      localStorage.removeItem('rememberMe');
-      sessionStorage.removeItem('rememberMe');
-      console.log('[LOGOUT] Tokens supprimés complètement');
+      // Tokens JAMAIS supprimés - règle: toujours conserver
+      localStorage.setItem('rememberMe', 'true');
+      console.log('[LOGOUT] Tokens conservés');
     }
   } catch (e) {
     console.warn('[LOGOUT] Erreur sauvegarde tokens:', e);
@@ -23568,7 +25812,8 @@ async function showMesAnnoncesModal() {
           // Ajouter à userAnnonces pour l'affichage dans la modal
           userAnnonces.push({
             id: e.id, title: e.title, location: e.location, lat: e.latitude, lng: e.longitude,
-            date: e.date, status: e.status || 'active', type: 'event', emoji: '📅'
+            date: e.date, status: e.status || 'active', type: 'event', emoji: '📅',
+            view_count: e.view_count || 0
           });
           
           // ⚠️ CRITIQUE : Ajouter aussi à eventsData si pas déjà présent
@@ -23608,15 +25853,34 @@ async function showMesAnnoncesModal() {
   // Chercher aussi dans les données locales (fallback + bookings/services)
   eventsData.filter(e => e.userId === userId || e.createdBy === userId || e.creator_id === userId).forEach(e => {
     if (!userAnnonces.find(a => a.id === e.id && a.type === 'event')) {
-      userAnnonces.push({ id: e.id, title: e.title || e.name, location: e.location || e.address, lat: e.lat, lng: e.lng, status: e.status || 'active', type: 'event', emoji: '📅' });
+      userAnnonces.push({ id: e.id, title: e.title || e.name, location: e.location || e.address, lat: e.lat, lng: e.lng, status: e.status || 'active', type: 'event', emoji: '📅', view_count: 0 });
     }
   });
   bookingsData.filter(b => b.userId === userId || b.createdBy === userId).forEach(b => {
-    userAnnonces.push({ id: b.id, title: b.title || b.name, location: b.location || b.address, lat: b.lat, lng: b.lng, status: 'active', type: 'booking', emoji: '🏨' });
+    userAnnonces.push({ id: b.id, title: b.title || b.name, location: b.location || b.address, lat: b.lat, lng: b.lng, status: 'active', type: 'booking', emoji: '🏨', view_count: 0 });
   });
   servicesData.filter(s => s.userId === userId || s.createdBy === userId).forEach(s => {
-    userAnnonces.push({ id: s.id, title: s.title || s.name, location: s.location || s.address, lat: s.lat, lng: s.lng, status: 'active', type: 'service', emoji: '🔧' });
+    userAnnonces.push({ id: s.id, title: s.title || s.name, location: s.location || s.address, lat: s.lat, lng: s.lng, status: 'active', type: 'service', emoji: '🔧', view_count: 0 });
   });
+  // Récupérer les vues popup pour les items sans view_count (bookings, services, events locaux)
+  if (userAnnonces.length > 0 && window.API_BASE_URL) {
+    try {
+      const batch = userAnnonces.map(a => ({ type: a.type, id: a.id }));
+      const r = await fetch(window.API_BASE_URL + '/analytics/popup-views-batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: batch })
+      });
+      if (r.ok) {
+        const data = await r.json();
+        const views = data.views || {};
+        userAnnonces.forEach(a => {
+          const k = a.type + ':' + a.id;
+          if (views[k] !== undefined) a.view_count = views[k];
+        });
+      }
+    } catch (_) {}
+  }
   
   const statusLabels = {
     'active': { label: 'Actif', color: '#22c55e', bg: 'rgba(34,197,94,0.15)' },
@@ -23635,10 +25899,11 @@ async function showMesAnnoncesModal() {
     html += '<div id="mes-annonces-list" style="display:flex;flex-direction:column;gap:16px;">';
     userAnnonces.forEach(item => {
       const st = statusLabels[item.status] || statusLabels['active'];
+      const vc = item.view_count != null ? item.view_count : 0;
       html += '<div class="annonce-item" data-type="' + item.type + '" data-id="' + item.id + '" data-status="' + item.status + '" style="padding:16px;border-radius:12px;background:rgba(15,23,42,0.5);border:1px solid rgba(255,255,255,0.1);">' +
         '<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;cursor:pointer;" class="annonce-header">' +
           '<div style="font-size:28px;">' + item.emoji + '</div>' +
-          '<div style="flex:1;"><div style="font-weight:600;font-size:15px;color:#fff;">' + escapeHtml(item.title || 'Sans titre') + '</div><div style="font-size:12px;color:var(--ui-text-muted);">' + escapeHtml(item.location || '') + '</div></div>' +
+          '<div style="flex:1;"><div style="font-weight:600;font-size:15px;color:#fff;">' + escapeHtml(item.title || 'Sans titre') + '</div><div style="font-size:12px;color:var(--ui-text-muted);">' + escapeHtml(item.location || '') + '</div><div style="font-size:11px;color:var(--ui-text-muted);margin-top:4px;">👁 ' + vc + ' vue' + (vc !== 1 ? 's' : '') + '</div></div>' +
           '<span style="padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;background:' + st.bg + ';color:' + st.color + ';">' + st.label + '</span>' +
         '</div>' +
         // Première ligne de boutons
@@ -24358,49 +26623,39 @@ function showAccountModalTab(tab) {
       </div>
     `;
   } else if (tab === 'amis') {
-    const friends = currentUser.friends || [];
-    const friendRequests = currentUser.friendRequests || [];
+    // Chargement dynamique depuis l'API - afficher un placeholder, puis charger async
     tabContent = `
-      <div style="padding:16px;">
-        <h3 style="margin:0 0 16px;font-size:18px;font-weight:700;">👥 Mes Amis</h3>
-        ${friendRequests.length > 0 ? `
-          <div style="margin-bottom:20px;">
-            <div style="font-size:12px;color:var(--ui-text-muted);margin-bottom:12px;font-weight:600;">🔔 Demandes en attente (${friendRequests.length})</div>
-            <div style="display:flex;flex-direction:column;gap:8px;">
-              ${friendRequests.slice(0, 5).map(req => `
-                <div style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;background:rgba(15,23,42,0.5);border:1px solid var(--ui-card-border);">
-                  <div style="width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#00ffc3,#3b82f6);display:flex;align-items:center;justify-content:center;font-size:20px;">${req.avatar || '👤'}</div>
-                  <div style="flex:1;">
-                    <div style="font-weight:600;font-size:14px;">${escapeHtml(req.name || 'Utilisateur')}</div>
-                    <div style="font-size:11px;color:var(--ui-text-muted);">${req.username || ''}</div>
+      <div style="padding:16px;" id="friends-tab-content">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+          <h3 style="margin:0;font-size:18px;font-weight:700;">Mes Amis</h3>
                   </div>
+        
+        <!-- Recherche d'amis -->
+        <div style="margin-bottom:16px;">
                   <div style="display:flex;gap:8px;">
-                    <button onclick="acceptFriendRequest(${req.id})" style="padding:6px 12px;border-radius:8px;border:none;background:#22c55e;color:#fff;font-size:12px;font-weight:600;cursor:pointer;">✓</button>
-                    <button onclick="rejectFriendRequest(${req.id})" style="padding:6px 12px;border-radius:8px;border:none;background:#ef4444;color:#fff;font-size:12px;font-weight:600;cursor:pointer;">✕</button>
+            <div style="flex:1;position:relative;">
+              <input id="friend-search-input" type="text" placeholder="Rechercher un utilisateur..." 
+                style="width:100%;padding:10px 12px;border-radius:12px;border:1px solid rgba(255,255,255,0.1);background:rgba(15,23,42,0.5);color:#e4e6eb;font-size:14px;" 
+                oninput="searchFriendsDebounced(this.value)">
+              <div id="friend-search-results" style="position:absolute;top:100%;left:0;right:0;z-index:100;background:#1e293b;border-radius:0 0 12px 12px;border:1px solid rgba(255,255,255,0.1);display:none;max-height:200px;overflow-y:auto;"></div>
                   </div>
                 </div>
-              `).join('')}
             </div>
+        
+        <!-- Demandes en attente -->
+        <div id="friend-requests-section" style="display:none;margin-bottom:20px;">
+          <div style="font-size:12px;color:#94a3b8;margin-bottom:12px;font-weight:600;">Demandes en attente</div>
+          <div id="friend-requests-list" style="display:flex;flex-direction:column;gap:8px;"></div>
           </div>
-        ` : ''}
-        ${friends.length === 0 ? `
-          <div style="text-align:center;padding:40px;color:var(--ui-text-muted);">
-            <div style="font-size:48px;margin-bottom:16px;">👥</div>
-            <p>Vous n'avez pas encore d'amis</p>
-            <p style="font-size:12px;margin-top:8px;">Ajoutez des amis pour partager vos événements !</p>
+        
+        <!-- Liste des amis -->
+        <div id="friends-list-section">
+          <div style="text-align:center;padding:20px;color:#94a3b8;">Chargement...</div>
           </div>
-        ` : `
-          <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;">
-            ${friends.map(friend => `
-              <div onclick="openUserProfile(${friend.id})" style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:16px;border-radius:12px;background:rgba(15,23,42,0.5);border:1px solid var(--ui-card-border);cursor:pointer;">
-                <div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#00ffc3,#3b82f6);display:flex;align-items:center;justify-content:center;font-size:28px;">${friend.avatar || '👤'}</div>
-                <div style="font-weight:600;font-size:13px;text-align:center;">${escapeHtml(friend.name || 'Ami')}</div>
-              </div>
-            `).join('')}
-          </div>
-        `}
       </div>
     `;
+    // Charger les amis après le rendu
+    setTimeout(() => loadFriendsTab(), 50);
   } else if (tab === 'notifications') {
     const notifications = [
       ...(currentUser.pendingStatusNotifications || []).map(n => ({...n, type: 'status'})),
@@ -24545,7 +26800,7 @@ function showAccountModalTab(tab) {
       
       <!-- Onglets style Facebook -->
       <div style="display:flex;background:var(--ui-card-bg);border-top:1px solid var(--ui-card-border);border-bottom:1px solid var(--ui-card-border);">
-        <button onclick="showAccountModalTab('agenda')" style="flex:1;padding:14px;border:none;background:${tab === 'agenda' ? 'rgba(0,255,195,0.1)' : 'transparent'};color:${tab === 'agenda' ? '#00ffc3' : 'var(--ui-text-main)'};font-weight:${tab === 'agenda' ? '700' : '600'};font-size:13px;cursor:pointer;border-bottom:${tab === 'agenda' ? '3px solid #00ffc3' : 'none'};transition:all 0.2s;">
+        <button onclick="closePublishModal();setTimeout(() => openAgendaModal(), 300);" style="flex:1;padding:14px;border:none;background:${tab === 'agenda' ? 'rgba(0,255,195,0.1)' : 'transparent'};color:${tab === 'agenda' ? '#00ffc3' : 'var(--ui-text-main)'};font-weight:${tab === 'agenda' ? '700' : '600'};font-size:13px;cursor:pointer;border-bottom:${tab === 'agenda' ? '3px solid #00ffc3' : 'none'};transition:all 0.2s;">
           📅 Agenda
         </button>
         <button onclick="showAccountModalTab('groupes')" style="flex:1;padding:14px;border:none;background:${tab === 'groupes' ? 'rgba(0,255,195,0.1)' : 'transparent'};color:${tab === 'groupes' ? '#00ffc3' : 'var(--ui-text-main)'};font-weight:${tab === 'groupes' ? '700' : '600'};font-size:13px;cursor:pointer;border-bottom:${tab === 'groupes' ? '3px solid #00ffc3' : 'none'};transition:all 0.2s;">
@@ -24558,6 +26813,9 @@ function showAccountModalTab(tab) {
         <button onclick="showAccountModalTab('notifications')" style="flex:1;padding:14px;border:none;background:${tab === 'notifications' ? 'rgba(0,255,195,0.1)' : 'transparent'};color:${tab === 'notifications' ? '#00ffc3' : 'var(--ui-text-main)'};font-weight:${tab === 'notifications' ? '700' : '600'};font-size:13px;cursor:pointer;border-bottom:${tab === 'notifications' ? '3px solid #00ffc3' : 'none'};transition:all 0.2s;position:relative;">
           🔔 Notifs
           ${notificationsCount > 0 ? `<span style="position:absolute;top:8px;right:8px;width:16px;height:16px;background:#ef4444;border-radius:50%;font-size:9px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;">${notificationsCount}</span>` : ''}
+        </button>
+        <button onclick="showAccountModalTab('mapfriend')" style="flex:1;padding:14px;border:none;background:${tab === 'mapfriend' ? 'rgba(0,255,195,0.1)' : 'transparent'};color:${tab === 'mapfriend' ? '#00ffc3' : 'var(--ui-text-main)'};font-weight:${tab === 'mapfriend' ? '700' : '600'};font-size:13px;cursor:pointer;border-bottom:${tab === 'mapfriend' ? '3px solid #00ffc3' : 'none'};transition:all 0.2s;">
+          🌍 Map Friend
         </button>
         <button onclick="showAccountModalTab('privacy')" style="flex:1;padding:14px;border:none;background:${tab === 'privacy' ? 'rgba(0,255,195,0.1)' : 'transparent'};color:${tab === 'privacy' ? '#00ffc3' : 'var(--ui-text-main)'};font-weight:${tab === 'privacy' ? '700' : '600'};font-size:13px;cursor:pointer;border-bottom:${tab === 'privacy' ? '3px solid #00ffc3' : 'none'};transition:all 0.2s;">
           🔒 Confidentialité
@@ -24631,9 +26889,9 @@ function openSettingsModal() {
       <div style="margin-bottom:20px;">
         <div style="font-size:12px;color:var(--ui-text-muted);margin-bottom:12px;font-weight:600;">🎨 APPARENCE</div>
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
-          <button onclick="cycleUITheme()" style="padding:16px;border-radius:12px;border:1px solid var(--ui-card-border);background:linear-gradient(135deg,#1e293b,#0f172a);color:var(--ui-text-main);cursor:pointer;font-size:12px;">
-            <div style="font-size:20px;margin-bottom:4px;">🌙</div>
-            Thème UI
+          <button onclick="openColorPickerModal()" style="padding:16px;border-radius:12px;border:1px solid var(--ui-card-border);background:linear-gradient(135deg,#1e293b,#0f172a);color:var(--ui-text-main);cursor:pointer;font-size:12px;">
+            <div style="font-size:20px;margin-bottom:4px;">🎨</div>
+            Couleurs
           </button>
           <button onclick="cycleMapTheme()" style="padding:16px;border-radius:12px;border:1px solid var(--ui-card-border);background:linear-gradient(135deg,#1e293b,#0f172a);color:var(--ui-text-main);cursor:pointer;font-size:12px;">
             <div style="font-size:20px;margin-bottom:4px;">🗺️</div>
@@ -25248,7 +27506,7 @@ function focusOnItem(type, id) {
 // ============================================
 // UTILITAIRES
 // ============================================
-function formatEventDateRange(startIso, endIso) {
+function formatEventDateRange(startIso, endIso, isScraped = false) {
   // Date obligatoire - référence: js/core/utils.js
   if (!startIso || !endIso) return "";
   const s = new Date(startIso);
@@ -25259,6 +27517,13 @@ function formatEventDateRange(startIso, endIso) {
 
   const sd = s.toLocaleDateString("fr-CH", optD);
   const ed = e.toLocaleDateString("fr-CH", optD);
+  
+  // Pour les événements scrapés, on affiche --:-- à la place de l'heure
+  if (isScraped) {
+    if (sd === ed) return `${sd} --:-- – --:--`;
+    return `${sd} --:-- – ${ed} --:--`;
+  }
+  
   const st = s.toLocaleTimeString("fr-CH", optT);
   const et = e.toLocaleTimeString("fr-CH", optT);
 
@@ -25273,6 +27538,25 @@ function escapeHtml(str) {
     .replace(/"/g, "&quot;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
+}
+
+// Retirer tous les numéros de téléphone des descriptions (bookings, services)
+function stripPhoneNumbers(text) {
+  if (!text) return "";
+  return String(text)
+    .replace(/📞\s*[^\n|]*/g, '')
+    .replace(/☎\s*[^\n|]*/g, '')
+    .replace(/📱\s*[^\n|]*[\d\s\.\-\(\)]{7,}[^\n|]*/g, '')
+    .replace(/(?:Tel|Tél|Téléphone|Phone|Tel\.|Tél\.)\s*[:.]?\s*[\+]?[\d\s\.\-\(\)]{7,}/gi, '')
+    .replace(/(?:Mobile|Portable|Cell)\s*[:.]?\s*[\+]?[\d\s\.\-\(\)]{7,}/gi, '')
+    .replace(/(?:\+\d{1,3}[\s\.\-]?)?\(?\d{2,4}\)?[\s\.\-]?\d{2,4}[\s\.\-]?\d{2,4}[\s\.\-]?\d{0,4}/g, (m) => {
+      const d = m.replace(/\D/g, '');
+      return d.length >= 8 ? '' : m;
+    })
+    .replace(/\d{2}[\s\.\-]?\d{2}[\s\.\-]?\d{2}[\s\.\-]?\d{2}[\s\.\-]?\d{2}/g, '')
+    .replace(/\b0\d[\s\.\-]?\d{2}[\s\.\-]?\d{2}[\s\.\-]?\d{2}[\s\.\-]?\d{2}\b/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
 }
 
 // ============================================
@@ -25330,54 +27614,89 @@ const EXTRA_THEMES = [
   {
     name: "Ocean Deep",
     bodyBg: "#0a192f",
-    topbarBg: "#0a192f",
-    cardBg: "linear-gradient(135deg,#0a192f,#112240)",
+    topbarBg: "#000",
+    cardBg: "linear-gradient(135deg,#0a192f 0%,#112240 100%)",
     cardBorder: "rgba(100,255,218,0.3)",
     textMain: "#ccd6f6",
     textMuted: "#8892b0",
-    btnMainBg: "linear-gradient(135deg,#64ffda,#00bcd4)",
+    btnMainBg: "linear-gradient(135deg,#64ffda 0%,#00bcd4 100%)",
     btnMainText: "#0a192f",
     btnMainShadow: "0 8px 22px rgba(100,255,218,0.5)",
     btnAltBg: "rgba(17,34,64,0.9)",
     btnAltText: "#ccd6f6",
     pillBorder: "rgba(100,255,218,0.3)",
     logoColor: "#64ffda",
-    taglineColor: "#8892b0"
+    taglineColor: "#8892b0",
+    markerAccent: "#64ffda",
+    markerBorder: "#00bcd4",
+    clusterGradient: "linear-gradient(135deg,#64ffda,#00bcd4,#0ea5e9)"
   },
   {
     name: "Sunset Vibes",
-    bodyBg: "linear-gradient(180deg,#1a1a2e,#16213e)",
-    topbarBg: "rgba(26,26,46,0.95)",
+    bodyBg: "linear-gradient(180deg,#1a1a2e 0%,#16213e 100%)",
+    topbarBg: "#000",
     cardBg: "rgba(26,26,46,0.9)",
     cardBorder: "rgba(233,69,96,0.4)",
     textMain: "#edf2f4",
     textMuted: "#8d99ae",
-    btnMainBg: "linear-gradient(135deg,#e94560,#ff6b6b)",
+    btnMainBg: "linear-gradient(135deg,#e94560 0%,#ff6b6b 100%)",
     btnMainText: "#1a1a2e",
     btnMainShadow: "0 8px 22px rgba(233,69,96,0.6)",
     btnAltBg: "rgba(22,33,62,0.9)",
     btnAltText: "#edf2f4",
     pillBorder: "rgba(233,69,96,0.4)",
     logoColor: "#e94560",
-    taglineColor: "#8d99ae"
+    taglineColor: "#8d99ae",
+    markerAccent: "#e94560",
+    markerBorder: "#ff6b6b",
+    clusterGradient: "linear-gradient(180deg,#e94560,#ff6b6b,#f4a261)"
   },
   {
     name: "Forest Night",
     bodyBg: "#1b2d1b",
-    topbarBg: "#1b2d1b",
-    cardBg: "linear-gradient(135deg,#1b2d1b,#2d4a2d)",
+    topbarBg: "#000",
+    cardBg: "linear-gradient(135deg,#1b2d1b 0%,#2d4a2d 100%)",
     cardBorder: "rgba(144,238,144,0.4)",
     textMain: "#e8f5e9",
     textMuted: "#a5d6a7",
-    btnMainBg: "linear-gradient(135deg,#66bb6a,#81c784)",
+    btnMainBg: "linear-gradient(135deg,#66bb6a 0%,#81c784 100%)",
     btnMainText: "#1b2d1b",
     btnMainShadow: "0 8px 22px rgba(102,187,106,0.6)",
     btnAltBg: "rgba(45,74,45,0.9)",
     btnAltText: "#e8f5e9",
     pillBorder: "rgba(144,238,144,0.4)",
     logoColor: "#81c784",
-    taglineColor: "#a5d6a7"
-  }
+    taglineColor: "#a5d6a7",
+    markerAccent: "#66bb6a",
+    markerBorder: "#81c784",
+    clusterGradient: "linear-gradient(135deg,#66bb6a,#81c784,#a5d6a7)"
+  },
+  { name: "Aurore", bodyBg: "#1a0a2e", topbarBg: "#000", cardBg: "linear-gradient(315deg,#2d1b4e 0%,#1a0a2e 100%)", cardBorder: "rgba(251,191,36,0.5)", textMain: "#fef3c7", textMuted: "#fcd34d", btnMainBg: "linear-gradient(270deg,#f59e0b 0%,#ef4444 100%)", btnMainText: "#1a0a2e", btnMainShadow: "0 8px 22px rgba(245,158,11,0.6)", btnAltBg: "rgba(45,27,78,0.9)", btnAltText: "#fef3c7", pillBorder: "rgba(251,191,36,0.5)", logoColor: "#fcd34d", taglineColor: "#fcd34d", markerAccent: "#f59e0b", markerBorder: "#fbbf24", clusterGradient: "linear-gradient(135deg,#f59e0b,#ef4444,#fbbf24)" },
+  { name: "Mint Frais", bodyBg: "#ecfdf5", topbarBg: "#000", cardBg: "#ffffff", cardBorder: "rgba(16,185,129,0.4)", textMain: "#064e3b", textMuted: "#047857", btnMainBg: "#10b981", btnMainText: "#ffffff", btnMainShadow: "0 4px 14px rgba(16,185,129,0.4)", btnAltBg: "#d1fae5", btnAltText: "#065f46", pillBorder: "rgba(16,185,129,0.5)", logoColor: "#059669", taglineColor: "#047857", markerAccent: "#10b981", markerBorder: "#34d399", clusterGradient: "linear-gradient(135deg,#10b981,#34d399,#6ee7b7)" },
+  { name: "Lavande", bodyBg: "linear-gradient(45deg,#4c1d95 0%,#7c3aed 100%)", topbarBg: "#000", cardBg: "rgba(124,58,237,0.2)", cardBorder: "rgba(196,181,253,0.6)", textMain: "#f5f3ff", textMuted: "#c4b5fd", btnMainBg: "linear-gradient(180deg,#8b5cf6 0%,#a78bfa 100%)", btnMainText: "#1e1b4b", btnMainShadow: "0 8px 24px rgba(139,92,246,0.6)", btnAltBg: "rgba(76,29,149,0.8)", btnAltText: "#f5f3ff", pillBorder: "rgba(196,181,253,0.6)", logoColor: "#e9d5ff", taglineColor: "#c4b5fd", markerAccent: "#8b5cf6", markerBorder: "#a78bfa", clusterGradient: "linear-gradient(135deg,#8b5cf6,#a78bfa,#c084fc)" },
+  { name: "Braise", bodyBg: "#1c1917", topbarBg: "#000", cardBg: "linear-gradient(225deg,#292524 0%,#1c1917 100%)", cardBorder: "rgba(251,146,60,0.5)", textMain: "#ffedd5", textMuted: "#fdba74", btnMainBg: "linear-gradient(90deg,#ea580c 0%,#f97316 100%)", btnMainText: "#1c1917", btnMainShadow: "0 8px 22px rgba(234,88,12,0.6)", btnAltBg: "rgba(41,37,36,0.9)", btnAltText: "#ffedd5", pillBorder: "rgba(251,146,60,0.5)", logoColor: "#fb923c", taglineColor: "#fdba74", markerAccent: "#f97316", markerBorder: "#fb923c", clusterGradient: "linear-gradient(225deg,#ea580c,#f97316,#fb923c)" },
+  { name: "Arctique", bodyBg: "#f0f9ff", topbarBg: "#000", cardBg: "#e0f2fe", cardBorder: "rgba(14,165,233,0.4)", textMain: "#0c4a6e", textMuted: "#0369a1", btnMainBg: "#0ea5e9", btnMainText: "#ffffff", btnMainShadow: "0 4px 14px rgba(14,165,233,0.4)", btnAltBg: "#bae6fd", btnAltText: "#0c4a6e", pillBorder: "rgba(14,165,233,0.5)", logoColor: "#0284c7", taglineColor: "#0369a1", markerAccent: "#0ea5e9", markerBorder: "#38bdf8", clusterGradient: "linear-gradient(135deg,#0ea5e9,#38bdf8,#7dd3fc)" },
+  { name: "Noir Profond", bodyBg: "#000000", topbarBg: "#000", cardBg: "#0a0a0a", cardBorder: "rgba(255,255,255,0.15)", textMain: "#fafafa", textMuted: "#a3a3a3", btnMainBg: "#525252", btnMainText: "#fafafa", btnMainShadow: "none", btnAltBg: "#171717", btnAltText: "#fafafa", pillBorder: "rgba(255,255,255,0.2)", logoColor: "#ffffff", taglineColor: "#a3a3a3", markerAccent: "#737373", markerBorder: "#a3a3a3" },
+  { name: "Jade", bodyBg: "linear-gradient(135deg,#022c22 0%,#064e3b 100%)", topbarBg: "#000", cardBg: "rgba(6,78,59,0.4)", cardBorder: "rgba(52,211,153,0.4)", textMain: "#ccfbf1", textMuted: "#5eead4", btnMainBg: "linear-gradient(315deg,#059669 0%,#10b981 100%)", btnMainText: "#022c22", btnMainShadow: "0 8px 22px rgba(5,150,105,0.5)", btnAltBg: "rgba(2,44,34,0.9)", btnAltText: "#ccfbf1", pillBorder: "rgba(52,211,153,0.4)", logoColor: "#5eead4", taglineColor: "#99f6e4", markerAccent: "#10b981", markerBorder: "#34d399", clusterGradient: "linear-gradient(315deg,#059669,#10b981,#34d399)" },
+  { name: "Coral", bodyBg: "#fff5f5", topbarBg: "#000", cardBg: "#ffe4e6", cardBorder: "rgba(244,63,94,0.4)", textMain: "#881337", textMuted: "#be123c", btnMainBg: "#f43f5e", btnMainText: "#ffffff", btnMainShadow: "0 4px 14px rgba(244,63,94,0.4)", btnAltBg: "#fecdd3", btnAltText: "#881337", pillBorder: "rgba(244,63,94,0.5)", logoColor: "#e11d48", taglineColor: "#be123c", markerAccent: "#f43f5e", markerBorder: "#fb7185", clusterGradient: "linear-gradient(135deg,#f43f5e,#fb7185,#e11d48)" },
+  { name: "Violet Nocturne", bodyBg: "linear-gradient(60deg,#1e1b4b 0%,#312e81 100%)", topbarBg: "#000", cardBg: "rgba(67,56,202,0.3)", cardBorder: "rgba(167,139,250,0.5)", textMain: "#ede9fe", textMuted: "#c4b5fd", btnMainBg: "linear-gradient(120deg,#6366f1 0%,#8b5cf6 100%)", btnMainText: "#ffffff", btnMainShadow: "0 8px 24px rgba(99,102,241,0.6)", btnAltBg: "rgba(30,27,75,0.9)", btnAltText: "#ede9fe", pillBorder: "rgba(167,139,250,0.5)", logoColor: "#c4b5fd", taglineColor: "#a78bfa", markerAccent: "#6366f1", markerBorder: "#8b5cf6", clusterGradient: "linear-gradient(120deg,#6366f1,#8b5cf6,#a78bfa)" },
+  { name: "Électrique", bodyBg: "#0f172a", topbarBg: "#000", cardBg: "#1e293b", cardBorder: "rgba(34,211,238,0.6)", textMain: "#e0f2fe", textMuted: "#7dd3fc", btnMainBg: "linear-gradient(135deg,#06b6d4 0%,#22d3ee 100%)", btnMainText: "#0f172a", btnMainShadow: "0 8px 24px rgba(34,211,238,0.6)", btnAltBg: "rgba(30,41,59,0.9)", btnAltText: "#e0f2fe", pillBorder: "rgba(34,211,238,0.6)", logoColor: "#22d3ee", taglineColor: "#7dd3fc", markerAccent: "#22d3ee", markerBorder: "#67e8f9", clusterGradient: "linear-gradient(135deg,#06b6d4,#22d3ee,#67e8f9)" },
+  { name: "Ciel Lumineux", bodyBg: "#eff6ff", topbarBg: "#000", cardBg: "#dbeafe", cardBorder: "rgba(59,130,246,0.5)", textMain: "#1e3a8a", textMuted: "#2563eb", btnMainBg: "#3b82f6", btnMainText: "#ffffff", btnMainShadow: "0 4px 14px rgba(59,130,246,0.5)", btnAltBg: "#bfdbfe", btnAltText: "#1e40af", pillBorder: "rgba(59,130,246,0.5)", logoColor: "#2563eb", taglineColor: "#3b82f6", markerAccent: "#3b82f6", markerBorder: "#60a5fa", clusterGradient: "linear-gradient(135deg,#3b82f6,#60a5fa,#93c5fd)" },
+  // +10 thèmes : dégradés variés (direction/sens différents) + couleurs plates
+  { name: "Citron Vert", bodyBg: "#052e16", topbarBg: "#000", cardBg: "#064e3b", cardBorder: "rgba(34,197,94,0.5)", textMain: "#dcfce7", textMuted: "#86efac", btnMainBg: "#22c55e", btnMainText: "#052e16", btnMainShadow: "0 4px 14px rgba(34,197,94,0.5)", btnAltBg: "rgba(6,78,59,0.9)", btnAltText: "#dcfce7", pillBorder: "rgba(34,197,94,0.5)", logoColor: "#4ade80", taglineColor: "#86efac", markerAccent: "#22c55e", markerBorder: "#4ade80", clusterGradient: "linear-gradient(225deg,#22c55e,#4ade80,#16a34a)" },
+  { name: "Feu", bodyBg: "#0c0a09", topbarBg: "#000", cardBg: "linear-gradient(0deg,#1c1917 0%,#292524 100%)", cardBorder: "rgba(249,115,22,0.5)", textMain: "#fff7ed", textMuted: "#fdba74", btnMainBg: "#f97316", btnMainText: "#fafafa", btnMainShadow: "0 4px 14px rgba(249,115,22,0.5)", btnAltBg: "rgba(41,37,36,0.9)", btnAltText: "#fff7ed", pillBorder: "rgba(249,115,22,0.5)", logoColor: "#fb923c", taglineColor: "#fdba74", markerAccent: "#f97316", markerBorder: "#fb923c", clusterGradient: "linear-gradient(90deg,#ef4444,#f97316,#fbbf24)" },
+  { name: "Océan", bodyBg: "#0c4a6e", topbarBg: "#000", cardBg: "linear-gradient(180deg,#0e7490 0%,#0c4a6e 100%)", cardBorder: "rgba(34,211,238,0.5)", textMain: "#ecfeff", textMuted: "#67e8f9", btnMainBg: "#06b6d4", btnMainText: "#0c4a6e", btnMainShadow: "0 4px 14px rgba(6,182,212,0.5)", btnAltBg: "rgba(8,145,178,0.9)", btnAltText: "#ecfeff", pillBorder: "rgba(34,211,238,0.5)", logoColor: "#22d3ee", taglineColor: "#67e8f9", markerAccent: "#06b6d4", markerBorder: "#22d3ee", clusterGradient: "linear-gradient(135deg,#0ea5e9,#06b6d4,#22d3ee)" },
+  { name: "Rouge Plat", bodyBg: "#450a0a", topbarBg: "#000", cardBg: "#7f1d1d", cardBorder: "rgba(248,113,113,0.5)", textMain: "#fef2f2", textMuted: "#fecaca", btnMainBg: "#dc2626", btnMainText: "#fff", btnMainShadow: "0 4px 14px rgba(220,38,38,0.5)", btnAltBg: "#991b1b", btnAltText: "#fef2f2", pillBorder: "rgba(248,113,113,0.5)", logoColor: "#f87171", taglineColor: "#fecaca", markerAccent: "#dc2626", markerBorder: "#f87171" },
+  { name: "Vert Plat", bodyBg: "#052e16", topbarBg: "#000", cardBg: "#14532d", cardBorder: "rgba(74,222,128,0.5)", textMain: "#f0fdf4", textMuted: "#bbf7d0", btnMainBg: "#16a34a", btnMainText: "#fff", btnMainShadow: "0 4px 14px rgba(22,163,74,0.5)", btnAltBg: "#166534", btnAltText: "#f0fdf4", pillBorder: "rgba(74,222,128,0.5)", logoColor: "#4ade80", taglineColor: "#bbf7d0", markerAccent: "#16a34a", markerBorder: "#4ade80" },
+  { name: "Bleu Plat", bodyBg: "#0c4a6e", topbarBg: "#000", cardBg: "#1e3a8a", cardBorder: "rgba(96,165,250,0.5)", textMain: "#eff6ff", textMuted: "#bfdbfe", btnMainBg: "#2563eb", btnMainText: "#fff", btnMainShadow: "0 4px 14px rgba(37,99,235,0.5)", btnAltBg: "#1e40af", btnAltText: "#eff6ff", pillBorder: "rgba(96,165,250,0.5)", logoColor: "#60a5fa", taglineColor: "#bfdbfe", markerAccent: "#2563eb", markerBorder: "#60a5fa" },
+  { name: "Violet Plat", bodyBg: "#2e1065", topbarBg: "#000", cardBg: "#4c1d95", cardBorder: "rgba(167,139,250,0.5)", textMain: "#f5f3ff", textMuted: "#c4b5fd", btnMainBg: "#7c3aed", btnMainText: "#fff", btnMainShadow: "0 4px 14px rgba(124,58,237,0.5)", btnAltBg: "#5b21b6", btnAltText: "#f5f3ff", pillBorder: "rgba(167,139,250,0.5)", logoColor: "#a78bfa", taglineColor: "#c4b5fd", markerAccent: "#7c3aed", markerBorder: "#a78bfa" },
+  { name: "Arc-en-ciel", bodyBg: "#0f172a", topbarBg: "#000", cardBg: "linear-gradient(270deg,#0f172a 0%,#1e1b4b 50%,#0f172a 100%)", cardBorder: "rgba(139,92,246,0.5)", textMain: "#f8fafc", textMuted: "#c4b5fd", btnMainBg: "linear-gradient(90deg,#ec4899 0%,#8b5cf6 50%,#06b6d4 100%)", btnMainText: "#fff", btnMainShadow: "0 4px 14px rgba(139,92,246,0.5)", btnAltBg: "rgba(30,27,75,0.9)", btnAltText: "#f8fafc", pillBorder: "rgba(139,92,246,0.5)", logoColor: "#a78bfa", taglineColor: "#c4b5fd", markerAccent: "#8b5cf6", markerBorder: "#a78bfa", clusterGradient: "linear-gradient(135deg,#ec4899,#8b5cf6,#06b6d4)" },
+  { name: "Rouge-Or", bodyBg: "#1c1917", topbarBg: "#000", cardBg: "linear-gradient(45deg,#450a0a 0%,#78350f 100%)", cardBorder: "rgba(251,191,36,0.5)", textMain: "#fef3c7", textMuted: "#fde68a", btnMainBg: "linear-gradient(270deg,#dc2626 0%,#f59e0b 100%)", btnMainText: "#1c1917", btnMainShadow: "0 4px 14px rgba(245,158,11,0.5)", btnAltBg: "rgba(68,64,60,0.9)", btnAltText: "#fef3c7", pillBorder: "rgba(251,191,36,0.5)", logoColor: "#fbbf24", taglineColor: "#fde68a", markerAccent: "#f59e0b", markerBorder: "#fbbf24", clusterGradient: "linear-gradient(135deg,#dc2626,#f59e0b,#fbbf24)" },
+  { name: "Menthe", bodyBg: "#134e4a", topbarBg: "#000", cardBg: "linear-gradient(120deg,#0f766e 0%,#134e4a 100%)", cardBorder: "rgba(45,212,191,0.5)", textMain: "#ccfbf1", textMuted: "#5eead4", btnMainBg: "#14b8a6", btnMainText: "#042f2e", btnMainShadow: "0 4px 14px rgba(20,184,166,0.5)", btnAltBg: "rgba(13,148,136,0.9)", btnAltText: "#ccfbf1", pillBorder: "rgba(45,212,191,0.5)", logoColor: "#2dd4bf", taglineColor: "#5eead4", markerAccent: "#14b8a6", markerBorder: "#2dd4bf", clusterGradient: "linear-gradient(135deg,#0d9488,#14b8a6,#2dd4bf)" },
+  { name: "Indigo Plat", bodyBg: "#1e1b4b", topbarBg: "#000", cardBg: "#312e81", cardBorder: "rgba(129,140,248,0.5)", textMain: "#e0e7ff", textMuted: "#a5b4fc", btnMainBg: "#4f46e5", btnMainText: "#fff", btnMainShadow: "0 4px 14px rgba(79,70,229,0.5)", btnAltBg: "#3730a3", btnAltText: "#e0e7ff", pillBorder: "rgba(129,140,248,0.5)", logoColor: "#818cf8", taglineColor: "#a5b4fc", markerAccent: "#4f46e5", markerBorder: "#818cf8" },
+  { name: "Tropical", bodyBg: "linear-gradient(45deg,#0f766e 0%,#0c4a6e 50%,#7c3aed 100%)", topbarBg: "#000", cardBg: "linear-gradient(315deg,#134e4a 0%,#1e3a8a 50%,#4c1d95 100%)", cardBorder: "rgba(45,212,191,0.5)", textMain: "#ccfbf1", textMuted: "#67e8f9", btnMainBg: "linear-gradient(90deg,#14b8a6 0%,#3b82f6 50%,#8b5cf6 100%)", btnMainText: "#fff", btnMainShadow: "0 4px 14px rgba(20,184,166,0.5)", btnAltBg: "rgba(13,148,136,0.9)", btnAltText: "#ccfbf1", pillBorder: "rgba(45,212,191,0.5)", logoColor: "#2dd4bf", taglineColor: "#a78bfa", markerAccent: "#14b8a6", markerBorder: "#8b5cf6", clusterGradient: "linear-gradient(135deg,#14b8a6,#3b82f6,#8b5cf6)" },
+  { name: "Sunset Fire", bodyBg: "linear-gradient(225deg,#7f1d1d 0%,#c2410c 30%,#ea580c 60%,#fbbf24 100%)", topbarBg: "#000", cardBg: "linear-gradient(315deg,#450a0a 0%,#78350f 50%,#b45309 100%)", cardBorder: "rgba(251,191,36,0.5)", textMain: "#fef3c7", textMuted: "#fde68a", btnMainBg: "linear-gradient(180deg,#dc2626 0%,#f97316 50%,#eab308 100%)", btnMainText: "#111827", btnMainShadow: "0 4px 14px rgba(249,115,22,0.5)", btnAltBg: "rgba(127,29,29,0.9)", btnAltText: "#fef3c7", pillBorder: "rgba(251,191,36,0.5)", logoColor: "#fbbf24", taglineColor: "#fde68a", markerAccent: "#f97316", markerBorder: "#fbbf24", clusterGradient: "linear-gradient(225deg,#dc2626,#f97316,#fbbf24)" },
+  { name: "Neon Glow", bodyBg: "linear-gradient(135deg,#0f172a 0%,#1e1b4b 40%,#4c1d95 70%,#701a75 100%)", topbarBg: "#000", cardBg: "linear-gradient(60deg,#1e293b 0%,#312e81 50%,#5b21b6 100%)", cardBorder: "rgba(251,113,133,0.5)", textMain: "#fef3c7", textMuted: "#fbcfe8", btnMainBg: "linear-gradient(270deg,#06b6d4 0%,#22d3ee 33%,#fb7185 66%,#ec4899 100%)", btnMainText: "#0f172a", btnMainShadow: "0 4px 14px rgba(34,211,238,0.5)", btnAltBg: "rgba(30,27,75,0.9)", btnAltText: "#fef3c7", pillBorder: "rgba(251,113,133,0.5)", logoColor: "#fbcfe8", taglineColor: "#fb7185", markerAccent: "#22d3ee", markerBorder: "#fb7185", clusterGradient: "linear-gradient(135deg,#06b6d4,#a78bfa,#ec4899)" }
 ];
 
 // Ajouter les nouveaux thèmes
@@ -26087,7 +28406,9 @@ window.openChatWith = openChatWith;
 window.sendChatMessage = sendChatMessage;
 window.focusOnItem = focusOnItem;
 // REMOVED: logout est maintenant dans auth.js et exposé via window.logout
-window.playPreview = playPreview;
+window.playPreview = function(bookingId, trackIndex) {
+  if (typeof toggleBookingAudio === 'function') toggleBookingAudio(bookingId, trackIndex);
+};
 window.openEcoMissionModal = openEcoMissionModal;
 window.makeDonation = makeDonation;
 window.openCartModal = openCartModal;
@@ -27279,15 +29600,9 @@ async function loadCurrentUserFromAPI() {
     const refreshToken = getRefreshToken();
     
     if (!accessToken) {
-      // Pas de token, déconnecter
-      console.log('[AUTH] Pas de token, deconnexion');
+      console.log('[AUTH] Pas de token');
       localStorage.removeItem('currentUser');
       sessionStorage.removeItem('currentUser');
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
-      localStorage.removeItem('rememberMe');
-      sessionStorage.removeItem('accessToken');
-      sessionStorage.removeItem('refreshToken');
       currentUser = getDefaultUser();
       return null;
     }
@@ -27316,8 +29631,12 @@ async function loadCurrentUserFromAPI() {
       const avatarUrl = user.profile_photo_url || user.profilePhoto || user.avatarUrl || user.avatar || null;
       
       // Mettre à jour currentUser avec les données du serveur (source de vérité)
+      // Exclure agenda du spread car il sera chargé séparément par loadAgendaFromBackend()
+      const { agenda: _apiAgenda, ...userWithoutAgenda } = user;
+      const existingAgenda = currentUser?.agenda || [];
+      
       currentUser = {
-        ...user,
+        ...userWithoutAgenda,
         isLoggedIn: true,
         accessToken: accessToken,
         refreshToken: refreshToken,
@@ -27325,7 +29644,9 @@ async function loadCurrentUserFromAPI() {
         avatarUrl: avatarUrl, // Champ unifié
         profilePhoto: avatarUrl, // Alias
         profile_photo_url: avatarUrl, // Alias
-        avatar: avatarUrl || '👤' // Fallback emoji
+        avatar: avatarUrl || '👤', // Fallback emoji
+        // Préserver l'agenda existant en attendant le chargement complet par loadAgendaFromBackend()
+        agenda: (_apiAgenda && Array.isArray(_apiAgenda) && _apiAgenda.length > 0) ? _apiAgenda : existingAgenda
       };
       
       // NE PAS sauvegarder currentUser dans localStorage (trop volumineux, cause quota exceeded)
@@ -27344,11 +29665,9 @@ async function loadCurrentUserFromAPI() {
       console.log('[AUTH] Token expire (401), tentative refresh...');
       
       if (!refreshToken) {
-        // Pas de refresh token, déconnecter
-        console.log('[AUTH] Pas de refresh token, deconnexion');
+        console.log('[AUTH] Pas de refresh token');
         localStorage.removeItem('currentUser');
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
+        sessionStorage.removeItem('currentUser');
         currentUser = getDefaultUser();
         return null;
       }
@@ -27396,15 +29715,20 @@ async function loadCurrentUserFromAPI() {
           // IMPORTANT: Normaliser avatar avec priorité claire
           const avatarUrl = user.profile_photo_url || user.profilePhoto || user.avatarUrl || user.avatar || null;
           
+          // Exclure agenda du spread car chargé séparément par loadAgendaFromBackend()
+          const { agenda: _retryAgenda, ...retryUserWithoutAgenda } = user;
+          const retryExistingAgenda = currentUser?.agenda || [];
+          
           currentUser = {
-            ...user,
+            ...retryUserWithoutAgenda,
             isLoggedIn: true,
             accessToken: newAccessToken,
             refreshToken: refreshToken,
             avatarUrl: avatarUrl, // Champ unifié
             profilePhoto: avatarUrl, // Alias
             profile_photo_url: avatarUrl, // Alias
-            avatar: avatarUrl || '👤' // Fallback emoji
+            avatar: avatarUrl || '👤', // Fallback emoji
+            agenda: (_retryAgenda && Array.isArray(_retryAgenda) && _retryAgenda.length > 0) ? _retryAgenda : retryExistingAgenda
           };
           
           // NE PAS stocker currentUser dans localStorage (cause quota exceeded)
@@ -27424,11 +29748,10 @@ async function loadCurrentUserFromAPI() {
         console.log('[AUTH] Refresh echoue:', refreshResponse.status);
       }
       
-      // Refresh échoué, déconnecter
-      console.log('[AUTH] Refresh echoue, deconnexion');
+      // Refresh échoué - tokens conservés
+      console.log('[AUTH] Refresh echoue');
       localStorage.removeItem('currentUser');
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
+      sessionStorage.removeItem('currentUser');
       currentUser = getDefaultUser();
       return null;
     } else {
@@ -27454,19 +29777,26 @@ function initStripe(publicKey) {
     return;
   }
   
-  // Attendre que Stripe.js soit chargé
+  // Charger Stripe.js à la demande si pas encore chargé
   if (typeof Stripe === 'undefined') {
-    console.warn('⚠️ Stripe.js non chargé, attente...');
-    // Réessayer après un court délai
-    setTimeout(() => {
+    console.log('⏳ Chargement de Stripe.js à la demande...');
+    if (typeof window.loadStripe === 'function') {
+      window.loadStripe().then(() => {
       if (typeof Stripe !== 'undefined') {
+          try {
         stripe = Stripe(publicKey);
         stripePublicKey = publicKey;
-        console.log('✅ Stripe initialisé (retardé)');
+            console.log('✅ Stripe initialisé (chargé à la demande)');
+          } catch (error) {
+            console.error('❌ Erreur initialisation Stripe:', error);
+          }
       } else {
-        console.error('❌ Stripe.js toujours non disponible');
+          console.error('❌ Stripe.js toujours non disponible après chargement');
       }
-    }, 500);
+      });
+    } else {
+      console.error('❌ loadStripe non disponible');
+    }
     return;
   }
   
@@ -27479,17 +29809,7 @@ function initStripe(publicKey) {
   }
 }
 
-// Vérifier que Stripe.js est chargé au démarrage
-document.addEventListener("DOMContentLoaded", () => {
-  // Vérifier après un court délai pour laisser le temps au script de charger
-  setTimeout(() => {
-    if (typeof Stripe !== 'undefined') {
-      console.log('✅ Stripe.js chargé et prêt');
-    } else {
-      console.warn('⚠️ Stripe.js non détecté - vérifiez que le script est chargé dans le HTML');
-    }
-  }, 1000);
-});
+// Stripe.js est chargé à la demande (lazy-load) - pas de vérification au démarrage
 
 // État des alertes
 let alertsViewOpen = false;
@@ -29051,11 +31371,9 @@ if (typeof window !== 'undefined') {
         // Après déconnexion/reconnexion, on charge simplement le profil depuis /user/me
         console.log('[AUTH] Utilisateur reconnexion - pas d\'onboarding (uniquement a la creation de compte)');
       } else {
-        console.log('[AUTH] Aucun utilisateur chargé, déconnexion');
-        // Nettoyer localStorage
+        console.log('[AUTH] Aucun utilisateur chargé');
         localStorage.removeItem('currentUser');
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
+        sessionStorage.removeItem('currentUser');
         currentUser = getDefaultUser();
       }
     }).catch(error => {
@@ -29114,103 +31432,549 @@ async function loadAlertsFromBackend() {
   }
 }
 
+// Charger l'agenda depuis le backend (persistant en base)
+async function loadAgendaFromBackend() {
+  if (!currentUser || !currentUser.isLoggedIn) return;
+  
+  try {
+    // Utiliser le token JWT pour identifier l'utilisateur de manière fiable
+    const token = typeof getAuthToken === 'function' ? getAuthToken() : null;
+    const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+    const userId = currentUser.id || currentUser.email || '';
+    
+    const response = await fetch(`${window.API_BASE_URL}/user/agenda?userId=${userId}`, { headers });
+    if (response.ok) {
+      const data = await response.json();
+      if (data.agenda && Array.isArray(data.agenda)) {
+        currentUser.agenda = data.agenda;
+        // Sauvegarder aussi en localStorage comme backup
+        try { localStorage.setItem('user_agenda_backup', JSON.stringify(data.agenda)); } catch(e) {}
+        console.log('[AGENDA] ' + data.agenda.length + ' elements charges depuis la base');
+      }
+    } else {
+      console.warn('[AGENDA] API retourne', response.status, '- tentative localStorage');
+      // Fallback localStorage
+      try {
+        const backup = localStorage.getItem('user_agenda_backup');
+        if (backup) {
+          currentUser.agenda = JSON.parse(backup);
+          console.log('[AGENDA] ' + currentUser.agenda.length + ' elements restaures depuis localStorage');
+        }
+      } catch(e) {}
+    }
+  } catch (error) {
+    console.error('[AGENDA] Erreur chargement:', error);
+    // Fallback localStorage
+    try {
+      const backup = localStorage.getItem('user_agenda_backup');
+      if (backup) {
+        currentUser.agenda = JSON.parse(backup);
+        console.log('[AGENDA] Fallback localStorage:', currentUser.agenda.length, 'elements');
+      }
+    } catch(e) {}
+  }
+}
+
+// =====================================================
+// 🌍 VIEWPORT PROGRESSIF - Chargement par zone visible
+// =====================================================
+
+// Debounce handler quand la carte bouge/zoome
+function onViewportChange() {
+  clearTimeout(viewportFetchTimeout);
+  viewportFetchTimeout = setTimeout(() => {
+    loadViewportData();
+  }, 400); // 400ms debounce pour éviter les appels en rafale
+}
+
+// Charger les données adaptées au zoom et viewport actuels
+async function loadViewportData() {
+  if (!map) return;
+  
+  // Ne charger les données viewport que pour le mode events
+  // Pour booking/services, on utilise refreshMarkers() qui respecte currentMode
+  if (typeof currentMode !== 'undefined' && currentMode !== 'event') {
+    return;
+  }
+  
+  const zoom = map.getZoom();
+  const bounds = map.getBounds();
+  const south = bounds.getSouth();
+  const north = bounds.getNorth();
+  const west = bounds.getWest();
+  const east = bounds.getEast();
+  
+  // Clé unique pour ce viewport (évite les re-fetch inutiles)
+  const viewportKey = `${zoom}-${south.toFixed(2)}-${north.toFixed(2)}-${west.toFixed(2)}-${east.toFixed(2)}`;
+  if (viewportKey === lastViewportKey) return;
+  lastViewportKey = viewportKey;
+  
+  const params = new URLSearchParams({
+    zoom: zoom,
+    south: south.toFixed(4),
+    north: north.toFixed(4),
+    west: west.toFixed(4),
+    east: east.toFixed(4)
+  });
+  
+  try {
+    const response = await fetch(`${window.API_BASE_URL}/events/viewport?${params}`);
+    if (!response.ok) {
+      console.warn('[VIEWPORT] Erreur API:', response.status);
+      return;
+    }
+    const data = await response.json();
+    
+    // RE-VÉRIFIER le mode après le fetch async (l'utilisateur a pu changer de mode pendant le fetch)
+    if (typeof currentMode !== 'undefined' && currentMode !== 'event') {
+      console.log('[VIEWPORT] Mode changé pendant le fetch, abandon');
+      return;
+    }
+    
+    // Vérifier si un filtre est actif côté client
+    const hasActiveFilter = (selectedCategories && selectedCategories.length > 0) || 
+                            timeFilter || dateRangeStart || dateRangeEnd || 
+                            (selectedDates && selectedDates.length > 0);
+    
+    if (data.type === 'clusters') {
+      if (hasActiveFilter) {
+        // FILTRE ACTIF + ZOOM FAIBLE : ne PAS afficher les clusters serveur (ils ignorent le filtre)
+        // Garder markersLayer visible - le MarkerClusterGroup de Leaflet regroupera
+        // automatiquement les marqueurs filtrés avec les bons chiffres
+        geoCirclesLayer.clearLayers();
+        if (markersLayer && !map.hasLayer(markersLayer)) {
+          markersLayer.addTo(map);
+        }
+        console.log('[VIEWPORT] Filtre actif → clusters serveur ignorés, MarkerClusterGroup utilisé');
+      } else {
+        // PAS DE FILTRE : comportement normal - afficher les cercles de comptage serveur
+        showGeoClusters(data.data);
+        // Cacher le layer de marqueurs individuels
+        if (markersLayer && map.hasLayer(markersLayer)) {
+          map.removeLayer(markersLayer);
+        }
+      }
+    } else if (data.type === 'events') {
+      // MODE DÉTAILLÉ: afficher les events réels
+      geoCirclesLayer.clearLayers();
+      // Afficher le layer de marqueurs
+      if (markersLayer && !map.hasLayer(markersLayer)) {
+        markersLayer.addTo(map);
+      }
+      // Ajouter les nouveaux events (sans dupliquer)
+      addViewportEvents(data);
+    }
+      } catch (e) {
+    console.warn('[VIEWPORT] Erreur:', e);
+  }
+}
+
+// Afficher les cercles agrégés (zoom faible) - UNIQUEMENT en mode event
+function showGeoClusters(clusters) {
+  geoCirclesLayer.clearLayers();
+  
+  // Ne JAMAIS afficher les clusters events en mode booking ou service
+  if (typeof currentMode !== 'undefined' && currentMode !== 'event') {
+    return;
+  }
+  
+  const theme = getThemeMarkerColors ? getThemeMarkerColors() : {accent: '#FF6B35', border: 'rgba(255,255,255,0.5)'};
+  const t = UI_THEMES && typeof uiThemeIndex !== "undefined" ? UI_THEMES[uiThemeIndex] : null;
+  // Utiliser gradient custom si disponible, sinon couleur accent
+  const customGrad = theme.gradient ? buildMarkerGradient(theme.gradient, 135) : null;
+  const accentColor = customGrad || theme.accent || '#FF6B35';
+  const geoBorderColor = theme.border || 'rgba(255,255,255,0.5)';
+  
+  clusters.forEach(([lat, lng, count]) => {
+    // Taille COMPACTE - petits cercles discrets qui ne masquent pas la carte
+    // Min 22px, max 36px - proportionnel au log du nombre d'events
+    const radius = Math.max(11, Math.min(18, 8 + Math.log10(count + 1) * 3));
+    
+    // Formater le nombre (ex: 12345 -> "12K")
+    let label;
+    if (count >= 10000) {
+      label = Math.round(count / 1000) + 'K';
+    } else if (count >= 1000) {
+      label = (count / 1000).toFixed(1) + 'K';
+    } else {
+      label = count.toString();
+    }
+    
+    // Créer un DivIcon compact - ne masque pas les noms de villes
+    const size = radius * 2;
+    const icon = L.divIcon({
+      html: `<div style="
+        background: ${accentColor};
+        opacity: 0.85;
+        border-radius: 50%;
+        width: ${size}px;
+        height: ${size}px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: ${size < 26 ? 9 : size < 32 ? 10 : 11}px;
+        color: #fff;
+        text-shadow: 0 1px 1px rgba(0,0,0,0.6);
+        box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+        border: 1.5px solid ${geoBorderColor};
+        cursor: pointer;
+        transition: transform 0.15s;
+      " onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'">${label}</div>`,
+      className: 'geo-cluster-icon',
+      iconSize: L.point(size, size),
+      iconAnchor: L.point(size / 2, size / 2)
+    });
+    
+    const marker = L.marker([lat, lng], { icon: icon });
+    
+    // Au clic: zoomer vers cette zone
+    marker.on('click', function() {
+      const targetZoom = Math.min(map.getZoom() + 3, VIEWPORT_ZOOM_THRESHOLD);
+      map.setView([lat, lng], targetZoom, { animate: true });
+    });
+    
+    geoCirclesLayer.addLayer(marker);
+  });
+  
+  console.log(`[VIEWPORT] 🌍 ${clusters.length} cercles agrégés affichés (zoom ${map.getZoom()})`);
+}
+
+// Ajouter les events du viewport au layer de marqueurs (incrémental, sans tout effacer)
+function addViewportEvents(data) {
+  if (!data.k || !data.d) return;
+  
+  const keys = data.k;
+  let newCount = 0;
+  
+  data.d.forEach(row => {
+    // Décoder le format compact
+    const obj = {};
+    for (let i = 0; i < keys.length; i++) {
+      if (row[i] !== null && row[i] !== undefined) {
+        obj[keys[i]] = row[i];
+      }
+    }
+    
+    // Skip si déjà chargé
+    if (loadedEventIds.has(obj.id)) return;
+    loadedEventIds.add(obj.id);
+    
+    // Construire l'objet event complet
+    const event = {
+      ...obj,
+      type: 'event',
+      lat: obj.latitude,
+      lng: obj.longitude,
+      startDate: obj.date ? new Date(obj.date + (obj.time ? 'T' + obj.time : '')) : null,
+      endDate: obj.end_date ? new Date(obj.end_date) : null,
+      address: obj.location || '',
+      boost: '1.-',
+      likes: 0,
+      favorites: 0,
+      participations: 0
+    };
+    
+    // Vérifier lat/lng valides
+    if (typeof event.lat !== 'number' || typeof event.lng !== 'number' || isNaN(event.lat) || isNaN(event.lng)) return;
+    
+    // Ajouter à eventsData (pour la recherche, les filtres, etc.)
+    eventsData.push(event);
+    
+    // Vérifier si cet event passe le filtre actif avant de créer un marqueur
+    let shouldAddMarker = true;
+    if (selectedCategories && selectedCategories.length > 0) {
+      // Filtre catégories actif → vérifier si l'event match
+      const lowerCats = selectedCategories.map(c => c.toLowerCase());
+      const itemCatParts = getEffectiveCategoryParts(event);
+      
+      // Construire les catégories autorisées (avec descendants et alias) - utilise FILTER_ALIASES global
+      const allowed = new Set();
+      lowerCats.forEach(sc => {
+        allowed.add(sc);
+        if (explorerTree) {
+          findCategoryDescendants(sc, explorerTree).forEach(d => allowed.add(d));
+        }
+        (FILTER_ALIASES[sc] || []).forEach(a => {
+          allowed.add(a);
+          if (explorerTree) findCategoryDescendants(a, explorerTree).forEach(d => allowed.add(d));
+        });
+      });
+      
+      shouldAddMarker = Array.from(itemCatParts).some(cat => allowed.has(cat));
+    }
+    
+    // Créer et ajouter le marqueur directement (incrémental, sans refreshMarkers)
+    if (shouldAddMarker) {
+      try {
+        const icon = buildMarkerIcon(event);
+        const marker = L.marker([event.lat, event.lng], { icon });
+        marker.bindPopup('', { maxWidth: 360 });
+        marker.on('popupopen', function() {
+          marker.closePopup();
+          currentPopupMarker = marker;
+          const popupContent = buildPopupHtml(event);
+          openPopupModal(popupContent, event);
+        });
+        markersLayer.addLayer(marker);
+        markerMap[`event:${event.id}`] = marker;
+        newCount++;
+      } catch (err) {
+        // Silencieux - erreur de marqueur individuel
+      }
+    }
+  });
+  
+  if (newCount > 0) {
+    window.eventsData = eventsData;
+    // Mettre à jour la liste si visible
+    if (typeof refreshListView === 'function') refreshListView();
+    console.log(`[VIEWPORT] 📍 +${newCount} events ajoutés sur carte (total eventsData: ${eventsData.length})`);
+  }
+}
+
 // Charger les événements depuis le backend et vérifier les favoris
 async function loadEventsFromBackend() {
+  // MODE VIEWPORT PROGRESSIF: déléguer au chargement par viewport
+  // Cette fonction est gardée pour compatibilité (appelée après login, changement de statut, etc.)
+  // Elle force un rechargement du viewport actuel
+  console.log('[EVENTS] 🔄 loadEventsFromBackend → rechargement viewport');
+  lastViewportKey = ''; // Forcer le re-fetch
+  await loadViewportData();
+}
+
+// Charger les bookings depuis le backend
+async function loadBookingsFromBackend() {
   try {
-    // ✅ Charger les événements de France ET du backend en parallèle
-    const [franceResponse, backendResponse] = await Promise.allSettled([
-      fetch('/events_france_final.geojson'),
-      fetch(`${window.API_BASE_URL}/events`)
-    ]);
-    
-    let allNewEvents = [];
-    
-    // Traiter les événements de France
-    if (franceResponse.status === 'fulfilled' && franceResponse.value.ok) {
-      try {
-        const geojson = await franceResponse.value.json();
-        const franceEvents = geojson.features.map((feature, index) => {
-          const props = feature.properties;
-          const coords = feature.geometry.coordinates;
-          const startDate = parseFrenchDate(props['Date Début'], props['Heure Début']);
-          const endDate = parseFrenchDate(props['Date Fin'], props['Heure Fin']);
-          
-          return {
-            id: index + 1000,
-            type: 'event',
-            title: props.Titre || 'Événement sans titre',
-            description: `${props.Catégorie || ''} - ${props.Adresse || ''}`,
-            city: props.city || 'France',
-            lat: coords[1],
-            lng: coords[0],
-            startDate: startDate,
-            endDate: endDate,
-            category: props.Catégorie || 'Autre',
-            link: props.Lien || '',
-            email: props.Email || '',
-            address: props.Adresse || '',
-            boost: '1.-',
-            likes: 0,
-            favorites: 0,
-            participations: 0
-          };
-        });
-        allNewEvents.push(...franceEvents);
-        console.log(`✅ ${franceEvents.length} événements de France chargés`);
-      } catch (e) {
-        console.warn('Erreur parsing France GeoJSON:', e);
-      }
+    const response = await fetch(`${window.API_BASE_URL}/bookings`);
+    if (!response.ok) {
+      console.warn('[BOOKINGS] Erreur API:', response.status);
+      return;
     }
     
-    // Traiter les événements du backend
-    if (backendResponse.status === 'fulfilled' && backendResponse.value.ok) {
-      try {
-        const rawBackendEvents = await backendResponse.value.json();
-        // ⚠️ CRITIQUE : Transformer latitude/longitude en lat/lng pour la carte
-        const backendEvents = rawBackendEvents.map(e => ({
-          ...e,
-          type: 'event',
-          lat: e.latitude || e.lat,
-          lng: e.longitude || e.lng,
-          // Compatibilité avec le format frontend
-          startDate: e.date ? new Date(e.date + (e.time ? 'T' + e.time : '')) : null,
-          endDate: e.end_date ? new Date(e.end_date + (e.end_time ? 'T' + e.end_time : '')) : null,
-          address: e.location || e.address || '',
-          boost: '1.-',
-          likes: e.likes || 0,
-          favorites: e.favorites || 0,
-          participations: e.participations || 0
-        }));
-        allNewEvents.push(...backendEvents);
-        console.log(`✅ ${backendEvents.length} événements du backend chargés (transformés lat/lng)`);
-      } catch (e) {
-        console.warn('Erreur parsing backend:', e);
-      }
+    const rawBookings = await response.json();
+    const bookingsList = Array.isArray(rawBookings) ? rawBookings : (rawBookings.bookings || []);
+    
+    if (bookingsList.length === 0) {
+      console.log('[BOOKINGS] Aucun booking trouvé dans le backend');
+      return;
     }
     
-    // Filtrer les doublons et ajouter
-    const existingIds = new Set(eventsData.map(e => e.id));
-    const trulyNewEvents = allNewEvents.filter(e => !existingIds.has(e.id));
+    // Mapping catégorie -> image dans le dossier event/
+    const bookingCategoryImageMap = {
+      'musique > electro': 'electronic.jpg',
+      'musique > techno': 'techno.jpg',
+      'musique > house': 'house.jpg',
+      'musique > trance': 'Trance.jpeg',
+      'musique > jazz': 'jazzsoulfunk.jpg',
+      'musique > blues': 'jazzsoulfunk.jpg',
+      'musique > rock': 'rock.jpg',
+      'musique > metal': 'metal.jpg',
+      'musique > punk': 'punkrock.jpg',
+      'musique > hip-hop': 'hiphop.jpg',
+      'musique > hip-hop/rap': 'hiphop.jpg',
+      'musique > rap': 'rap.jpg',
+      'musique > reggae': 'reggae.jpg',
+      'musique > soul': 'jazzsoulfunk.jpg',
+      'musique > soul/funk': 'jazzsoulfunk.jpg',
+      'musique > funk': 'jazzsoulfunk.jpg',
+      'musique > pop': 'PopVariété.jpg',
+      'musique > folk': 'folk.jpg',
+      'musique > classique': 'opéra.jpg',
+      'musique > world': 'world.jpg',
+      'musique > latin': 'latin.jpg',
+      'musique > r&b': 'RnB.jpg',
+      'musique > concert': 'live musique.jpg',
+      'musique > chanson': 'PopVariété.jpg',
+      'musique > dnb': 'Drum&Bass.jpg',
+      'musique > drum & bass': 'Drum&Bass.jpg',
+      'performers': 'performers.png',
+      'vj & visuels': 'VJ.jpg',
+      'mcs & animateurs': 'bookingdefault.jpg',
+      'live acts': 'LiveActs.jpg',
+    };
     
-    if (trulyNewEvents.length > 0) {
-      eventsData.push(...trulyNewEvents);
-      window.eventsData = eventsData; // Mettre à jour la référence globale
-      await checkFavoritesInNewEvents(trulyNewEvents);
-      refreshMarkers();
-      refreshListView();
+    // Transformer les bookings API en format frontend
+    const backendBookings = bookingsList.map(b => {
+      // Catégories : peut être un string JSON ou un array
+      let cats = b.categories || [];
+      if (typeof cats === 'string') {
+        try { cats = JSON.parse(cats); } catch(e) { cats = [cats]; }
+      }
+      if (!Array.isArray(cats)) cats = [cats];
       
-      // Vérifier si on doit mettre à jour les métadonnées Open Graph
-      const urlParams = new URLSearchParams(window.location.search);
-      const eventId = urlParams.get('event');
-      if (eventId) {
-        const item = eventsData.find(e => e.id === parseInt(eventId));
-        if (item) {
-          updateOpenGraphMetadata('event', parseInt(eventId), item);
+      const desc = b.description || '';
+      
+      // Extraire les URLs audio depuis la description (format: "🔊 Audio: https://...")
+      let audioUrls = [];
+      const audioMatches = desc.matchAll(/🔊\s*Audio:\s*(https?:\/\/[^\s|]+)/g);
+      for (const m of audioMatches) {
+        audioUrls.push(m[1]);
+      }
+      
+      // Extraire le lien source (publication originale) depuis la description
+      let sourceUrl = b.source_url || null;
+      const sourceMatch = desc.match(/🔗\s*Source:\s*(https?:\/\/[^\s|]+)/);
+      if (sourceMatch) sourceUrl = sourceMatch[1];
+      
+      // Extraire les URLs cover depuis la description (format: "🖼️ Cover: https://...")
+      let coverUrl = null;
+      const coverMatch = desc.match(/🖼️\s*Cover:\s*(https?:\/\/[^\s|]+)/);
+      if (coverMatch) {
+        coverUrl = coverMatch[1];
+      }
+      
+      // Nettoyer la description (retirer les URLs audio/cover/source + numéros de téléphone)
+      let cleanDesc = desc
+        .replace(/\s*\|\s*🔊\s*Audio:\s*https?:\/\/[^\s|]+/g, '')
+        .replace(/\s*\|\s*🖼️\s*Cover:\s*https?:\/\/[^\s|]+/g, '')
+        .replace(/\s*\|\s*🔗\s*Source:\s*https?:\/\/[^\s|]+/g, '')
+        // Supprimer les numéros de téléphone (formats: +41 xx xxx xx xx, 0xx xxx xx xx, 07x.xxx.xx.xx, etc.)
+        .replace(/📞\s*[^|\n]*/g, '')
+        .replace(/☎\s*[^|\n]*/g, '')
+        .replace(/(?:Tel|Tél|Téléphone|Phone|Tel\.|Tél\.)\s*[:.]?\s*[\+]?[\d\s\.\-\(\)]{7,}/gi, '')
+        .replace(/(?:\+\d{1,3}[\s\.\-]?)?\(?\d{2,4}\)?[\s\.\-]?\d{2,4}[\s\.\-]?\d{2,4}[\s\.\-]?\d{0,4}/g, (match) => {
+          // Ne supprimer que si ça ressemble vraiment à un numéro de téléphone (min 10 chiffres)
+          const digits = match.replace(/\D/g, '');
+          return digits.length >= 10 ? '' : match;
+        })
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+      
+      // Trouver la bonne image basée sur la catégorie
+      let categoryImage = null;
+      for (const cat of cats) {
+        const catLower = (cat || '').toLowerCase();
+        if (bookingCategoryImageMap[catLower]) {
+          // Utiliser le dossier event/ pour les images musicales
+          const imgFile = bookingCategoryImageMap[catLower];
+          const folder = ['performers.png', 'VJ.jpg', 'LiveActs.jpg', 'bookingdefault.jpg'].includes(imgFile) ? 'booking' : 'event';
+          categoryImage = `/assets/category_images/${folder}/${imgFile}`;
+          break;
         }
+      }
+      // Fallback: image musicale générique
+      if (!categoryImage) {
+        categoryImage = '/assets/category_images/event/music.jpg';
+      }
+      
+      return {
+        id: b.id,
+        type: 'booking',
+        name: b.title || b.name || '',
+        title: b.title || b.name || '',
+        description: cleanDesc,
+        city: b.city || '',
+        address: b.location || b.address || '',
+        lat: parseFloat(b.latitude) || parseFloat(b.lat) || null,
+        lng: parseFloat(b.longitude) || parseFloat(b.lng) || null,
+        categories: cats,
+        mainCategory: cats[0] || 'Musique',
+        categoryImage: null,
+        // Image: cover Audius ou image par catégorie
+        imageUrl: coverUrl || categoryImage,
+        boost: b.boost || 'basic',
+        soundLinks: audioUrls.length > 0 ? audioUrls : (b.sound_links || []),
+        email: b.email || '',
+        website: b.website || '',
+        sourceUrl: sourceUrl,
+        source_url: sourceUrl,
+        validation_status: b.validation_status || 'scraped',
+        isAI: false,
+        verified: false,
+        likes: b.likes || 0,
+        rating: b.rating || '0'
+      };
+    }).filter(b => {
+      // Filtrer : GPS valide ET au moins un son
+      if (!b.lat || !b.lng || isNaN(b.lat) || isNaN(b.lng)) return false;
+      if (!b.soundLinks || b.soundLinks.length === 0) return false;
+      return true;
+    });
+    
+    // Filtrer les doublons
+    const existingIds = new Set(bookingsData.map(b => b.id));
+    const newBookings = backendBookings.filter(b => !existingIds.has(b.id));
+    
+    if (newBookings.length > 0) {
+      bookingsData.push(...newBookings);
+      window.bookingsData = bookingsData;
+      console.log(`✅ ${newBookings.length} bookings chargés (avec audio, marqueurs orange)`);
+      
+      // Rafraîchir si on est en mode booking
+      if (currentMode === 'booking') {
+        refreshMarkers();
+        refreshListView();
       }
     }
   } catch (error) {
-    console.error('Erreur chargement événements:', error);
+    console.error('[BOOKINGS] Erreur chargement:', error);
+  }
+}
+
+// Charger les services depuis le backend
+async function loadServicesFromBackend() {
+  try {
+    const response = await fetch(`${window.API_BASE_URL}/services`);
+    if (!response.ok) {
+      console.warn('[SERVICES] Erreur API:', response.status);
+      return;
+    }
+    
+    const rawServices = await response.json();
+    const servicesList = Array.isArray(rawServices) ? rawServices : (rawServices.services || []);
+    
+    if (servicesList.length === 0) {
+      console.log('[SERVICES] Aucun service trouvé dans le backend');
+      return;
+    }
+    
+    // Transformer les services API en format frontend
+    const backendServices = servicesList.map(s => {
+      let cats = s.categories || [];
+      if (typeof cats === 'string') {
+        try { cats = JSON.parse(cats); } catch(e) { cats = [cats]; }
+      }
+      if (!Array.isArray(cats)) cats = [cats];
+      
+      return {
+        id: s.id,
+        type: 'service',
+        name: s.name || '',
+        title: s.name || '',
+        description: s.description || '',
+        address: s.location || '',
+        location: s.location || '',
+        lat: parseFloat(s.latitude) || parseFloat(s.lat) || null,
+        lng: parseFloat(s.longitude) || parseFloat(s.lng) || null,
+        categories: cats,
+        mainCategory: cats[0] || 'Prestataires & Logistique',
+        boost: '1.-',
+        likes: s.likes_count || 0,
+        favorites: s.favorites_count || 0,
+        isAI: false,
+        verified: false,
+        created_at: s.created_at
+      };
+    }).filter(s => s.lat && s.lng && !isNaN(s.lat) && !isNaN(s.lng));
+    
+    // Filtrer les doublons
+    const existingIds = new Set(servicesData.map(s => s.id));
+    const newServices = backendServices.filter(s => !existingIds.has(s.id));
+    
+    if (newServices.length > 0) {
+      servicesData.push(...newServices);
+      window.servicesData = servicesData;
+      console.log(`✅ ${newServices.length} services chargés depuis le backend`);
+      
+      // Rafraîchir si on est en mode service
+      if (currentMode === 'service') {
+        refreshMarkers();
+        refreshListView();
+      }
+    }
+  } catch (error) {
+    console.error('[SERVICES] Erreur chargement:', error);
   }
 }
 
@@ -29240,47 +32004,68 @@ function parseFrenchDate(dateStr, timeStr) {
 
 // Charger toutes les données utilisateur au login
 async function loadUserDataOnLogin() {
-  // Charger l'utilisateur depuis /api/user/me au chargement (si token existe)
-  // C'est la source de vérité, pas localStorage
-  loadCurrentUserFromAPI().then(user => {
-    if (user) {
-      console.log('[AUTH] Utilisateur chargé au démarrage depuis /api/user/me:', user.email);
-      // Mettre à jour le bloc compte
-      if (typeof window.updateAccountBlock === 'function') {
-        setTimeout(() => window.updateAccountBlock(), 100);
-      }
-    } else {
-      // Pas d'utilisateur chargé, utiliser localStorage comme fallback temporaire
-      const savedUser = localStorage.getItem('currentUser');
-      if (savedUser) {
-        try {
-          const parsed = JSON.parse(savedUser);
-          if (parsed.addresses && parsed.addresses.length > 0) {
-            currentUser.addresses = parsed.addresses;
-          }
-        } catch (e) {
-          console.error('Erreur chargement adresses:', e);
-        }
-      }
-    }
-  }).catch(err => {
+  // 1. Charger l'utilisateur depuis /api/user/me (source de vérité)
+  const user = await loadCurrentUserFromAPI().catch(err => {
     console.error('[AUTH] Erreur chargement utilisateur au démarrage:', err);
+    return null;
   });
   
-  // Charger la position depuis le stockage local
-  loadUserLocationFromStorage();
-  
-  // Si pas de position, demander la géolocalisation
-  if (!currentUser.location || !currentUser.location.lat || !currentUser.location.lng) {
-    // Demander la géolocalisation (non bloquant)
-    requestUserLocation().catch(() => {
-      // Si l'utilisateur refuse, on continue sans position
-      console.log('Géolocalisation refusée ou indisponible');
-    });
+  if (user) {
+    console.log('[AUTH] Utilisateur chargé depuis /api/user/me:', user.email);
+    if (typeof window.updateAccountBlock === 'function') {
+      setTimeout(() => window.updateAccountBlock(), 100);
+    }
+  } else {
+    const savedUser = localStorage.getItem('currentUser');
+    if (savedUser) {
+      try {
+        const parsed = JSON.parse(savedUser);
+        if (parsed.addresses && parsed.addresses.length > 0) {
+          currentUser.addresses = parsed.addresses || [];
+        }
+      } catch (e) {
+        console.error('Erreur chargement adresses:', e);
+      }
+    }
   }
   
-  await loadFavoritesFromBackend();
-  await loadAlertsFromBackend();
+  loadUserLocationFromStorage();
+  
+  if (!currentUser.location || !currentUser.location.lat || !currentUser.location.lng) {
+    requestUserLocation().catch(() => console.log('Géolocalisation refusée ou indisponible'));
+  }
+  
+  // Charger agenda, favoris, alertes depuis la base (persistant)
+  if (currentUser && currentUser.isLoggedIn) {
+    await loadAgendaFromBackend();
+    await loadFavoritesFromBackend();
+    await loadAlertsFromBackend();
+    
+    // Charger le theme custom depuis la BDD
+    try {
+      const token = typeof getAuthToken === 'function' ? getAuthToken() : null;
+      if (token) {
+        const themeResp = await fetch(`${window.API_BASE_URL}/user/theme`, {
+          method: 'GET',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (themeResp.ok) {
+          const themeConfig = await themeResp.json();
+          if (themeConfig && themeConfig.markerColors) {
+            window.customThemeConfig = themeConfig;
+            applyCustomColors();
+            console.log('[THEME] Theme custom charge depuis la BDD');
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[THEME] Erreur chargement theme:', e);
+    }
+    
+    if (typeof refreshMarkers === 'function') refreshMarkers();
+    if (typeof refreshListView === 'function') refreshListView();
+  }
+  
   await loadEventsFromBackend();
   
   // Afficher la popup d'alertes si il y en a de nouvelles

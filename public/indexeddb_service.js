@@ -5,8 +5,9 @@
 // IndexedDB a un quota beaucoup plus élevé que localStorage (plusieurs GB vs 5-10MB)
 
 const DB_NAME = 'mapevent_db';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE_NAME = 'users';
+const AUDIO_CACHE_STORE = 'audio_cache';
 
 let db = null;
 
@@ -36,6 +37,10 @@ function openDB() {
       if (!db.objectStoreNames.contains(STORE_NAME)) {
         db.createObjectStore(STORE_NAME, { keyPath: 'id' });
         console.log('✅ ObjectStore créé');
+      }
+      if (!db.objectStoreNames.contains(AUDIO_CACHE_STORE)) {
+        db.createObjectStore(AUDIO_CACHE_STORE, { keyPath: 'url' });
+        console.log('✅ Audio cache store créé');
       }
     };
   });
@@ -172,11 +177,47 @@ function loadUserFromLocalStorage(userId) {
   }
 }
 
+// Cache audio pour mode hors-ligne (bookings favoris)
+async function getAudioCache(url) {
+  try {
+    const database = await openDB();
+    const transaction = database.transaction([AUDIO_CACHE_STORE], 'readonly');
+    const store = transaction.objectStore(AUDIO_CACHE_STORE);
+    const cached = await new Promise((resolve, reject) => {
+      const req = store.get(url);
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+    if (cached && cached.blob) return URL.createObjectURL(cached.blob);
+    return null;
+  } catch (e) {
+    return null;
+  }
+}
+
+async function setAudioCache(url, blob) {
+  try {
+    const database = await openDB();
+    const transaction = database.transaction([AUDIO_CACHE_STORE], 'readwrite');
+    const store = transaction.objectStore(AUDIO_CACHE_STORE);
+    await new Promise((resolve, reject) => {
+      const req = store.put({ url, blob, timestamp: Date.now() });
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
 // Exporter les fonctions
 window.indexedDBService = {
   saveUser: saveUserToIndexedDB,
   loadUser: loadUserFromIndexedDB,
   deleteUser: deleteUserFromIndexedDB,
-  openDB: openDB
+  openDB: openDB,
+  getAudioCache,
+  setAudioCache
 };
 

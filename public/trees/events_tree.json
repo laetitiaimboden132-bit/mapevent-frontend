@@ -209,7 +209,7 @@
         "Présentation",
         "Histoire / Société"
       ],
-      "Workshops": [
+      "Ateliers": [
         "Atelier créatif",
         "Atelier enfants",
         "Atelier bien-être",
@@ -217,7 +217,26 @@
         "Atelier musique",
         "Atelier écriture",
         "Atelier cuisine",
-        "Atelier cocktails"
+        "Atelier cocktails",
+        "Atelier professionnel"
+      ],
+      "Littérature & Conte": [
+        "Lecture publique",
+        "Conte",
+        "Dédicace / Rencontre auteur",
+        "Slam / Poésie"
+      ],
+      "Humour": [
+        "Stand-up",
+        "One-man show",
+        "Sketch",
+        "Improvisation comique"
+      ],
+      "Visites & Patrimoine": [
+        "Visite guidée",
+        "Journées du patrimoine",
+        "Visite historique",
+        "Musée"
       ]
     },
 
@@ -350,6 +369,30 @@
       "Nuit blanche"
     ],
 
+    "Famille & Enfants": {
+      "Activités": [
+        "Sortie nature",
+        "Atelier enfants",
+        "Conte / Lecture",
+        "Spectacle enfants",
+        "Marionnettes",
+        "Jeux en plein air"
+      ],
+      "Fêtes": [
+        "Anniversaire",
+        "Fête de famille",
+        "Goûter festif"
+      ]
+    },
+
+    "Nature & Plein Air": [
+      "Randonnée",
+      "Observation faune",
+      "Balade nature",
+      "Jardin / Botanique",
+      "Plein air"
+    ],
+
     "Business & Communauté": [
       "Networking",
       "Salon professionnel",
@@ -359,6 +402,14 @@
       "Meetup tech",
       "Esport LAN Party",
       "Gaming event"
+    ],
+
+    "Bien-être": [
+      "Yoga",
+      "Méditation",
+      "Sophrologie",
+      "Spa / Sauna",
+      "Retraite bien-être"
     ]
   }
 }
