@@ -2331,12 +2331,14 @@ function isLoggedIn() {
 
 // Initialiser currentUser avec getDefaultUser() (jamais null)
 let currentUser = getDefaultUser();
+window.currentUser = currentUser;
 
 // ⚠️⚠️⚠️ SYNCHRONISATION CRITIQUE : Fonction pour synchroniser currentUser depuis auth.js
 // auth.js met à jour window.currentUser, cette fonction synchronise la variable locale
 function syncCurrentUser(newUser) {
   if (newUser && typeof newUser === 'object') {
     currentUser = { ...currentUser, ...newUser };
+    window.currentUser = currentUser;
     console.log('[SYNC] currentUser synchronisé depuis auth.js:', { 
       isLoggedIn: currentUser.isLoggedIn, 
       username: currentUser.username 
@@ -2933,13 +2935,12 @@ async function handleStripeReturn() {
       try {
         const data = JSON.parse(pendingData);
         console.log('[STRIPE RETURN] 📦 Mode:', data.mode, 'Titre:', data.newItem?.title);
+        localStorage.removeItem('pendingPublishData');
         window.pendingPublishData = data;
         await finalizePublish();
-        localStorage.removeItem('pendingPublishData');
         playPaymentSound();
-        // Nettoyer l'URL
         window.history.replaceState({}, document.title, window.location.pathname);
-        return; // Sortir, publication gérée
+        return;
       } catch (e) {
         console.error('[STRIPE RETURN] ❌ Erreur parsing pendingPublishData:', e);
       }
@@ -2994,14 +2995,13 @@ async function handleStripeReturn() {
     } catch (error) {
       console.error('Erreur vérification paiement:', error);
       
-      // ⚠️ Vérifier si on a des données de publication en attente
       const pendingData = localStorage.getItem('pendingPublishData');
-      if (pendingData) {
+      if (pendingData && !window._publishFinalized) {
         try {
           const data = JSON.parse(pendingData);
+          localStorage.removeItem('pendingPublishData');
           window.pendingPublishData = data;
           await finalizePublish();
-          localStorage.removeItem('pendingPublishData');
           showNotification("✅ Paiement reçu ! Publication effectuée.", "success");
         } catch (e) {
           console.error('Erreur finalisation publication:', e);
@@ -3278,31 +3278,34 @@ function updateLocationNavCounter() {
 function buildLocationNavHtml(group, index) {
   if (!group || group.length <= 1) return '';
   const total = group.length;
+  const isMob = window.innerWidth <= 768;
+  const btnSize = isMob ? '48px' : '40px';
+  const fontSize = isMob ? '26px' : '22px';
   return `
     <div id="location-nav-bar" style="
       display:flex; align-items:center; justify-content:space-between;
-      padding:10px 16px; background:rgba(15,23,42,0.92); backdrop-filter:blur(10px);
+      padding:${isMob ? '12px 20px 16px' : '10px 16px'}; background:rgba(15,23,42,0.92); backdrop-filter:blur(10px);
       border-top:1px solid rgba(255,255,255,0.08);
       user-select:none; flex-shrink:0;
     ">
       <button onclick="navigateSameLocation(-1)" style="
-        width:40px; height:40px; border-radius:50%; border:none;
-        background:rgba(255,255,255,0.08); color:#fff; cursor:pointer; font-size:22px;
+        width:${btnSize}; height:${btnSize}; min-width:${btnSize}; border-radius:50%; border:none;
+        background:rgba(255,255,255,0.1); color:#fff; cursor:pointer; font-size:${fontSize};
         display:flex; align-items:center; justify-content:center;
-        transition:all 0.15s; flex-shrink:0;
-      " onmouseover="this.style.background='rgba(0,255,195,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.08)'">&lsaquo;</button>
+        transition:all 0.15s; flex-shrink:0; -webkit-tap-highlight-color:transparent;
+      " onmouseover="this.style.background='rgba(0,255,195,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'">&lsaquo;</button>
       <div style="display:flex; flex-direction:column; align-items:center; gap:2px;">
         <span id="location-nav-counter" style="
-          color:#fff; font-size:14px; font-weight:700; letter-spacing:0.5px;
+          color:#fff; font-size:${isMob ? '15px' : '14px'}; font-weight:700; letter-spacing:0.5px;
         ">${index + 1} / ${total}</span>
-        <span style="color:rgba(148,163,184,0.8); font-size:11px;">${total} events ici</span>
+        <span style="color:rgba(148,163,184,0.8); font-size:${isMob ? '12px' : '11px'};">${total} events ici</span>
       </div>
       <button onclick="navigateSameLocation(1)" style="
-        width:40px; height:40px; border-radius:50%; border:none;
-        background:rgba(255,255,255,0.08); color:#fff; cursor:pointer; font-size:22px;
+        width:${btnSize}; height:${btnSize}; min-width:${btnSize}; border-radius:50%; border:none;
+        background:rgba(255,255,255,0.1); color:#fff; cursor:pointer; font-size:${fontSize};
         display:flex; align-items:center; justify-content:center;
-        transition:all 0.15s; flex-shrink:0;
-      " onmouseover="this.style.background='rgba(0,255,195,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.08)'">&rsaquo;</button>
+        transition:all 0.15s; flex-shrink:0; -webkit-tap-highlight-color:transparent;
+      " onmouseover="this.style.background='rgba(0,255,195,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'">&rsaquo;</button>
     </div>`;
 }
 
@@ -3438,11 +3441,16 @@ function openPopupModal(content, item) {
         e.stopImmediatePropagation();
       };
       
-      // Empêcher tous les événements de toucher Leaflet
-      ['wheel', 'touchstart', 'touchmove', 'touchend', 'mousedown', 'mousemove', 'mouseup'].forEach(eventType => {
+      ['wheel', 'mousedown', 'mousemove', 'mouseup'].forEach(eventType => {
         scrollContainer.addEventListener(eventType, stopPropagation, { capture: true, passive: false });
         if (modalContent) {
           modalContent.addEventListener(eventType, stopPropagation, { capture: true, passive: false });
+        }
+      });
+      ['touchstart', 'touchmove', 'touchend'].forEach(eventType => {
+        scrollContainer.addEventListener(eventType, (e) => { e.stopPropagation(); }, { capture: true, passive: true });
+        if (modalContent) {
+          modalContent.addEventListener(eventType, (e) => { e.stopPropagation(); }, { capture: true, passive: true });
         }
       });
       
@@ -4005,6 +4013,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const accountBtn = document.getElementById("account-topbar-btn");
   if (accountBtn) {
     accountBtn.addEventListener('click', (e) => {
+      if (typeof window._openAccountGrid === 'function') return;
       console.log('[ACCOUNT CLICK] fired', e);
       e.preventDefault();
       e.stopPropagation();
@@ -4027,8 +4036,11 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
       
-      if (currentUser && currentUser.isLoggedIn) {
-        // Utilisateur connecté : ouvrir le modal compte
+      const isLoggedIn = (currentUser && currentUser.isLoggedIn) || (window.currentUser && window.currentUser.isLoggedIn);
+      if (isLoggedIn) {
+        if (window.currentUser && window.currentUser.isLoggedIn && (!currentUser || !currentUser.isLoggedIn)) {
+          currentUser = { ...currentUser, ...window.currentUser };
+        }
         console.log('[ACCOUNT CLICK] Ouverture modale compte');
         if (typeof window.openAccountModal === 'function') {
           window.openAccountModal();
@@ -5086,7 +5098,7 @@ function initMap() {
   // Quand on zoom arrière, les marqueurs proches se regroupent automatiquement
   // Quand on clique sur un cluster à zoom max, les marqueurs s'ouvrent en étoile (spiderfy)
   markersLayer = L.markerClusterGroup({
-    animate: true,
+    animate: false,
     animateAddingMarkers: false,
     
     // Distance de regroupement (en pixels) - augmenté pour garder les clusters groupés plus longtemps
@@ -5094,6 +5106,9 @@ function initMap() {
     
     // Afficher la zone couverte au survol du cluster
     showCoverageOnHover: false,
+    chunkedLoading: true,
+    chunkInterval: 50,
+    chunkDelay: 100,
     
     // Zoom au clic sur le cluster (zoom d'abord, puis spiderfy si même endroit)
     zoomToBoundsOnClick: true,
@@ -6671,10 +6686,10 @@ function buildMarkerIcon(item) {
     default:
       extraStyles = `
         background: #1a1a1a;
-        border: 2px solid ${borderColor};
-        box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+        border: 3.5px solid #1a3fc7;
+        box-shadow: 0 2px 8px rgba(26,63,199,0.4);
       `;
-      sizePx = 40;
+      sizePx = 42;
   }
 
   // Halo décoratif uniquement pour Top 1, 2, 3
@@ -8774,13 +8789,27 @@ async function searchCityGlobal(query) {
   const suggestionsDiv = document.getElementById("city-suggestions");
   if (!suggestionsDiv) return;
   
-  // D'abord chercher dans les villes locales (Suisse/France)
+  // D'abord chercher dans les villes locales (Suisse/France) - triées par pertinence
   const allLocalCities = [...SWISS_CITIES, ...FRENCH_CITIES];
-  const searchLower = query.toLowerCase();
-  const localMatches = allLocalCities.filter(city => 
-    city.name.toLowerCase().includes(searchLower) ||
-    (city.region && city.region.toLowerCase().includes(searchLower))
-  ).slice(0, 5);
+  const searchLower = query.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const localMatches = allLocalCities
+    .filter(city => {
+      const n = city.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const r = (city.region || "").toLowerCase();
+      return n.includes(searchLower) || r.includes(searchLower);
+    })
+    .sort((a, b) => {
+      const na = a.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const nb = b.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      // Match exact en premier
+      if (na === searchLower && nb !== searchLower) return -1;
+      if (nb === searchLower && na !== searchLower) return 1;
+      // Puis startsWith
+      if (na.startsWith(searchLower) && !nb.startsWith(searchLower)) return -1;
+      if (nb.startsWith(searchLower) && !na.startsWith(searchLower)) return 1;
+      return na.localeCompare(nb);
+    })
+    .slice(0, 5);
   
   // Ensuite chercher via API Nominatim pour le reste du monde
   let globalMatches = [];
@@ -9488,22 +9517,8 @@ function toggleCategory(cat, event) {
   console.log('[CATEGORY] isModalVisible:', isModalVisible);
   
   if (isModalVisible && categoryInput) {
-    // Mode publication : remplir le champ catégorie
-    categoryInput.value = cat;
-    console.log('[PUBLISH] ✅ Catégorie insérée dans le formulaire:', cat);
-    
-    // ⚠️⚠️⚠️ FORCER les couleurs pour visibilité
-    categoryInput.style.background = '#0f172a';
-    categoryInput.style.color = '#00ffc3';
-    categoryInput.style.webkitTextFillColor = '#00ffc3';
-    categoryInput.style.borderColor = '#00ffc3';
-    
-    // Effet visuel flash puis retour à normal
-    setTimeout(() => {
-      categoryInput.style.borderColor = '#334155';
-    }, 500);
-    
-    return; // Ne pas filtrer la carte
+    selectCategoryForPublish(cat);
+    return;
   }
   
   // Mode normal : toggle le filtre (illimité)
@@ -9553,21 +9568,8 @@ function selectLeafCategory(cat, event) {
   );
   
   if (isModalVisible && categoryInput) {
-    // Mode publication : remplir le champ catégorie
-    categoryInput.value = cat;
-    console.log('[PUBLISH] ✅ Catégorie insérée dans le formulaire:', cat);
-    
-    // ⚠️⚠️⚠️ FORCER les couleurs pour visibilité
-    categoryInput.style.background = '#0f172a';
-    categoryInput.style.color = '#00ffc3';
-    categoryInput.style.webkitTextFillColor = '#00ffc3';
-    categoryInput.style.borderColor = '#00ffc3';
-    
-    setTimeout(() => {
-      categoryInput.style.borderColor = '#334155';
-    }, 500);
-    
-    return; // Ne pas filtrer la carte
+    selectCategoryForPublish(cat);
+    return;
   }
   
   // Mode normal
@@ -10112,17 +10114,24 @@ function selectSuggestion(index) {
   
   const suggestion = currentSuggestions[index];
   const searchInput = document.getElementById("map-search-input");
+  const displayName = suggestion.display_name.split(',')[0];
   
   if (searchInput) {
-    searchInput.value = suggestion.display_name.split(',')[0]; // Nom de la ville
+    searchInput.value = displayName;
   }
   
-  // Fermer le dropdown
   const dropdown = document.getElementById("city-autocomplete-dropdown");
   if (dropdown) dropdown.style.display = "none";
   
-  // Rechercher la ville
-  onSearchCity(suggestion.display_name.split(',')[0]);
+  // Utiliser directement les coordonnées Nominatim (pas de re-recherche)
+  const lat = parseFloat(suggestion.lat);
+  const lng = parseFloat(suggestion.lon);
+  if (!isNaN(lat) && !isNaN(lng)) {
+    map.setView([lat, lng], 12);
+    showNotification(`📍 ${displayName} ${window.t("city_found")}`, "success");
+  } else {
+    onSearchCity(displayName);
+  }
 }
 
 // Fonction pour mettre en surbrillance une suggestion (navigation clavier)
@@ -10278,11 +10287,30 @@ async function onSearchCity(query) {
   
   showNotification(`${window.t("searching")} "${query}"...`, "info");
   
-  // 1. Chercher dans SWISS_CITIES (base de données locale)
-  const cityMatch = SWISS_CITIES.find(city => {
+  // 1. Chercher dans TOUTES les villes locales (Suisse + France) - match exact d'abord
+  const allLocalCities = [...SWISS_CITIES, ...FRENCH_CITIES];
+  
+  // Priorité 1 : match exact du nom
+  let cityMatch = allLocalCities.find(city => {
     const cityName = city.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-    return cityName.includes(queryLower) || queryLower.includes(cityName);
+    return cityName === queryLower;
   });
+  
+  // Priorité 2 : le nom de la ville commence par la requête
+  if (!cityMatch) {
+    cityMatch = allLocalCities.find(city => {
+      const cityName = city.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      return cityName.startsWith(queryLower);
+    });
+  }
+  
+  // Priorité 3 : le nom contient la requête (mais requête >= 3 chars)
+  if (!cityMatch && queryLower.length >= 3) {
+    cityMatch = allLocalCities.find(city => {
+      const cityName = city.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      return cityName.includes(queryLower);
+    });
+  }
   
   if (cityMatch) {
     map.setView([cityMatch.lat, cityMatch.lng], 12);
@@ -10290,11 +10318,11 @@ async function onSearchCity(query) {
     return;
   }
   
-  // 2. Chercher dans les données actuelles
+  // 2. Chercher dans les données actuelles (events) - match exact ou startsWith
   const all = [...eventsData, ...bookingsData, ...servicesData];
   const found = all.find(it => {
     const cityName = (it.city || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-    return cityName.includes(queryLower) || queryLower.includes(cityName);
+    return cityName === queryLower || cityName.startsWith(queryLower);
   });
   
   if (found) {
@@ -10303,16 +10331,12 @@ async function onSearchCity(query) {
     return;
   }
   
-  // 3. Recherche mondiale via Nominatim (OpenStreetMap) - GRATUIT et mondial
+  // 3. Recherche mondiale via Nominatim
   try {
     const encodedQuery = encodeURIComponent(query);
     const response = await fetch(
       `https://nominatim.openstreetmap.org/search?q=${encodedQuery}&format=json&limit=1&addressdetails=1`,
-      {
-        headers: {
-          'User-Agent': 'MapEventAI/1.0' // Requis par Nominatim
-        }
-      }
+      { headers: { 'User-Agent': 'MapEventAI/1.0' } }
     );
     
     if (!response.ok) throw new Error("Erreur API");
@@ -10323,7 +10347,7 @@ async function onSearchCity(query) {
       const result = data[0];
       const lat = parseFloat(result.lat);
       const lng = parseFloat(result.lon);
-      const displayName = result.display_name.split(',')[0]; // Nom de la ville
+      const displayName = result.display_name.split(',')[0];
       
       map.setView([lat, lng], 12);
       showNotification(`📍 ${displayName} ${window.t("city_found")}`, "success");
@@ -10352,9 +10376,9 @@ function buildPublishFormHtml() {
         <button type="button" id="pub-open-filter-btn" onclick="openFilterForPublish()" style="padding:4px 10px;border-radius:6px;border:1px solid rgba(0,255,195,0.5);background:rgba(0,255,195,0.1);color:#00ffc3;font-size:11px;cursor:pointer;font-weight:600;transition:all 0.2s;" onmouseover="this.style.background='rgba(0,255,195,0.2)';this.style.borderColor='rgba(0,255,195,0.8)'" onmouseout="this.style.background='rgba(0,255,195,0.1)';this.style.borderColor='rgba(0,255,195,0.5)'">🔍 Ouvrir filtre</button>
       </div>
       <input id="pub-main-category" placeholder="1ère catégorie (obligatoire)"
-               style="width:100%;padding:8px 10px;border-radius:8px;border:2px solid #334155;background:#0f172a !important;color:#00ffc3 !important;font-size:13px;font-weight:600;-webkit-text-fill-color:#00ffc3 !important;">
+               style="width:100%;padding:8px 10px;border-radius:8px;border:2px solid #334155;background:#0f172a;color:#fff;font-size:13px;">
       <input id="pub-main-category-2" placeholder="2ème catégorie (optionnel)"
-               style="width:100%;padding:8px 10px;border-radius:8px;border:2px solid #334155;background:#0f172a !important;color:#00ffc3 !important;font-size:13px;margin-top:6px;-webkit-text-fill-color:#00ffc3 !important;">
+               style="width:100%;padding:8px 10px;border-radius:8px;border:2px solid #334155;background:#0f172a;color:#fff;font-size:13px;margin-top:6px;">
       <div id="pub-category-suggestions" style="display:none;margin-top:4px;max-height:150px;overflow-y:auto;border:1px solid #334155;border-radius:8px;background:#0f172a;padding:4px;position:relative;z-index:1000;"></div>
     </div>
   `;
@@ -10387,10 +10411,33 @@ function buildPublishFormHtml() {
         <div id="pub-repeat-options" style="display:none;margin-top:10px;">
           <div style="margin-bottom:8px;">
             <label style="font-size:11px;font-weight:600;color:var(--ui-text-muted);margin-bottom:4px;display:block;">Fréquence</label>
-            <select id="pub-repeat-frequency" onchange="updateRepeatPricing()" style="width:100%;padding:6px;border-radius:8px;border:1px solid var(--ui-card-border);background:rgba(15,23,42,0.9);color:var(--ui-text-main);font-size:12px;cursor:pointer;">
+            <select id="pub-repeat-frequency" onchange="onRepeatFrequencyChange()" style="width:100%;padding:6px;border-radius:8px;border:1px solid var(--ui-card-border);background:rgba(15,23,42,0.9);color:var(--ui-text-main);font-size:12px;cursor:pointer;">
               <option value="weekly">📅 Hebdomadaire (+15.- CHF)</option>
               <option value="monthly">📆 Mensuel (+4.- CHF)</option>
             </select>
+          </div>
+
+          <!-- Jours de la semaine (hebdo) -->
+          <div id="pub-repeat-weekdays-box" style="margin-bottom:10px;">
+            <label style="font-size:11px;font-weight:600;color:var(--ui-text-muted);margin-bottom:6px;display:block;">Jour(s) de la semaine</label>
+            <div style="display:flex;gap:4px;flex-wrap:wrap;">
+              ${['Lu','Ma','Me','Je','Ve','Sa','Di'].map((d,i) =>
+                "<label style=\"display:flex;align-items:center;justify-content:center;width:38px;height:34px;border-radius:8px;border:1.5px solid #334155;background:rgba(15,23,42,0.9);cursor:pointer;transition:all .2s;position:relative;\">" +
+                "<input type=\"checkbox\" class=\"repeat-weekday\" value=\"" + i + "\" onchange=\"updateRepeatPreview()\" style=\"position:absolute;opacity:0;width:0;height:0;\">" +
+                "<span style=\"font-size:12px;font-weight:600;color:#94a3b8;pointer-events:none;\">" + d + "</span></label>"
+              ).join('')}
+            </div>
+          </div>
+
+          <!-- Jour du mois (mensuel) -->
+          <div id="pub-repeat-monthday-box" style="display:none;margin-bottom:10px;">
+            <label style="font-size:11px;font-weight:600;color:var(--ui-text-muted);margin-bottom:6px;display:block;">Jour du mois</label>
+            <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;">
+              ${Array.from({length:31},(_, i) => i+1).map(d =>
+                '<button type="button" class="repeat-monthday-btn" data-day="' + d + '" onclick="selectMonthDay(this,' + d + ')" style="padding:5px 0;border-radius:6px;border:1.5px solid #334155;background:rgba(15,23,42,0.9);color:#94a3b8;font-size:11px;font-weight:600;cursor:pointer;transition:all .2s;">' + d + '</button>'
+              ).join('')}
+            </div>
+            <input type="hidden" id="pub-repeat-monthday" value="">
           </div>
           
           <div style="display:flex;gap:8px;margin-bottom:8px;">
@@ -10401,7 +10448,7 @@ function buildPublishFormHtml() {
           </div>
           
           <div id="pub-repeat-preview" style="padding:8px;background:rgba(0,255,195,0.1);border-radius:6px;font-size:11px;color:#00ffc3;min-height:20px;">
-            <span>💡 Le point réapparaîtra automatiquement chaque semaine/mois jusqu'à la date finale.</span>
+            <span>💡 Sélectionnez les jours de répétition ci-dessus.</span>
           </div>
         </div>
       </div>
@@ -10846,11 +10893,12 @@ function selectCategoryForPublish(category) {
   
   if (targetInput) {
     targetInput.value = finalCategory;
-    targetInput.style.background = 'rgba(0, 255, 195, 0.2)';
+    targetInput.style.background = 'rgba(0, 255, 195, 0.15)';
     targetInput.style.borderColor = '#00ffc3';
     setTimeout(() => {
-      targetInput.style.background = '';
-      targetInput.style.borderColor = '';
+      targetInput.style.background = '#0f172a';
+      targetInput.style.borderColor = '#334155';
+      targetInput.style.color = '#fff';
     }, 500);
   }
   
@@ -10869,9 +10917,77 @@ function toggleRepeatOptions() {
       priceBadge.style.display = checkbox.checked ? "inline-block" : "none";
     }
     if (checkbox.checked) {
+      onRepeatFrequencyChange();
       updateRepeatPricing();
+      initWeekdayCheckboxStyles();
     } else {
       updateTotalPrice();
+    }
+  }
+}
+
+function onRepeatFrequencyChange() {
+  const freq = document.getElementById("pub-repeat-frequency")?.value || "weekly";
+  const weekBox = document.getElementById("pub-repeat-weekdays-box");
+  const monthBox = document.getElementById("pub-repeat-monthday-box");
+  if (weekBox) weekBox.style.display = freq === "weekly" ? "block" : "none";
+  if (monthBox) monthBox.style.display = freq === "monthly" ? "block" : "none";
+  updateRepeatPricing();
+  updateRepeatPreview();
+}
+
+function initWeekdayCheckboxStyles() {
+  document.querySelectorAll(".repeat-weekday").forEach(cb => {
+    cb.addEventListener("change", function() {
+      const label = this.closest("label");
+      const span = label?.querySelector("span");
+      if (this.checked) {
+        label.style.borderColor = "#00ffc3";
+        label.style.background = "rgba(0,255,195,0.2)";
+        if (span) span.style.color = "#00ffc3";
+      } else {
+        label.style.borderColor = "#334155";
+        label.style.background = "rgba(15,23,42,0.9)";
+        if (span) span.style.color = "#94a3b8";
+      }
+      updateRepeatPreview();
+    });
+  });
+}
+
+function selectMonthDay(btn, day) {
+  document.querySelectorAll(".repeat-monthday-btn").forEach(b => {
+    b.style.borderColor = "#334155";
+    b.style.background = "rgba(15,23,42,0.9)";
+    b.style.color = "#94a3b8";
+  });
+  btn.style.borderColor = "#00ffc3";
+  btn.style.background = "rgba(0,255,195,0.2)";
+  btn.style.color = "#00ffc3";
+  const hidden = document.getElementById("pub-repeat-monthday");
+  if (hidden) hidden.value = day;
+  updateRepeatPreview();
+}
+
+function updateRepeatPreview() {
+  const preview = document.getElementById("pub-repeat-preview");
+  if (!preview) return;
+  const freq = document.getElementById("pub-repeat-frequency")?.value || "weekly";
+  const dayNames = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
+
+  if (freq === "weekly") {
+    const checked = Array.from(document.querySelectorAll(".repeat-weekday:checked")).map(cb => dayNames[parseInt(cb.value)]);
+    if (checked.length > 0) {
+      preview.innerHTML = '📅 Chaque <b>' + checked.join(', ') + '</b>';
+    } else {
+      preview.innerHTML = '💡 Sélectionnez un ou plusieurs jours de la semaine.';
+    }
+  } else {
+    const day = document.getElementById("pub-repeat-monthday")?.value;
+    if (day) {
+      preview.innerHTML = '📆 Le <b>' + day + '</b> de chaque mois';
+    } else {
+      preview.innerHTML = '💡 Sélectionnez le jour du mois.';
     }
   }
 }
@@ -11154,22 +11270,39 @@ function updateRepeatPreview() {
 // ⚠️⚠️⚠️ SAUVEGARDE ET RESTAURATION DES DONNÉES DU FORMULAIRE
 function savePublishFormData() {
   try {
+    const titleEl = document.getElementById("pub-title");
+    if (!titleEl) {
+      console.log('[FORM] ⏭️ Formulaire absent du DOM, sauvegarde ignorée');
+      return;
+    }
+
+    const title = titleEl.value || "";
+    const mainCategory = document.getElementById("pub-main-category")?.value || "";
+    const address = document.getElementById("pub-address")?.value || "";
+    const description = document.getElementById("pub-description")?.value || "";
+
+    if (!title && !mainCategory && !address && !description) {
+      console.log('[FORM] ⏭️ Formulaire vide, sauvegarde ignorée');
+      return;
+    }
+
     const formData = {
       mode: currentMode,
-      title: document.getElementById("pub-title")?.value || "",
-      mainCategory: document.getElementById("pub-main-category")?.value || "",
+      title: title,
+      mainCategory: mainCategory,
       mainCategory2: document.getElementById("pub-main-category-2")?.value || "",
-      mainCategory2: document.getElementById("pub-main-category-2")?.value || "",
-      address: document.getElementById("pub-address")?.value || "",
+      address: address,
       addressLat: document.getElementById("pub-address-lat")?.value || "",
       addressLng: document.getElementById("pub-address-lng")?.value || "",
       email: document.getElementById("pub-email")?.value || "",
-      description: document.getElementById("pub-description")?.value || "",
+      description: description,
       startDate: document.getElementById("pub-start")?.value || "",
       endDate: document.getElementById("pub-end")?.value || "",
       repeatEnabled: document.getElementById("pub-repeat-enabled")?.checked || false,
       repeatFrequency: document.getElementById("pub-repeat-frequency")?.value || "weekly",
       repeatUntil: document.getElementById("pub-repeat-until")?.value || "",
+      repeatWeekdays: Array.from(document.querySelectorAll(".repeat-weekday:checked")).map(cb => parseInt(cb.value)),
+      repeatMonthday: document.getElementById("pub-repeat-monthday")?.value || "",
       capacity: document.getElementById("pub-capacity")?.value || "",
       price: document.getElementById("pub-price")?.value || "",
       eventType: document.getElementById("pub-event-type")?.value || "",
@@ -11185,7 +11318,7 @@ function savePublishFormData() {
     };
     
     localStorage.setItem("publishFormData", JSON.stringify(formData));
-    console.log('[FORM] ✅ Données du formulaire sauvegardées');
+    console.log('[FORM] ✅ Données du formulaire sauvegardées:', title || mainCategory || address);
   } catch (error) {
     console.error('[FORM] Erreur sauvegarde:', error);
   }
@@ -11238,13 +11371,18 @@ window.updateAudioPreview = updateAudioPreview;
 function restorePublishFormData() {
   try {
     const savedData = localStorage.getItem("publishFormData");
-    if (!savedData) return;
+    if (!savedData) {
+      console.log('[FORM] Pas de données sauvegardées à restaurer');
+      return;
+    }
     
     const formData = JSON.parse(savedData);
+    console.log('[FORM] Données trouvées:', formData.title || '(vide)', formData.mainCategory || '(vide)');
     
     // Vérifier si les données ne sont pas trop vieilles (24h max)
     if (formData.timestamp && Date.now() - formData.timestamp > 24 * 60 * 60 * 1000) {
       localStorage.removeItem("publishFormData");
+      console.log('[FORM] Données expirées (>24h), supprimées');
       return;
     }
     
@@ -11252,12 +11390,11 @@ function restorePublishFormData() {
     setTimeout(() => {
       const setVal = (id, val) => {
         const el = document.getElementById(id);
-        if (el && val) el.value = val;
+        if (el && val !== undefined && val !== null && val !== "") el.value = val;
       };
       
       setVal("pub-title", formData.title);
       setVal("pub-main-category", formData.mainCategory);
-      setVal("pub-main-category-2", formData.mainCategory2 || "");
       setVal("pub-main-category-2", formData.mainCategory2 || "");
       setVal("pub-address", formData.address);
       setVal("pub-address-lat", formData.addressLat);
@@ -11283,6 +11420,19 @@ function restorePublishFormData() {
       if (repeatCheckbox && formData.repeatEnabled) {
         repeatCheckbox.checked = true;
         toggleRepeatOptions();
+        // Restaurer les jours cochés (hebdo)
+        if (formData.repeatWeekdays && formData.repeatWeekdays.length > 0) {
+          formData.repeatWeekdays.forEach(day => {
+            const cb = document.querySelector(`.repeat-weekday[value="${day}"]`);
+            if (cb) { cb.checked = true; cb.dispatchEvent(new Event('change')); }
+          });
+        }
+        // Restaurer le jour du mois (mensuel)
+        if (formData.repeatMonthday) {
+          const btn = document.querySelector(`.repeat-monthday-btn[data-day="${formData.repeatMonthday}"]`);
+          if (btn) selectMonthDay(btn, parseInt(formData.repeatMonthday));
+        }
+        updateRepeatPreview();
       }
       
       // Boost sélectionné
@@ -11296,12 +11446,11 @@ function restorePublishFormData() {
       
       if (formData.audio && typeof updateAudioPreview === 'function') updateAudioPreview();
       
-      // Style pour la catégorie
+      // Style pour la catégorie (cohérent avec les autres champs)
       const catInput = document.getElementById("pub-main-category");
       if (catInput && formData.mainCategory) {
         catInput.style.background = '#0f172a';
-        catInput.style.color = '#00ffc3';
-        catInput.style.webkitTextFillColor = '#00ffc3';
+        catInput.style.color = '#fff';
       }
       
       updateTotalPrice();
@@ -11324,7 +11473,7 @@ function resetPublishForm() {
   
   // Réinitialiser tous les champs
   const fields = [
-    "pub-title", "pub-main-category", "pub-address", "pub-address-lat", "pub-address-lng",
+    "pub-title", "pub-main-category", "pub-main-category-2", "pub-address", "pub-address-lat", "pub-address-lng",
     "pub-email", "pub-description", "pub-start", "pub-end", "pub-repeat-frequency",
     "pub-repeat-until", "pub-capacity", "pub-price", "pub-event-type", "pub-ticket-link",
     "pub-audio-links", "pub-social-links", "pub-website", "pub-tags"
@@ -11341,6 +11490,20 @@ function resetPublishForm() {
     repeatCheckbox.checked = false;
     toggleRepeatOptions();
   }
+  // Réinitialiser les jours de la semaine
+  document.querySelectorAll(".repeat-weekday").forEach(cb => {
+    cb.checked = false;
+    const label = cb.closest("label");
+    const span = label?.querySelector("span");
+    if (label) { label.style.borderColor = "#334155"; label.style.background = "rgba(15,23,42,0.9)"; }
+    if (span) span.style.color = "#94a3b8";
+  });
+  // Réinitialiser le jour du mois
+  document.querySelectorAll(".repeat-monthday-btn").forEach(b => {
+    b.style.borderColor = "#334155"; b.style.background = "rgba(15,23,42,0.9)"; b.style.color = "#94a3b8";
+  });
+  const monthdayInput = document.getElementById("pub-repeat-monthday");
+  if (monthdayInput) monthdayInput.value = "";
   
   // Boost standard
   const standardRadio = document.querySelector('input[name="pub-boost"][value="standard"]');
@@ -11569,25 +11732,8 @@ function toggleAdvancedOptions() {
 }
 
 function initRepeatHandlers() {
-  // Gérer les clics sur les jours de la semaine
-  const weekdayLabels = document.querySelectorAll("#pub-repeat-weekdays label");
-  weekdayLabels.forEach(label => {
-    label.addEventListener("click", function(e) {
-      const checkbox = this.querySelector("input[type='checkbox']");
-      if (checkbox) {
-        checkbox.checked = !checkbox.checked;
-        updateRepeatPreview();
-        // Mettre à jour le style visuel
-        if (checkbox.checked) {
-          this.style.background = "rgba(0,255,195,0.2)";
-          this.style.borderColor = "rgba(0,255,195,0.5)";
-        } else {
-          this.style.background = "rgba(15,23,42,0.5)";
-          this.style.borderColor = "var(--ui-card-border)";
-        }
-      }
-    });
-  });
+  initWeekdayCheckboxStyles();
+  onRepeatFrequencyChange();
 }
 
 function initMultipleImagesHandler() {
@@ -11644,6 +11790,22 @@ window.fermerModalAuth = function() {
     console.log('[FERMER] Modal fermé directement');
   }
 };
+
+function showModalWithContent(html, maxWidth) {
+  maxWidth = maxWidth || '600px';
+  var bd = document.getElementById('publish-modal-backdrop');
+  var pm = document.getElementById('publish-modal');
+  var md = document.getElementById('publish-modal-inner');
+  if (!bd) { bd = document.createElement('div'); bd.id = 'publish-modal-backdrop'; document.body.appendChild(bd); }
+  if (!pm) { pm = document.createElement('div'); pm.id = 'publish-modal'; bd.appendChild(pm); }
+  if (!md) { md = document.createElement('div'); md.id = 'publish-modal-inner'; pm.appendChild(md); }
+  md.innerHTML = html;
+  bd.setAttribute('style', 'position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:99999;display:flex;align-items:center;justify-content:center;padding:40px 20px;box-sizing:border-box;');
+  bd.onclick = function(ev) { if (ev.target === bd && typeof closePublishModal === 'function') closePublishModal(); };
+  pm.setAttribute('style', 'display:block;visibility:visible;opacity:1;position:relative;max-width:' + maxWidth + ';width:100%;max-height:90vh;overflow-y:auto;');
+  md.setAttribute('style', 'display:block;visibility:visible;opacity:1;background:#1e293b;border-radius:20px;');
+}
+window.showModalWithContent = showModalWithContent;
 
 function closePublishModal(e) {
   console.log('🚪 closePublishModal called', e?.type || 'direct call', e?.target?.id || 'no target');
@@ -11866,10 +12028,13 @@ function closePublishModal(e) {
     if ((modal && modal.contains(e.target)) || (modalInner && modalInner.contains(e.target))) return;
   }
   
+  // Sauvegarder les données du formulaire avant fermeture
+  savePublishFormData();
+  
   // Réutiliser la variable backdrop déjà déclarée plus haut
   if (backdrop) {
     backdrop.style.display = "none";
-    console.log('🚪 Modal closed - backdrop display set to none');
+    console.log('🚪 Modal closed - backdrop display set to none (données sauvegardées)');
     
     // ⚠️⚠️⚠️ Réinitialiser le z-index du panneau gauche
     const leftPanel = document.getElementById("left-panel");
@@ -11944,6 +12109,7 @@ async function onSubmitPublishForm(e) {
   const repeatUntil = document.getElementById("pub-repeat-until")?.value || null;
   const repeatCount = document.getElementById("pub-repeat-count")?.value || null;
   const repeatWeekdays = Array.from(document.querySelectorAll(".repeat-weekday:checked")).map(cb => parseInt(cb.value));
+  const repeatMonthday = document.getElementById("pub-repeat-monthday")?.value ? parseInt(document.getElementById("pub-repeat-monthday").value) : null;
   
   // OPTIONS AVANCÉES (pour les events)
   const capacity = document.getElementById("pub-capacity")?.value || null;
@@ -12102,11 +12268,12 @@ async function onSubmitPublishForm(e) {
       const repeatPrice = repeatFrequency === "weekly" ? 15 : 4;
       newItem.repeat = {
         enabled: true,
-        frequency: repeatFrequency, // "weekly" ou "monthly"
+        frequency: repeatFrequency,
         until: repeatUntil,
+        weekdays: repeatFrequency === "weekly" ? repeatWeekdays : [],
+        monthday: repeatFrequency === "monthly" ? repeatMonthday : null,
         price: repeatPrice,
-        // Pour la logique de réapparition automatique
-        nextOccurrence: null, // Sera calculé par le backend
+        nextOccurrence: null,
         autoReappear: true
       };
     }
@@ -12136,45 +12303,13 @@ async function onSubmitPublishForm(e) {
       }));
     }
     
-    eventsData.push(newItem);
+    // event-specific data already set above
   } else if (currentMode === "booking") {
     newItem.audioLinks = audioLinks ? audioLinks.split('\n').filter(l => l.trim()) : [];
     newItem.level = level;
     newItem.priceEstimate = priceEstimate;
-    bookingsData.push(newItem);
   } else if (currentMode === "service") {
     newItem.priceEstimate = priceEstimate;
-    servicesData.push(newItem);
-  }
-  
-  // Sauvegarder dans le backend
-  try {
-    // Préparer les données pour le backend
-    const backendData = {
-      ...newItem,
-      userId: currentUser.id
-    };
-    
-    // ⚠️ CRITIQUE : Convertir startDate/endDate au format backend (date, time, end_date, end_time)
-    if (currentMode === "event" && startDate) {
-      const [datePart, timePart] = startDate.split('T');
-      backendData.date = datePart;
-      backendData.time = timePart ? timePart + ':00' : '00:00:00';
-    }
-    if (currentMode === "event" && endDate) {
-      const [endDatePart, endTimePart] = endDate.split('T');
-      backendData.end_date = endDatePart;
-      backendData.end_time = endTimePart ? endTimePart + ':00' : '23:59:59';
-    }
-    
-    await fetch(`${window.API_BASE_URL}/${currentMode}s`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(backendData)
-    });
-  } catch (error) {
-    console.error('Erreur sauvegarde backend:', error);
-    // Continuer même si le backend échoue (sauvegarde locale)
   }
   
   // Calculer le prix final
@@ -12483,6 +12618,11 @@ async function processStripePayment(amount) {
 
 // Finaliser la publication après paiement
 async function finalizePublish() {
+  if (window._publishFinalized) {
+    console.log('[PUBLISH] ⏭️ Publication déjà finalisée, ignoré');
+    return;
+  }
+
   const data = window.pendingPublishData;
   if (!data) {
     console.error('[PUBLISH] ❌ Données de publication perdues - pendingPublishData est null');
@@ -12490,6 +12630,7 @@ async function finalizePublish() {
     return;
   }
   
+  window._publishFinalized = true;
   console.log('[PUBLISH] 🔄 Tentative de création avec données:', JSON.stringify(data.newItem, null, 2));
   
   // Sauvegarder dans le backend D'ABORD
@@ -12557,8 +12698,12 @@ async function finalizePublish() {
   
   // Ajouter aux données locales SEULEMENT si backend OK
   if (backendSuccess) {
+    const itemId = data.newItem.id;
     if (data.mode === "event") {
-      eventsData.push(data.newItem);
+      if (!eventsData.some(e => e.id === itemId)) {
+        eventsData.push(data.newItem);
+      }
+      if (typeof loadedEventIds !== 'undefined') loadedEventIds.add(itemId);
     } else if (data.mode === "booking") {
       bookingsData.push(data.newItem);
     } else if (data.mode === "service") {
@@ -12579,8 +12724,8 @@ async function finalizePublish() {
     showNotification(`✅ Paiement reçu ! ${data.mode === 'event' ? 'Événement' : data.mode === 'booking' ? 'Booking' : 'Service'} publié avec succès !`, "success");
   }
   
-  // Nettoyer dans tous les cas
   window.pendingPublishData = null;
+  setTimeout(() => { window._publishFinalized = false; }, 5000);
 }
 
 // ============================================
@@ -12975,6 +13120,7 @@ function openColorPickerModal() {
   // --- VALIDER ---
   document.getElementById('cp-validate').addEventListener('click', async () => {
     window.customThemeConfig = { markerColors: [...draft.markerColors], markerBorder: draft.markerBorder };
+    localStorage.setItem('customThemeConfig', JSON.stringify(window.customThemeConfig));
     applyCustomColors();
     
     // IMPORTANT: Vider TOUS les marqueurs existants pour les recréer avec les nouvelles couleurs
@@ -13551,70 +13697,100 @@ async function toggleAgenda(type, id) {
     showNotification("📅 Retiré de l'agenda", "info");
     refreshMarkers();
     refreshListView();
-    // Rafraîchir la mini-fenêtre si elle est ouverte
     if (agendaMiniWindowOpen) {
       showAgendaMiniWindow();
     }
-    
-    // Rafraîchir la popup si elle est ouverte
+
+    // Mettre à jour le bouton agenda dans la popup sans tout reconstruire
     const backdrop = document.getElementById("popup-modal-backdrop");
     if (backdrop && backdrop.style.display !== "none") {
-      const data = type === "event" ? eventsData : type === "booking" ? bookingsData : servicesData;
-      const item = data.find(i => i.id === parseInt(id));
-      if (item) {
-        let popupHtml = "";
-        if (type === "event") {
-          popupHtml = buildEventPopup(item);
-        } else if (type === "booking") {
-          popupHtml = buildBookingPopup(item);
-        } else if (type === "service") {
-          popupHtml = buildServicePopup(item);
-        }
-        if (popupHtml) {
-          const scrollContainer = document.getElementById("popup-scroll-container");
-          if (scrollContainer) {
-            const scrollTop = scrollContainer.scrollTop;
-            scrollContainer.innerHTML = popupHtml;
-            scrollContainer.scrollTop = scrollTop;
+      const scrollContainer = document.getElementById("popup-scroll-container");
+      if (scrollContainer) {
+        const agendaBtns = scrollContainer.querySelectorAll('button');
+        agendaBtns.forEach(btn => {
+          if (btn.textContent.includes('agenda') || btn.textContent.includes('Agenda')) {
+            if (btn.onclick && btn.onclick.toString().includes('agenda')) {
+              btn.innerHTML = '📅 ' + ((typeof window.t === 'function' ? window.t("agenda") : null) || "Agenda");
+              btn.style.background = 'transparent';
+              btn.style.color = 'var(--ui-text-main)';
+              btn.style.borderColor = 'rgba(59,130,246,0.5)';
+            }
           }
-        }
+        });
       }
     }
   } else {
     currentUser.agenda.push(key);
     if (typeof saveUserData === 'function') saveUserData();
     try { localStorage.setItem('user_agenda_backup', JSON.stringify(currentUser.agenda)); } catch(e) {}
-    showNotification(`📅 Ajouté à votre agenda ! (${currentUser.agenda.length}/${maxAgenda})`, "success");
     refreshMarkers();
     refreshListView();
-    // Afficher la mini-fenêtre agenda
-    showAgendaMiniWindow();
-    
-    // Rafraîchir la popup si elle est ouverte
+
+    // Mettre à jour le bouton agenda dans la popup sans tout reconstruire
     const backdrop = document.getElementById("popup-modal-backdrop");
     if (backdrop && backdrop.style.display !== "none") {
-      const data = type === "event" ? eventsData : type === "booking" ? bookingsData : servicesData;
-      const item = data.find(i => i.id === parseInt(id));
-      if (item) {
-        let popupHtml = "";
-        if (type === "event") {
-          popupHtml = buildEventPopup(item);
-        } else if (type === "booking") {
-          popupHtml = buildBookingPopup(item);
-        } else if (type === "service") {
-          popupHtml = buildServicePopup(item);
-        }
-        if (popupHtml) {
-          const scrollContainer = document.getElementById("popup-scroll-container");
-          if (scrollContainer) {
-            const scrollTop = scrollContainer.scrollTop;
-            scrollContainer.innerHTML = popupHtml;
-            scrollContainer.scrollTop = scrollTop;
+      const scrollContainer = document.getElementById("popup-scroll-container");
+      if (scrollContainer) {
+        const agendaBtns = scrollContainer.querySelectorAll('button');
+        agendaBtns.forEach(btn => {
+          if (btn.textContent.includes('Agenda') && btn.onclick && btn.onclick.toString().includes('agenda')) {
+            btn.innerHTML = '📅 ' + ((typeof window.t === 'function' ? window.t("in_agenda") : null) || "Dans agenda");
+            btn.style.background = 'rgba(59,130,246,0.2)';
+            btn.style.color = '#3b82f6';
+            btn.style.borderColor = 'rgba(59,130,246,0.5)';
           }
-        }
+        });
       }
     }
+
+    // Toast de confirmation en haut à droite
+    showAgendaConfirmToast();
   }
+}
+
+// Toast de confirmation d'ajout à l'agenda (apparaît en haut à droite)
+function showAgendaConfirmToast() {
+  const existing = document.getElementById('agenda-confirm-toast');
+  if (existing) existing.remove();
+
+  const toast = document.createElement('div');
+  toast.id = 'agenda-confirm-toast';
+  toast.innerHTML = `
+    <div style="display:flex;align-items:flex-start;gap:12px;">
+      <div style="font-size:28px;line-height:1;">✅</div>
+      <div style="flex:1;">
+        <div style="font-weight:700;font-size:15px;margin-bottom:4px;color:#fff;">Ajouté à votre agenda !</div>
+        <div style="font-size:13px;color:rgba(255,255,255,0.85);line-height:1.4;">Consultez vos événements sauvegardés dans votre compte.</div>
+        <button onclick="document.getElementById('agenda-confirm-toast').remove();if(typeof openAgendaModal==='function')openAgendaModal();" style="margin-top:8px;padding:6px 14px;border-radius:8px;border:none;background:rgba(255,255,255,0.2);color:#fff;font-size:12px;font-weight:600;cursor:pointer;transition:background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.35)'" onmouseout="this.style.background='rgba(255,255,255,0.2)'">📅 Voir mon agenda</button>
+      </div>
+      <button onclick="this.parentElement.parentElement.remove()" style="background:none;border:none;color:rgba(255,255,255,0.6);font-size:18px;cursor:pointer;padding:0;line-height:1;">✕</button>
+    </div>
+  `;
+  toast.style.cssText = `
+    position:fixed;top:20px;right:20px;
+    background:linear-gradient(135deg,#059669,#10b981);
+    color:#fff;padding:16px 20px;border-radius:14px;
+    font-size:14px;z-index:2147483647;
+    box-shadow:0 8px 32px rgba(0,0,0,0.4);
+    max-width:340px;min-width:280px;
+    animation:slideInRight 0.35s ease;
+    pointer-events:auto;
+  `;
+
+  if (!document.getElementById('agenda-toast-keyframes')) {
+    const style = document.createElement('style');
+    style.id = 'agenda-toast-keyframes';
+    style.textContent = '@keyframes slideInRight{from{transform:translateX(120%);opacity:0}to{transform:translateX(0);opacity:1}}@keyframes slideOutRight{from{transform:translateX(0);opacity:1}to{transform:translateX(120%);opacity:0}}';
+    document.head.appendChild(style);
+  }
+
+  document.body.appendChild(toast);
+  setTimeout(() => {
+    if (toast.parentElement) {
+      toast.style.animation = 'slideOutRight 0.35s ease forwards';
+      setTimeout(() => toast.remove(), 350);
+    }
+  }, 5000);
 }
 
 // Obtenir la limite d'agenda selon l'abonnement
@@ -13834,20 +14010,7 @@ function inviteFriendsToEvent(type, id) {
     </div>
   `;
   
-  document.getElementById("publish-modal-inner").innerHTML = html;
-  const backdrop = document.getElementById("publish-modal-backdrop");
-  if (backdrop) {
-    backdrop.setAttribute('data-auth-modal', 'true');
-    backdrop.style.display = "flex";
-    backdrop.style.paddingTop = "40px";
-    backdrop.style.paddingBottom = "40px";
-    backdrop.style.boxSizing = "border-box";
-    backdrop.style.paddingTop = "40px";
-    backdrop.style.paddingBottom = "40px";
-    backdrop.style.boxSizing = "border-box";
-  }
-
-  // L'event listener pour le bouton d'inscription est maintenant attaché dans openLoginModal après la création du HTML
+  showModalWithContent(html);
 }
 
 // Filtrer les amis lors de l'invitation
@@ -21299,9 +21462,9 @@ async function openDiscussionModal(type, id) {
             ${reply.avatar || '👤'}
           </div>
           <div style="flex:1;min-width:0;overflow:hidden;">
-            <div style="background:rgba(30,41,59,0.6);border-radius:18px;padding:8px 12px;max-width:100%;overflow-wrap:break-word;word-break:break-word;">
-              <span style="font-weight:600;font-size:13px;color:#e4e6eb;margin-right:4px;">${esc(reply.author || 'Utilisateur')}</span>
-              <span style="font-size:13px;color:#e4e6eb;line-height:1.33;white-space:pre-wrap;word-wrap:break-word;overflow-wrap:break-word;word-break:break-word;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">${esc(reply.text)}</span>
+            <div style="background:rgba(30,41,59,0.6);border-radius:18px;padding:8px 12px;max-width:100%;word-wrap:break-word;overflow-wrap:break-word;">
+              <div style="font-weight:600;font-size:13px;color:#e4e6eb;margin-bottom:2px;">${esc(reply.author || 'Utilisateur')}</div>
+              <div style="font-size:13px;color:#e4e6eb;line-height:1.4;white-space:pre-wrap;word-wrap:break-word;overflow-wrap:break-word;word-break:break-word;">${esc(reply.text)}</div>
             </div>
             <div style="display:flex;align-items:center;gap:12px;margin-top:4px;margin-left:12px;">
               <span style="font-size:12px;color:#b0b3b8;font-weight:600;cursor:pointer;" onclick="toggleReplyLike('${type}', '${id}', '${postId}', '${replyPath}')">J'aime</span>
@@ -21319,7 +21482,7 @@ async function openDiscussionModal(type, id) {
               ${currentUser?.avatar || '👤'}
             </div>
             <div style="flex:1;position:relative;">
-              <textarea id="reply-input-${postId}-${replyPath}" placeholder="Répondre à ${esc(reply.author || 'Utilisateur')}..." style="width:100%;min-height:36px;max-height:100px;padding:8px 12px;border-radius:20px;border:none;background:rgba(15,23,42,0.8);color:#e4e6eb;font-size:14px;resize:none;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;line-height:1.33;" onkeydown="if(event.key==='Enter' && !event.shiftKey) { event.preventDefault(); submitReply('${type}', '${id}', '${postId}', '${replyPath}'); }" oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px';"></textarea>
+              <textarea id="reply-input-${postId}-${replyPath}" placeholder="Répondre à ${esc(reply.author || 'Utilisateur')}..." style="width:100%;min-height:36px;max-height:100px;padding:8px 12px;border-radius:20px;border:none;background:rgba(15,23,42,0.8);color:#e4e6eb;font-size:13px;resize:none;line-height:1.33;box-sizing:border-box;display:block;" onkeydown="if(event.key==='Enter' && !event.shiftKey) { event.preventDefault(); submitReply('${type}', '${id}', '${postId}', '${replyPath}'); }" oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px';"></textarea>
             </div>
           </div>
         </div>
@@ -21350,20 +21513,20 @@ async function openDiscussionModal(type, id) {
     const repliesCount = post.replies ? post.replies.length : 0;
     
     return `
-      <div style="background:rgba(30,41,59,0.8);border-radius:8px;padding:12px;margin-bottom:12px;min-width:0;overflow:hidden;border:1px solid rgba(255,255,255,0.06);">
+      <div style="background:rgba(30,41,59,0.8);border-radius:8px;padding:12px;margin-bottom:12px;min-width:0;overflow-wrap:break-word;word-break:break-word;border:1px solid rgba(255,255,255,0.06);">
         <!-- En-tête du post -->
         <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:8px;min-width:0;">
-          <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#1877f2,#42a5f5);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;font-weight:700;color:#fff;">
+          <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#1877f2,#42a5f5);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;font-weight:700;color:#fff;">
             ${post.avatar || '👤'}
           </div>
-          <div style="flex:1;min-width:0;overflow:hidden;">
-            <div style="font-weight:600;font-size:15px;color:#e4e6eb;line-height:1.2;overflow-wrap:break-word;word-break:break-word;">${escapeHtml(post.author || 'Utilisateur')}</div>
-            <div style="font-size:13px;color:#b0b3b8;line-height:1.2;">${formatTime(post.timestamp || Date.now())}</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-weight:600;font-size:14px;color:#e4e6eb;line-height:1.2;overflow-wrap:break-word;word-break:break-word;">${escapeHtml(post.author || 'Utilisateur')}</div>
+            <div style="font-size:12px;color:#b0b3b8;line-height:1.2;">${formatTime(post.timestamp || Date.now())}</div>
           </div>
         </div>
         
         <!-- Contenu du post -->
-        <div style="font-size:15px;color:#e4e6eb;line-height:1.33;margin-bottom:8px;white-space:pre-wrap;word-wrap:break-word;overflow-wrap:break-word;word-break:break-word;min-width:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+        <div style="font-size:14px;color:#e4e6eb;line-height:1.5;margin-bottom:8px;white-space:pre-wrap;word-wrap:break-word;overflow-wrap:break-word;word-break:break-word;min-width:0;">
           ${escapeHtml(post.text)}
         </div>
         
@@ -21403,7 +21566,7 @@ async function openDiscussionModal(type, id) {
               ${currentUser?.avatar || '👤'}
             </div>
             <div style="flex:1;position:relative;">
-              <textarea id="reply-input-${post.id}" placeholder="Écrivez un commentaire..." style="width:100%;min-height:36px;max-height:100px;padding:8px 12px;border-radius:20px;border:none;background:rgba(15,23,42,0.8);color:#e4e6eb;font-size:14px;resize:none;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;line-height:1.33;" onkeydown="if(event.key==='Enter' && !event.shiftKey) { event.preventDefault(); submitReply('${type}', '${id}', '${post.id}'); }" oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px';"></textarea>
+              <textarea id="reply-input-${post.id}" placeholder="Écrivez un commentaire..." style="width:100%;min-height:36px;max-height:100px;padding:8px 12px;border-radius:20px;border:none;background:rgba(15,23,42,0.8);color:#e4e6eb;font-size:13px;resize:none;line-height:1.33;box-sizing:border-box;display:block;" onkeydown="if(event.key==='Enter' && !event.shiftKey) { event.preventDefault(); submitReply('${type}', '${id}', '${post.id}'); }" oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px';"></textarea>
             </div>
           </div>
         </div>
@@ -21450,41 +21613,47 @@ async function openDiscussionModal(type, id) {
   window.currentDiscussionId = id;
   
   const html = `
-    <div style="display:flex;flex-direction:column;height:100%;max-height:90vh;">
-      <!-- En-tête style Facebook -->
-      <div style="display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid rgba(255,255,255,0.1);background:var(--ui-card-bg, #0f172a);flex-shrink:0;">
-        <button onclick="closeDiscussionAndReturnToPopup()" style="background:none;border:none;color:#b0b3b8;font-size:20px;cursor:pointer;padding:4px;border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;transition:all 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.1)';this.style.color='#fff'" onmouseout="this.style.background='none';this.style.color='#b0b3b8'">←</button>
-        <div style="flex:1;">
-          <div style="font-weight:600;font-size:16px;color:#e4e6eb;">Discussion</div>
-          <div style="font-size:13px;color:#b0b3b8;">${esc(itemTitle)}</div>
+    <div style="display:flex;flex-direction:column;height:100%;max-height:85vh;min-height:0;overflow:hidden;">
+      <!-- En-tête -->
+      <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid rgba(255,255,255,0.1);background:var(--ui-card-bg, #0f172a);flex-shrink:0;">
+        <button onclick="closeDiscussionAndReturnToPopup()" style="background:none;border:none;color:#b0b3b8;font-size:20px;cursor:pointer;padding:4px;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;transition:all 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.1)';this.style.color='#fff'" onmouseout="this.style.background='none';this.style.color='#b0b3b8'">←</button>
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:600;font-size:15px;color:#e4e6eb;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Discussion</div>
+          <div style="font-size:12px;color:#b0b3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(itemTitle)}</div>
         </div>
-        <button onclick="closeDiscussionAndReturnToPopup()" style="background:none;border:none;color:#b0b3b8;font-size:20px;cursor:pointer;padding:4px;border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;transition:all 0.15s;" onmouseover="this.style.background='rgba(239,68,68,0.2)';this.style.color='#ef4444'" onmouseout="this.style.background='none';this.style.color='#b0b3b8'">✕</button>
+        <button onclick="closeDiscussionAndReturnToPopup()" style="background:none;border:none;color:#b0b3b8;font-size:18px;cursor:pointer;padding:4px;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;transition:all 0.15s;" onmouseover="this.style.background='rgba(239,68,68,0.2)';this.style.color='#ef4444'" onmouseout="this.style.background='none';this.style.color='#b0b3b8'">✕</button>
       </div>
       
       <!-- Zone de scroll avec posts -->
-      <div id="discussion-posts-container" style="flex:1;overflow-y:auto;overflow-x:hidden;padding:16px 20px;background:var(--ui-card-bg, #020617);">
+      <div id="discussion-posts-container" style="flex:1;overflow-y:auto;overflow-x:hidden;padding:12px;background:var(--ui-card-bg, #020617);min-height:0;">
         ${posts.length > 0 ? posts.map(p => renderPost(p)).join('') : `
-          <div style="text-align:center;padding:80px 20px;color:#b0b3b8;font-size:14px;">
-            <div style="font-size:64px;margin-bottom:16px;opacity:0.5;">💬</div>
-            <div style="font-weight:600;margin-bottom:8px;color:#e4e6eb;font-size:16px;">Aucune publication</div>
+          <div style="text-align:center;padding:60px 16px;color:#b0b3b8;font-size:14px;">
+            <div style="font-size:48px;margin-bottom:12px;opacity:0.5;">💬</div>
+            <div style="font-weight:600;margin-bottom:6px;color:#e4e6eb;font-size:15px;">Aucune publication</div>
             <div style="font-size:13px;color:#b0b3b8;">Soyez le premier à partager quelque chose !</div>
           </div>
         `}
       </div>
       
-      <!-- Zone de création de post (fixe en bas) style Facebook -->
-      <div style="padding:12px 20px;border-top:1px solid rgba(255,255,255,0.1);background:var(--ui-card-bg);flex-shrink:0;">
+      <!-- Zone de création de post (fixe en bas) -->
+      <div style="padding:10px 12px;border-top:1px solid rgba(255,255,255,0.1);background:var(--ui-card-bg);flex-shrink:0;">
+        ${currentUser?.isLoggedIn ? `
         <div style="display:flex;gap:8px;align-items:flex-end;">
-          <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#1877f2,#42a5f5);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;font-weight:700;color:#fff;">
+          <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#1877f2,#42a5f5);display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;font-weight:700;color:#fff;">
             ${currentUser?.avatar || '👤'}
           </div>
-          <div style="flex:1;position:relative;">
-            <textarea id="discussion-input" placeholder="Écrivez un commentaire..." style="width:100%;min-height:38px;max-height:120px;padding:8px 12px;border-radius:20px;border:1px solid rgba(255,255,255,0.1);background:rgba(15,23,42,0.8);color:#e4e6eb;font-size:15px;resize:none;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;line-height:1.33;" onkeydown="if(event.key==='Enter' && !event.shiftKey) { event.preventDefault(); submitDiscussionComment('${type}', '${id}'); }" oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,120)+'px';"></textarea>
+          <div style="flex:1;min-width:0;">
+            <textarea id="discussion-input" placeholder="Écrivez un commentaire..." style="width:100%;min-height:36px;max-height:100px;padding:8px 12px;border-radius:18px;border:1px solid rgba(255,255,255,0.1);background:rgba(15,23,42,0.8);color:#e4e6eb;font-size:14px;resize:none;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;line-height:1.33;box-sizing:border-box;display:block;" onkeydown="if(event.key==='Enter' && !event.shiftKey) { event.preventDefault(); submitDiscussionComment('${type}', '${id}'); }" oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px';"></textarea>
           </div>
-          <button onclick="submitDiscussionComment('${type}', '${id}')" style="padding:8px 16px;border-radius:18px;border:none;background:#1877f2;color:#fff;cursor:pointer;font-size:14px;font-weight:600;transition:all 0.2s;flex-shrink:0;" onmouseover="this.style.background='#166fe5'" onmouseout="this.style.background='#1877f2'">
+          <button id="discussion-submit-btn" onclick="submitDiscussionComment('${type}', '${id}')" style="padding:8px 14px;border-radius:18px;border:none;background:#1877f2;color:#fff;cursor:pointer;font-size:13px;font-weight:600;transition:all 0.2s;flex-shrink:0;white-space:nowrap;" onmouseover="this.style.background='#166fe5'" onmouseout="this.style.background='#1877f2'">
             Publier
           </button>
         </div>
+        ` : `
+        <div style="text-align:center;padding:8px;">
+          <button onclick="openLoginModal()" style="padding:10px 20px;border-radius:10px;border:none;background:#1877f2;color:#fff;cursor:pointer;font-size:13px;font-weight:600;">Connectez-vous pour participer</button>
+        </div>
+        `}
       </div>
     </div>
   `;
@@ -21499,14 +21668,16 @@ async function openDiscussionModal(type, id) {
   
   if (popupBackdrop && popupContent && popupIsOpen) {
     window.discussionOpenedInPopup = true;
+    // Injecter le HTML de la discussion directement dans popup-modal-content
+    // (pas dans popup-scroll-container, sinon le scroll interne de la discussion est cassé)
     popupContent.innerHTML = html;
     popupContent.style.maxHeight = "85vh";
     popupContent.style.overflow = "hidden";
     popupContent.style.display = "flex";
     popupContent.style.flexDirection = "column";
+    popupContent.style.padding = "0";
     popupContent.style.visibility = "visible";
     popupContent.style.opacity = "1";
-    // Forcer la fenêtre visible immédiatement
     popupBackdrop.style.display = "flex";
     popupBackdrop.style.visibility = "visible";
     popupBackdrop.style.opacity = "1";
@@ -21583,11 +21754,27 @@ async function saveDiscussionToAPI(type, id, posts) {
   return false;
 }
 
-// Fonction pour soumettre un post (style Facebook) - reste dans la discussion
+// Fonction pour soumettre un post - reste dans la discussion
 window.submitDiscussionComment = async function(type, id) {
+  if (!currentUser || !currentUser.isLoggedIn) {
+    openLoginModal();
+    return;
+  }
+
   const input = document.getElementById("discussion-input");
   if (!input || !input.value.trim()) return;
+
+  const submitBtn = document.getElementById("discussion-submit-btn");
+  const originalText = submitBtn ? submitBtn.textContent : '';
   
+  // Loading state
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = '...';
+    submitBtn.style.opacity = '0.6';
+  }
+  input.disabled = true;
+
   const post = {
     id: Date.now().toString(),
     author: currentUser?.name || currentUser?.username || 'Utilisateur',
@@ -21598,27 +21785,42 @@ window.submitDiscussionComment = async function(type, id) {
     replies: []
   };
   
-  // Charger posts actuels depuis API
-  let posts = [];
   try {
-    const resp = await fetch(`${window.API_BASE_URL}/discussions/${type}/${id}`);
-    if (resp.ok) {
-      const data = await resp.json();
-      posts = data.posts || [];
+    let posts = [];
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    
+    try {
+      const resp = await fetch(`${window.API_BASE_URL}/discussions/${type}/${id}`, { signal: controller.signal });
+      clearTimeout(timeoutId);
+      if (resp.ok) {
+        const data = await resp.json();
+        posts = data.posts || [];
+      }
+    } catch(e) {
+      clearTimeout(timeoutId);
+      posts = JSON.parse(localStorage.getItem(`discussion_${type}_${id}`) || '[]');
     }
-  } catch(e) {
-    posts = JSON.parse(localStorage.getItem(`discussion_${type}_${id}`) || '[]');
-  }
-  
-  posts.unshift(post);
-  await saveDiscussionToAPI(type, id, posts);
-  
-  // Vider le champ de saisie
-  input.value = '';
-  input.style.height = 'auto';
-  
-  // Rafraichir l'affichage depuis l'API
+    
+    posts.unshift(post);
+    await saveDiscussionToAPI(type, id, posts);
+    
+    input.value = '';
+    input.style.height = 'auto';
+    
     openDiscussionModal(type, id);
+  } catch(e) {
+    console.error('[Discussion] Erreur submit:', e);
+    showNotification("Erreur lors de la publication. Réessayez.", "error");
+    // Restaurer le bouton
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = originalText.trim() || 'Publier';
+      submitBtn.style.opacity = '1';
+    }
+    input.disabled = false;
+    input.focus();
+  }
 };
 
 // Fonction pour afficher/masquer le formulaire de réponse (avec support pour chemins)
@@ -21714,10 +21916,17 @@ function findReplyByPath(replies, pathArray, currentIndex = 0) {
 
 // Fonction pour soumettre une réponse à un post (avec support pour chemins imbriqués)
 window.submitReply = async function(type, id, postId, replyPath = null) {
+  if (!currentUser || !currentUser.isLoggedIn) {
+    openLoginModal();
+    return;
+  }
+
   const inputId = replyPath ? `reply-input-${postId}-${replyPath}` : `reply-input-${postId}`;
   const input = document.getElementById(inputId);
   if (!input || !input.value.trim()) return;
   
+  input.disabled = true;
+
   const reply = {
     id: Date.now().toString(),
     author: currentUser?.name || currentUser?.username || 'Utilisateur',
@@ -21727,38 +21936,46 @@ window.submitReply = async function(type, id, postId, replyPath = null) {
     replies: []
   };
   
-  // Charger posts actuels depuis API
-  let posts = [];
   try {
-    const resp = await fetch(`${window.API_BASE_URL}/discussions/${type}/${id}`);
-    if (resp.ok) {
-      const data = await resp.json();
-      posts = data.posts || [];
+    let posts = [];
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    
+    try {
+      const resp = await fetch(`${window.API_BASE_URL}/discussions/${type}/${id}`, { signal: controller.signal });
+      clearTimeout(timeoutId);
+      if (resp.ok) {
+        const data = await resp.json();
+        posts = data.posts || [];
+      }
+    } catch(e) {
+      clearTimeout(timeoutId);
+      posts = JSON.parse(localStorage.getItem(`discussion_${type}_${id}`) || '[]');
+    }
+    
+    const post = posts.find(p => p.id === postId);
+    
+    if (post) {
+      if (replyPath) {
+        const pathArray = replyPath.split('-');
+        const parentReply = findReplyByPath(post.replies || [], pathArray);
+        if (parentReply) {
+          if (!parentReply.replies) parentReply.replies = [];
+          parentReply.replies.push(reply);
+        }
+      } else {
+        if (!post.replies) post.replies = [];
+        post.replies.push(reply);
+      }
+      
+      await saveDiscussionToAPI(type, id, posts);
+      openDiscussionModal(type, id);
     }
   } catch(e) {
-    posts = JSON.parse(localStorage.getItem(`discussion_${type}_${id}`) || '[]');
-  }
-  
-  const post = posts.find(p => p.id === postId);
-  
-  if (post) {
-    if (replyPath) {
-      const pathArray = replyPath.split('-');
-      const parentReply = findReplyByPath(post.replies || [], pathArray);
-      
-      if (parentReply) {
-        if (!parentReply.replies) parentReply.replies = [];
-        parentReply.replies.push(reply);
-      }
-    } else {
-      if (!post.replies) post.replies = [];
-      post.replies.push(reply);
-    }
-    
-    await saveDiscussionToAPI(type, id, posts);
-    
-    // Rafraichir l'affichage depuis l'API
-    openDiscussionModal(type, id);
+    console.error('[Discussion] Erreur reply:', e);
+    showNotification("Erreur lors de l'envoi. Réessayez.", "error");
+    input.disabled = false;
+    input.focus();
   }
 };
 
@@ -23878,36 +24095,39 @@ function openItemFromAgenda(type, id) {
   // Fermer la modal agenda
   closePublishModal();
   
-  // Trouver l'item
-  const data = type === "event" ? eventsData : type === "booking" ? bookingsData : servicesData;
-  const item = data.find(i => i.id === parseInt(id));
-  
-  if (!item) {
-    showNotification("⚠️ Item introuvable", "error");
-    return;
+  // Switcher le mode si nécessaire
+  if (currentMode !== type) {
+    switchMode(type);
   }
   
-  // Trouver le marqueur correspondant et ouvrir sa popup
-  const key = `${type}:${id}`;
-  const marker = markerMap[key];
-  
-  if (marker) {
-    // Centrer la map sur le marqueur
-    map.setView([item.lat, item.lng], Math.max(map.getZoom(), 13));
+  // Attendre que le mode soit chargé avant de chercher l'item
+  setTimeout(() => {
+    const data = type === "event" ? eventsData : type === "booking" ? bookingsData : servicesData;
+    const item = data.find(i => i.id === parseInt(id));
     
-    // Ouvrir la popup
-    marker.openPopup();
-  } else {
-    // Si le marqueur n'existe pas (filtre actif), créer temporairement la popup
-    const popupContent = buildPopupHtml(item);
-    L.popup({ maxWidth: 360 })
-      .setLatLng([item.lat, item.lng])
-      .setContent(popupContent)
-      .openOn(map);
+    if (!item) {
+      showNotification("⚠️ Item introuvable", "error");
+      return;
+    }
     
-    // Centrer la map
-    map.setView([item.lat, item.lng], Math.max(map.getZoom(), 13));
-  }
+    const key = `${type}:${id}`;
+    const marker = markerMap[key];
+    
+    if (marker) {
+      map.setView([item.lat, item.lng], Math.max(map.getZoom(), 13));
+      setTimeout(() => {
+        currentPopupMarker = marker;
+        const popupContent = buildPopupHtml(item);
+        openPopupModal(popupContent, item);
+      }, 300);
+    } else {
+      map.setView([item.lat, item.lng], Math.max(map.getZoom(), 13));
+      setTimeout(() => {
+        const popupContent = buildPopupHtml(item);
+        openPopupModal(popupContent, item);
+      }, 300);
+    }
+  }, 500);
 }
 
 // FONCTION SUPPRIMÉE - Le bloc compte ne doit JAMAIS être modifié
@@ -24368,18 +24588,7 @@ function openAboutModal() {
     </div>
   `;
   
-  document.getElementById("publish-modal-inner").innerHTML = html;
-  const backdrop = document.getElementById("publish-modal-backdrop");
-  if (backdrop) {
-    backdrop.setAttribute('data-auth-modal', 'true');
-    backdrop.style.display = "flex";
-    backdrop.style.paddingTop = "40px";
-    backdrop.style.paddingBottom = "40px";
-    backdrop.style.boxSizing = "border-box";
-    backdrop.style.paddingTop = "40px";
-    backdrop.style.paddingBottom = "40px";
-    backdrop.style.boxSizing = "border-box";
-  }
+  showModalWithContent(html);
 }
 
 // ============================================
@@ -25132,117 +25341,140 @@ function openAccountModal() {
   const finalDisplayName = displayName && displayName !== 'Compte' && !displayName.includes('@') ? displayName : (currentUser.username || 'Compte');
   console.log('[ACCOUNT MODAL] finalDisplayName:', finalDisplayName, 'displayName original:', displayName);
   
+  // Compter les données pour les blocs
+  const agendaCount = currentUser.agenda ? currentUser.agenda.length : 0;
+  const favCount = currentUser.favorites ? currentUser.favorites.length : 0;
+  const userEvents = eventsData.filter(e => e.creator_id && e.creator_id.toString() === (currentUser.id || '').toString());
+  const userBookings = bookingsData.filter(b => b.creator_id && b.creator_id.toString() === (currentUser.id || '').toString());
+  const annoncesCount = userEvents.length + userBookings.length;
+
   const html = `
-    <div style="padding:40px;max-width:600px;margin:0 auto;text-align:center;position:relative;">
-      <!-- Bouton X (croix) pour fermer -->
-      <button onclick="closePublishModal()" style="position:absolute;top:16px;right:16px;background:none;border:none;color:var(--ui-text-muted);font-size:24px;cursor:pointer;padding:8px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:all 0.2s;z-index:10;" onmouseover="this.style.background='rgba(239,68,68,0.2)';this.style.color='#ef4444';this.style.transform='scale(1.1)';" onmouseout="this.style.background='none';this.style.color='var(--ui-text-muted)';this.style.transform='scale(1)';" title="Fermer">✕</button>
+    <div style="padding:28px 24px;max-width:600px;margin:0 auto;position:relative;">
+      <!-- Bouton X -->
+      <button onclick="closePublishModal()" style="position:absolute;top:12px;right:12px;background:none;border:none;color:var(--ui-text-muted);font-size:22px;cursor:pointer;padding:6px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:all 0.2s;z-index:10;" onmouseover="this.style.background='rgba(239,68,68,0.2)';this.style.color='#ef4444'" onmouseout="this.style.background='none';this.style.color='var(--ui-text-muted)'" title="Fermer">✕</button>
       
       <!-- En-tête avec avatar et nom -->
-      <div style="margin-bottom:32px;">
-        <div style="width:80px;height:80px;border-radius:50%;margin:0 auto 16px;background:rgba(0,255,195,0.1);border:3px solid rgba(0,255,195,0.3);display:flex;align-items:center;justify-content:center;font-size:40px;overflow:hidden;">
+      <div style="text-align:center;margin-bottom:24px;">
+        <div style="width:72px;height:72px;border-radius:50%;margin:0 auto 12px;background:rgba(0,255,195,0.1);border:3px solid rgba(0,255,195,0.3);display:flex;align-items:center;justify-content:center;font-size:36px;overflow:hidden;">
           ${avatarDisplay}
         </div>
-        <h2 style="margin:0;font-size:24px;font-weight:700;color:#fff;" id="account-modal-display-name">${escapeHtml(finalDisplayName)}</h2>
-        <p style="margin:8px 0 0;font-size:13px;color:var(--ui-text-muted);">${currentUser.email || ''}</p>
+        <h2 style="margin:0;font-size:22px;font-weight:700;color:#fff;" id="account-modal-display-name">${escapeHtml(finalDisplayName)}</h2>
+        <p style="margin:6px 0 0;font-size:12px;color:var(--ui-text-muted);">${currentUser.email || ''}</p>
       </div>
       
-      <!-- Blocs cliquables - OUVERTURE FENÊTRES EXTERNES -->
-      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-bottom:24px;">
-        <div onclick="closePublishModal();setTimeout(() => openAgendaModal(), 300);" style="padding:24px;border-radius:16px;background:rgba(15,23,42,0.5);border:2px solid rgba(255,255,255,0.1);cursor:pointer;transition:all 0.3s;" onmouseover="this.style.borderColor='rgba(0,255,195,0.5)';this.style.background='rgba(0,255,195,0.1)';this.style.transform='translateY(-2px)';" onmouseout="this.style.borderColor='rgba(255,255,255,0.1)';this.style.background='rgba(15,23,42,0.5)';this.style.transform='translateY(0)';">
-          <div style="font-size:32px;margin-bottom:8px;">📅</div>
-          <div style="font-weight:600;font-size:14px;color:#fff;">Agenda</div>
+      <!-- MAP FRIEND - Bloc pleine largeur, très visible -->
+      <div onclick="closePublishModal();setTimeout(() => openMapFriendModal(), 300);" style="padding:18px 20px;border-radius:14px;background:linear-gradient(135deg,rgba(59,130,246,0.15),rgba(139,92,246,0.1));border:2px solid rgba(59,130,246,0.4);cursor:pointer;transition:all 0.3s;margin-bottom:20px;display:flex;align-items:center;gap:16px;" onmouseover="this.style.borderColor='rgba(59,130,246,0.8)';this.style.background='linear-gradient(135deg,rgba(59,130,246,0.25),rgba(139,92,246,0.15))';this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 20px rgba(59,130,246,0.2)'" onmouseout="this.style.borderColor='rgba(59,130,246,0.4)';this.style.background='linear-gradient(135deg,rgba(59,130,246,0.15),rgba(139,92,246,0.1))';this.style.transform='translateY(0)';this.style.boxShadow='none'">
+        <div style="font-size:36px;flex-shrink:0;">🌐</div>
+        <div style="flex:1;text-align:left;">
+          <div style="font-weight:700;font-size:16px;color:#fff;">Map Friend</div>
+          <div style="font-size:12px;color:#93c5fd;margin-top:3px;">Fil social, partage d'events entre amis et messages</div>
+        </div>
+        <div style="font-size:18px;color:#60a5fa;flex-shrink:0;">→</div>
+      </div>
+      
+      <!-- Blocs principaux avec descriptions -->
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:20px;">
+        <div onclick="closePublishModal();setTimeout(() => openAgendaModal(), 300);" style="padding:16px;border-radius:14px;background:rgba(15,23,42,0.5);border:1px solid rgba(255,255,255,0.1);cursor:pointer;transition:all 0.3s;text-align:center;" onmouseover="this.style.borderColor='rgba(0,255,195,0.5)';this.style.background='rgba(0,255,195,0.08)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.1)';this.style.background='rgba(15,23,42,0.5)';this.style.transform='translateY(0)'">
+          <div style="font-size:28px;margin-bottom:6px;">📅</div>
+          <div style="font-weight:600;font-size:13px;color:#fff;">Agenda</div>
+          <div style="font-size:11px;color:#94a3b8;margin-top:4px;">${agendaCount > 0 ? agendaCount + ' événement' + (agendaCount > 1 ? 's' : '') + ' sauvegardé' + (agendaCount > 1 ? 's' : '') : 'Sauvegardez des events depuis la carte'}</div>
         </div>
         
-        <div onclick="openAccountWindow('amis')" style="padding:24px;border-radius:16px;background:rgba(15,23,42,0.5);border:2px solid rgba(255,255,255,0.1);cursor:pointer;transition:all 0.3s;" onmouseover="this.style.borderColor='rgba(0,255,195,0.5)';this.style.background='rgba(0,255,195,0.1)';this.style.transform='translateY(-2px)';" onmouseout="this.style.borderColor='rgba(255,255,255,0.1)';this.style.background='rgba(15,23,42,0.5)';this.style.transform='translateY(0)';">
-          <div style="font-size:32px;margin-bottom:8px;">👥</div>
-          <div style="font-weight:600;font-size:14px;color:#fff;">Amis</div>
+        <div onclick="openAccountWindow('amis')" style="padding:16px;border-radius:14px;background:rgba(15,23,42,0.5);border:1px solid rgba(255,255,255,0.1);cursor:pointer;transition:all 0.3s;text-align:center;" onmouseover="this.style.borderColor='rgba(0,255,195,0.5)';this.style.background='rgba(0,255,195,0.08)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.1)';this.style.background='rgba(15,23,42,0.5)';this.style.transform='translateY(0)'">
+          <div style="font-size:28px;margin-bottom:6px;">👥</div>
+          <div style="font-weight:600;font-size:13px;color:#fff;">Amis</div>
+          <div style="font-size:11px;color:#94a3b8;margin-top:4px;">Ajoutez des amis pour partager vos events</div>
         </div>
         
-        <div onclick="openAccountWindow('notifications')" style="padding:24px;border-radius:16px;background:rgba(15,23,42,0.5);border:2px solid rgba(255,255,255,0.1);cursor:pointer;transition:all 0.3s;" onmouseover="this.style.borderColor='rgba(0,255,195,0.5)';this.style.background='rgba(0,255,195,0.1)';this.style.transform='translateY(-2px)';" onmouseout="this.style.borderColor='rgba(255,255,255,0.1)';this.style.background='rgba(15,23,42,0.5)';this.style.transform='translateY(0)';">
-          <div style="font-size:32px;margin-bottom:8px;">🔔</div>
-          <div style="font-weight:600;font-size:14px;color:#fff;">Notifications</div>
+        <div onclick="openAccountWindow('notifications')" style="padding:16px;border-radius:14px;background:rgba(15,23,42,0.5);border:1px solid rgba(255,255,255,0.1);cursor:pointer;transition:all 0.3s;text-align:center;" onmouseover="this.style.borderColor='rgba(0,255,195,0.5)';this.style.background='rgba(0,255,195,0.08)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.1)';this.style.background='rgba(15,23,42,0.5)';this.style.transform='translateY(0)'">
+          <div style="font-size:28px;margin-bottom:6px;">🔔</div>
+          <div style="font-weight:600;font-size:13px;color:#fff;">Notifications</div>
+          <div style="font-size:11px;color:#94a3b8;margin-top:4px;">Invitations, rappels et mises à jour</div>
         </div>
         
-        <div onclick="openAccountWindow('parametres')" style="padding:24px;border-radius:16px;background:rgba(15,23,42,0.5);border:2px solid rgba(255,255,255,0.1);cursor:pointer;transition:all 0.3s;" onmouseover="this.style.borderColor='rgba(0,255,195,0.5)';this.style.background='rgba(0,255,195,0.1)';this.style.transform='translateY(-2px)';" onmouseout="this.style.borderColor='rgba(255,255,255,0.1)';this.style.background='rgba(15,23,42,0.5)';this.style.transform='translateY(0)';">
-          <div style="font-size:32px;margin-bottom:8px;">⚙️</div>
-          <div style="font-weight:600;font-size:14px;color:#fff;">Paramètres</div>
+        <div onclick="openAccountWindow('parametres')" style="padding:16px;border-radius:14px;background:rgba(15,23,42,0.5);border:1px solid rgba(255,255,255,0.1);cursor:pointer;transition:all 0.3s;text-align:center;" onmouseover="this.style.borderColor='rgba(0,255,195,0.5)';this.style.background='rgba(0,255,195,0.08)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.1)';this.style.background='rgba(15,23,42,0.5)';this.style.transform='translateY(0)'">
+          <div style="font-size:28px;margin-bottom:6px;">⚙️</div>
+          <div style="font-weight:600;font-size:13px;color:#fff;">Paramètres</div>
+          <div style="font-size:11px;color:#94a3b8;margin-top:4px;">Langue, thème et préférences</div>
         </div>
         
-        <div onclick="openAccountWindow('profil')" style="padding:24px;border-radius:16px;background:rgba(15,23,42,0.5);border:2px solid rgba(255,255,255,0.1);cursor:pointer;transition:all 0.3s;" onmouseover="this.style.borderColor='rgba(0,255,195,0.5)';this.style.background='rgba(0,255,195,0.1)';this.style.transform='translateY(-2px)';" onmouseout="this.style.borderColor='rgba(255,255,255,0.1)';this.style.background='rgba(15,23,42,0.5)';this.style.transform='translateY(0)';">
-          <div style="font-size:32px;margin-bottom:8px;">👤</div>
-          <div style="font-weight:600;font-size:14px;color:#fff;">Profil</div>
+        <div onclick="openAccountWindow('profil')" style="padding:16px;border-radius:14px;background:rgba(15,23,42,0.5);border:1px solid rgba(255,255,255,0.1);cursor:pointer;transition:all 0.3s;text-align:center;" onmouseover="this.style.borderColor='rgba(0,255,195,0.5)';this.style.background='rgba(0,255,195,0.08)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.1)';this.style.background='rgba(15,23,42,0.5)';this.style.transform='translateY(0)'">
+          <div style="font-size:28px;margin-bottom:6px;">👤</div>
+          <div style="font-weight:600;font-size:13px;color:#fff;">Profil</div>
+          <div style="font-size:11px;color:#94a3b8;margin-top:4px;">Voir votre profil public</div>
         </div>
         
-        <div onclick="event.stopPropagation(); openAccountWindow('modifier-profil')" style="padding:24px;border-radius:16px;background:rgba(15,23,42,0.5);border:2px solid rgba(255,255,255,0.1);cursor:pointer;transition:all 0.3s;" onmouseover="this.style.borderColor='rgba(0,255,195,0.5)';this.style.background='rgba(0,255,195,0.1)';this.style.transform='translateY(-2px)';" onmouseout="this.style.borderColor='rgba(255,255,255,0.1)';this.style.background='rgba(15,23,42,0.5)';this.style.transform='translateY(0)';">
-          <div style="font-size:32px;margin-bottom:8px;">✏️</div>
-          <div style="font-weight:600;font-size:14px;color:#fff;">Modifier mon profil</div>
+        <div onclick="event.stopPropagation(); openAccountWindow('modifier-profil')" style="padding:16px;border-radius:14px;background:rgba(15,23,42,0.5);border:1px solid rgba(255,255,255,0.1);cursor:pointer;transition:all 0.3s;text-align:center;" onmouseover="this.style.borderColor='rgba(0,255,195,0.5)';this.style.background='rgba(0,255,195,0.08)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.1)';this.style.background='rgba(15,23,42,0.5)';this.style.transform='translateY(0)'">
+          <div style="font-size:28px;margin-bottom:6px;">✏️</div>
+          <div style="font-weight:600;font-size:13px;color:#fff;">Modifier mon profil</div>
+          <div style="font-size:11px;color:#94a3b8;margin-top:4px;">Photo, bio et infos personnelles</div>
         </div>
-        
-        <div onclick="event.stopPropagation(); openAccountWindow('mes-annonces')" style="padding:24px;border-radius:16px;background:rgba(15,23,42,0.5);border:2px solid rgba(139,92,246,0.3);cursor:pointer;transition:all 0.3s;" onmouseover="this.style.borderColor='rgba(139,92,246,0.6)';this.style.background='rgba(139,92,246,0.15)';this.style.transform='translateY(-2px)';" onmouseout="this.style.borderColor='rgba(139,92,246,0.3)';this.style.background='rgba(15,23,42,0.5)';this.style.transform='translateY(0)';">
-          <div style="font-size:32px;margin-bottom:8px;">📢</div>
+      </div>
+      
+      <!-- Mes annonces - bloc pleine largeur -->
+      <div onclick="event.stopPropagation(); openAccountWindow('mes-annonces')" style="padding:16px 20px;border-radius:14px;background:rgba(15,23,42,0.5);border:1px solid rgba(139,92,246,0.3);cursor:pointer;transition:all 0.3s;margin-bottom:20px;display:flex;align-items:center;gap:14px;" onmouseover="this.style.borderColor='rgba(139,92,246,0.6)';this.style.background='rgba(139,92,246,0.1)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='rgba(139,92,246,0.3)';this.style.background='rgba(15,23,42,0.5)';this.style.transform='translateY(0)'">
+        <div style="font-size:28px;flex-shrink:0;">📢</div>
+        <div style="flex:1;text-align:left;">
           <div style="font-weight:600;font-size:14px;color:#fff;">Mes annonces</div>
+          <div style="font-size:11px;color:#a78bfa;margin-top:3px;">${annoncesCount > 0 ? annoncesCount + ' annonce' + (annoncesCount > 1 ? 's' : '') + ' publiée' + (annoncesCount > 1 ? 's' : '') : 'Publiez un event ou booking pour le voir apparaître ici'}</div>
         </div>
-        
-        <div onclick="closePublishModal();setTimeout(() => openMapFriendModal(), 300);" style="padding:24px;border-radius:16px;background:rgba(15,23,42,0.5);border:2px solid rgba(59,130,246,0.3);cursor:pointer;transition:all 0.3s;grid-column:span 2;" onmouseover="this.style.borderColor='rgba(59,130,246,0.6)';this.style.background='rgba(59,130,246,0.15)';this.style.transform='translateY(-2px)';" onmouseout="this.style.borderColor='rgba(59,130,246,0.3)';this.style.background='rgba(15,23,42,0.5)';this.style.transform='translateY(0)';">
-          <div style="font-size:32px;margin-bottom:8px;">🌐</div>
-          <div style="font-weight:600;font-size:14px;color:#fff;">Map Friend</div>
-          <div style="font-size:11px;color:#94a3b8;margin-top:4px;">Fil social - Partage d'events et messages</div>
-        </div>
-      </div>
-      
-      <!-- Zone de contenu - Option "Rester connecté" -->
-      <div id="account-block-content" style="min-height:120px;padding:20px;border-radius:16px;background:rgba(15,23,42,0.3);border:1px solid rgba(255,255,255,0.1);">
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:16px;border-radius:12px;background:rgba(0,255,195,0.05);border:1px solid rgba(0,255,195,0.2);">
-          <div style="display:flex;align-items:center;gap:12px;">
-            <div style="font-size:24px;">🔐</div>
-            <div>
-              <div style="font-weight:600;font-size:14px;color:#fff;margin-bottom:4px;">Rester connecté pour la prochaine fois</div>
-              <div style="font-size:12px;color:var(--ui-text-muted);">Vous serez automatiquement reconnecté</div>
-            </div>
-          </div>
-          <label style="position:relative;display:inline-block;width:48px;height:24px;cursor:pointer;">
-            <input type="checkbox" id="account-remember-me-toggle" style="opacity:0;width:0;height:0;" />
-            <span id="account-remember-me-slider" style="position:absolute;top:0;left:0;right:0;bottom:0;background-color:rgba(255,255,255,0.2);border-radius:24px;transition:all 0.3s;"></span>
-            <span id="account-remember-me-knob" style="position:absolute;top:2px;left:2px;width:20px;height:20px;background-color:#fff;border-radius:50%;transition:all 0.3s;box-shadow:0 2px 4px rgba(0,0,0,0.2);"></span>
-          </label>
-        </div>
+        <div style="font-size:16px;color:#a78bfa;flex-shrink:0;">→</div>
       </div>
       
       <!-- Bouton Installation PWA (visible uniquement sur mobile) -->
-      <button id="account-pwa-install-btn" style="display:none;width:100%;margin-top:24px;padding:14px;border-radius:12px;border:none;background:linear-gradient(135deg,#667eea,#764ba2);color:white;font-weight:600;font-size:14px;cursor:pointer;transition:all 0.3s;" onmouseover="this.style.opacity='0.9';" onmouseout="this.style.opacity='1';">
+      <button id="account-pwa-install-btn" style="display:none;width:100%;margin-bottom:16px;padding:12px;border-radius:12px;border:none;background:linear-gradient(135deg,#667eea,#764ba2);color:white;font-weight:600;font-size:13px;cursor:pointer;transition:all 0.3s;" onmouseover="this.style.opacity='0.9';" onmouseout="this.style.opacity='1';">
         📱 Installer l'app mobile
       </button>
       
       <!-- Blocs supplémentaires pour mobile (cachés sur desktop) -->
-      <div id="account-mobile-extras" style="display:none;margin-top:16px;padding-top:16px;border-top:1px solid rgba(148,163,184,0.2);">
-        <div style="font-size:12px;color:var(--ui-text-muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:1px;">Plus d'options</div>
+      <div id="account-mobile-extras" style="display:none;margin-bottom:16px;">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-          <button onclick="openSubscriptionView()" style="padding:12px;border-radius:10px;border:1px solid rgba(148,163,184,0.3);background:rgba(255,255,255,0.05);color:var(--ui-text-main);cursor:pointer;font-size:12px;display:flex;flex-direction:column;align-items:center;gap:4px;">
-            <span style="font-size:18px;">💎</span>
+          <button onclick="openSubscriptionView()" style="padding:10px;border-radius:10px;border:1px solid rgba(148,163,184,0.2);background:rgba(255,255,255,0.04);color:var(--ui-text-main);cursor:pointer;font-size:12px;display:flex;flex-direction:column;align-items:center;gap:3px;">
+            <span style="font-size:16px;">💎</span>
             <span>Abos</span>
           </button>
-          <button onclick="openProximityAlertsView()" style="padding:12px;border-radius:10px;border:1px solid rgba(148,163,184,0.3);background:rgba(255,255,255,0.05);color:var(--ui-text-main);cursor:pointer;font-size:12px;display:flex;flex-direction:column;align-items:center;gap:4px;">
-            <span style="font-size:18px;">🔔</span>
+          <button onclick="openProximityAlertsView()" style="padding:10px;border-radius:10px;border:1px solid rgba(148,163,184,0.2);background:rgba(255,255,255,0.04);color:var(--ui-text-main);cursor:pointer;font-size:12px;display:flex;flex-direction:column;align-items:center;gap:3px;">
+            <span style="font-size:16px;">🔔</span>
             <span>Alertes</span>
           </button>
-          <button onclick="openCartModal()" style="padding:12px;border-radius:10px;border:1px solid rgba(148,163,184,0.3);background:rgba(255,255,255,0.05);color:var(--ui-text-main);cursor:pointer;font-size:12px;display:flex;flex-direction:column;align-items:center;gap:4px;">
-            <span style="font-size:18px;">🛒</span>
+          <button onclick="openCartModal()" style="padding:10px;border-radius:10px;border:1px solid rgba(148,163,184,0.2);background:rgba(255,255,255,0.04);color:var(--ui-text-main);cursor:pointer;font-size:12px;display:flex;flex-direction:column;align-items:center;gap:3px;">
+            <span style="font-size:16px;">🛒</span>
             <span>Panier</span>
           </button>
-          <button onclick="openEcoMissionModal()" style="padding:12px;border-radius:10px;border:1px solid rgba(148,163,184,0.3);background:rgba(255,255,255,0.05);color:var(--ui-text-main);cursor:pointer;font-size:12px;display:flex;flex-direction:column;align-items:center;gap:4px;">
-            <span style="font-size:18px;">🌍</span>
+          <button onclick="openEcoMissionModal()" style="padding:10px;border-radius:10px;border:1px solid rgba(148,163,184,0.2);background:rgba(255,255,255,0.04);color:var(--ui-text-main);cursor:pointer;font-size:12px;display:flex;flex-direction:column;align-items:center;gap:3px;">
+            <span style="font-size:16px;">🌍</span>
             <span>Sauver la Terre</span>
           </button>
         </div>
       </div>
       
-      <button id="account-logout-btn" style="width:100%;margin-top:24px;padding:12px;border-radius:12px;border:2px solid rgba(239,68,68,0.3);background:rgba(239,68,68,0.1);color:#ef4444;font-weight:600;font-size:14px;cursor:pointer;transition:all 0.3s;" onmouseover="this.style.background='rgba(239,68,68,0.2)';this.style.borderColor='rgba(239,68,68,0.5)';" onmouseout="this.style.background='rgba(239,68,68,0.1)';this.style.borderColor='rgba(239,68,68,0.3)';">
-        Se déconnecter
-      </button>
-      
-      <button id="account-delete-btn" style="width:100%;margin-top:12px;padding:12px;border-radius:12px;border:2px solid rgba(239,68,68,0.2);background:transparent;color:var(--ui-text-muted);font-weight:500;font-size:13px;cursor:pointer;transition:all 0.3s;" onmouseover="this.style.color='#ef4444';this.style.borderColor='rgba(239,68,68,0.4)';" onmouseout="this.style.color='var(--ui-text-muted)';this.style.borderColor='rgba(239,68,68,0.2)';">
-        🗑️ Supprimer mon compte
-      </button>
+      <!-- Blocs fins : Rester connecté, Déconnexion, Supprimer -->
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <div id="account-block-content" style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-radius:10px;background:rgba(0,255,195,0.05);border:1px solid rgba(0,255,195,0.15);cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor='rgba(0,255,195,0.3)'" onmouseout="this.style.borderColor='rgba(0,255,195,0.15)'">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span style="font-size:18px;">🔐</span>
+            <div>
+              <div style="font-weight:600;font-size:13px;color:#fff;">Rester connecté</div>
+              <div style="font-size:11px;color:var(--ui-text-muted);">Reconnexion automatique</div>
+            </div>
+          </div>
+          <label style="position:relative;display:inline-block;width:44px;height:22px;cursor:pointer;" onclick="event.stopPropagation()">
+            <input type="checkbox" id="account-remember-me-toggle" style="opacity:0;width:0;height:0;" />
+            <span id="account-remember-me-slider" style="position:absolute;top:0;left:0;right:0;bottom:0;background-color:rgba(255,255,255,0.2);border-radius:22px;transition:all 0.3s;"></span>
+            <span id="account-remember-me-knob" style="position:absolute;top:2px;left:2px;width:18px;height:18px;background-color:#fff;border-radius:50%;transition:all 0.3s;box-shadow:0 2px 4px rgba(0,0,0,0.2);"></span>
+          </label>
+        </div>
+        
+        <div id="account-logout-btn" style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:10px;background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.15);cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor='rgba(239,68,68,0.4)';this.style.background='rgba(239,68,68,0.12)'" onmouseout="this.style.borderColor='rgba(239,68,68,0.15)';this.style.background='rgba(239,68,68,0.06)'">
+          <span style="font-size:18px;">🚪</span>
+          <div style="font-weight:600;font-size:13px;color:#ef4444;">Se déconnecter</div>
+        </div>
+        
+        <div id="account-delete-btn" style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-radius:10px;background:transparent;border:1px solid rgba(148,163,184,0.1);cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor='rgba(239,68,68,0.3)';this.style.background='rgba(239,68,68,0.05)'" onmouseout="this.style.borderColor='rgba(148,163,184,0.1)';this.style.background='transparent'">
+          <span style="font-size:16px;">🗑️</span>
+          <div style="font-size:12px;color:var(--ui-text-muted);">Supprimer mon compte</div>
+        </div>
+      </div>
     </div>
   `;
   
@@ -27734,6 +27966,9 @@ if (typeof showSuccess !== 'undefined') {
 // Exposer les fonctions du formulaire de publication
 window.toggleRepeatOptions = toggleRepeatOptions;
 window.updateRepeatPreview = updateRepeatPreview;
+window.onRepeatFrequencyChange = onRepeatFrequencyChange;
+window.selectMonthDay = selectMonthDay;
+window.initWeekdayCheckboxStyles = initWeekdayCheckboxStyles;
 window.toggleAdvancedOptions = toggleAdvancedOptions;
 window.initRepeatHandlers = initRepeatHandlers;
 window.initMultipleImagesHandler = initMultipleImagesHandler;
@@ -27785,7 +28020,6 @@ window.showRegisterStep3 = showRegisterStep3;
 window.completeRegistration = completeRegistration;
 window.openSubscriptionModal = openSubscriptionModal;
 window.openCartModal = openCartModal;
-window.openAccountModal = openAccountModal;
 
 // Fonction formatDate globale
 function formatDate(dateString) {
@@ -27834,7 +28068,6 @@ window.addEventAlert = addEventAlert;
 window.selectPlan = selectPlan;
 window.openPremiumPaymentModal = openPremiumPaymentModal;
 window.simulatePremiumPayment = simulatePremiumPayment;
-window.openAccountModal = openAccountModal;
 window.openAboutModal = openAboutModal;
 window.selectAvatar = selectAvatar;
 window.openFavoritesModal = openFavoritesModal;
@@ -29649,8 +29882,8 @@ async function loadCurrentUserFromAPI() {
         agenda: (_apiAgenda && Array.isArray(_apiAgenda) && _apiAgenda.length > 0) ? _apiAgenda : existingAgenda
       };
       
-      // NE PAS sauvegarder currentUser dans localStorage (trop volumineux, cause quota exceeded)
-      // Les tokens sont déjà stockés séparément, le profil est chargé depuis l'API à chaque fois
+      window.currentUser = currentUser;
+      
       console.log('[AUTH] Utilisateur charge depuis /api/user/me:', user.email);
       console.log('[AVATAR] Avatar normalise:', avatarUrl ? avatarUrl.substring(0, 50) + '...' : 'null (emoji)');
       
@@ -29731,7 +29964,7 @@ async function loadCurrentUserFromAPI() {
             agenda: (_retryAgenda && Array.isArray(_retryAgenda) && _retryAgenda.length > 0) ? _retryAgenda : retryExistingAgenda
           };
           
-          // NE PAS stocker currentUser dans localStorage (cause quota exceeded)
+          window.currentUser = currentUser;
           console.log('[AUTH] Utilisateur charge apres refresh:', user.email);
           console.log('[AVATAR] Avatar normalise apres refresh:', avatarUrl ? avatarUrl.substring(0, 50) + '...' : 'null (emoji)');
           
@@ -31727,7 +31960,7 @@ function addViewportEvents(data) {
   
   if (newCount > 0) {
     window.eventsData = eventsData;
-    // Mettre à jour la liste si visible
+    buildSameLocationMap(getActiveData());
     if (typeof refreshListView === 'function') refreshListView();
     console.log(`[VIEWPORT] 📍 +${newCount} events ajoutés sur carte (total eventsData: ${eventsData.length})`);
   }
@@ -32053,6 +32286,7 @@ async function loadUserDataOnLogin() {
           const themeConfig = await themeResp.json();
           if (themeConfig && themeConfig.markerColors) {
             window.customThemeConfig = themeConfig;
+            localStorage.setItem('customThemeConfig', JSON.stringify(themeConfig));
             applyCustomColors();
             console.log('[THEME] Theme custom charge depuis la BDD');
           }

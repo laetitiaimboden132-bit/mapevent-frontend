@@ -1,0 +1,149 @@
+[
+  {
+    "id": 8857,
+    "source_url": "https://www.loisirs.ch/agendas/28821/carnaval-du-bourg-2026-martigny",
+    "latitude": 46.1013658,
+    "longitude": 7.0729373
+  },
+  {
+    "id": 8859,
+    "source_url": "https://www.valais.ch/fr/evenements/54-int-gommerlauf",
+    "latitude": 46.5065607,
+    "longitude": 8.3049713
+  },
+  {
+    "id": 8860,
+    "source_url": "https://www.valais.ch/fr/evenements/nendaz-freeride-junior-3",
+    "latitude": 46.170836,
+    "longitude": 7.2872098
+  },
+  {
+    "id": 8861,
+    "source_url": "https://www.valais.ch/fr/evenements/nendaz-freeride-kids",
+    "latitude": 46.1356125,
+    "longitude": 7.316444
+  },
+  {
+    "id": 8862,
+    "source_url": "https://musee-art-valais.ch/exposition-art/les-grandes-inspirations/",
+    "latitude": 46.2343722,
+    "longitude": 7.3612923
+  },
+  {
+    "id": 8863,
+    "source_url": "https://musee-art-valais.ch/agenda/jpeux-pas-jai-musee/",
+    "latitude": 46.234374,
+    "longitude": 7.3622604
+  },
+  {
+    "id": 8864,
+    "source_url": "https://www.juniordays.ch/",
+    "latitude": 46.1013658,
+    "longitude": 7.0729373
+  },
+  {
+    "id": 8865,
+    "source_url": "https://agenda.culturevalais.ch/fr/event/show/41549",
+    "latitude": 46.0794486,
+    "longitude": 7.2167379
+  },
+  {
+    "id": 8866,
+    "source_url": "https://agenda.culturevalais.ch/fr/event/show/40326",
+    "latitude": 46.3187792,
+    "longitude": 7.7483058
+  },
+  {
+    "id": 8867,
+    "source_url": "https://agenda.culturevalais.ch/fr/event/show/42011",
+    "latitude": 46.1483979,
+    "longitude": 7.1827491
+  },
+  {
+    "id": 8868,
+    "source_url": "https://agenda.culturevalais.ch/fr/event/show/41748",
+    "latitude": 46.0956814,
+    "longitude": 7.2256691
+  },
+  {
+    "id": 8869,
+    "source_url": "https://agenda.culturevalais.ch/fr/event/show/41744",
+    "latitude": 46.1024278,
+    "longitude": 7.0721213
+  },
+  {
+    "id": 8870,
+    "source_url": "https://www.valdherens.ch/fr/le-carnaval-a-evolene-fp49450",
+    "latitude": 46.1129048,
+    "longitude": 7.4958022
+  },
+  {
+    "id": 8871,
+    "source_url": "https://www.aquaparc.ch/preparer-ma-visite/calendrier-et-horaires",
+    "latitude": 46.3868263,
+    "longitude": 6.8598014
+  },
+  {
+    "id": 8872,
+    "source_url": "https://www.barryland.ch/en/practical-info-552/",
+    "latitude": 46.0952164,
+    "longitude": 7.0740681
+  },
+  {
+    "id": 8873,
+    "source_url": "https://www.valais.ch/fr/explorer/activites/autres-activites-hivernales/luge"
+  },
+  {
+    "id": 8874,
+    "source_url": "https://www.myswitzerland.com/fr-fr/decouvrir/hiver/patinoires/-/valais/"
+  },
+  {
+    "id": 8875,
+    "source_url": "https://siontourisme.ch/fr/valere",
+    "latitude": 46.2347469,
+    "longitude": 7.3635357
+  },
+  {
+    "id": 8876,
+    "source_url": "https://www.crans-montana.ch/fr/famille/activites_famille/",
+    "latitude": 46.3304899,
+    "longitude": 7.5264358
+  },
+  {
+    "id": 8877,
+    "source_url": "https://www.saas-fee.ch/fr/famille/hiver-pour-la-famille/activites-familiales-en-hiver/le-terrain-daventure-de-kian",
+    "latitude": 46.0901968,
+    "longitude": 7.9650788
+  },
+  {
+    "id": 8878,
+    "source_url": "https://zermatt.swiss/fr/activites/familles",
+    "latitude": 46.0171665,
+    "longitude": 7.7697586
+  },
+  {
+    "id": 8879,
+    "source_url": "https://www.leukerbad-therme.ch/fr/",
+    "date": "2026-02-14",
+    "end_date": "2026-03-31",
+    "location": "Leukerbad Therme, Rathausstrasse 32, 3954 Leukerbad",
+    "latitude": 46.377963,
+    "longitude": 7.62663
+  },
+  {
+    "id": 8880,
+    "source_url": "https://www.martigny.com/fr/activity/happyland-33698/",
+    "latitude": 46.2617091,
+    "longitude": 7.4558105
+  },
+  {
+    "id": 8882,
+    "source_url": "https://www.valais.ch/fr/explorer/activites/randonnees-hivernales/raquettes"
+  },
+  {
+    "id": 8883,
+    "source_url": "https://www.verbier.ch/offres/kids-activity-la-tzoumaz-fr-4839093/",
+    "latitude": 46.0960998,
+    "longitude": 7.2288173
+  }
+]

@@ -1,0 +1,1801 @@
+[
+  {
+    "id": 616,
+    "city": "Nax",
+    "address": "Chemin de la Palette, 1973 Nax",
+    "location": "Chemin de la Palette, 1973 Nax, Valais, Suisse"
+  },
+  {
+    "id": 614,
+    "address": "Rue du Bourg 28, 3960 Sierre",
+    "city": "Sierre",
+    "location": "Rue du Bourg 28, 3960 Sierre, Valais, Suisse"
+  },
+  {
+    "id": 612,
+    "address": "Kirchplatz, 3920 Zermatt",
+    "city": "Zermatt",
+    "location": "Kirchplatz, 3920 Zermatt, Valais, Suisse"
+  },
+  {
+    "id": 609,
+    "city": "Visperterminen",
+    "address": "Terbinerstrasse 2, 3932 Visperterminen",
+    "location": "Terbinerstrasse 2, 3932 Visperterminen, Valais, Suisse"
+  },
+  {
+    "id": 604,
+    "address": "Rue du Bourg, 1913 Saillon",
+    "city": "Saillon",
+    "location": "Rue du Bourg, 1913 Saillon, Valais, Suisse"
+  },
+  {
+    "id": 603,
+    "address": "Place de la Planta, 1950 Sion",
+    "city": "Sion",
+    "location": "Place de la Planta, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 602,
+    "address": "Place de l'Hôtel de Ville, 3960 Sierre",
+    "city": "Sierre",
+    "location": "Place de l'Hôtel de Ville, 3960 Sierre, Valais, Suisse"
+  },
+  {
+    "id": 601,
+    "address": "Route de la Télécabine, 1997 Haute-Nendaz",
+    "city": "Haute-Nendaz",
+    "location": "Route de la Télécabine, 1997 Haute-Nendaz, Valais, Suisse"
+  },
+  {
+    "id": 599,
+    "city": "Sion",
+    "address": "Rue Sainte-Marguerite 5, 1950 Sion",
+    "location": "Rue Sainte-Marguerite 5, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 598,
+    "address": "Rathausstrasse 32, 3954 Leukerbad",
+    "city": "Leukerbad",
+    "location": "Rathausstrasse 32, 3954 Leukerbad, Valais, Suisse"
+  },
+  {
+    "id": 597,
+    "address": "Rue du Forum 59, 1920 Martigny",
+    "city": "Martigny",
+    "location": "Rue du Forum 59, 1920 Martigny, Valais, Suisse"
+  },
+  {
+    "id": 594,
+    "city": "Verbier",
+    "address": "Route de Verbier Station 90, 1936 Verbier",
+    "location": "Route de Verbier Station 90, 1936 Verbier, Valais, Suisse"
+  },
+  {
+    "id": 610,
+    "address": "Rue du Bourg 32, 3960 Sierre",
+    "city": "Sierre",
+    "location": "Rue du Bourg 32, 3960 Sierre, Valais, Suisse"
+  },
+  {
+    "id": 611,
+    "address": "Route du Rawyl, 3963 Crans-Montana",
+    "city": "Crans-Montana",
+    "location": "Route du Rawyl, 3963 Crans-Montana, Valais, Suisse"
+  },
+  {
+    "id": 613,
+    "address": "Avenue de la Gare, 1870 Monthey",
+    "city": "Monthey",
+    "location": "Avenue de la Gare, 1870 Monthey, Valais, Suisse"
+  },
+  {
+    "id": 617,
+    "city": "Sion",
+    "address": "Avenue de Tourbillon 45, 1950 Sion",
+    "location": "Avenue de Tourbillon 45, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 622,
+    "address": "Kirchplatz, 3920 Zermatt",
+    "city": "Zermatt",
+    "location": "Kirchplatz, 3920 Zermatt, Valais, Suisse"
+  },
+  {
+    "id": 615,
+    "address": "Route du Rawyl, 3963 Crans-Montana",
+    "city": "Crans-Montana",
+    "location": "Route du Rawyl, 3963 Crans-Montana, Valais, Suisse"
+  },
+  {
+    "id": 595,
+    "city": "Visp",
+    "address": "Kantonsstrasse 14, 3930 Visp",
+    "location": "Kantonsstrasse 14, 3930 Visp, Valais, Suisse"
+  },
+  {
+    "id": 596,
+    "address": "Rue des Châteaux 18, 1950 Sion",
+    "city": "Sion",
+    "location": "Rue des Châteaux 18, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 600,
+    "city": "Sion",
+    "address": "Rue du Scex, 1950 Sion",
+    "location": "Rue du Scex, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 605,
+    "address": "Place de l'Hôtel de Ville, 3960 Sierre",
+    "city": "Sierre",
+    "location": "Place de l'Hôtel de Ville, 3960 Sierre, Valais, Suisse"
+  },
+  {
+    "id": 606,
+    "address": "Place du Manoir, 1920 Martigny",
+    "city": "Martigny",
+    "location": "Place du Manoir, 1920 Martigny, Valais, Suisse"
+  },
+  {
+    "id": 607,
+    "city": "Sion",
+    "address": "Rue du Scex 25, 1950 Sion",
+    "location": "Rue du Scex 25, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 608,
+    "city": "Vétroz",
+    "address": "Route de Praz-Pourris, 1963 Vétroz",
+    "location": "Route de Praz-Pourris, 1963 Vétroz, Valais, Suisse"
+  },
+  {
+    "id": 623,
+    "city": "Nax",
+    "address": "Linzerbot, 1973 Nax",
+    "location": "Linzerbot, 1973 Nax, Valais, Suisse"
+  },
+  {
+    "id": 621,
+    "address": "Route de Nendaz 29, 1997 Haute-Nendaz",
+    "city": "Haute-Nendaz",
+    "location": "Route de Nendaz 29, 1997 Haute-Nendaz, Valais, Suisse"
+  },
+  {
+    "id": 620,
+    "city": "Martigny",
+    "address": "Place Centrale 7b, 1920 Martigny",
+    "location": "Place Centrale 7b, 1920 Martigny, Valais, Suisse"
+  },
+  {
+    "id": 619,
+    "address": "Dorfplatz, 3970 Salgesch",
+    "city": "Salgesch",
+    "location": "Dorfplatz, 3970 Salgesch, Valais, Suisse"
+  },
+  {
+    "id": 618,
+    "city": "Martigny",
+    "address": "Avenue du Grand-St-Bernard 6, 1920 Martigny",
+    "location": "Avenue du Grand-St-Bernard 6, 1920 Martigny, Valais, Suisse"
+  },
+  {
+    "id": 573,
+    "address": "Rue de Lausanne, 1950 Sion",
+    "city": "Sion",
+    "location": "Rue de Lausanne, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 572,
+    "address": "Route des Bains 1, 1911 Ovronnaz",
+    "city": "Ovronnaz",
+    "location": "Route des Bains 1, 1911 Ovronnaz, Valais, Suisse"
+  },
+  {
+    "id": 579,
+    "address": "Rue des Châteaux 18, 1950 Sion",
+    "city": "Sion",
+    "location": "Rue des Châteaux 18, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 582,
+    "address": "Place de l'Hôtel de Ville, 3960 Sierre",
+    "city": "Sierre",
+    "location": "Place de l'Hôtel de Ville, 3960 Sierre, Valais, Suisse"
+  },
+  {
+    "id": 583,
+    "city": "Conthey",
+    "address": "Route de Derborence, 1964 Conthey",
+    "location": "Route de Derborence, 1964 Conthey, Valais, Suisse"
+  },
+  {
+    "id": 584,
+    "address": "Kirchplatz, 3920 Zermatt",
+    "city": "Zermatt",
+    "location": "Kirchplatz, 3920 Zermatt, Valais, Suisse"
+  },
+  {
+    "id": 587,
+    "city": "Haute-Nendaz",
+    "address": "Route de Sornard 53, 1997 Haute-Nendaz",
+    "location": "Route de Sornard 53, 1997 Haute-Nendaz, Valais, Suisse"
+  },
+  {
+    "id": 571,
+    "address": "Route du Rawyl, 3963 Crans-Montana",
+    "city": "Crans-Montana",
+    "location": "Route du Rawyl, 3963 Crans-Montana, Valais, Suisse"
+  },
+  {
+    "id": 588,
+    "address": "Place du Village, 1965 Savièse",
+    "city": "Savièse",
+    "location": "Place du Village, 1965 Savièse, Valais, Suisse"
+  },
+  {
+    "id": 589,
+    "address": "Rue du Bourg, 1913 Saillon",
+    "city": "Saillon",
+    "location": "Rue du Bourg, 1913 Saillon, Valais, Suisse"
+  },
+  {
+    "id": 593,
+    "address": "Talstrasse, 3917 Kippel",
+    "city": "Kippel",
+    "location": "Talstrasse, 3917 Kippel, Valais, Suisse"
+  },
+  {
+    "id": 556,
+    "address": "Rue de la Gare, 1907 Saxon",
+    "city": "Saxon",
+    "location": "Rue de la Gare, 1907 Saxon, Valais, Suisse"
+  },
+  {
+    "id": 557,
+    "address": "Dorf, 3903 Mund",
+    "city": "Mund",
+    "location": "Dorf, 3903 Mund, Valais, Suisse"
+  },
+  {
+    "id": 558,
+    "address": "Place Centrale, 1907 Saxon",
+    "city": "Saxon",
+    "location": "Place Centrale, 1907 Saxon, Valais, Suisse"
+  },
+  {
+    "id": 560,
+    "address": "Bahnhofstrasse, 3900 Brig",
+    "city": "Brig",
+    "location": "Bahnhofstrasse, 3900 Brig, Valais, Suisse"
+  },
+  {
+    "id": 561,
+    "address": "Avenue Général-Guisan, 3960 Sierre",
+    "city": "Sierre",
+    "location": "Avenue Général-Guisan, 3960 Sierre, Valais, Suisse"
+  },
+  {
+    "id": 562,
+    "address": "Place Centrale, 1920 Martigny",
+    "city": "Martigny",
+    "location": "Place Centrale, 1920 Martigny, Valais, Suisse"
+  },
+  {
+    "id": 563,
+    "address": "Route de la Place, 1983 Evolène",
+    "city": "Evolène",
+    "location": "Route de la Place, 1983 Evolène, Valais, Suisse"
+  },
+  {
+    "id": 564,
+    "address": "Sebastiansplatz, 3900 Brig",
+    "city": "Brig",
+    "location": "Sebastiansplatz, 3900 Brig, Valais, Suisse"
+  },
+  {
+    "id": 569,
+    "address": "Rue du Village, 1874 Champéry",
+    "city": "Champéry",
+    "location": "Rue du Village, 1874 Champéry, Valais, Suisse"
+  },
+  {
+    "id": 570,
+    "address": "Route de la Télécabine, 1997 Haute-Nendaz",
+    "city": "Haute-Nendaz",
+    "location": "Route de la Télécabine, 1997 Haute-Nendaz, Valais, Suisse"
+  },
+  {
+    "id": 592,
+    "city": "Sion",
+    "address": "Rue du Scex, 1950 Sion",
+    "location": "Rue du Scex, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 591,
+    "address": "Bahnhofplatz, 3920 Zermatt",
+    "city": "Zermatt",
+    "location": "Bahnhofplatz, 3920 Zermatt, Valais, Suisse"
+  },
+  {
+    "id": 590,
+    "address": "Rue du Bourg, 1913 Saillon",
+    "city": "Saillon",
+    "location": "Rue du Bourg, 1913 Saillon, Valais, Suisse"
+  },
+  {
+    "id": 586,
+    "address": "Route des Bains 1, 1911 Ovronnaz",
+    "city": "Ovronnaz",
+    "location": "Route des Bains 1, 1911 Ovronnaz, Valais, Suisse"
+  },
+  {
+    "id": 585,
+    "city": "Haute-Nendaz",
+    "address": "Chemin de Couluire 3, 1997 Haute-Nendaz",
+    "location": "Chemin de Couluire 3, 1997 Haute-Nendaz, Valais, Suisse"
+  },
+  {
+    "id": 581,
+    "address": "Place de la Planta, 1950 Sion",
+    "city": "Sion",
+    "location": "Place de la Planta, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 580,
+    "city": "Sion",
+    "address": "Rue du Scex, 1950 Sion",
+    "location": "Rue du Scex, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 578,
+    "address": "Place de la Planta, 1950 Sion",
+    "city": "Sion",
+    "location": "Place de la Planta, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 577,
+    "city": "Martigny",
+    "address": "Rue des Morasses 6, 1920 Martigny",
+    "location": "Rue des Morasses 6, 1920 Martigny, Valais, Suisse"
+  },
+  {
+    "id": 575,
+    "city": "Sion",
+    "address": "Place Maurice-Zermatten, 1950 Sion",
+    "location": "Place Maurice-Zermatten, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 568,
+    "city": "Martigny",
+    "address": "Avenue du Grand-St-Bernard 6, 1920 Martigny",
+    "location": "Avenue du Grand-St-Bernard 6, 1920 Martigny, Valais, Suisse"
+  },
+  {
+    "id": 559,
+    "address": "Rue du Bourg, 1913 Saillon",
+    "city": "Saillon",
+    "location": "Rue du Bourg, 1913 Saillon, Valais, Suisse"
+  },
+  {
+    "id": 574,
+    "city": "Sion",
+    "address": "Avenue de Tourbillon, 1950 Sion",
+    "location": "Avenue de Tourbillon, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 555,
+    "address": "Place du Midi, 1950 Sion",
+    "city": "Sion",
+    "location": "Place du Midi, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 567,
+    "address": "Furkastrasse 277, 3999 Conches-les-haut",
+    "city": "Conches-les-haut",
+    "location": "Furkastrasse 277, 3999 Conches-les-haut, Valais, Suisse"
+  },
+  {
+    "id": 566,
+    "address": "Kirchplatz, 3925 Grächen",
+    "city": "Grächen",
+    "location": "Kirchplatz, 3925 Grächen, Valais, Suisse"
+  },
+  {
+    "id": 565,
+    "address": "Route de Saillon, 1926 Fully",
+    "city": "Fully",
+    "location": "Route de Saillon, 1926 Fully, Valais, Suisse"
+  },
+  {
+    "id": 576,
+    "address": "Rue de Lausanne, 1950 Sion",
+    "city": "Sion",
+    "location": "Rue de Lausanne, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 537,
+    "address": "Place d'Armes, 1986 Arolla",
+    "city": "Arolla",
+    "location": "Place d'Armes, 1986 Arolla, Valais, Suisse"
+  },
+  {
+    "id": 516,
+    "address": "Route Cantonale, 1955 St-Pierre-de-Clages",
+    "city": "St-Pierre-de-Clages",
+    "location": "Route Cantonale, 1955 St-Pierre-de-Clages, Valais, Suisse"
+  },
+  {
+    "id": 553,
+    "address": "Bettmerstafelstrasse 18, 3991 Betten",
+    "city": "Betten",
+    "location": "Bettmerstafelstrasse 18, 3991 Betten, Valais, Suisse"
+  },
+  {
+    "id": 552,
+    "address": "Kirchplatz, 3995 Ernen",
+    "city": "Ernen",
+    "location": "Kirchplatz, 3995 Ernen, Valais, Suisse"
+  },
+  {
+    "id": 550,
+    "address": "Gemeindeverwaltung, 3942 Raron",
+    "city": "Raron",
+    "location": "Gemeindeverwaltung, 3942 Raron, Valais, Suisse"
+  },
+  {
+    "id": 549,
+    "address": "Dorfplatz, 3970 Salgesch",
+    "city": "Salgesch",
+    "location": "Dorfplatz, 3970 Salgesch, Valais, Suisse"
+  },
+  {
+    "id": 548,
+    "address": "Rathausstrasse 32, 3954 Leukerbad",
+    "city": "Leukerbad",
+    "location": "Rathausstrasse 32, 3954 Leukerbad, Valais, Suisse"
+  },
+  {
+    "id": 547,
+    "address": "Rathausstrasse 32, 3954 Leukerbad",
+    "city": "Leukerbad",
+    "location": "Rathausstrasse 32, 3954 Leukerbad, Valais, Suisse"
+  },
+  {
+    "id": 546,
+    "address": "Route de la Télécabine, 1997 Haute-Nendaz",
+    "city": "Haute-Nendaz",
+    "location": "Route de la Télécabine, 1997 Haute-Nendaz, Valais, Suisse"
+  },
+  {
+    "id": 545,
+    "address": "Rue des Châteaux 14, 1950 Sion",
+    "city": "Sion",
+    "location": "Rue des Châteaux 14, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 544,
+    "address": "Avenue Général-Guisan, 3960 Sierre",
+    "city": "Sierre",
+    "location": "Avenue Général-Guisan, 3960 Sierre, Valais, Suisse"
+  },
+  {
+    "id": 543,
+    "city": "Evolène",
+    "address": "Route de Lanna, 1983 Evolène",
+    "location": "Route de Lanna, 1983 Evolène, Valais, Suisse"
+  },
+  {
+    "id": 538,
+    "address": "Rue de Médran, 1936 Verbier",
+    "city": "Verbier",
+    "location": "Rue de Médran, 1936 Verbier, Valais, Suisse"
+  },
+  {
+    "id": 536,
+    "address": "Route de Verbier Station, 1936 Verbier",
+    "city": "Verbier",
+    "location": "Route de Verbier Station, 1936 Verbier, Valais, Suisse"
+  },
+  {
+    "id": 535,
+    "address": "Place de l'Hôtel de Ville, 3960 Sierre",
+    "city": "Sierre",
+    "location": "Place de l'Hôtel de Ville, 3960 Sierre, Valais, Suisse"
+  },
+  {
+    "id": 534,
+    "address": "Rue du Village, 1874 Champéry",
+    "city": "Champéry",
+    "location": "Rue du Village, 1874 Champéry, Valais, Suisse"
+  },
+  {
+    "id": 531,
+    "address": "Place de l'Hôtel de Ville, 3960 Sierre",
+    "city": "Sierre",
+    "location": "Place de l'Hôtel de Ville, 3960 Sierre, Valais, Suisse"
+  },
+  {
+    "id": 529,
+    "address": "Route de Chermignon, 3971 Chermignon",
+    "city": "Chermignon",
+    "location": "Route de Chermignon, 3971 Chermignon, Valais, Suisse"
+  },
+  {
+    "id": 527,
+    "address": "Route du Grand-St-Bernard, 1921 Martigny-Combe",
+    "city": "Martigny-Combe",
+    "location": "Route du Grand-St-Bernard, 1921 Martigny-Combe, Valais, Suisse"
+  },
+  {
+    "id": 525,
+    "city": "Sion",
+    "address": "Rue des Aubépines 14, 1950 Sion",
+    "location": "Rue des Aubépines 14, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 524,
+    "city": "Sion",
+    "address": "Avenue de Tourbillon 54, 1967 Sion",
+    "location": "Avenue de Tourbillon 54, 1967 Sion, Valais, Suisse"
+  },
+  {
+    "id": 523,
+    "city": "Sion",
+    "address": "Rue du Scex 53, 1950 Sion",
+    "location": "Rue du Scex 53, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 514,
+    "city": "Sierre",
+    "address": "Route de la Plaine 19, 3960 Sierre",
+    "location": "Route de la Plaine 19, 3960 Sierre, Valais, Suisse"
+  },
+  {
+    "id": 513,
+    "address": "Rue du Village 55, 1874 Champéry",
+    "city": "Champéry",
+    "location": "Rue du Village 55, 1874 Champéry, Valais, Suisse"
+  },
+  {
+    "id": 511,
+    "city": "Champéry",
+    "address": "Route de la Fin 84, 1874 Champéry",
+    "location": "Route de la Fin 84, 1874 Champéry, Valais, Suisse"
+  },
+  {
+    "id": 512,
+    "address": "Place de Conthey, 1964 Conthey",
+    "city": "Conthey",
+    "location": "Place de Conthey, 1964 Conthey, Valais, Suisse"
+  },
+  {
+    "id": 515,
+    "city": "Chamoson",
+    "address": "Route de Prillaz, 1955 Chamoson",
+    "location": "Route de Prillaz, 1955 Chamoson, Valais, Suisse"
+  },
+  {
+    "id": 517,
+    "address": "Rue du Village 55, 1874 Champéry",
+    "city": "Champéry",
+    "location": "Rue du Village 55, 1874 Champéry, Valais, Suisse"
+  },
+  {
+    "id": 518,
+    "city": "Martigny",
+    "address": "Rue d'Oche 7, 1920 Martigny",
+    "location": "Rue d'Oche 7, 1920 Martigny, Valais, Suisse"
+  },
+  {
+    "id": 519,
+    "city": "Monthey",
+    "address": "Rue des Produits 9, 1870 Monthey",
+    "location": "Rue des Produits 9, 1870 Monthey, Valais, Suisse"
+  },
+  {
+    "id": 520,
+    "address": "Place de la Planta, 1950 Sion",
+    "city": "Sion",
+    "location": "Place de la Planta, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 521,
+    "address": "Place de la Planta, 1950 Sion",
+    "city": "Sion",
+    "location": "Place de la Planta, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 522,
+    "address": "Place de la Planta, 1950 Sion",
+    "city": "Sion",
+    "location": "Place de la Planta, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 526,
+    "address": "Rue du Forum 2, 1920 Martigny",
+    "city": "Martigny",
+    "location": "Rue du Forum 2, 1920 Martigny, Valais, Suisse"
+  },
+  {
+    "id": 528,
+    "address": "Route de Thyon, 1988 Thyon",
+    "city": "Thyon",
+    "location": "Route de Thyon, 1988 Thyon, Valais, Suisse"
+  },
+  {
+    "id": 530,
+    "address": "Place de la Planta, 1950 Sion",
+    "city": "Sion",
+    "location": "Place de la Planta, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 532,
+    "address": "Place Centrale, 1870 Monthey",
+    "city": "Monthey",
+    "location": "Place Centrale, 1870 Monthey, Valais, Suisse"
+  },
+  {
+    "id": 533,
+    "address": "Rue du Forum 2, 1920 Martigny",
+    "city": "Martigny",
+    "location": "Rue du Forum 2, 1920 Martigny, Valais, Suisse"
+  },
+  {
+    "id": 540,
+    "address": "Place du Village, 1965 Savièse",
+    "city": "Savièse",
+    "location": "Place du Village, 1965 Savièse, Valais, Suisse"
+  },
+  {
+    "id": 551,
+    "address": "Alte Simplonstrasse 28, 3900 Brig",
+    "city": "Brig",
+    "location": "Alte Simplonstrasse 28, 3900 Brig, Valais, Suisse"
+  },
+  {
+    "id": 554,
+    "address": "Alte Simplonstrasse 28, 3900 Brig",
+    "city": "Brig",
+    "location": "Alte Simplonstrasse 28, 3900 Brig, Valais, Suisse"
+  },
+  {
+    "id": 542,
+    "address": "Rue de Lausanne, 1950 Sion",
+    "city": "Sion",
+    "location": "Rue de Lausanne, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 541,
+    "address": "Dorfplatz, 3970 Salgesch",
+    "city": "Salgesch",
+    "location": "Dorfplatz, 3970 Salgesch, Valais, Suisse"
+  },
+  {
+    "id": 539,
+    "address": "Bahnhofstrasse 18, 3930 Visp",
+    "city": "Visp",
+    "location": "Bahnhofstrasse 18, 3930 Visp, Valais, Suisse"
+  },
+  {
+    "id": 480,
+    "city": "Ovronnaz",
+    "address": "Sentier de la Crête de la Seya, 1911 Ovronnaz",
+    "location": "Sentier de la Crête de la Seya, 1911 Ovronnaz, Valais, Suisse"
+  },
+  {
+    "id": 495,
+    "address": "Route des Bains 1, 1911 Ovronnaz",
+    "city": "Ovronnaz",
+    "location": "Route des Bains 1, 1911 Ovronnaz, Valais, Suisse"
+  },
+  {
+    "id": 492,
+    "address": "Route des Bains 1, 1911 Ovronnaz",
+    "city": "Ovronnaz",
+    "location": "Route des Bains 1, 1911 Ovronnaz, Valais, Suisse"
+  },
+  {
+    "id": 491,
+    "address": "Route des Bains 1, 1911 Ovronnaz",
+    "city": "Ovronnaz",
+    "location": "Route des Bains 1, 1911 Ovronnaz, Valais, Suisse"
+  },
+  {
+    "id": 489,
+    "address": "Route des Bains 1, 1911 Ovronnaz",
+    "city": "Ovronnaz",
+    "location": "Route des Bains 1, 1911 Ovronnaz, Valais, Suisse"
+  },
+  {
+    "id": 488,
+    "address": "Route des Bains 1, 1911 Ovronnaz",
+    "city": "Ovronnaz",
+    "location": "Route des Bains 1, 1911 Ovronnaz, Valais, Suisse"
+  },
+  {
+    "id": 485,
+    "address": "Route des Bains 1, 1911 Ovronnaz",
+    "city": "Ovronnaz",
+    "location": "Route des Bains 1, 1911 Ovronnaz, Valais, Suisse"
+  },
+  {
+    "id": 483,
+    "city": "Ovronnaz",
+    "address": "Sentier de la Crête de la Seya, 1911 Ovronnaz",
+    "location": "Sentier de la Crête de la Seya, 1911 Ovronnaz, Valais, Suisse"
+  },
+  {
+    "id": 481,
+    "city": "Ovronnaz",
+    "address": "Sentier de la Crête de la Seya, 1911 Ovronnaz",
+    "location": "Sentier de la Crête de la Seya, 1911 Ovronnaz, Valais, Suisse"
+  },
+  {
+    "id": 479,
+    "city": "Ovronnaz",
+    "address": "Sentier de la Crête de la Seya, 1911 Ovronnaz",
+    "location": "Sentier de la Crête de la Seya, 1911 Ovronnaz, Valais, Suisse"
+  },
+  {
+    "id": 510,
+    "address": "Industriezone, 3945 Gampel",
+    "city": "Gampel",
+    "location": "Industriezone, 3945 Gampel, Valais, Suisse"
+  },
+  {
+    "id": 509,
+    "city": "Ergisch",
+    "location": "Ergisch, Valais, Suisse"
+  },
+  {
+    "id": 507,
+    "address": "Grand-Rue, 1926 Fully",
+    "city": "Fully",
+    "location": "Grand-Rue, 1926 Fully, Valais, Suisse"
+  },
+  {
+    "id": 504,
+    "address": "Place de la Planta, 1950 Sion",
+    "city": "Sion",
+    "location": "Place de la Planta, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 498,
+    "address": "Route des Bains 1, 1911 Ovronnaz",
+    "city": "Ovronnaz",
+    "location": "Route des Bains 1, 1911 Ovronnaz, Valais, Suisse"
+  },
+  {
+    "id": 500,
+    "city": "Ovronnaz",
+    "address": "Sentier de la Crête de la Seya, 1911 Ovronnaz",
+    "location": "Sentier de la Crête de la Seya, 1911 Ovronnaz, Valais, Suisse"
+  },
+  {
+    "id": 501,
+    "address": "Route de la Station, 1993 Veysonnaz",
+    "city": "Veysonnaz",
+    "location": "Route de la Station, 1993 Veysonnaz, Valais, Suisse"
+  },
+  {
+    "id": 503,
+    "address": "Place Centrale 3, 1920 Martigny",
+    "city": "Martigny",
+    "location": "Place Centrale 3, 1920 Martigny, Valais, Suisse"
+  },
+  {
+    "id": 505,
+    "address": "Route d'Approz, 1994 Nendaz",
+    "city": "Nendaz",
+    "location": "Route d'Approz, 1994 Nendaz, Valais, Suisse"
+  },
+  {
+    "id": 506,
+    "city": "Martigny",
+    "address": "Rue Léonard Gianadda 7, 1920 Martigny",
+    "location": "Rue Léonard Gianadda 7, 1920 Martigny, Valais, Suisse"
+  },
+  {
+    "id": 508,
+    "city": "Sion",
+    "address": "Rue du Scex, 1950 Sion",
+    "location": "Rue du Scex, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 502,
+    "city": "Ulrichen",
+    "address": "Direktanstieg, 3988 Ulrichen",
+    "location": "Direktanstieg, 3988 Ulrichen, Valais, Suisse"
+  },
+  {
+    "id": 499,
+    "city": "Ovronnaz",
+    "address": "Sentier de la Crête de la Seya, 1911 Ovronnaz",
+    "location": "Sentier de la Crête de la Seya, 1911 Ovronnaz, Valais, Suisse"
+  },
+  {
+    "id": 497,
+    "address": "Route des Bains 1, 1911 Ovronnaz",
+    "city": "Ovronnaz",
+    "location": "Route des Bains 1, 1911 Ovronnaz, Valais, Suisse"
+  },
+  {
+    "id": 496,
+    "address": "Route des Bains 1, 1911 Ovronnaz",
+    "city": "Ovronnaz",
+    "location": "Route des Bains 1, 1911 Ovronnaz, Valais, Suisse"
+  },
+  {
+    "id": 494,
+    "address": "Route des Bains 1, 1911 Ovronnaz",
+    "city": "Ovronnaz",
+    "location": "Route des Bains 1, 1911 Ovronnaz, Valais, Suisse"
+  },
+  {
+    "id": 493,
+    "address": "Route des Bains 1, 1911 Ovronnaz",
+    "city": "Ovronnaz",
+    "location": "Route des Bains 1, 1911 Ovronnaz, Valais, Suisse"
+  },
+  {
+    "id": 490,
+    "address": "Route des Bains 1, 1911 Ovronnaz",
+    "city": "Ovronnaz",
+    "location": "Route des Bains 1, 1911 Ovronnaz, Valais, Suisse"
+  },
+  {
+    "id": 487,
+    "address": "Route des Bains 1, 1911 Ovronnaz",
+    "city": "Ovronnaz",
+    "location": "Route des Bains 1, 1911 Ovronnaz, Valais, Suisse"
+  },
+  {
+    "id": 486,
+    "city": "Ovronnaz",
+    "address": "Sentier de la Crête de la Seya, 1911 Ovronnaz",
+    "location": "Sentier de la Crête de la Seya, 1911 Ovronnaz, Valais, Suisse"
+  },
+  {
+    "id": 484,
+    "city": "Sion",
+    "address": "Sentier de la Crête de la Seya, 1950 Sion",
+    "location": "Sentier de la Crête de la Seya, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 482,
+    "city": "Ovronnaz",
+    "address": "Sentier de la Crête de la Seya, 1911 Ovronnaz",
+    "location": "Sentier de la Crête de la Seya, 1911 Ovronnaz, Valais, Suisse"
+  },
+  {
+    "id": 454,
+    "address": "Bahnhofstrasse 5, 3920 Zermatt",
+    "city": "Zermatt",
+    "location": "Bahnhofstrasse 5, 3920 Zermatt, Valais, Suisse"
+  },
+  {
+    "id": 452,
+    "address": "Bahnhofstrasse, 3920 Zermatt",
+    "city": "Zermatt",
+    "location": "Bahnhofstrasse, 3920 Zermatt, Valais, Suisse"
+  },
+  {
+    "id": 465,
+    "city": "Val-d'Illiez",
+    "address": "Route des Crosets 35, 1873 Val-d'Illiez",
+    "location": "Route des Crosets 35, 1873 Val-d'Illiez, Valais, Suisse"
+  },
+  {
+    "id": 447,
+    "address": "Route des Mélèzes, 3963 Crans-Montana",
+    "city": "Crans-Montana",
+    "location": "Route des Mélèzes, 3963 Crans-Montana, Valais, Suisse"
+  },
+  {
+    "id": 453,
+    "address": "Bahnhofstrasse 5, 3920 Zermatt",
+    "city": "Zermatt",
+    "location": "Bahnhofstrasse 5, 3920 Zermatt, Valais, Suisse"
+  },
+  {
+    "id": 459,
+    "city": "Val-d'Illiez",
+    "address": "Chemin de Chesières 2, 1873 Val-d'Illiez",
+    "location": "Chemin de Chesières 2, 1873 Val-d'Illiez, Valais, Suisse"
+  },
+  {
+    "id": 460,
+    "city": "Morgins",
+    "address": "Route des Ravaires 12, 1875 Morgins",
+    "location": "Route des Ravaires 12, 1875 Morgins, Valais, Suisse"
+  },
+  {
+    "id": 463,
+    "address": "Route de Morgins, 1872 Troistorrents",
+    "city": "Troistorrents",
+    "location": "Route de Morgins, 1872 Troistorrents, Valais, Suisse"
+  },
+  {
+    "id": 451,
+    "address": "Bahnhofstrasse 5, 3920 Zermatt",
+    "city": "Zermatt",
+    "location": "Bahnhofstrasse 5, 3920 Zermatt, Valais, Suisse"
+  },
+  {
+    "id": 450,
+    "address": "Route des Mélèzes, 3963 Crans-Montana",
+    "city": "Crans-Montana",
+    "location": "Route des Mélèzes, 3963 Crans-Montana, Valais, Suisse"
+  },
+  {
+    "id": 449,
+    "address": "Route des Mélèzes, 3963 Crans-Montana",
+    "city": "Crans-Montana",
+    "location": "Route des Mélèzes, 3963 Crans-Montana, Valais, Suisse"
+  },
+  {
+    "id": 448,
+    "address": "Route du Golf, 3963 Crans-Montana",
+    "city": "Crans-Montana",
+    "location": "Route du Golf, 3963 Crans-Montana, Valais, Suisse"
+  },
+  {
+    "id": 446,
+    "city": "Ovronnaz",
+    "address": "Sentier de la Crête de la Seya, 1911 Ovronnaz",
+    "location": "Sentier de la Crête de la Seya, 1911 Ovronnaz, Valais, Suisse"
+  },
+  {
+    "id": 467,
+    "city": "Champéry",
+    "address": "Route de la Fin 62, 1874 Champéry",
+    "location": "Route de la Fin 62, 1874 Champéry, Valais, Suisse"
+  },
+  {
+    "id": 470,
+    "city": "Martigny",
+    "address": "Rue d'Oche 10, 1920 Martigny",
+    "location": "Rue d'Oche 10, 1920 Martigny, Valais, Suisse"
+  },
+  {
+    "id": 473,
+    "address": "Route de la Plaine 2, 3960 Sierre",
+    "city": "Sierre",
+    "location": "Route de la Plaine 2, 3960 Sierre, Valais, Suisse"
+  },
+  {
+    "id": 474,
+    "address": "Route d'Anzère, 1972 Anzère",
+    "city": "Anzère",
+    "location": "Route d'Anzère, 1972 Anzère, Valais, Suisse"
+  },
+  {
+    "id": 478,
+    "address": "Route de Vissoie, 3961 Vissoie",
+    "city": "Vissoie",
+    "location": "Route de Vissoie, 3961 Vissoie, Valais, Suisse"
+  },
+  {
+    "id": 477,
+    "address": "Grand Rue, 1890 St-Maurice",
+    "city": "St-Maurice",
+    "location": "Grand Rue, 1890 St-Maurice, Valais, Suisse"
+  },
+  {
+    "id": 476,
+    "city": "Sion",
+    "address": "Rue des Châteaux 100, 1950 Sion",
+    "location": "Rue des Châteaux 100, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 475,
+    "city": "Sion",
+    "address": "Rue des Rochers 5, 1950 Sion",
+    "location": "Rue des Rochers 5, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 472,
+    "city": "Sion",
+    "address": "Rue du Scex, 1950 Sion",
+    "location": "Rue du Scex, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 471,
+    "city": "Sion",
+    "address": "Rue du Scex, 1950 Sion",
+    "location": "Rue du Scex, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 469,
+    "city": "Martigny",
+    "address": "Rue du Forum, 1920 Martigny",
+    "location": "Rue du Forum, 1920 Martigny, Valais, Suisse"
+  },
+  {
+    "id": 468,
+    "city": "Val-d'Illiez",
+    "address": "Route des Crosets 26, 1873 Val-d'Illiez",
+    "location": "Route des Crosets 26, 1873 Val-d'Illiez, Valais, Suisse"
+  },
+  {
+    "id": 466,
+    "city": "Morgins",
+    "address": "Chemin Joli-Bois 1, 1875 Morgins",
+    "location": "Chemin Joli-Bois 1, 1875 Morgins, Valais, Suisse"
+  },
+  {
+    "id": 464,
+    "city": "Morgins",
+    "address": "Route des Ravaires 3, 1875 Morgins",
+    "location": "Route des Ravaires 3, 1875 Morgins, Valais, Suisse"
+  },
+  {
+    "id": 462,
+    "address": "Route de la Fin, 1873 Val-d'Illiez",
+    "city": "Val-d'Illiez",
+    "location": "Route de la Fin, 1873 Val-d'Illiez, Valais, Suisse"
+  },
+  {
+    "id": 461,
+    "address": "Route de Morgins, 1872 Troistorrents",
+    "city": "Troistorrents",
+    "location": "Route de Morgins, 1872 Troistorrents, Valais, Suisse"
+  },
+  {
+    "id": 458,
+    "city": "Morgins",
+    "address": "Route des Ravaires 19, 1875 Morgins",
+    "location": "Route des Ravaires 19, 1875 Morgins, Valais, Suisse"
+  },
+  {
+    "id": 457,
+    "address": "Rue du Village, 1874 Champéry",
+    "city": "Champéry",
+    "location": "Rue du Village, 1874 Champéry, Valais, Suisse"
+  },
+  {
+    "id": 456,
+    "address": "Bahnhofstrasse 5, 3920 Zermatt",
+    "city": "Zermatt",
+    "location": "Bahnhofstrasse 5, 3920 Zermatt, Valais, Suisse"
+  },
+  {
+    "id": 455,
+    "address": "Bahnhofplatz 5, 3920 Zermatt",
+    "city": "Zermatt",
+    "location": "Bahnhofplatz 5, 3920 Zermatt, Valais, Suisse"
+  },
+  {
+    "id": 407,
+    "city": "Nendaz",
+    "address": "Chemin de Couluire 3, 1997 Nendaz",
+    "location": "Chemin de Couluire 3, 1997 Nendaz, Valais, Suisse"
+  },
+  {
+    "id": 391,
+    "city": "Haute-Nendaz",
+    "address": "Chemin de la Rampine 1, 1997 Haute-Nendaz",
+    "location": "Chemin de la Rampine 1, 1997 Haute-Nendaz, Valais, Suisse"
+  },
+  {
+    "id": 397,
+    "city": "Haute-Nendaz",
+    "address": "Route de Nendaz, 1997 Haute-Nendaz",
+    "location": "Route de Nendaz, 1997 Haute-Nendaz, Valais, Suisse"
+  },
+  {
+    "id": 399,
+    "city": "Haute-Nendaz",
+    "address": "Chemin Vieux 4, 1997 Haute-Nendaz",
+    "location": "Chemin Vieux 4, 1997 Haute-Nendaz, Valais, Suisse"
+  },
+  {
+    "id": 401,
+    "city": "Haute-Nendaz",
+    "address": "Chemin de Couluire 27, 1997 Haute-Nendaz",
+    "location": "Chemin de Couluire 27, 1997 Haute-Nendaz, Valais, Suisse"
+  },
+  {
+    "id": 403,
+    "city": "Haute-Nendaz",
+    "address": "Chemin de Préombâ 28, 1997 Haute-Nendaz",
+    "location": "Chemin de Préombâ 28, 1997 Haute-Nendaz, Valais, Suisse"
+  },
+  {
+    "id": 404,
+    "city": "Haute-Nendaz",
+    "address": "Chemin Vieux 27, 1997 Haute-Nendaz",
+    "location": "Chemin Vieux 27, 1997 Haute-Nendaz, Valais, Suisse"
+  },
+  {
+    "id": 405,
+    "city": "Haute-Nendaz",
+    "address": "Chemin de la Poya 131, 1997 Haute-Nendaz",
+    "location": "Chemin de la Poya 131, 1997 Haute-Nendaz, Valais, Suisse"
+  },
+  {
+    "id": 406,
+    "city": "Haute-Nendaz",
+    "address": "Route de Nendaz 617, 1997 Haute-Nendaz",
+    "location": "Route de Nendaz 617, 1997 Haute-Nendaz, Valais, Suisse"
+  },
+  {
+    "id": 408,
+    "city": "Haute-Nendaz",
+    "address": "Chemin de la Poya 124, 1997 Haute-Nendaz",
+    "location": "Chemin de la Poya 124, 1997 Haute-Nendaz, Valais, Suisse"
+  },
+  {
+    "id": 409,
+    "city": "Haute-Nendaz",
+    "address": "Route de Nendaz 527, 1997 Haute-Nendaz",
+    "location": "Route de Nendaz 527, 1997 Haute-Nendaz, Valais, Suisse"
+  },
+  {
+    "id": 411,
+    "address": "Route de la Télécabine, 1997 Haute-Nendaz",
+    "city": "Haute-Nendaz",
+    "location": "Route de la Télécabine, 1997 Haute-Nendaz, Valais, Suisse"
+  },
+  {
+    "id": 415,
+    "city": "Nendaz",
+    "address": "Chemin des Granges 4, 1997 Nendaz",
+    "location": "Chemin des Granges 4, 1997 Nendaz, Valais, Suisse"
+  },
+  {
+    "id": 417,
+    "city": "Monthey",
+    "address": "Avenue de l'Europe, 1870 Monthey",
+    "location": "Avenue de l'Europe, 1870 Monthey, Valais, Suisse"
+  },
+  {
+    "id": 418,
+    "city": "Monthey",
+    "address": "Avenue de l'Europe 69, 1870 Monthey",
+    "location": "Avenue de l'Europe 69, 1870 Monthey, Valais, Suisse"
+  },
+  {
+    "id": 419,
+    "city": "Monthey",
+    "address": "Rue des Produits 3, 1870 Monthey",
+    "location": "Rue des Produits 3, 1870 Monthey, Valais, Suisse"
+  },
+  {
+    "id": 420,
+    "city": "Sion",
+    "address": "Rue de la Dixence 47e, 1950 Sion",
+    "location": "Rue de la Dixence 47e, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 422,
+    "address": "Rue du Bourg, 1913 Saillon",
+    "city": "Saillon",
+    "location": "Rue du Bourg, 1913 Saillon, Valais, Suisse"
+  },
+  {
+    "id": 423,
+    "city": "Sion",
+    "address": "Rue du Scex 21, 1950 Sion",
+    "location": "Rue du Scex 21, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 424,
+    "city": "St-Maurice",
+    "address": "Avenue d'Agaune 15, 1890 St-Maurice",
+    "location": "Avenue d'Agaune 15, 1890 St-Maurice, Valais, Suisse"
+  },
+  {
+    "id": 425,
+    "city": "St-Maurice",
+    "address": "Sous-le-Scex, 1890 St-Maurice",
+    "location": "Sous-le-Scex, 1890 St-Maurice, Valais, Suisse"
+  },
+  {
+    "id": 427,
+    "city": "Sion",
+    "address": "Rue Sainte-Marguerite 5, 1950 Sion",
+    "location": "Rue Sainte-Marguerite 5, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 429,
+    "city": "Sion",
+    "address": "Avenue de Tourbillon 61, 1950 Sion",
+    "location": "Avenue de Tourbillon 61, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 431,
+    "city": "Sion",
+    "address": "Rue du Scex, 1950 Sion",
+    "location": "Rue du Scex, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 433,
+    "city": "Sion",
+    "address": "Rue du Scex, 1950 Sion",
+    "location": "Rue du Scex, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 435,
+    "city": "Sion",
+    "address": "Rue du Scex 51, 1950 Sion",
+    "location": "Rue du Scex 51, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 436,
+    "city": "Sion",
+    "address": "Rue du Scex, 1950 Sion",
+    "location": "Rue du Scex, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 437,
+    "city": "Sion",
+    "address": "Place Maurice-Zermatten, 1950 Sion",
+    "location": "Place Maurice-Zermatten, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 432,
+    "city": "Sion",
+    "address": "Place Maurice-Zermatten, 1950 Sion",
+    "location": "Place Maurice-Zermatten, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 441,
+    "city": "St-Maurice",
+    "address": "Sous-le-Scex, 1890 St-Maurice",
+    "location": "Sous-le-Scex, 1890 St-Maurice, Valais, Suisse"
+  },
+  {
+    "id": 443,
+    "city": "Martigny",
+    "address": "Rue d'Octodure, 1920 Martigny",
+    "location": "Rue d'Octodure, 1920 Martigny, Valais, Suisse"
+  },
+  {
+    "id": 444,
+    "city": "Sion",
+    "address": "Rue du Scex, 1950 Sion",
+    "location": "Rue du Scex, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 445,
+    "city": "Martigny",
+    "address": "Rue d'Octodure 25, 1920 Martigny",
+    "location": "Rue d'Octodure 25, 1920 Martigny, Valais, Suisse"
+  },
+  {
+    "id": 442,
+    "city": "Martigny",
+    "address": "Route du Levant, 1920 Martigny",
+    "location": "Route du Levant, 1920 Martigny, Valais, Suisse"
+  },
+  {
+    "id": 440,
+    "city": "St-Maurice",
+    "address": "Place de la Gare, 1890 St-Maurice",
+    "location": "Place de la Gare, 1890 St-Maurice, Valais, Suisse"
+  },
+  {
+    "id": 439,
+    "city": "Sion",
+    "address": "Place Maurice-Zermatten, 1950 Sion",
+    "location": "Place Maurice-Zermatten, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 438,
+    "city": "Sion",
+    "address": "Rue de la Dixence 13a, 1950 Sion",
+    "location": "Rue de la Dixence 13a, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 434,
+    "city": "Sion",
+    "address": "Place Maurice-Zermatten, 1950 Sion",
+    "location": "Place Maurice-Zermatten, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 430,
+    "city": "Sion",
+    "address": "Rue du Scex 38, 1950 Sion",
+    "location": "Rue du Scex 38, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 428,
+    "city": "Savièse",
+    "address": "Route de Roumaz 43, 1965 Savièse",
+    "location": "Route de Roumaz 43, 1965 Savièse, Valais, Suisse"
+  },
+  {
+    "id": 426,
+    "address": "Dudenweg, 3953 Varonne",
+    "city": "Varonne",
+    "location": "Dudenweg, 3953 Varonne, Valais, Suisse"
+  },
+  {
+    "id": 421,
+    "city": "Sion",
+    "address": "Place Maurice-Zermatten, 1950 Sion",
+    "location": "Place Maurice-Zermatten, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 416,
+    "city": "St-Maurice",
+    "address": "Sous-le-Scex, 1890 St-Maurice",
+    "location": "Sous-le-Scex, 1890 St-Maurice, Valais, Suisse"
+  },
+  {
+    "id": 414,
+    "address": "Route de la Télécabine, 1997 Haute-Nendaz",
+    "city": "Haute-Nendaz",
+    "location": "Route de la Télécabine, 1997 Haute-Nendaz, Valais, Suisse"
+  },
+  {
+    "id": 413,
+    "city": "Haute-Nendaz",
+    "address": "Chemin du Verney 3, 1997 Haute-Nendaz",
+    "location": "Chemin du Verney 3, 1997 Haute-Nendaz, Valais, Suisse"
+  },
+  {
+    "id": 412,
+    "city": "Haute-Nendaz",
+    "address": "Route de Nendaz 552, 1997 Haute-Nendaz",
+    "location": "Route de Nendaz 552, 1997 Haute-Nendaz, Valais, Suisse"
+  },
+  {
+    "id": 410,
+    "city": "Haute-Nendaz",
+    "address": "Chemin de Couluire 72, 1997 Haute-Nendaz",
+    "location": "Chemin de Couluire 72, 1997 Haute-Nendaz, Valais, Suisse"
+  },
+  {
+    "id": 402,
+    "city": "Haute-Nendaz",
+    "address": "Chemin de Préombâ 28, 1997 Haute-Nendaz",
+    "location": "Chemin de Préombâ 28, 1997 Haute-Nendaz, Valais, Suisse"
+  },
+  {
+    "id": 400,
+    "city": "Haute-Nendaz",
+    "address": "Route de Nendaz 664, 1997 Haute-Nendaz",
+    "location": "Route de Nendaz 664, 1997 Haute-Nendaz, Valais, Suisse"
+  },
+  {
+    "id": 398,
+    "city": "Haute-Nendaz",
+    "address": "Chemin de Dzelâ 4, 1997 Haute-Nendaz",
+    "location": "Chemin de Dzelâ 4, 1997 Haute-Nendaz, Valais, Suisse"
+  },
+  {
+    "id": 396,
+    "city": "Haute-Nendaz",
+    "address": "Route de Nendaz 660, 1997 Haute-Nendaz",
+    "location": "Route de Nendaz 660, 1997 Haute-Nendaz, Valais, Suisse"
+  },
+  {
+    "id": 395,
+    "address": "Route de la Télécabine, 1997 Haute-Nendaz",
+    "city": "Haute-Nendaz",
+    "location": "Route de la Télécabine, 1997 Haute-Nendaz, Valais, Suisse"
+  },
+  {
+    "id": 394,
+    "city": "Haute-Nendaz",
+    "address": "Chemin de la Poya 112, 1997 Haute-Nendaz",
+    "location": "Chemin de la Poya 112, 1997 Haute-Nendaz, Valais, Suisse"
+  },
+  {
+    "id": 393,
+    "city": "Haute-Nendaz",
+    "address": "Route de Nendaz 718, 1997 Haute-Nendaz",
+    "location": "Route de Nendaz 718, 1997 Haute-Nendaz, Valais, Suisse"
+  },
+  {
+    "id": 392,
+    "city": "Haute-Nendaz",
+    "address": "Route de Nendaz 650, 1997 Haute-Nendaz",
+    "location": "Route de Nendaz 650, 1997 Haute-Nendaz, Valais, Suisse"
+  },
+  {
+    "id": 358,
+    "city": "Salgesch",
+    "address": "Tschanderünustrasse, 3970 Salgesch",
+    "location": "Tschanderünustrasse, 3970 Salgesch, Valais, Suisse"
+  },
+  {
+    "id": 353,
+    "address": "Route de Verbier Station 55, 1936 Verbier",
+    "city": "Verbier",
+    "location": "Route de Verbier Station 55, 1936 Verbier, Valais, Suisse"
+  },
+  {
+    "id": 352,
+    "address": "Rue du Village 55, 1874 Champéry",
+    "city": "Champéry",
+    "location": "Rue du Village 55, 1874 Champéry, Valais, Suisse"
+  },
+  {
+    "id": 360,
+    "city": "Salgesch",
+    "address": "Dorfplatz, 3970 Salgesch",
+    "location": "Dorfplatz, 3970 Salgesch, Valais, Suisse"
+  },
+  {
+    "id": 390,
+    "city": "Sion",
+    "address": "Rue du Scex 28, 1950 Sion",
+    "location": "Rue du Scex 28, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 389,
+    "city": "Sion",
+    "address": "Rue de la Dixence 47d, 1950 Sion",
+    "location": "Rue de la Dixence 47d, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 386,
+    "city": "Sion",
+    "address": "Passerelle de Vissigen, 1950 Sion",
+    "location": "Passerelle de Vissigen, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 382,
+    "city": "Sion",
+    "address": "Rue du Scex, 1950 Sion",
+    "location": "Rue du Scex, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 381,
+    "city": "Sion",
+    "address": "Avenue de Tourbillon 86a, 1950 Sion",
+    "location": "Avenue de Tourbillon 86a, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 378,
+    "city": "Sion",
+    "address": "Place Maurice-Zermatten, 1950 Sion",
+    "location": "Place Maurice-Zermatten, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 377,
+    "address": "Furkastrasse 27, 3984 Fiesch",
+    "city": "Fiesch",
+    "location": "Furkastrasse 27, 3984 Fiesch, Valais, Suisse"
+  },
+  {
+    "id": 376,
+    "address": "Place de la Planta, 1950 Sion",
+    "city": "Sion",
+    "location": "Place de la Planta, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 375,
+    "address": "Rue de Médran, 1936 Verbier",
+    "city": "Verbier",
+    "location": "Rue de Médran, 1936 Verbier, Valais, Suisse"
+  },
+  {
+    "id": 374,
+    "city": "Morgins",
+    "address": "Chemin Joli-Bois 6,8, 1875 Morgins",
+    "location": "Chemin Joli-Bois 6,8, 1875 Morgins, Valais, Suisse"
+  },
+  {
+    "id": 373,
+    "address": "Route des Mélèzes, 3963 Crans-Montana",
+    "city": "Crans-Montana",
+    "location": "Route des Mélèzes, 3963 Crans-Montana, Valais, Suisse"
+  },
+  {
+    "id": 372,
+    "address": "Bahnhofplatz 7, 3920 Zermatt",
+    "city": "Zermatt",
+    "location": "Bahnhofplatz 7, 3920 Zermatt, Valais, Suisse"
+  },
+  {
+    "id": 371,
+    "address": "Bettmeralp Singletrail, 3991 Betten",
+    "city": "Betten",
+    "location": "Bettmeralp Singletrail, 3991 Betten, Valais, Suisse"
+  },
+  {
+    "id": 370,
+    "city": "Morgins",
+    "address": "Route de France 22, 1875 Morgins",
+    "location": "Route de France 22, 1875 Morgins, Valais, Suisse"
+  },
+  {
+    "id": 369,
+    "city": "Martigny",
+    "address": "Rue d'Oche, 1920 Martigny",
+    "location": "Rue d'Oche, 1920 Martigny, Valais, Suisse"
+  },
+  {
+    "id": 388,
+    "city": "Sion",
+    "address": "Avenue de Tourbillon 76b, 1950 Sion",
+    "location": "Avenue de Tourbillon 76b, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 387,
+    "city": "Sion",
+    "address": "Rue des Châteaux 100, 1950 Sion",
+    "location": "Rue des Châteaux 100, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 385,
+    "city": "Sion",
+    "address": "Place du Scex, 1950 Sion",
+    "location": "Place du Scex, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 384,
+    "city": "Sion",
+    "address": "Rue des Aubépines 11, 1950 Sion",
+    "location": "Rue des Aubépines 11, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 383,
+    "city": "Sion",
+    "address": "Place Maurice-Zermatten, 1950 Sion",
+    "location": "Place Maurice-Zermatten, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 380,
+    "city": "Sion",
+    "address": "Place Maurice-Zermatten, 1950 Sion",
+    "location": "Place Maurice-Zermatten, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 379,
+    "city": "Sion",
+    "address": "Chemin de la Poudrière, 1950 Sion",
+    "location": "Chemin de la Poudrière, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 349,
+    "city": "Crans-Montana",
+    "address": "Route de la Moubra 15, 3963 Crans-Montana",
+    "location": "Route de la Moubra 15, 3963 Crans-Montana, Valais, Suisse"
+  },
+  {
+    "id": 350,
+    "city": "Morgins",
+    "address": "Route de France 17, 1875 Morgins",
+    "location": "Route de France 17, 1875 Morgins, Valais, Suisse"
+  },
+  {
+    "id": 351,
+    "city": "Grimentz",
+    "address": "Route de Grand-Combe 36, 3961 Grimentz",
+    "location": "Route de Grand-Combe 36, 3961 Grimentz, Valais, Suisse"
+  },
+  {
+    "id": 368,
+    "city": "Leukerbad",
+    "address": "Forststrasse, 3954 Leukerbad",
+    "location": "Forststrasse, 3954 Leukerbad, Valais, Suisse"
+  },
+  {
+    "id": 367,
+    "city": "Sierre",
+    "address": "Rue de la Monderèche 9, 3960 Sierre",
+    "location": "Rue de la Monderèche 9, 3960 Sierre, Valais, Suisse"
+  },
+  {
+    "id": 366,
+    "address": "Place de l'Hôtel de Ville, 3960 Sierre",
+    "city": "Sierre",
+    "location": "Place de l'Hôtel de Ville, 3960 Sierre, Valais, Suisse"
+  },
+  {
+    "id": 365,
+    "address": "Kirchplatz, 3995 Ernen",
+    "city": "Ernen",
+    "location": "Kirchplatz, 3995 Ernen, Valais, Suisse"
+  },
+  {
+    "id": 364,
+    "city": "Brig",
+    "address": "Kapuzinerstrasse, 3900 Brig",
+    "location": "Kapuzinerstrasse, 3900 Brig, Valais, Suisse"
+  },
+  {
+    "id": 363,
+    "city": "Martigny",
+    "address": "Avenue du Grand-St-Bernard 29, 1920 Martigny",
+    "location": "Avenue du Grand-St-Bernard 29, 1920 Martigny, Valais, Suisse"
+  },
+  {
+    "id": 362,
+    "city": "Sion",
+    "address": "Avenue de Tourbillon, 1950 Sion",
+    "location": "Avenue de Tourbillon, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 361,
+    "city": "Sion",
+    "address": "Avenue de Tourbillon 86b, 1950 Sion",
+    "location": "Avenue de Tourbillon 86b, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 359,
+    "address": "Rue du Bourg, 1913 Saillon",
+    "city": "Saillon",
+    "location": "Rue du Bourg, 1913 Saillon, Valais, Suisse"
+  },
+  {
+    "id": 357,
+    "address": "Route de la Télécabine, 1997 Haute-Nendaz",
+    "city": "Haute-Nendaz",
+    "location": "Route de la Télécabine, 1997 Haute-Nendaz, Valais, Suisse"
+  },
+  {
+    "id": 356,
+    "city": "Brig",
+    "address": "Zenhäusernstrasse, 3900 Brig",
+    "location": "Zenhäusernstrasse, 3900 Brig, Valais, Suisse"
+  },
+  {
+    "id": 355,
+    "address": "Bahnhofstrasse 5, 3920 Zermatt",
+    "city": "Zermatt",
+    "location": "Bahnhofstrasse 5, 3920 Zermatt, Valais, Suisse"
+  },
+  {
+    "id": 354,
+    "address": "Rue du Village, 1955 Chamoson",
+    "city": "Chamoson",
+    "location": "Rue du Village, 1955 Chamoson, Valais, Suisse"
+  },
+  {
+    "id": 348,
+    "city": "Sion",
+    "address": "Rue du Scex 53, 1950 Sion",
+    "location": "Rue du Scex 53, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 347,
+    "city": "Sion",
+    "address": "Rue du Scex 53, 1950 Sion",
+    "location": "Rue du Scex 53, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 329,
+    "address": "Rue du Scex 25, 1950 Sion",
+    "city": "Sion",
+    "location": "Rue du Scex 25, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 342,
+    "address": "Avenue de Tourbillon 45, 1950 Sion",
+    "city": "Sion",
+    "location": "Avenue de Tourbillon 45, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 340,
+    "address": "Place Maurice-Zermatten, 1950 Sion",
+    "city": "Sion",
+    "location": "Place Maurice-Zermatten, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 341,
+    "address": "Avenue de Tourbillon 64, 1950 Sion",
+    "city": "Sion",
+    "location": "Avenue de Tourbillon 64, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 338,
+    "address": "Rue des Châteaux 100, 1950 Sion",
+    "city": "Sion",
+    "location": "Rue des Châteaux 100, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 336,
+    "address": "Avenue de Tourbillon 49, 1950 Sion",
+    "city": "Sion",
+    "location": "Avenue de Tourbillon 49, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 334,
+    "address": "Rue de la Dixence 47d, 1950 Sion",
+    "city": "Sion",
+    "location": "Rue de la Dixence 47d, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 333,
+    "address": "Place Maurice-Zermatten, 1950 Sion",
+    "city": "Sion",
+    "location": "Place Maurice-Zermatten, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 332,
+    "address": "Chemin de la Poudrière, 1950 Sion",
+    "city": "Sion",
+    "location": "Chemin de la Poudrière, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 331,
+    "address": "Place Maurice-Zermatten, 1950 Sion",
+    "city": "Sion",
+    "location": "Place Maurice-Zermatten, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 330,
+    "address": "Rue des Aubépines 20, 1950 Sion",
+    "city": "Sion",
+    "location": "Rue des Aubépines 20, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 328,
+    "address": "Place Maurice-Zermatten, 1950 Sion",
+    "city": "Sion",
+    "location": "Place Maurice-Zermatten, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 339,
+    "address": "Place du Scex 13, 1950 Sion",
+    "city": "Sion",
+    "location": "Place du Scex 13, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 337,
+    "address": "Place du Scex 13, 1950 Sion",
+    "city": "Sion",
+    "location": "Place du Scex 13, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 346,
+    "address": "Place Maurice-Zermatten, 1950 Sion",
+    "city": "Sion",
+    "location": "Place Maurice-Zermatten, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 345,
+    "address": "Avenue de Tourbillon 72, 1950 Sion",
+    "city": "Sion",
+    "location": "Avenue de Tourbillon 72, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 344,
+    "city": "Martigny",
+    "address": "Place Maurice-Zermatten, 1920 Martigny",
+    "location": "Place Maurice-Zermatten, 1920 Martigny, Valais, Suisse"
+  },
+  {
+    "id": 343,
+    "address": "Rue du Scex, 1950 Sion",
+    "city": "Sion",
+    "location": "Rue du Scex, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 335,
+    "city": "Martigny",
+    "address": "Place Maurice-Zermatten, 1920 Martigny",
+    "location": "Place Maurice-Zermatten, 1920 Martigny, Valais, Suisse"
+  },
+  {
+    "id": 327,
+    "address": "Rue du Scex, 1950 Sion",
+    "city": "Sion",
+    "location": "Rue du Scex, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 326,
+    "address": "Rue du Scex 51, 1950 Sion",
+    "city": "Sion",
+    "location": "Rue du Scex 51, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 325,
+    "address": "Rue du Scex 30, 1950 Sion",
+    "city": "Sion",
+    "location": "Rue du Scex 30, 1950 Sion, Valais, Suisse"
+  },
+  {
+    "id": 324,
+    "city": "Sion",
+    "address": "Rue du Scex, 1950 Sion",
+    "location": "Rue du Scex, 1950 Sion, Valais, Suisse"
+  }
+]

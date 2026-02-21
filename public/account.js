@@ -4,6 +4,88 @@
 // Extrait de map_logic.js (lignes 23221-26855)
 // ============================================================
 
+function getSubscriptionTabContent() {
+  const currentSub = currentUser.subscription || "free";
+  return `
+    <div style="padding:16px;">
+      <p style="text-align:center;color:var(--ui-text-muted);margin-bottom:20px;font-size:12px;">
+        Choisissez votre formule selon vos besoins !
+      </p>
+      <div style="margin-bottom:16px;">
+        <div style="font-size:13px;font-weight:600;color:#00ffc3;margin-bottom:8px;text-align:center;">🎉 Pour les utilisateurs</div>
+        <div style="display:grid;gap:10px;margin-bottom:16px;">
+          <div style="padding:14px;border-radius:12px;border:2px solid #22c55e;background:rgba(34,197,94,0.05);cursor:pointer;position:relative;overflow:hidden;${currentSub === 'events-explorer' ? 'box-shadow:0 0 15px rgba(34,197,94,0.3);' : ''}" onclick="selectPlan('events-explorer')">
+            ${currentSub === 'events-explorer' ? '<div style="position:absolute;top:0;right:0;background:#22c55e;color:#fff;padding:2px 10px;font-size:9px;font-weight:700;border-bottom-left-radius:8px;">ACTIF</div>' : '<div style="position:absolute;top:0;right:0;background:#22c55e;color:#fff;padding:2px 10px;font-size:9px;font-weight:700;border-bottom-left-radius:8px;">POPULAIRE</div>'}
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+              <span style="font-weight:700;font-size:14px;">🌱 Events Explorer</span>
+              <span style="color:#22c55e;font-weight:700;font-size:14px;">CHF 5.–/mois</span>
+            </div>
+            <ul style="margin:0;padding-left:18px;font-size:11px;color:var(--ui-text-muted);line-height:1.6;">
+              <li><strong>10 alertes</strong> + <strong>10 alarmes</strong></li>
+              <li><strong>Agenda 50 places</strong> (vs 20 gratuit)</li>
+              <li>Sons booking illimités</li>
+            </ul>
+          </div>
+          <div style="padding:14px;border-radius:12px;border:2px solid #3b82f6;background:rgba(59,130,246,0.05);cursor:pointer;position:relative;overflow:hidden;${currentSub === 'events-alerts-pro' ? 'box-shadow:0 0 15px rgba(59,130,246,0.3);' : ''}" onclick="selectPlan('events-alerts-pro')">
+            ${currentSub === 'events-alerts-pro' ? '<div style="position:absolute;top:0;right:0;background:#3b82f6;color:#fff;padding:2px 10px;font-size:9px;font-weight:700;border-bottom-left-radius:8px;">ACTIF</div>' : '<div style="position:absolute;top:0;right:0;background:#3b82f6;color:#fff;padding:2px 10px;font-size:9px;font-weight:700;border-bottom-left-radius:8px;">ALERTES</div>'}
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+              <span style="font-weight:700;font-size:14px;">🔔 Alertes Pro</span>
+              <span style="color:#3b82f6;font-weight:700;font-size:14px;">CHF 10.–/mois</span>
+            </div>
+            <ul style="margin:0;padding-left:18px;font-size:11px;color:var(--ui-text-muted);line-height:1.6;">
+              <li>Tout Explorer + <strong>200 alertes</strong> push + email</li>
+              <li><strong>Agenda 200 places</strong></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div style="margin-bottom:16px;">
+        <div style="font-size:13px;font-weight:600;color:#a78bfa;margin-bottom:8px;text-align:center;">🎤 Pour les professionnels</div>
+        <div style="display:grid;gap:10px;margin-bottom:16px;">
+          <div style="padding:14px;border-radius:12px;border:2px solid #8b5cf6;background:rgba(139,92,246,0.05);cursor:pointer;position:relative;overflow:hidden;${currentSub === 'service-pro' ? 'box-shadow:0 0 15px rgba(139,92,246,0.3);' : ''}" onclick="selectPlan('service-pro')">
+            ${currentSub === 'service-pro' ? '<div style="position:absolute;top:0;right:0;background:#8b5cf6;color:#fff;padding:2px 10px;font-size:9px;font-weight:700;border-bottom-left-radius:8px;">ACTIF</div>' : ''}
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+              <span style="font-weight:700;font-size:14px;">💼 Service Pro</span>
+              <span style="color:#8b5cf6;font-weight:700;font-size:14px;">CHF 10.–/mois</span>
+            </div>
+            <ul style="margin:0;padding-left:18px;font-size:11px;color:var(--ui-text-muted);line-height:1.6;">
+              <li><strong>Contacts illimités</strong> + <strong>Badge Pro</strong></li>
+              <li>Support prioritaire</li>
+            </ul>
+          </div>
+          <div style="padding:14px;border-radius:12px;border:2px solid #a78bfa;background:rgba(167,139,250,0.05);cursor:pointer;position:relative;overflow:hidden;${currentSub === 'service-ultra' ? 'box-shadow:0 0 15px rgba(167,139,250,0.3);' : ''}" onclick="selectPlan('service-ultra')">
+            ${currentSub === 'service-ultra' ? '<div style="position:absolute;top:0;right:0;background:#a78bfa;color:#fff;padding:2px 10px;font-size:9px;font-weight:700;border-bottom-left-radius:8px;">ACTIF</div>' : '<div style="position:absolute;top:0;right:0;background:#a78bfa;color:#fff;padding:2px 10px;font-size:9px;font-weight:700;border-bottom-left-radius:8px;">ULTRA</div>'}
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+              <span style="font-weight:700;font-size:14px;">🚀 Service Ultra</span>
+              <span style="color:#a78bfa;font-weight:700;font-size:14px;">CHF 18.–/mois</span>
+            </div>
+            <ul style="margin:0;padding-left:18px;font-size:11px;color:var(--ui-text-muted);line-height:1.6;">
+              <li>Tout Pro + <strong>API</strong> + <strong>Stats avancées</strong></li>
+              <li><strong>5 events OR gratuits/mois</strong></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div style="margin-bottom:16px;">
+        <div style="padding:16px;border-radius:12px;border:2px solid #ffd700;background:linear-gradient(135deg,rgba(255,215,0,0.15),rgba(255,215,0,0.05));cursor:pointer;position:relative;overflow:hidden;${currentSub === 'full-premium' ? 'box-shadow:0 0 20px rgba(255,215,0,0.4);' : ''}" onclick="selectPlan('full-premium')">
+          ${currentSub === 'full-premium' ? '<div style="position:absolute;top:0;right:0;background:#ffd700;color:#000;padding:2px 12px;font-size:10px;font-weight:700;border-bottom-left-radius:8px;">ACTIF</div>' : '<div style="position:absolute;top:0;right:0;background:#ffd700;color:#000;padding:2px 12px;font-size:10px;font-weight:700;border-bottom-left-radius:8px;">TOP</div>'}
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:700;font-size:16px;">👑 Full Premium</span>
+            <span style="color:#ffd700;font-weight:700;font-size:16px;">CHF 25.–/mois</span>
+          </div>
+          <ul style="margin:0;padding-left:20px;font-size:12px;color:var(--ui-text-muted);line-height:1.8;">
+            <li><strong>Tout inclus</strong> : Alertes Pro + Service Ultra</li>
+            <li><strong>Agenda 250</strong> + <strong>Alertes 250</strong> + <strong>Alarmes 250</strong></li>
+            <li><strong>API complet</strong> + Support 24/7</li>
+          </ul>
+        </div>
+      </div>
+      <div style="background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.3);border-radius:12px;padding:12px;">
+        <div style="font-size:12px;font-weight:600;color:#22c55e;margin-bottom:6px;">🌍 70% de vos paiements vont à la Mission Planète</div>
+        <div style="font-size:11px;color:var(--ui-text-muted);">Achat de forêts, filtres CO2, protection des océans...</div>
+      </div>
+    </div>
+  `;
 }
 
 function openSubscriptionModal() {
@@ -2724,6 +2806,16 @@ function showAccountModalTab(tab) {
         `}
       </div>
     `;
+  } else if (tab === 'alertes') {
+    closePublishModal();
+    setTimeout(() => { if (typeof openProximityAlertsView === 'function') openProximityAlertsView(); }, 300);
+    return;
+  } else if (tab === 'panier') {
+    closePublishModal();
+    setTimeout(() => { if (typeof openCartModal === 'function') openCartModal(); }, 300);
+    return;
+  } else if (tab === 'abos') {
+    tabContent = getSubscriptionTabContent();
   } else if (tab === 'privacy') {
     // Initialiser les valeurs de confidentialité par défaut si non définies
     const profilePublic = currentUser.profile_public !== undefined ? currentUser.profile_public : false;
@@ -2853,6 +2945,15 @@ function showAccountModalTab(tab) {
         </button>
         <button onclick="showAccountModalTab('mapfriend')" style="flex:1;padding:14px;border:none;background:${tab === 'mapfriend' ? 'rgba(0,255,195,0.1)' : 'transparent'};color:${tab === 'mapfriend' ? '#00ffc3' : 'var(--ui-text-main)'};font-weight:${tab === 'mapfriend' ? '700' : '600'};font-size:13px;cursor:pointer;border-bottom:${tab === 'mapfriend' ? '3px solid #00ffc3' : 'none'};transition:all 0.2s;">
           🌍 Map Friend
+        </button>
+        <button onclick="showAccountModalTab('alertes')" style="flex:1;padding:14px;border:none;background:${tab === 'alertes' ? 'rgba(0,255,195,0.1)' : 'transparent'};color:${tab === 'alertes' ? '#00ffc3' : 'var(--ui-text-main)'};font-weight:${tab === 'alertes' ? '700' : '600'};font-size:13px;cursor:pointer;border-bottom:${tab === 'alertes' ? '3px solid #00ffc3' : 'none'};transition:all 0.2s;">
+          🔔 Alertes
+        </button>
+        <button onclick="showAccountModalTab('panier')" style="flex:1;padding:14px;border:none;background:${tab === 'panier' ? 'rgba(0,255,195,0.1)' : 'transparent'};color:${tab === 'panier' ? '#00ffc3' : 'var(--ui-text-main)'};font-weight:${tab === 'panier' ? '700' : '600'};font-size:13px;cursor:pointer;border-bottom:${tab === 'panier' ? '3px solid #00ffc3' : 'none'};transition:all 0.2s;">
+          🛒 Panier
+        </button>
+        <button onclick="showAccountModalTab('abos')" style="flex:1;padding:14px;border:none;background:${tab === 'abos' ? 'rgba(0,255,195,0.1)' : 'transparent'};color:${tab === 'abos' ? '#00ffc3' : 'var(--ui-text-main)'};font-weight:${tab === 'abos' ? '700' : '600'};font-size:13px;cursor:pointer;border-bottom:${tab === 'abos' ? '3px solid #00ffc3' : 'none'};transition:all 0.2s;">
+          💎 Abos
         </button>
         <button onclick="showAccountModalTab('privacy')" style="flex:1;padding:14px;border:none;background:${tab === 'privacy' ? 'rgba(0,255,195,0.1)' : 'transparent'};color:${tab === 'privacy' ? '#00ffc3' : 'var(--ui-text-main)'};font-weight:${tab === 'privacy' ? '700' : '600'};font-size:13px;cursor:pointer;border-bottom:${tab === 'privacy' ? '3px solid #00ffc3' : 'none'};transition:all 0.2s;">
           🔒 Confidentialité

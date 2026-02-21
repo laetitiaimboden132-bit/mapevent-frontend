@@ -71,6 +71,7 @@ env/
 # =====================================================
 .idea/
 .vscode/
+.cursor/
 *.sublime-project
 *.sublime-workspace
 
@@ -87,6 +88,16 @@ credentials.json
 secrets.json
 *_secret*
 *_credentials*
+lambda_env.json
+lambda_logs.txt
+lambda-logs.txt
+cf_config.json
+cf_dist_config.json
+cf_update.json
+dns_change.json
+www_dns.json
+_cf_config.json
+_cf_update.json
 
 # =====================================================
 # FICHIERS SPÉCIFIQUES AU PROJET
@@ -95,6 +106,101 @@ cloudwatch-logs*.txt
 *.backup
 
 # =====================================================
+# SCRIPTS TEMPORAIRES ET FICHIERS DE TRAVAIL
+# =====================================================
+_*.py
+_*.json
+*.min.js
+auth_prod.min.js
+map_logic_prod.min.js
+mapevent_prod.html
+
+# Fichiers d'audit et de données temporaires
+*_audit*.json
+*_report*.json
+*_progress*.json
+*_dump*.json
+*_corrections*.json
+*_issues*.json
+*_candidates*.json
+*_events*.json
+*_done*.json
+*_log*.txt
+*_output.txt
+*_fix_data.json
+*_addresses.json
+*_list.json
+*_emails_sent.json
+*_electronic*.json
+pointer_fixes.json
+pointers_done.json
+pointers_log.txt
+pointer_sources_report.txt
+send_logs.*
+logs_email.txt
+output.json
+urls_full.txt
+git-diff-output.txt
+
+# Scripts utilitaires temporaires (non versionnes)
+check_*.py
+fix_*.py
+find_*.py
+verify_*.py
+audit_*.py
+count_*.py
+debug_*.py
+analyze_*.py
+generate_*.py
+download_*.py
+read_*.py
+send*.py
+reply_*.py
+split_*.py
+step*.py
+stats_*.py
+make_*.py
+get_*.py
+assign_*.py
+apply_*.py
+rewrite_*.py
+scrape_*.py
+test_*.py
+final_*.py
+minify_*.py
+
+# Captures d'ecran
+*.png
+*.jpg
+map_screenshot_email.jpg
+
+# Preview HTML
+email_preview.html
+
+# Markdown docs temporaires
+FRENCH_CITIES_OPEN_DATA_EVENTS_API.md
+HAUTE_SAVOIE_SOURCES.md
+MOBILE_TESTING_README.md
+MODIFS_FUTUR.md
+NEW_EVENT_SOURCES.md
+PROMO_20_TODO.md
+SWISS_OPENDATA_EVENTS_APIS.md
+VALAIS_EVENTS_FEVRIER_2026_CARNAVAL_FAMILLE.md
+
+# Deploy scripts locaux
+deploy-lambda-flask.ps1
+run_*.bat
+verify_non_open_data.ps1
+
+# =====================================================
+# PAGES SEO GENEREES (trop volumineuses pour git)
+# =====================================================
+public/c/
+public/e/
+public/v/
+
+# =====================================================
 # BACKUPS AUTOMATIQUES
 # =====================================================
 backups/*.backup
+public/map_logic_backup.js

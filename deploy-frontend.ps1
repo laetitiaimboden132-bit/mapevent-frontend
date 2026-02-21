@@ -77,6 +77,7 @@ if ($CLOUDFRONT_DISTRIBUTION_ID) {
             "/mapevent.html*",
             "/index.html*",
             "/sitemap.xml",
+            "/sitemap-*.xml",
             "/robots.txt",
             "/service-worker.js*",
             "/manifest.json",
@@ -92,7 +93,7 @@ if ($CLOUDFRONT_DISTRIBUTION_ID) {
         }
         
         # Créer l'invalidation avec les chemins spécifiques
-        $invalidationId = aws cloudfront create-invalidation --distribution-id $CLOUDFRONT_DISTRIBUTION_ID --paths "/map_logic.js*" "/map_logic.min.js*" "/auth.js*" "/auth.min.js*" "/mapevent.html*" "/index.html*" "/sitemap.xml" "/robots.txt" "/service-worker.js*" "/manifest.json" "/indexeddb_service.js*" "/js/*" "/trees/*" "/assets/category_images/*" --query "Invalidation.Id" --output text
+        $invalidationId = aws cloudfront create-invalidation --distribution-id $CLOUDFRONT_DISTRIBUTION_ID --paths "/map_logic.js*" "/map_logic.min.js*" "/auth.js*" "/auth.min.js*" "/mapevent.html*" "/index.html*" "/sitemap.xml" "/sitemap-*.xml" "/robots.txt" "/service-worker.js*" "/manifest.json" "/indexeddb_service.js*" "/js/*" "/trees/*" "/assets/category_images/*" --query "Invalidation.Id" --output text
         
         if ($LASTEXITCODE -ne 0) {
             throw "Erreur lors de l'invalidation"

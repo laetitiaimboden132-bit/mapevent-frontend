@@ -1,0 +1,15 @@
+{
+  "events": [
+    {
+      "title": "Test Event Import",
+      "description": "Description de test pour import",
+      "location": "Sion, Valais, Suisse",
+      "latitude": 46.2333,
+      "longitude": 7.3667,
+      "date": "2026-03-15",
+      "categories": ["Loisirs & Animation"],
+      "source_url": "https://example.com/test-event"
+    }
+  ],
+  "send_emails": false
+}

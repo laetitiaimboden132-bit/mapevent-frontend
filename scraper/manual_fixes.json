@@ -1,0 +1,133 @@
+[
+  {
+    "id": 8863,
+    "latitude": 46.234374,
+    "longitude": 7.3622604,
+    "location": "Musees cantonaux, Rue des Chateaux 14, 1950 Sion"
+  },
+  {
+    "id": 8857,
+    "latitude": 46.1033506,
+    "longitude": 7.0710812,
+    "location": "Quartier du Bourg, Rue de la Dranse, 1920 Martigny"
+  },
+  {
+    "id": 2277,
+    "latitude": 46.2909697,
+    "longitude": 7.530875,
+    "location": "ZONE 30 ART PUBLIC, Rue du Marche, 3960 Sierre"
+  },
+  {
+    "id": 2272,
+    "latitude": 46.1769673,
+    "longitude": 6.8724961,
+    "location": "Palladium de Champery, Route du Centre Sportif 1, 1874 Champery"
+  },
+  {
+    "id": 2255,
+    "latitude": 46.1403722,
+    "longitude": 7.1176557,
+    "location": "Musee de Fully (Maison Guigoz), Rue du Nord 4, 1926 Fully"
+  },
+  {
+    "id": 2248,
+    "latitude": 46.2055406,
+    "longitude": 7.0063117,
+    "location": "Theatre du Martolet, Rue du Theatre, 1890 Saint-Maurice"
+  },
+  {
+    "id": 2231,
+    "latitude": 46.2909697,
+    "longitude": 7.530875,
+    "location": "Place de l'Hotel-de-Ville, 3960 Sierre"
+  },
+  {
+    "id": 2230,
+    "latitude": 46.457647,
+    "longitude": 6.8493626,
+    "location": "Quais de Vevey, Quai Perdonnet, 1800 Vevey"
+  },
+  {
+    "id": 2212,
+    "latitude": 46.0228753,
+    "longitude": 7.7475772
+  },
+  {
+    "id": 2209,
+    "latitude": 46.1769673,
+    "longitude": 6.8724961,
+    "location": "Palladium de Champery, Route du Centre Sportif 1, 1874 Champery"
+  },
+  {
+    "id": 2206,
+    "latitude": 46.1769673,
+    "longitude": 6.8724961,
+    "location": "Palladium de Champery, Route du Centre Sportif 1, 1874 Champery"
+  },
+  {
+    "id": 2148,
+    "latitude": 46.1992351,
+    "longitude": 6.151634,
+    "location": "Divers musees, Geneve (point de depart: MAH, Rue Charles-Galland 2, 1206 Geneve)"
+  },
+  {
+    "id": 2121,
+    "latitude": 46.1869432,
+    "longitude": 6.1368841,
+    "location": "Galerie du Bolero, Place du Bolero, 1227 Carouge"
+  },
+  {
+    "id": 2099,
+    "latitude": 46.1752287,
+    "longitude": 6.8645135,
+    "location": "Centre culturel, Chemin des Dents Blanches 28, 1874 Champery"
+  },
+  {
+    "id": 2096,
+    "latitude": 46.1769673,
+    "longitude": 6.8724961,
+    "location": "Palladium de Champery, Route du Centre Sportif 1, 1874 Champery"
+  },
+  {
+    "id": 1137,
+    "latitude": 46.5225806,
+    "longitude": 6.6353629,
+    "location": "Vieille ville de Lausanne, Place de la Cathedrale, 1005 Lausanne"
+  },
+  {
+    "id": 1140,
+    "latitude": 46.3850703,
+    "longitude": 6.2313877,
+    "location": "Plaine de l'Asse, 1260 Nyon"
+  },
+  {
+    "id": 2267,
+    "latitude": 46.2922946,
+    "longitude": 7.5297098,
+    "location": "Art Metro Sierre, Avenue General Guisan 30, 3960 Sierre"
+  },
+  {
+    "id": 2246,
+    "latitude": 46.2942163,
+    "longitude": 7.5371315,
+    "location": "Caves de Courten, Rue du Bourg 30, 3960 Sierre"
+  },
+  {
+    "id": 2268,
+    "latitude": 46.2344395,
+    "longitude": 7.3605664,
+    "location": "Galerie Les Dilettantes, Grand-Pont 24, 1950 Sion"
+  },
+  {
+    "id": 2265,
+    "latitude": 46.2267547,
+    "longitude": 7.290312,
+    "location": "Galerie de la Tour Lombarde, Rue de Conthey 7, 1964 Conthey"
+  },
+  {
+    "id": 2266,
+    "latitude": 46.1712008,
+    "longitude": 7.221461,
+    "location": "La Vidondee, Rue du Clos 8, 1908 Riddes"
+  }
+]

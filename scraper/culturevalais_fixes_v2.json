@@ -1,0 +1,204 @@
+[
+  {
+    "id": 379,
+    "location": "Rue de la Vouagère 2, 1908 Riddes",
+    "start_date": "2026-02-07",
+    "end_date": "2026-02-07"
+  },
+  {
+    "id": 384,
+    "location": "Gliserallee 91, 3902 Brig-Glis",
+    "start_date": "2026-02-07",
+    "end_date": "2026-02-07"
+  },
+  {
+    "id": 383,
+    "location": "Rue de Condémines 28, 1950 Sion",
+    "start_date": "2026-02-07",
+    "end_date": "2026-02-07"
+  },
+  {
+    "id": 387,
+    "location": "Rue des Châteaux 12, 1950 Sion",
+    "start_date": "2026-02-08",
+    "end_date": "2026-02-08"
+  },
+  {
+    "id": 388,
+    "location": "Château de Valère, 1950 Sion",
+    "start_date": "2026-02-08",
+    "end_date": "2026-02-08"
+  },
+  {
+    "id": 386,
+    "location": "Rue des Châteaux 12, 1950 Sion",
+    "start_date": "2026-02-08",
+    "end_date": "2026-02-08"
+  },
+  {
+    "id": 381,
+    "location": "Rue de Bourg  30, 3960 Sierre",
+    "start_date": "2026-02-07",
+    "end_date": "2026-02-07"
+  },
+  {
+    "id": 389,
+    "location": "Route du Pas 1, 1872 Troistorrents",
+    "start_date": "2026-02-08",
+    "end_date": "2026-02-08"
+  },
+  {
+    "id": 382,
+    "location": "Rue du Manoir 3, 1920 Martigny",
+    "start_date": "2026-02-04",
+    "end_date": "2026-02-04"
+  },
+  {
+    "id": 380,
+    "location": "Ch. de l'Eglise, 1955 St-Pierre-de-Clages",
+    "start_date": "2026-02-07",
+    "end_date": "2026-02-07"
+  },
+  {
+    "id": 385,
+    "location": "Route de Crans 1, 1978 Lens",
+    "start_date": "2026-01-11",
+    "end_date": "2026-01-11"
+  },
+  {
+    "id": 390,
+    "location": "Route Cantonale 5, 1890 Saint-Maurice",
+    "start_date": "2026-02-08",
+    "end_date": "2026-02-08"
+  },
+  {
+    "id": 342,
+    "location": "Route de Crans 1, 1978 Lens",
+    "start_date": "2026-02-07",
+    "end_date": "2026-02-07"
+  },
+  {
+    "id": 325,
+    "location": "Rue du Manoir 3, 1920 Martigny",
+    "start_date": "2026-02-06",
+    "end_date": "2026-02-06"
+  },
+  {
+    "id": 333,
+    "location": "Rue du Forum 59, 1920 Martigny"
+  },
+  {
+    "id": 332,
+    "location": "Rue du Forum 59, 1920 Martigny",
+    "start_date": "2025-07-12",
+    "end_date": "2026-05-30"
+  },
+  {
+    "id": 327,
+    "location": "Rte de Mauvoisin 45, 1934 Le Châble",
+    "start_date": "2026-02-06",
+    "end_date": "2026-02-06"
+  },
+  {
+    "id": 335,
+    "location": "Rue du Bourg 23, 1920 Martigny",
+    "start_date": "2026-02-07",
+    "end_date": "2026-02-07"
+  },
+  {
+    "id": 326,
+    "location": "Avenue du Ritz 18, 1950 Sion",
+    "start_date": "2026-01-30",
+    "end_date": "2026-01-30"
+  },
+  {
+    "id": 336,
+    "location": "Rue Notre Dame des Marais 5, 3960 Sierre",
+    "start_date": "2026-02-07",
+    "end_date": "2026-02-07"
+  },
+  {
+    "id": 343,
+    "location": "Rue Centrale 7, 3963 Crans-Montana",
+    "start_date": "2026-03-07",
+    "end_date": "2026-03-07"
+  },
+  {
+    "id": 328,
+    "location": "Bahnhofstrasse 41, 3920 Zermatt",
+    "start_date": "2026-02-04",
+    "end_date": "2026-02-04"
+  },
+  {
+    "id": 331,
+    "location": "Avenue du Simplon 6, 1890 St-Maurice",
+    "start_date": "2025-09-01",
+    "end_date": "2026-02-14"
+  },
+  {
+    "id": 346,
+    "location": "tbd, 3900 Brig",
+    "start_date": "2026-03-14",
+    "end_date": "2026-03-14"
+  },
+  {
+    "id": 338,
+    "location": "Rue des Châteaux 12, 1950 Sion",
+    "start_date": "2026-02-07",
+    "end_date": "2026-02-07"
+  },
+  {
+    "id": 337,
+    "location": "3918 Wiler (Lötschen)",
+    "start_date": "2026-02-07",
+    "end_date": "2026-02-07"
+  },
+  {
+    "id": 330,
+    "location": "3, Rue du Manoir, 1920 Martigny",
+    "start_date": "2026-02-06",
+    "end_date": "2026-02-06"
+  },
+  {
+    "id": 324,
+    "location": "Rue du Vieux-Collège 22, 1950 Sion",
+    "start_date": "2026-02-04",
+    "end_date": "2026-02-04"
+  },
+  {
+    "id": 341,
+    "location": "Rue Centrale 37, 3963 Crans-Montana",
+    "start_date": "2026-02-07",
+    "end_date": "2026-02-07"
+  },
+  {
+    "id": 334,
+    "location": "Route de la Condémine 21, 1921 Martigny-Croix",
+    "start_date": "2026-01-30",
+    "end_date": "2026-01-30"
+  },
+  {
+    "id": 345,
+    "location": "Rue du Simplon 1B, 1920 Martigny",
+    "start_date": "2026-03-05",
+    "end_date": "2026-03-05"
+  },
+  {
+    "id": 339,
+    "location": "Av. de la Gare 15, 1920 Martigny",
+    "start_date": "2025-06-07",
+    "end_date": "2025-06-07"
+  },
+  {
+    "id": 329,
+    "location": "Rue du Manoir 3, 1920 Martigny",
+    "start_date": "2026-02-05",
+    "end_date": "2026-02-05"
+  },
+  {
+    "id": 340,
+    "location": "Rue du Léman 8, 1920 Martigny",
+    "start_date": "2026-02-07",
+    "end_date": "2026-02-07"
+  }
+]

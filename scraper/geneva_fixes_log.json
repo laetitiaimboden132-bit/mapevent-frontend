@@ -1,0 +1,283 @@
+{
+  "fixes_applied": [
+    {
+      "id": 1538,
+      "description": "ADAM GREEN Anti-héros chic de l’indie, Adam Green illumine le lo-fi avec la classe d’un crooner new-yorkaisDandy nonchalant des ruelles new yorkaises, Adam Green incarne la coolitude lo-fi de l’anti folk américaine. Révélé par le groupe The Moldy Peaches, il propose en solo des chansons qui oscillent entre mélodie rétro et rêve urbain.",
+      "location": "Alhambra, Rue de la Rôtisserie 10, 1204 Genève",
+      "city": "Genève",
+      "latitude": 46.2027488,
+      "longitude": 6.1465055,
+      "start_date": "2026-02-22"
+    },
+    {
+      "id": 1536,
+      "description": "THE DIVINE COMEDY The Divine Comedy revient en 2025 : pop orchestrale, ironie british et mélancolie, Neil Hannon confirme sa place parmi les incontournables de la scène UK.The Divine Comedy revient en 2025 avec Rainy Sunday Afternoon, 13ᵉ album orchestré à Abbey Road où mélancolie, humour et introspection se mêlent.",
+      "location": "Alhambra, Rue de la Rôtisserie 10, 1204 Genève",
+      "city": "Genève",
+      "latitude": 46.2027488,
+      "longitude": 6.1465055,
+      "start_date": "2026-02-27"
+    },
+    {
+      "id": 1529,
+      "description": "BiblioWeekend 2026 : «Jouer».À l’occasion du BiblioWeekend 2026, consacré au thème « Jouer », la bibliothèque du MEG vous invite à un atelier créatif de fabrication de jouets en bois.Enfants et adultes pourront créer, de leurs propres mains, un jouet en bois unique à emporter chez soi.",
+      "location": "Genève",
+      "city": "Genève",
+      "latitude": 46.2017559,
+      "longitude": 6.1466014,
+      "start_date": "2026-03-29"
+    },
+    {
+      "id": 1512,
+      "description": "Eclipse est un événement consacré aux clips musicaux suisses, qui met en lumière les enjeux artistiques, créatifs et de production liés à ce format aujourd’hui incontournable. À la croisée de la musique et du cinéma, Eclipse est un espace de rencontre, de réflexion et de diffusion autour du clip vidéo.",
+      "location": "Le Groove, Rue des Gazomètres 9, 1205 Genève",
+      "city": "Genève",
+      "latitude": 46.2016071,
+      "longitude": 6.1339753,
+      "start_date": "2026-02-08"
+    },
+    {
+      "id": 1515,
+      "description": "Les 19 et 20 septembre 2026, Genève accueillera le Rolex Switzerland Sail Grand Prix, le championnat international de courses nautiques spectaculaires à haute vitesse.",
+      "location": "Emplacement(s), Quai de Cologny 61, 1223 Cologny, Suisse, Genève",
+      "city": "Genève",
+      "start_date": "2026-09-19"
+    },
+    {
+      "id": 1516,
+      "description": "Plongez dans l'univers du chocolat artisanal suisse avec les professionnels de la chocolaterie centenaire à Genève La Bonbonnière.",
+      "location": "Genève",
+      "city": "Genève",
+      "latitude": 46.2017559,
+      "longitude": 6.1466014,
+      "start_date": "2026-02-28"
+    },
+    {
+      "id": 1517,
+      "description": "BiblioWeekend 2026 : «Jouer».Pourquoi ne pas jouer dans un musée ?À l’occasion du BiblioWeekend 2026, consacré au thème « Jouer », petit-e-s et grand-e-s sont invité-e-s à explorer le musée autrement. Une caisse, quelques objets, et laissez votre instinct de joueur-se s’exprimer.",
+      "location": "Musée d'ethnographie de Genève (MEG), Boulevard Carl-VOGT 65, 1205 Genève",
+      "city": "Genève",
+      "latitude": 46.1979066,
+      "longitude": 6.1370989,
+      "start_date": "2026-03-29"
+    },
+    {
+      "id": 1519,
+      "description": "Ateliers de dessin « Illustrer Carouge autrement » pour adultes dès 16 ansPar Catherine Grimm, artiste Ces ateliers de dessin vous proposent de réinventer une rue ou une place existante à Carouge aux crayons et aux feutres.",
+      "location": "Musée de Carouge, Place de Sardaigne 2, 1227 Carouge GE",
+      "city": "Carouge GE",
+      "latitude": 46.1842711,
+      "longitude": 6.1389931,
+      "start_date": "2026-03-07"
+    },
+    {
+      "id": 1521,
+      "description": "Rendez-vous à 14h sous le couvert de la Place de Châteaubriand, puis parcours au bord du lac (par tous les temps). Petite collation au retour à Cité Seniors. Cette animation est proposée dans le cadre des activités semestrielles de Cité Seniors, nous vous invitons à consulter le programme pour plus d'activités adressées aux seniors!",
+      "location": "0800 18 19 20, Place De-Chateaubriand, Genève",
+      "city": "Genève",
+      "latitude": 46.2155951,
+      "longitude": 6.1504763,
+      "start_date": "2026-03-06"
+    },
+    {
+      "id": 1523,
+      "description": "RELAX, la culture c’est pour tout le mondeTous les publics sont les bienvenus.Tous les comportements, même inattendus, sont vus comme l’expression d’un sentiment.La vie culturelle s’ouvre à toutes et tous.",
+      "location": "Musée d'ethnographie de Genève (MEG), Boulevard Carl-VOGT 65, 1205 Genève",
+      "city": "Genève",
+      "latitude": 46.1979066,
+      "longitude": 6.1370989,
+      "start_date": "2026-03-11"
+    },
+    {
+      "id": 1524,
+      "description": "Vivez un moment unique dans l'univers du chocolat artisanal suisse avec les professionnels de la chocolaterie centenaire à Genève La Bonbonnière. Partagez un moment unique en famille ou entre amis autour d'une expérience 100% chocolatée de 1h à L'Ecole du Chocolat.",
+      "location": "Genève",
+      "city": "Genève",
+      "latitude": 46.2017559,
+      "longitude": 6.1466014,
+      "start_date": "2026-02-15"
+    },
+    {
+      "id": 1525,
+      "description": "Le Genève-Servette Hockey Club vous invite à vivre une expérience unique lors de son match contre le Eishockey Club Kloten, le lundi 09 mars 2026 à 19h45.",
+      "location": "Patinoire des Vernets, Rue Hans-WILSDORF 4, 1227 Les Acacias",
+      "city": "Les Acacias",
+      "latitude": 46.194485,
+      "longitude": 6.1345028,
+      "start_date": "2026-03-09"
+    },
+    {
+      "id": 1526,
+      "description": "Ateliers pour enfants « Une célébrité au coin de la rue... et si c'était moi !? »Par Caroline Sechehaye, artiste plasticienneEnfants de 7 à 12 ansInscription obligatoireÀ l’issue de la visite de l’exposition, chaque enfant imaginera ce qu'elle ou il voudrait faire pour devenir célèbre et avoir son nom sur une plaque de rue.",
+      "location": "Musée de Carouge, Place de Sardaigne 2, 1227 Carouge GE",
+      "city": "Carouge GE",
+      "latitude": 46.1842711,
+      "longitude": 6.1389931,
+      "start_date": "2026-02-11"
+    },
+    {
+      "id": 1527,
+      "description": "Dans ce documentaire poignant, réalisé par Luc Marescot en 2023, nous découvrons le combat de Benki Piyako, chef spirituel des Asháninka. Il allie les communautés autochtones pour préserver l’environnement pour reboiser des portions de forêt amazonienne détruite.",
+      "location": "Bibliothèque de la Cité, Place des Trois-Perdrix 5, 1204 Genève",
+      "city": "Genève",
+      "latitude": 46.2028013,
+      "longitude": 6.1450442,
+      "start_date": "2026-03-19"
+    },
+    {
+      "id": 1528,
+      "description": "RELAX, la culture c’est pour tout le mondeTous les publics sont les bienvenus.Tous les comportements, même inattendus, sont vus comme l’expression d’un sentiment.La vie culturelle s’ouvre à toutes et tous.",
+      "location": "Musée d'ethnographie de Genève (MEG), Boulevard Carl-VOGT 65, 1205 Genève",
+      "city": "Genève",
+      "latitude": 46.1979066,
+      "longitude": 6.1370989,
+      "start_date": "2026-04-30"
+    },
+    {
+      "id": 1509,
+      "description": "Au XVIe siècle, une transition s’opère dans la manière de percevoir l’espace alpin. De conception relativement négative à la fin du Moyen-Âge, représentant la montagne comme un lieu démoniaque, l’époque moderne voit naître une vision plus positive, qui décrit les Alpes comme un endroit dans lequel Dieu se révèle.",
+      "location": "Genève",
+      "city": "Genève",
+      "latitude": 46.2017559,
+      "longitude": 6.1466014,
+      "start_date": "2026-03-31"
+    },
+    {
+      "id": 1497,
+      "description": "L’artiste met en forme et en mouvement les lambeaux de papier pour construire un nouveau monde. De la même manière, elle observe les fontaines par son travail photographique.",
+      "location": "Cité Seniors, Rue de Lausanne 62, 1202 Genève",
+      "city": "Genève",
+      "latitude": 46.2151295,
+      "longitude": 6.146966,
+      "start_date": "2026-03-12"
+    },
+    {
+      "id": 1498,
+      "description": "DURAND JONES AND THE INDICATIONS Revival soul et rhythm & blues à l’Alhambra avec Durand Jones & The Indications, qui ramènent le genre sur le devant de la scène.Durand Jones & The Indications imposent une soul intemporelle avec une précision et une justesse rare.",
+      "location": "Alhambra, Rue de la Rôtisserie 10, 1204 Genève",
+      "city": "Genève",
+      "latitude": 46.2027488,
+      "longitude": 6.1465055,
+      "start_date": "2026-02-19"
+    },
+    {
+      "id": 1499,
+      "description": "Après Top Model et les Feux de l’amour, votre prochain feuilleton favori sera improvisé!Amours interdits à l’hôpital, jumeaux maléfiques surgis de nulle part, mariages annulés à la dernière seconde et secrets de famille révélés entre deux sanglots (et coupes de champagne) : Amours & Trahisons rend hommage aux feuilletons que nous détestons adorer.",
+      "location": "Théâtre des Grottes, Rue Louis-FAVRE 43, 1201 Genève",
+      "city": "Genève",
+      "latitude": 46.2118612,
+      "longitude": 6.1378795,
+      "start_date": "2026-02-12"
+    },
+    {
+      "id": 1503,
+      "description": "Dans une ambiance conviviale et bienveillante, vous pourrez découvrir comment utiliser les outils existants et poser toutes vos questions sur la thématique. Dans le cadre des Permanences numériques en Ville de Genève, animé par l’OSEO Genève (Oeuvre suisse d’entraide ouvrière).",
+      "location": "Espace de quartier Saint-Jean, Quai du Seujet 32, 1201 Genève",
+      "city": "Genève",
+      "latitude": 46.2042755,
+      "longitude": 6.1339574,
+      "start_date": "2026-04-02"
+    },
+    {
+      "id": 1505,
+      "description": "Découverte des techniques et réflexes à adopter avec mises en situation réelle.Animé par Patrick Lattion, coach sportif.",
+      "location": "Espace de quartier Champel, Chemin Edouard-Tavan 5, 1206 Genève, Genève",
+      "city": "Genève",
+      "latitude": 46.1860456,
+      "longitude": 6.1583687,
+      "start_date": "2026-03-02"
+    },
+    {
+      "id": 1491,
+      "description": "Travailler ensemble, se réunir, créer quelque chose est vraiment une façon de résister à la morosité, une façon d’exister plus intensément!La chorale Les Genevoix, chorale d’hommes gays de Genève et de Suisse romande chantera lors du vernissage pour rassembler et porter des messages de tolérance et d’acceptation au sein et au-delà de la communauté...",
+      "location": "Cité Seniors, Rue de Lausanne 62, 1202 Genève",
+      "city": "Genève",
+      "latitude": 46.2151295,
+      "longitude": 6.146966,
+      "start_date": "2026-04-30"
+    },
+    {
+      "id": 1171,
+      "location": "Place du Bourg-de-Four, 1204 Genève",
+      "city": "Genève",
+      "latitude": 46.2005904,
+      "longitude": 6.1492851
+    },
+    {
+      "id": 1179,
+      "location": "Divers lieux, Genève (Alhambra, Salle communale, BFM)",
+      "city": "Genève",
+      "latitude": 46.2027488,
+      "longitude": 6.1465055
+    }
+  ],
+  "deleted": [
+    1500
+  ],
+  "geocode_cache": {
+    "Rue de la Rôtisserie 10, 1204 Genève": [
+      46.2027488,
+      6.1465055
+    ],
+    "Genève": [
+      46.2017559,
+      6.1466014
+    ],
+    "Rue des Gazomètres 9, 1205 Genève": [
+      46.2016071,
+      6.1339753
+    ],
+    "Quai de Cologny 61, 1223 Cologny, Suisse,  Genève": [
+      null,
+      null
+    ],
+    "Emplacement(s), Genève, Suisse": [
+      null,
+      null
+    ],
+    "Boulevard Carl-VOGT 65, 1205 Genève": [
+      46.1979066,
+      6.1370989
+    ],
+    "Place de Sardaigne 2, 1227 Carouge GE": [
+      46.1842711,
+      6.1389931
+    ],
+    "Place De-Chateaubriand,  Genève": [
+      46.2155951,
+      6.1504763
+    ],
+    "Rue Hans-WILSDORF 4, 1227 Les Acacias": [
+      46.194485,
+      6.1345028
+    ],
+    "Place des Trois-Perdrix 5, 1204 Genève": [
+      46.2028013,
+      6.1450442
+    ],
+    "Rue de Lausanne 62, 1202 Genève": [
+      46.2151295,
+      6.146966
+    ],
+    "Rue Louis-FAVRE 43, 1201 Genève": [
+      46.2118612,
+      6.1378795
+    ],
+    "Quai du Seujet 32, 1201 Genève": [
+      46.2042755,
+      6.1339574
+    ],
+    "Chemin Edouard-Tavan 5, 1206 Genève,  Genève": [
+      46.1860456,
+      6.1583687
+    ],
+    "Place du Bourg-de-Four, 1204 Genève, Suisse": [
+      46.2005904,
+      6.1492851
+    ],
+    "Alhambra, Rue de la Rôtisserie 10, 1204 Genève": [
+      46.2027488,
+      6.1465055
+    ]
+  }
+}

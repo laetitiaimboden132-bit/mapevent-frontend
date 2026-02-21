@@ -1,0 +1,460 @@
+[
+  {
+    "id": 8866,
+    "latitude": 46.4042113,
+    "longitude": 7.7845616
+  },
+  {
+    "id": 8864,
+    "latitude": 46.1052284,
+    "longitude": 7.0732681
+  },
+  {
+    "id": 2310,
+    "latitude": 45.9022044,
+    "longitude": 6.1280054
+  },
+  {
+    "id": 2307,
+    "latitude": 45.8991644,
+    "longitude": 6.1248839
+  },
+  {
+    "id": 2308,
+    "latitude": 45.8975446,
+    "longitude": 6.1266737
+  },
+  {
+    "id": 2306,
+    "latitude": 45.8991644,
+    "longitude": 6.1237439
+  },
+  {
+    "id": 2305,
+    "latitude": 45.893031,
+    "longitude": 6.135651
+  },
+  {
+    "id": 2304,
+    "latitude": 45.9034708,
+    "longitude": 6.1338791
+  },
+  {
+    "id": 2296,
+    "latitude": 46.5273164,
+    "longitude": 6.6246922
+  },
+  {
+    "id": 2294,
+    "latitude": 46.2274042,
+    "longitude": 6.1367908
+  },
+  {
+    "id": 2288,
+    "latitude": 46.2909697,
+    "longitude": 7.530875,
+    "location": "Galerie de la Grenette, Place de la Grenette 1, 3960 Sierre"
+  },
+  {
+    "id": 2285,
+    "latitude": 46.2909697,
+    "longitude": 7.530875
+  },
+  {
+    "id": 2284,
+    "latitude": 46.2936832,
+    "longitude": 7.5226476,
+    "location": "Manoir de la Ville, Rue du Manoir 1, 3960 Sierre"
+  },
+  {
+    "id": 2278,
+    "latitude": 46.2202488,
+    "longitude": 7.0047544
+  },
+  {
+    "id": 2279,
+    "latitude": 46.1033508,
+    "longitude": 7.0747773,
+    "location": "Médiathèque Valais - St-Maurice, Avenue de la Gare 15, 1920 Martigny"
+  },
+  {
+    "id": 2282,
+    "latitude": 46.1033508,
+    "longitude": 7.0747773,
+    "location": "Médiathèque Valais - Sion, Avenue de la Gare 15, 1920 Martigny"
+  },
+  {
+    "id": 2276,
+    "latitude": 46.2942163,
+    "longitude": 7.5371315
+  },
+  {
+    "id": 2275,
+    "latitude": 46.3788624,
+    "longitude": 7.6298394,
+    "location": "Galerie St. Laurent, Dorfplatz 1, 3954 Leukerbad"
+  },
+  {
+    "id": 2273,
+    "latitude": 46.0228753,
+    "longitude": 7.7475772
+  },
+  {
+    "id": 2270,
+    "latitude": 46.5067124,
+    "longitude": 6.4968351
+  },
+  {
+    "id": 2271,
+    "latitude": 46.5079876,
+    "longitude": 6.4973373
+  },
+  {
+    "id": 2266,
+    "latitude": 46.1712008,
+    "longitude": 7.221461,
+    "location": "La Vidondée, Rue du Clos 8, 1908 Riddes"
+  },
+  {
+    "id": 2267,
+    "latitude": 46.2922946,
+    "longitude": 7.5297098,
+    "location": "Art Métro Sierre, Avenue Général Guisan 30, 3960 Sierre"
+  },
+  {
+    "id": 2268,
+    "latitude": 46.2344395,
+    "longitude": 7.3605664,
+    "location": "Galerie Les Dilettantes, Grand-Pont 24, 1950 Sion"
+  },
+  {
+    "id": 2262,
+    "latitude": 46.2343031,
+    "longitude": 7.3619494
+  },
+  {
+    "id": 2261,
+    "latitude": 46.1033508,
+    "longitude": 7.0747773,
+    "location": "Médiathèque Valais, Avenue de la Gare 15, 1920 Martigny"
+  },
+  {
+    "id": 2265,
+    "latitude": 46.2267547,
+    "longitude": 7.290312,
+    "location": "Galerie de la Tour Lombarde, Rue de Conthey 7, 1964 Conthey"
+  },
+  {
+    "id": 2258,
+    "latitude": 46.1033508,
+    "longitude": 7.0747773,
+    "location": "Médiathèque Valais, Avenue de la Gare 15, 1920 Martigny"
+  },
+  {
+    "id": 2256,
+    "latitude": 46.1033508,
+    "longitude": 7.0747773,
+    "location": "Médiathèque Valais, Avenue de la Gare 15, 1920 Martigny"
+  },
+  {
+    "id": 2251,
+    "latitude": 46.0802227,
+    "longitude": 7.2106877
+  },
+  {
+    "id": 2253,
+    "latitude": 46.2936832,
+    "longitude": 7.5226476,
+    "location": "Le Manoir de la Ville de Martigny, Rue du Manoir 1, 3960 Sierre"
+  },
+  {
+    "id": 2252,
+    "latitude": 46.0984156,
+    "longitude": 7.0675559
+  },
+  {
+    "id": 2254,
+    "latitude": 46.2936832,
+    "longitude": 7.5226476,
+    "location": "Le Manoir de la Ville de Martigny, Rue du Manoir 1, 3960 Sierre"
+  },
+  {
+    "id": 2244,
+    "latitude": 46.2932257,
+    "longitude": 7.5210092,
+    "location": "Château de Villa, Rue Sainte-Catherine 4, 3960 Sierre"
+  },
+  {
+    "id": 2245,
+    "latitude": 46.2942163,
+    "longitude": 7.5371315
+  },
+  {
+    "id": 2243,
+    "latitude": 46.233743,
+    "longitude": 7.3621319
+  },
+  {
+    "id": 2241,
+    "latitude": 46.0951405,
+    "longitude": 7.0708043
+  },
+  {
+    "id": 2240,
+    "latitude": 46.2305366,
+    "longitude": 7.3661979
+  },
+  {
+    "id": 2242,
+    "latitude": 46.0951405,
+    "longitude": 7.0708043
+  },
+  {
+    "id": 2239,
+    "latitude": 46.2909697,
+    "longitude": 7.530875,
+    "location": "Jazz Station, Route de la Mondérèche 7, 3960 Sierre"
+  },
+  {
+    "id": 2237,
+    "latitude": 46.2947063,
+    "longitude": 7.5343096
+  },
+  {
+    "id": 2236,
+    "latitude": 46.2909697,
+    "longitude": 7.530875,
+    "location": "Jazz Station, Route de la Mondérèche 7, 3960 Sierre"
+  },
+  {
+    "id": 2238,
+    "latitude": 46.2942163,
+    "longitude": 7.5371315
+  },
+  {
+    "id": 2229,
+    "latitude": 46.2352916,
+    "longitude": 6.1180137
+  },
+  {
+    "id": 2225,
+    "latitude": 46.2970711,
+    "longitude": 7.3989488,
+    "location": "Salle du Zodiaque, Rue du Village 1, 1972 Anzère"
+  },
+  {
+    "id": 2226,
+    "latitude": 46.1940027,
+    "longitude": 6.1434479
+  },
+  {
+    "id": 2218,
+    "latitude": 46.2323097,
+    "longitude": 7.361275,
+    "location": "Domaine des Îles, Rue du Rhône 53, 1950 Sion"
+  },
+  {
+    "id": 2217,
+    "latitude": 46.2038193,
+    "longitude": 6.1510113,
+    "location": "Rade de Genève, Quai du Général-Guisan, 1204 Genève"
+  },
+  {
+    "id": 2220,
+    "latitude": 46.5144418,
+    "longitude": 6.6066123
+  },
+  {
+    "id": 2214,
+    "latitude": 46.2252481,
+    "longitude": 6.182779,
+    "location": "Société Nautique de Genève, Quai de Cologny 61, 1223 Cologny"
+  },
+  {
+    "id": 2211,
+    "latitude": 46.2352916,
+    "longitude": 6.1180137
+  },
+  {
+    "id": 2203,
+    "latitude": 46.5067124,
+    "longitude": 6.4968351
+  },
+  {
+    "id": 2204,
+    "latitude": 46.5092289,
+    "longitude": 6.498216
+  },
+  {
+    "id": 2197,
+    "latitude": 46.5067124,
+    "longitude": 6.4968351
+  },
+  {
+    "id": 2196,
+    "latitude": 46.2017559,
+    "longitude": 6.1466014
+  },
+  {
+    "id": 2193,
+    "latitude": 46.2082231,
+    "longitude": 6.1676406,
+    "location": "Tennis Club de Genève, Parc des Eaux-Vives 30, 1207 Genève"
+  },
+  {
+    "id": 2185,
+    "latitude": 46.347434,
+    "longitude": 7.017398
+  },
+  {
+    "id": 2188,
+    "latitude": 46.4625655,
+    "longitude": 6.8468325
+  },
+  {
+    "id": 2189,
+    "latitude": 46.1966768,
+    "longitude": 7.8415306
+  },
+  {
+    "id": 2186,
+    "latitude": 46.4591887,
+    "longitude": 6.8412883
+  },
+  {
+    "id": 2180,
+    "latitude": 46.099737,
+    "longitude": 7.2266029
+  },
+  {
+    "id": 2179,
+    "latitude": 46.2303107,
+    "longitude": 7.3569668
+  },
+  {
+    "id": 2181,
+    "latitude": 46.2311749,
+    "longitude": 7.3588795
+  },
+  {
+    "id": 2174,
+    "latitude": 46.2352916,
+    "longitude": 6.1180137
+  },
+  {
+    "id": 2177,
+    "latitude": 46.2352916,
+    "longitude": 6.1180137
+  },
+  {
+    "id": 2176,
+    "latitude": 46.5084778,
+    "longitude": 6.5003319,
+    "location": "Parc de l'Indépendance, Quai Igor-Stravinsky, 1110 Morges"
+  },
+  {
+    "id": 2162,
+    "latitude": 46.1052284,
+    "longitude": 7.0732681
+  },
+  {
+    "id": 2157,
+    "latitude": 46.0245732,
+    "longitude": 7.7481294
+  },
+  {
+    "id": 2168,
+    "latitude": 46.5061367,
+    "longitude": 6.689146,
+    "location": "Collège du Grand-Pont, Chemin du Grand Pont 1, 1095 Lutry"
+  },
+  {
+    "id": 2160,
+    "latitude": 46.3151294,
+    "longitude": 7.7442151
+  },
+  {
+    "id": 2166,
+    "latitude": 46.4886072,
+    "longitude": 6.7271541
+  },
+  {
+    "id": 2167,
+    "latitude": 46.5144418,
+    "longitude": 6.6066123,
+    "location": "Stade Pierre-de-Coubertin, Avenue Pierre-de-Coubertin, 1007 Lausanne"
+  },
+  {
+    "id": 2172,
+    "latitude": 46.4263963,
+    "longitude": 6.921813
+  },
+  {
+    "id": 2169,
+    "latitude": 46.5258959,
+    "longitude": 6.6881466,
+    "location": "Stade Olympique de la Pontaise, Route du Signal 50, 1018 Lausanne"
+  },
+  {
+    "id": 2159,
+    "latitude": 46.0961011,
+    "longitude": 7.2286765,
+    "location": "Salle des Combins, Route de la Poste 3, 1936 Verbier"
+  },
+  {
+    "id": 2158,
+    "latitude": 46.2909697,
+    "longitude": 7.530875,
+    "location": "Plaine Bellevue, Rue de la Plaine Bellevue, 3960 Sierre"
+  },
+  {
+    "id": 2161,
+    "latitude": 46.2979138,
+    "longitude": 7.4671743,
+    "location": "Golf Club Crans-sur-Sierre, Route du Golf 1, 3963 Crans-Montana"
+  },
+  {
+    "id": 2149,
+    "latitude": 46.2252481,
+    "longitude": 6.182779,
+    "location": "Société Nautique de Genève, Quai de Cologny 61, 1223 Cologny"
+  },
+  {
+    "id": 2152,
+    "latitude": 46.2021143,
+    "longitude": 6.1591055,
+    "location": "Plage des Eaux-Vives, Quai de la Mouette 4, 1207 Genève"
+  },
+  {
+    "id": 2154,
+    "latitude": 46.204559,
+    "longitude": 6.1368626
+  },
+  {
+    "id": 2135,
+    "latitude": 46.2344148,
+    "longitude": 7.3604416
+  },
+  {
+    "id": 2084,
+    "latitude": 46.2712538,
+    "longitude": 7.5157367,
+    "location": "Colline de Daval 5, Chemin de Daval, 3960 Sierre"
+  },
+  {
+    "id": 2071,
+    "latitude": 46.2712538,
+    "longitude": 7.5157367,
+    "location": "Colline de Daval 5, Chemin de Daval, 3960 Sierre"
+  },
+  {
+    "id": 1165,
+    "latitude": 46.209147,
+    "longitude": 6.1501862
+  },
+  {
+    "id": 1157,
+    "latitude": 46.8349452,
+    "longitude": 6.6657837
+  }
+]

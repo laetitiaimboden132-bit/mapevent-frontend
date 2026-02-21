@@ -1,0 +1,22 @@
+{
+  "Nantes": [
+    {
+      "id": "244400404_catalogue-e-services-nantes-metropole",
+      "title": "Catalogue des e-services de Nantes Métropole"
+    },
+    {
+      "id": "244400404_agenda-animations-culturelles-bibliotheque-municipale-nantes",
+      "title": "Agenda des animations culturelles de la Bibliothèque Municipale de la ville de Nantes"
+    },
+    {
+      "id": "244400404_agenda-evenements-nantes-metropole_v2",
+      "title": "Agenda des événements de Nantes Métropole"
+    }
+  ],
+  "Toulouse": [
+    {
+      "id": "evenements_flourens",
+      "title": "Agenda des événements - Flourens"
+    }
+  ]
+}

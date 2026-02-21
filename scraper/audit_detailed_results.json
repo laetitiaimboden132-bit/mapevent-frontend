@@ -1,0 +1,373 @@
+{
+  "total_events": 194,
+  "sport_category_issues": 2,
+  "entirely_past_events": 40,
+  "coordinate_mismatches": 1,
+  "issue_ids": {
+    "sport_category": [
+      2221,
+      2096
+    ],
+    "entirely_past": [
+      2277,
+      2276,
+      2275,
+      2270,
+      2271,
+      2269,
+      2266,
+      2264,
+      2259,
+      2258,
+      2240,
+      2243,
+      2234,
+      2237,
+      2236,
+      2235,
+      2233,
+      2229,
+      2204,
+      2203,
+      2201,
+      2205,
+      2194,
+      2146,
+      2099,
+      2096,
+      2097,
+      2071,
+      2069,
+      2062,
+      1157,
+      532,
+      379,
+      390,
+      388,
+      386,
+      389,
+      387,
+      380,
+      381
+    ],
+    "coordinate_mismatch": [
+      503
+    ]
+  },
+  "sport_category_details": [
+    {
+      "id": 2221,
+      "title": "Cyclotour du Léman 2026",
+      "categories": [
+        "Sport",
+        "Sport > Terrestre",
+        "Cyclisme"
+      ],
+      "location": "Place de la Navigation, 1006 Lausanne",
+      "latitude": 46.5068501,
+      "longitude": 6.6252192
+    },
+    {
+      "id": 2096,
+      "title": "100ème du HC Champéry | Match de Gala  HC Bienne vs HC Genève-Servette",
+      "categories": [
+        "Sport > Hockey",
+        "Sport > Terrestre"
+      ],
+      "location": "Palladium de Champéry, Route du Centre Sportif 1, 1874 Champéry",
+      "latitude": 46.1769673,
+      "longitude": 6.8724961
+    }
+  ],
+  "past_events_details": [
+    {
+      "id": 2277,
+      "title": "ZONE 30 ART PUBLIC - Yan Muehlheim \"Happy Bars\" Sierre",
+      "date": "2026-02-09",
+      "end_date": "2026-02-24",
+      "source_url": "https://agenda.culturevalais.ch/fr/event/show/41494"
+    },
+    {
+      "id": 2276,
+      "title": "Jean-Marc Linder - Art Digital - Espace 100 titres Sierre",
+      "date": "2026-02-09",
+      "end_date": "2026-02-28",
+      "source_url": "https://agenda.culturevalais.ch/fr/event/show/40860"
+    },
+    {
+      "id": 2275,
+      "title": "Exposition \"Danse des Flocons de Neige\" - Loèche-les-Bains",
+      "date": "2026-02-09",
+      "end_date": "2026-02-28",
+      "source_url": "https://agenda.culturevalais.ch/fr/event/show/41615"
+    },
+    {
+      "id": 2270,
+      "title": "Délégation du Souvenir napoléonien - Château de Morges",
+      "date": "2026-02-28",
+      "end_date": "2026-02-28",
+      "source_url": "https://www.morges-tourisme.ch/fr/Z14671/souvenir-napoleonien-morges"
+    },
+    {
+      "id": 2271,
+      "title": "Jakadi Comedy Club - Stand-up à Morges",
+      "date": "2026-02-27",
+      "end_date": "2026-02-27",
+      "source_url": "https://www.morges-tourisme.ch/fr/Z14671/jakadi-comedy-club-morges"
+    },
+    {
+      "id": 2269,
+      "title": "Concerts Classiques de la Région Morgienne",
+      "date": "2026-02-08",
+      "end_date": "2026-02-08",
+      "source_url": "https://www.morges-tourisme.ch/fr/Z14671/ccrm-concerts-classiques"
+    },
+    {
+      "id": 2266,
+      "title": "Raffaella Bruzzi & Romain Tornay - La Vidondée Riddes",
+      "date": "2026-02-11",
+      "end_date": "2026-02-28",
+      "source_url": "https://agenda.culturevalais.ch/fr/event/show/41776"
+    },
+    {
+      "id": 2264,
+      "title": "Ciné-Doc : La Vallée de Gwennaël Bolomey - Sion",
+      "date": "2026-02-09",
+      "end_date": "2026-02-09",
+      "source_url": "https://agenda.culturevalais.ch/fr/event/show/41058"
+    },
+    {
+      "id": 2259,
+      "title": "Oiseaux et agriculture - Conférence à Martigny",
+      "date": "2026-02-09",
+      "end_date": "2026-02-09",
+      "source_url": "https://agenda.culturevalais.ch/fr/event/show/41740"
+    },
+    {
+      "id": 2258,
+      "title": "Prix RTS Littérature Ados 2026 - St-Maurice",
+      "date": "2026-02-09",
+      "end_date": "2026-02-14",
+      "source_url": "https://agenda.culturevalais.ch/fr/event/show/39523"
+    },
+    {
+      "id": 2240,
+      "title": "Orchestre de Chambre de Lausanne & HEMU - Soirée Wagner",
+      "date": "2026-02-10",
+      "end_date": "2026-02-10",
+      "source_url": "https://agenda.culturevalais.ch/fr/event/show/40025"
+    },
+    {
+      "id": 2243,
+      "title": "La poésie de l'échec - Théâtre & beatbox au Spot Sion",
+      "date": "2026-02-11",
+      "end_date": "2026-02-11",
+      "source_url": "https://agenda.culturevalais.ch/fr/event/show/38682"
+    },
+    {
+      "id": 2234,
+      "title": "Carnaval de Sierre 2026",
+      "date": "2026-02-13",
+      "end_date": "2026-02-14",
+      "source_url": "https://www.sierre.ch/fr/calendrier-manifestations-1738/agenda-viewguidle-1228498920.html"
+    },
+    {
+      "id": 2237,
+      "title": "Odyssée singulière - Spectacle de contes",
+      "date": "2026-02-28",
+      "end_date": "2026-02-28",
+      "source_url": "https://www.sierre.ch/fr/calendrier-manifestations-1738/agenda-viewguidle-1231350388.html"
+    },
+    {
+      "id": 2236,
+      "title": "Driftwood 4tet - Festival Diagonales Jazz",
+      "date": "2026-02-20",
+      "end_date": "2026-02-20",
+      "source_url": "https://www.sierre.ch/fr/calendrier-manifestations-1738/agenda-viewguidle-1217935776.html"
+    },
+    {
+      "id": 2235,
+      "title": "Carnaval de Granges 2026",
+      "date": "2026-02-14",
+      "end_date": "2026-02-14",
+      "source_url": "https://www.sierre.ch/fr/calendrier-manifestations-1738/agenda-viewguidle-1229477395.html"
+    },
+    {
+      "id": 2233,
+      "title": "Prix de Lausanne 2026 - 54e édition",
+      "date": "2026-02-01",
+      "end_date": "2026-02-08",
+      "source_url": "https://www.prixdelausanne.org/"
+    },
+    {
+      "id": 2229,
+      "title": "Geneva Artistink 2026",
+      "date": "2026-02-13",
+      "end_date": "2026-02-15",
+      "source_url": "https://www.palexpo.ch/evenement/geneva-artistink/"
+    },
+    {
+      "id": 2204,
+      "title": "Les Fleurs du Mal - Lecture musicale Baudelaire",
+      "date": "2026-02-26",
+      "end_date": "2026-02-26",
+      "source_url": "https://www.morges-tourisme.ch/fr/Z14671/fleurs-du-mal-baudelaire"
+    },
+    {
+      "id": 2203,
+      "title": "Souvenir napoléonien - Patrimoine militaire suisse",
+      "date": "2026-02-28",
+      "end_date": "2026-02-28",
+      "source_url": "https://www.morges-tourisme.ch/fr/Z14671/souvenir-napoleonien"
+    },
+    {
+      "id": 2201,
+      "title": "Bastian Baker - Solo Acoustic Tour à St-Prex",
+      "date": "2026-02-28",
+      "end_date": "2026-02-28",
+      "source_url": "https://www.morges-tourisme.ch/fr/Z14671/bastian-baker-st-prex"
+    },
+    {
+      "id": 2205,
+      "title": "Concert solo Doran à Montricher",
+      "date": "2026-02-27",
+      "end_date": "2026-02-27",
+      "source_url": "https://www.morges-tourisme.ch/fr/Z14671/concert-doran-montricher"
+    },
+    {
+      "id": 2194,
+      "title": "Shen Yun 2026 - Lausanne",
+      "date": "2026-02-20",
+      "end_date": "2026-02-22",
+      "source_url": "https://beaulieu-lausanne.com/en/calendar/shen-yun-2026/"
+    },
+    {
+      "id": 2146,
+      "title": "Antigel Festival 2026",
+      "date": "2026-02-05",
+      "end_date": "2026-02-28",
+      "source_url": "https://antigel.ch/"
+    },
+    {
+      "id": 2099,
+      "title": "Culture on Tour | Tout Cuche et Barbezat en moins d'une heure (c'est plus drôle)",
+      "date": "2026-02-28",
+      "end_date": "2026-02-28",
+      "source_url": "https://www.casanovamonthey.ch/agenda-region/?id=7580950"
+    },
+    {
+      "id": 2096,
+      "title": "100ème du HC Champéry | Match de Gala  HC Bienne vs HC Genève-Servette",
+      "date": "2026-02-19",
+      "end_date": "2026-02-19",
+      "source_url": "https://www.casanovamonthey.ch/agenda-region/?id=7417506"
+    },
+    {
+      "id": 2097,
+      "title": "Le sentier illuminé d'Olaf",
+      "date": "2026-02-23",
+      "end_date": "2026-02-23",
+      "source_url": "https://www.casanovamonthey.ch/agenda-region/?id=7176421"
+    },
+    {
+      "id": 2071,
+      "title": "Initiation à la dégustation de vin",
+      "date": "2026-02-26",
+      "end_date": "2026-02-26",
+      "source_url": "https://www.sierre.ch/fr/calendrier-manifestations-1738/agenda-viewguidle-1231561511.html"
+    },
+    {
+      "id": 2069,
+      "title": "CARTE BLANCHE AUX JEUNES SOLISTES",
+      "date": "2026-02-20",
+      "end_date": "2026-02-20",
+      "source_url": "https://www.sierre.ch/fr/calendrier-manifestations-1738/agenda-viewguidle-1230898884.html"
+    },
+    {
+      "id": 2062,
+      "title": "JAM SESSION",
+      "date": "2026-02-13",
+      "end_date": "2026-02-13",
+      "source_url": "https://www.sierre.ch/fr/calendrier-manifestations-1738/agenda-viewguidle-1230898878.html"
+    },
+    {
+      "id": 1157,
+      "title": "Bonvillars & Truffe : Cours de cavage et cuisine à la Sauvageraie",
+      "date": "2026-02-14",
+      "end_date": "2026-02-22",
+      "source_url": "https://www.vaud.ch/tourisme/tous-les-evenements/bonvillars-truffe-cours-de-cavage-et-cuisine-a-la-sauvageraie"
+    },
+    {
+      "id": 532,
+      "title": "Carnaval de Monthey",
+      "date": "2026-02-12",
+      "end_date": "2026-02-17",
+      "source_url": "https://carnavaldemonthey.com/"
+    },
+    {
+      "id": 379,
+      "title": "Aliose chante Le Forestier",
+      "date": "2026-02-07",
+      "end_date": "2026-02-07",
+      "source_url": "https://agenda.culturevalais.ch/fr/event/show/39001"
+    },
+    {
+      "id": 390,
+      "title": "Fleur Dièse",
+      "date": "2026-02-08",
+      "end_date": "2026-02-08",
+      "source_url": "https://agenda.culturevalais.ch/fr/event/show/41454"
+    },
+    {
+      "id": 388,
+      "title": "En février « J’peux pas, j’ai musée ! » : un dimanche à la Basilique",
+      "date": "2026-02-08",
+      "end_date": "2026-02-08",
+      "source_url": "https://agenda.culturevalais.ch/fr/event/show/41482"
+    },
+    {
+      "id": 386,
+      "title": "En février « J’peux pas, j’ai musée ! » : la visite guidée",
+      "date": "2026-02-08",
+      "end_date": "2026-02-08",
+      "source_url": "https://agenda.culturevalais.ch/fr/event/show/41481"
+    },
+    {
+      "id": 389,
+      "title": "Les variations musicales",
+      "date": "2026-02-08",
+      "end_date": "2026-02-08",
+      "source_url": "https://agenda.culturevalais.ch/fr/event/show/41991"
+    },
+    {
+      "id": 387,
+      "title": "En février « J’peux pas, j’ai musée ! » : l'atelier tout public",
+      "date": "2026-02-08",
+      "end_date": "2026-02-08",
+      "source_url": "https://agenda.culturevalais.ch/fr/event/show/41480"
+    },
+    {
+      "id": 380,
+      "title": "Big Big Horse Party : Nerami + The Revox + King Automatic",
+      "date": "2026-02-07",
+      "end_date": "2026-02-07",
+      "source_url": "https://agenda.culturevalais.ch/fr/event/show/41725"
+    },
+    {
+      "id": 381,
+      "title": "GAIA  - Poussière d’Etoiles - Création",
+      "date": "2026-02-07",
+      "end_date": "2026-02-07",
+      "source_url": "https://agenda.culturevalais.ch/fr/event/show/40796"
+    }
+  ],
+  "coordinate_mismatch_details": [
+    {
+      "id": 503,
+      "title": "PALP Festival 2026",
+      "location": "Divers lieux en Valais (Martigny, Sion, Sierre, Val de Bagnes...)",
+      "latitude": 46.1012714,
+      "longitude": 7.0732643
+    }
+  ]
+}

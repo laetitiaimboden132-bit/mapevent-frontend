@@ -1,0 +1,3247 @@
+[
+  {
+    "id": 599,
+    "title": "Journée suisse de la randonnée Valais",
+    "old_cats": [
+      "Culture > Expositions",
+      "Sport > Terrestre"
+    ],
+    "new_cats": [
+      "Sport > Terrestre"
+    ]
+  },
+  {
+    "id": 601,
+    "title": "Nendaz Bike Revolution",
+    "old_cats": [
+      "Sport > VTT & Vélo"
+    ],
+    "new_cats": [
+      "Sport > Terrestre"
+    ]
+  },
+  {
+    "id": 618,
+    "title": "Fête du vélo Martigny",
+    "old_cats": [
+      "Culture > Expositions",
+      "Culture > Workshops",
+      "Sport > VTT & Vélo"
+    ],
+    "new_cats": [
+      "Culture > Atelier",
+      "Nature & Famille",
+      "Sport > Terrestre"
+    ]
+  },
+  {
+    "id": 619,
+    "title": "Apéro vigneron Salquenen",
+    "old_cats": [
+      "Food & Drinks > Dégustations"
+    ],
+    "new_cats": [
+      "Gastronomie > Dégustation"
+    ]
+  },
+  {
+    "id": 620,
+    "title": "Festival de marionnettes Martigny",
+    "old_cats": [
+      "Culture > Expositions",
+      "Arts Vivants > Théâtre",
+      "Famille > Activités"
+    ],
+    "new_cats": [
+      "Culture > Festival",
+      "Culture > Théâtre",
+      "Nature & Famille"
+    ]
+  },
+  {
+    "id": 621,
+    "title": "Exposition photo outdoor Nendaz",
+    "old_cats": [
+      "Culture > Expositions",
+      "Nature > Découverte"
+    ],
+    "new_cats": [
+      "Culture > Expositions",
+      "Culture > Photographie",
+      "Nature & Famille"
+    ]
+  },
+  {
+    "id": 609,
+    "title": "Fête de la Saint-Jean Visperterminen",
+    "old_cats": [
+      "Food & Drinks > Dégustations",
+      "Traditions > Fêtes Locales"
+    ],
+    "new_cats": [
+      "Gastronomie > Dégustation",
+      "Tradition & Folklore"
+    ]
+  },
+  {
+    "id": 602,
+    "title": "Festi'Brass Sierre",
+    "old_cats": [
+      "Music > Pop / Variété",
+      "Festivals"
+    ],
+    "new_cats": [
+      "Culture > Festival",
+      "Music > Concert"
+    ]
+  },
+  {
+    "id": 603,
+    "title": "Marché bio Sion Planta",
+    "old_cats": [
+      "Culture > Expositions",
+      "Traditions > Fêtes Locales"
+    ],
+    "new_cats": [
+      "Marché"
+    ]
+  },
+  {
+    "id": 604,
+    "title": "Carnaval de Saillon",
+    "old_cats": [
+      "Traditions > Fêtes Locales"
+    ],
+    "new_cats": [
+      "Culture > Festival",
+      "Culture > Patrimoine",
+      "Tradition & Folklore"
+    ]
+  },
+  {
+    "id": 594,
+    "title": "Tour des Stations vélo",
+    "old_cats": [
+      "Sport > VTT & Vélo"
+    ],
+    "new_cats": [
+      "Sport > Terrestre"
+    ]
+  },
+  {
+    "id": 611,
+    "title": "Cross du Rawyl Crans-Montana",
+    "old_cats": [
+      "Sport > Terrestre",
+      "Nature > Découverte"
+    ],
+    "new_cats": [
+      "Nature & Famille",
+      "Sport > Terrestre"
+    ]
+  },
+  {
+    "id": 614,
+    "title": "Festival Court Métrage Sierre",
+    "old_cats": [
+      "Culture > Cinéma & Projections",
+      "Festivals"
+    ],
+    "new_cats": [
+      "Culture > Cinéma",
+      "Culture > Festival"
+    ]
+  },
+  {
+    "id": 613,
+    "title": "Corso fleuri Monthey",
+    "old_cats": [
+      "Arts Vivants > Théâtre",
+      "Traditions > Fêtes Locales"
+    ],
+    "new_cats": [
+      "Culture > Théâtre"
+    ]
+  },
+  {
+    "id": 617,
+    "title": "Nuit du Slam Sion",
+    "old_cats": [
+      "Culture > Conférences & Rencontres"
+    ],
+    "new_cats": [
+      "Culture > Littérature"
+    ]
+  },
+  {
+    "id": 622,
+    "title": "Fête de l'Edelweiss Zermatt",
+    "old_cats": [
+      "Sport > Terrestre",
+      "Nature > Découverte"
+    ],
+    "new_cats": [
+      "Culture > Festival",
+      "Nature & Famille",
+      "Sport > Terrestre"
+    ]
+  },
+  {
+    "id": 615,
+    "title": "Marché artisanal Crans-Montana",
+    "old_cats": [
+      "Culture > Expositions",
+      "Food & Drinks > Dégustations",
+      "Traditions > Fêtes Locales"
+    ],
+    "new_cats": [
+      "Marché"
+    ]
+  },
+  {
+    "id": 596,
+    "title": "Spectacle son et lumière Valère",
+    "old_cats": [
+      "Culture > Cinéma & Projections",
+      "Arts Vivants > Théâtre"
+    ],
+    "new_cats": [
+      "Culture > Cinéma",
+      "Culture > Patrimoine",
+      "Culture > Théâtre"
+    ]
+  },
+  {
+    "id": 600,
+    "title": "Festival du Film Alpin des Diablerets Valais",
+    "old_cats": [
+      "Culture > Cinéma & Projections",
+      "Festivals"
+    ],
+    "new_cats": [
+      "Culture > Cinéma",
+      "Culture > Festival"
+    ]
+  },
+  {
+    "id": 605,
+    "title": "Fête de la Raclette Sierre",
+    "old_cats": [
+      "Food & Drinks > Dégustations",
+      "Food & Drinks > Restauration"
+    ],
+    "new_cats": [
+      "Gastronomie > Dégustation",
+      "Gastronomie > Raclette / Fondue"
+    ]
+  },
+  {
+    "id": 606,
+    "title": "Boulder Festival Martigny",
+    "old_cats": [
+      "Culture > Expositions",
+      "Sport > Terrestre",
+      "Festivals"
+    ],
+    "new_cats": [
+      "Culture > Festival",
+      "Sport > Terrestre"
+    ]
+  },
+  {
+    "id": 607,
+    "title": "Nuit des caves ouvertes Valais",
+    "old_cats": [
+      "Food & Drinks > Dégustations"
+    ],
+    "new_cats": [
+      "Gastronomie > Dégustation"
+    ]
+  },
+  {
+    "id": 608,
+    "title": "Festival de Terre Sainte Vétroz",
+    "old_cats": [
+      "Food & Drinks > Dégustations",
+      "Festivals"
+    ],
+    "new_cats": [
+      "Culture > Festival",
+      "Gastronomie > Dégustation"
+    ]
+  },
+  {
+    "id": 623,
+    "title": "Journée des abeilles Nax",
+    "old_cats": [
+      "Food & Drinks > Dégustations",
+      "Nature > Découverte"
+    ],
+    "new_cats": [
+      "Gastronomie > Dégustation",
+      "Nature & Famille"
+    ]
+  },
+  {
+    "id": 610,
+    "title": "Festival Valais de la BD Sierre",
+    "old_cats": [
+      "Culture > Expositions",
+      "Culture > Conférences & Rencontres",
+      "Culture > Workshops"
+    ],
+    "new_cats": [
+      "Culture > Atelier",
+      "Culture > Festival",
+      "Culture > Littérature"
+    ]
+  },
+  {
+    "id": 616,
+    "title": "Trail du Mont-Noble Nax",
+    "old_cats": [
+      "Culture > Expositions",
+      "Sport > Terrestre"
+    ],
+    "new_cats": [
+      "Sport > Terrestre"
+    ]
+  },
+  {
+    "id": 612,
+    "title": "Fête des guides Zermatt",
+    "old_cats": [
+      "Traditions > Fêtes Locales"
+    ],
+    "new_cats": [
+      "Tradition & Folklore"
+    ]
+  },
+  {
+    "id": 598,
+    "title": "Yoga Retreat Leukerbad thermes",
+    "old_cats": [
+      "Sport > Terrestre"
+    ],
+    "new_cats": [
+      "Nature & Famille"
+    ]
+  },
+  {
+    "id": 570,
+    "title": "Nendaz Trail des Bisses",
+    "old_cats": [
+      "Sport > Terrestre"
+    ],
+    "new_cats": [
+      "Culture > Patrimoine",
+      "Sport > Terrestre"
+    ]
+  },
+  {
+    "id": 576,
+    "title": "Festival Rives du Rhône Sion",
+    "old_cats": [
+      "Music > Pop / Variété",
+      "Festivals"
+    ],
+    "new_cats": [
+      "Culture > Festival",
+      "Music > Concert"
+    ]
+  },
+  {
+    "id": 573,
+    "title": "Fête de la musique Sion",
+    "old_cats": [
+      "Music > Jazz / Soul / Funk",
+      "Music > Rock / Metal > Rock",
+      "Music > Classique > Formes"
+    ],
+    "new_cats": [
+      "Music > Concert",
+      "Music > Jazz / Blues"
+    ]
+  },
+  {
+    "id": 572,
+    "title": "Course pédestre Saillon-Ovronnaz",
+    "old_cats": [
+      "Culture > Expositions"
+    ],
+    "new_cats": [
+      "Sport > Terrestre"
+    ]
+  },
+  {
+    "id": 579,
+    "title": "Festival de l'Orgue ancien Valère",
+    "old_cats": [
+      "Music > Classique > Formes",
+      "Music > Pop / Variété",
+      "Festivals"
+    ],
+    "new_cats": [
+      "Culture > Festival",
+      "Culture > Patrimoine",
+      "Music > Classique",
+      "Music > Concert"
+    ]
+  },
+  {
+    "id": 558,
+    "title": "Marché de l'abricot Saxon",
+    "old_cats": [
+      "Food & Drinks > Dégustations"
+    ],
+    "new_cats": [
+      "Gastronomie > Dégustation",
+      "Marché"
+    ]
+  },
+  {
+    "id": 583,
+    "title": "Observation des bouquetins Derborence",
+    "old_cats": [
+      "Nature > Découverte"
+    ],
+    "new_cats": [
+      "Nature & Famille"
+    ]
+  },
+  {
+    "id": 584,
+    "title": "Fête des familles Zermatt",
+    "old_cats": [
+      "Food & Drinks > Dégustations",
+      "Famille > Activités"
+    ],
+    "new_cats": [
+      "Nature & Famille"
+    ]
+  },
+  {
+    "id": 590,
+    "title": "Festival des 5 sens Saillon",
+    "old_cats": [
+      "Culture > Workshops",
+      "Arts Vivants > Théâtre",
+      "Food & Drinks > Dégustations"
+    ],
+    "new_cats": [
+      "Culture > Atelier",
+      "Culture > Festival",
+      "Culture > Théâtre",
+      "Gastronomie > Dégustation"
+    ]
+  },
+  {
+    "id": 591,
+    "title": "Balade botanique Zermatt",
+    "old_cats": [
+      "Food & Drinks > Dégustations",
+      "Nature > Découverte"
+    ],
+    "new_cats": [
+      "Nature & Famille"
+    ]
+  },
+  {
+    "id": 592,
+    "title": "Clean-Up Day Valais",
+    "old_cats": [
+      "Nature > Découverte"
+    ],
+    "new_cats": [
+      "Nature & Famille"
+    ]
+  },
+  {
+    "id": 575,
+    "title": "Journées du patrimoine Valais",
+    "old_cats": [
+      "Nature > Découverte"
+    ],
+    "new_cats": [
+      "Culture > Patrimoine"
+    ]
+  },
+  {
+    "id": 577,
+    "title": "Théâtre en Plein Air Martigny",
+    "old_cats": [
+      "Culture > Expositions",
+      "Arts Vivants > Théâtre"
+    ],
+    "new_cats": [
+      "Culture > Patrimoine",
+      "Culture > Théâtre",
+      "Nature & Famille"
+    ]
+  },
+  {
+    "id": 578,
+    "title": "Open Air Cinéma Sion",
+    "old_cats": [
+      "Culture > Cinéma & Projections",
+      "Festivals"
+    ],
+    "new_cats": [
+      "Culture > Cinéma",
+      "Culture > Patrimoine",
+      "Nature & Famille"
+    ]
+  },
+  {
+    "id": 580,
+    "title": "Semaine du Goût Valais",
+    "old_cats": [
+      "Culture > Workshops",
+      "Food & Drinks > Dégustations"
+    ],
+    "new_cats": [
+      "Culture > Atelier",
+      "Gastronomie > Cuisine",
+      "Gastronomie > Dégustation"
+    ]
+  },
+  {
+    "id": 581,
+    "title": "Salon des vins naturels Sion",
+    "old_cats": [
+      "Food & Drinks > Dégustations",
+      "Nature > Découverte"
+    ],
+    "new_cats": [
+      "Gastronomie > Dégustation",
+      "Nature & Famille"
+    ]
+  },
+  {
+    "id": 585,
+    "title": "Journée portes ouvertes Alpages Valais",
+    "old_cats": [
+      "Food & Drinks > Dégustations",
+      "Nature > Découverte"
+    ],
+    "new_cats": [
+      "Gastronomie > Raclette / Fondue",
+      "Nature & Famille"
+    ]
+  },
+  {
+    "id": 586,
+    "title": "Nuit des étoiles Ovronnaz",
+    "old_cats": [
+      "Arts Vivants > Théâtre",
+      "Nature > Découverte"
+    ],
+    "new_cats": [
+      "Culture > Littérature",
+      "Nature & Famille"
+    ]
+  },
+  {
+    "id": 555,
+    "title": "Marché printanier de Sion",
+    "old_cats": [
+      "Culture > Expositions",
+      "Traditions > Fêtes Locales"
+    ],
+    "new_cats": [
+      "Marché"
+    ]
+  },
+  {
+    "id": 559,
+    "title": "Marché médiéval Saillon",
+    "old_cats": [
+      "Culture > Expositions",
+      "Traditions > Fêtes Locales"
+    ],
+    "new_cats": [
+      "Marché"
+    ]
+  },
+  {
+    "id": 568,
+    "title": "Via Valais trail running",
+    "old_cats": [
+      "Culture > Expositions",
+      "Sport > Terrestre"
+    ],
+    "new_cats": [
+      "Culture > Patrimoine",
+      "Sport > Terrestre"
+    ]
+  },
+  {
+    "id": 574,
+    "title": "Nuits du conte Valais",
+    "old_cats": [
+      "Arts Vivants > Théâtre"
+    ],
+    "new_cats": [
+      "Culture > Littérature",
+      "Tradition & Folklore"
+    ]
+  },
+  {
+    "id": 587,
+    "title": "Chasse au trésor familiale Nendaz",
+    "old_cats": [
+      "Famille > Activités"
+    ],
+    "new_cats": [
+      "Culture > Patrimoine"
+    ]
+  },
+  {
+    "id": 571,
+    "title": "Crans-Montana Vertical Challenge",
+    "old_cats": [
+      "Culture > Expositions"
+    ],
+    "new_cats": [
+      "Sport > Terrestre"
+    ]
+  },
+  {
+    "id": 588,
+    "title": "Balade gourmande des bisses Savièse",
+    "old_cats": [
+      "Food & Drinks > Dégustations",
+      "Food & Drinks > Restauration"
+    ],
+    "new_cats": [
+      "Événement"
+    ]
+  },
+  {
+    "id": 589,
+    "title": "Via Ferrata festival Saillon",
+    "old_cats": [
+      "Sport > Terrestre",
+      "Festivals"
+    ],
+    "new_cats": [
+      "Culture > Festival",
+      "Sport > Terrestre"
+    ]
+  },
+  {
+    "id": 593,
+    "title": "Fête de la Transhumance Lötschental",
+    "old_cats": [
+      "Traditions > Fêtes Locales",
+      "Nature > Découverte"
+    ],
+    "new_cats": [
+      "Culture > Festival",
+      "Nature & Famille",
+      "Tradition & Folklore"
+    ]
+  },
+  {
+    "id": 556,
+    "title": "Fête des asperges Saxon",
+    "old_cats": [
+      "Food & Drinks > Dégustations",
+      "Food & Drinks > Restauration"
+    ],
+    "new_cats": [
+      "Gastronomie > Dégustation"
+    ]
+  },
+  {
+    "id": 557,
+    "title": "Fête du safran Mund",
+    "old_cats": [
+      "Food & Drinks > Dégustations"
+    ],
+    "new_cats": [
+      "Gastronomie > Dégustation"
+    ]
+  },
+  {
+    "id": 582,
+    "title": "Sierre Blues Festival",
+    "old_cats": [
+      "Music > Jazz / Soul / Funk",
+      "Festivals"
+    ],
+    "new_cats": [
+      "Culture > Festival",
+      "Music > Concert",
+      "Music > Jazz / Blues"
+    ]
+  },
+  {
+    "id": 560,
+    "title": "Foire aux cerises Brigue",
+    "old_cats": [
+      "Culture > Expositions",
+      "Food & Drinks > Dégustations"
+    ],
+    "new_cats": [
+      "Marché",
+      "Tradition & Folklore"
+    ]
+  },
+  {
+    "id": 561,
+    "title": "Marché nocturne Sierre",
+    "old_cats": [
+      "Culture > Expositions",
+      "Food & Drinks > Restauration",
+      "Traditions > Fêtes Locales"
+    ],
+    "new_cats": [
+      "Marché",
+      "Nature & Famille"
+    ]
+  },
+  {
+    "id": 562,
+    "title": "Brocante de Martigny",
+    "old_cats": [
+      "Culture > Expositions",
+      "Traditions > Fêtes Locales"
+    ],
+    "new_cats": [
+      "Marché"
+    ]
+  },
+  {
+    "id": 563,
+    "title": "Fête de la mi-été Evolène",
+    "old_cats": [
+      "Music > Folk / Acoustic",
+      "Arts Vivants > Danse"
+    ],
+    "new_cats": [
+      "Gastronomie > Cuisine",
+      "Music > Folk / Acoustic",
+      "Tradition & Folklore"
+    ]
+  },
+  {
+    "id": 564,
+    "title": "Marché de Noël Brig",
+    "old_cats": [
+      "Culture > Expositions",
+      "Food & Drinks > Restauration",
+      "Traditions > Fêtes Locales"
+    ],
+    "new_cats": [
+      "Culture > Patrimoine",
+      "Marché"
+    ]
+  },
+  {
+    "id": 519,
+    "title": "Les brumes de Manchester Monthey",
+    "old_cats": [
+      "Arts Vivants > Théâtre"
+    ],
+    "new_cats": [
+      "Événement"
+    ]
+  },
+  {
+    "id": 537,
+    "title": "Patrouille des Glaciers",
+    "old_cats": [
+      "Sport > Glisse"
+    ],
+    "new_cats": [
+      "Sport > Glisse",
+      "Sport > Terrestre"
+    ]
+  },
+  {
+    "id": 516,
+    "title": "33e Fête du Livre St-Pierre-de-Clages",
+    "old_cats": [
+      "Culture > Conférences & Rencontres"
+    ],
+    "new_cats": [
+      "Culture > Expositions",
+      "Culture > Littérature"
+    ]
+  },
+  {
+    "id": 553,
+    "title": "Aletsch Arena Trail",
+    "old_cats": [
+      "Sport > Terrestre"
+    ],
+    "new_cats": [
+      "Culture > Patrimoine",
+      "Sport > Terrestre"
+    ]
+  },
+  {
+    "id": 552,
+    "title": "Ernen Musikdorf Festival",
+    "old_cats": [
+      "Music > Classique > Formes",
+      "Music > Pop / Variété",
+      "Festivals"
+    ],
+    "new_cats": [
+      "Culture > Festival",
+      "Culture > Patrimoine",
+      "Music > Concert"
+    ]
+  },
+  {
+    "id": 550,
+    "title": "Ringkuhkampf Raron",
+    "old_cats": [
+      "Traditions > Fêtes Locales"
+    ],
+    "new_cats": [
+      "Tradition & Folklore"
+    ]
+  },
+  {
+    "id": 549,
+    "title": "Oberwalliser Weinfest Salgesch",
+    "old_cats": [
+      "Food & Drinks > Dégustations"
+    ],
+    "new_cats": [
+      "Culture > Festival",
+      "Gastronomie > Dégustation"
+    ]
+  },
+  {
+    "id": 548,
+    "title": "Internationales Literaturfestival Leukerbad",
+    "old_cats": [
+      "Culture > Conférences & Rencontres",
+      "Festivals"
+    ],
+    "new_cats": [
+      "Culture > Festival",
+      "Culture > Littérature"
+    ]
+  },
+  {
+    "id": 547,
+    "title": "Leukerbad Kultur Sommer",
+    "old_cats": [
+      "Culture > Expositions",
+      "Culture > Conférences & Rencontres",
+      "Festivals"
+    ],
+    "new_cats": [
+      "Culture > Festival",
+      "Culture > Littérature"
+    ]
+  },
+  {
+    "id": 546,
+    "title": "Concours international de Cor des Alpes Nendaz",
+    "old_cats": [
+      "Music > Folk / Acoustic"
+    ],
+    "new_cats": [
+      "Tradition & Folklore"
+    ]
+  },
+  {
+    "id": 544,
+    "title": "Braderie de Sierre",
+    "old_cats": [
+      "Traditions > Fêtes Locales"
+    ],
+    "new_cats": [
+      "Culture > Festival",
+      "Marché"
+    ]
+  },
+  {
+    "id": 543,
+    "title": "Hérens Bike Marathon",
+    "old_cats": [
+      "Sport > Terrestre",
+      "Sport > VTT & Vélo",
+      "Nature > Découverte"
+    ],
+    "new_cats": [
+      "Nature & Famille",
+      "Sport > Terrestre"
+    ]
+  },
+  {
+    "id": 538,
+    "title": "Verbier Festival musique classique",
+    "old_cats": [
+      "Music > Classique > Formes",
+      "Culture > Expositions",
+      "Festivals"
+    ],
+    "new_cats": [
+      "Culture > Festival",
+      "Music > Classique",
+      "Music > Concert"
+    ]
+  },
+  {
+    "id": 536,
+    "title": "Grand Raid BCVS",
+    "old_cats": [
+      "Sport > Terrestre",
+      "Sport > VTT & Vélo"
+    ],
+    "new_cats": [
+      "Sport > Terrestre"
+    ]
+  },
+  {
+    "id": 535,
+    "title": "Sierre-Zinal course",
+    "old_cats": [
+      "Culture > Expositions"
+    ],
+    "new_cats": [
+      "Sport > Terrestre"
+    ]
+  },
+  {
+    "id": 531,
+    "title": "Fête des vendanges Sierre",
+    "old_cats": [
+      "Food & Drinks > Dégustations"
+    ],
+    "new_cats": [
+      "Gastronomie > Dégustation"
+    ]
+  },
+  {
+    "id": 529,
+    "title": "Désalpe Chermignon",
+    "old_cats": [
+      "Culture > Expositions",
+      "Traditions > Fêtes Locales",
+      "Nature > Découverte"
+    ],
+    "new_cats": [
+      "Culture > Festival",
+      "Marché",
+      "Nature & Famille",
+      "Tradition & Folklore"
+    ]
+  },
+  {
+    "id": 527,
+    "title": "Combats de reines Martigny-Combe",
+    "old_cats": [
+      "Culture > Expositions"
+    ],
+    "new_cats": [
+      "Tradition & Folklore"
+    ]
+  },
+  {
+    "id": 525,
+    "title": "Valais Triathlon Festival",
+    "old_cats": [
+      "Sport > Terrestre",
+      "Sport > VTT & Vélo",
+      "Festivals"
+    ],
+    "new_cats": [
+      "Culture > Festival",
+      "Nature & Famille",
+      "Sport > Aquatique"
+    ]
+  },
+  {
+    "id": 523,
+    "title": "SLOWUP Valais 2026",
+    "old_cats": [
+      "Sport > Terrestre",
+      "Sport > VTT & Vélo"
+    ],
+    "new_cats": [
+      "Sport > Terrestre"
+    ]
+  },
+  {
+    "id": 514,
+    "title": "Festival Week-end au bord de l'eau",
+    "old_cats": [
+      "Festivals"
+    ],
+    "new_cats": [
+      "Culture > Festival"
+    ]
+  },
+  {
+    "id": 513,
+    "title": "Festival Maxi-Rires Champéry",
+    "old_cats": [
+      "Arts Vivants > Théâtre",
+      "Festivals"
+    ],
+    "new_cats": [
+      "Culture > Festival",
+      "Culture > Humour"
+    ]
+  },
+  {
+    "id": 511,
+    "title": "Planach' Festival 2026",
+    "old_cats": [
+      "Festivals"
+    ],
+    "new_cats": [
+      "Culture > Festival"
+    ]
+  },
+  {
+    "id": 512,
+    "title": "Attache ta tuque ! Le Québec à Conthey",
+    "old_cats": [
+      "Food & Drinks > Restauration",
+      "Nature > Découverte"
+    ],
+    "new_cats": [
+      "Music > Jazz / Blues",
+      "Nature & Famille",
+      "Tradition & Folklore"
+    ]
+  },
+  {
+    "id": 515,
+    "title": "Fête nationale Bal 1er août Chamoson",
+    "old_cats": [
+      "Culture > Expositions",
+      "Traditions > Fêtes Locales"
+    ],
+    "new_cats": [
+      "Tradition & Folklore"
+    ]
+  },
+  {
+    "id": 517,
+    "title": "Champéry Film Festival",
+    "old_cats": [
+      "Culture > Cinéma & Projections",
+      "Festivals"
+    ],
+    "new_cats": [
+      "Culture > Cinéma",
+      "Culture > Festival"
+    ]
+  },
+  {
+    "id": 520,
+    "title": "Sion sous les étoiles 2026 - Jour 1",
+    "old_cats": [
+      "Music > Pop / Variété"
+    ],
+    "new_cats": [
+      "Music > Concert",
+      "Nature & Famille"
+    ]
+  },
+  {
+    "id": 521,
+    "title": "Sion sous les étoiles 2026 - Jour 2",
+    "old_cats": [
+      "Music > Pop / Variété"
+    ],
+    "new_cats": [
+      "Nature & Famille"
+    ]
+  },
+  {
+    "id": 522,
+    "title": "Sion sous les étoiles 2026 - Jour 3",
+    "old_cats": [
+      "Music > Pop / Variété",
+      "Music > Rock / Metal > Rock"
+    ],
+    "new_cats": [
+      "Nature & Famille"
+    ]
+  },
+  {
+    "id": 526,
+    "title": "Foire du Valais Martigny",
+    "old_cats": [
+      "Music > Pop / Variété",
+      "Culture > Expositions",
+      "Food & Drinks > Dégustations"
+    ],
+    "new_cats": [
+      "Gastronomie > Dégustation",
+      "Music > Concert",
+      "Nature & Famille"
+    ]
+  },
+  {
+    "id": 528,
+    "title": "Inalpe Thyon",
+    "old_cats": [
+      "Traditions > Fêtes Locales",
+      "Nature > Découverte"
+    ],
+    "new_cats": [
+      "Nature & Famille",
+      "Tradition & Folklore"
+    ]
+  },
+  {
+    "id": 530,
+    "title": "Marché de la St-Martin Sion",
+    "old_cats": [
+      "Culture > Expositions",
+      "Food & Drinks > Dégustations",
+      "Traditions > Fêtes Locales"
+    ],
+    "new_cats": [
+      "Marché",
+      "Tradition & Folklore"
+    ]
+  },
+  {
+    "id": 532,
+    "title": "Carnaval de Monthey",
+    "old_cats": [
+      "Traditions > Fêtes Locales"
+    ],
+    "new_cats": [
+      "Culture > Festival",
+      "Tradition & Folklore"
+    ]
+  },
+  {
+    "id": 533,
+    "title": "Comptoir de Martigny",
+    "old_cats": [
+      "Culture > Expositions",
+      "Food & Drinks > Dégustations",
+      "Traditions > Fêtes Locales"
+    ],
+    "new_cats": [
+      "Gastronomie > Dégustation"
+    ]
+  },
+  {
+    "id": 540,
+    "title": "Fête-Dieu Savièse",
+    "old_cats": [
+      "Traditions > Fêtes Locales"
+    ],
+    "new_cats": [
+      "Tradition & Folklore"
+    ]
+  },
+  {
+    "id": 551,
+    "title": "Brig Simplon Festival",
+    "old_cats": [
+      "Music > Pop / Variété",
+      "Food & Drinks > Restauration",
+      "Festivals"
+    ],
+    "new_cats": [
+      "Culture > Festival",
+      "Culture > Patrimoine",
+      "Gastronomie > Cuisine",
+      "Music > Concert",
+      "Nature & Famille"
+    ]
+  },
+  {
+    "id": 554,
+    "title": "Stockalper Festival Brig",
+    "old_cats": [
+      "Music > Pop / Variété",
+      "Arts Vivants > Théâtre",
+      "Festivals"
+    ],
+    "new_cats": [
+      "Culture > Festival",
+      "Culture > Patrimoine",
+      "Culture > Théâtre",
+      "Music > Concert"
+    ]
+  },
+  {
+    "id": 542,
+    "title": "Festival Antigel Sion",
+    "old_cats": [
+      "Culture > Expositions",
+      "Arts Vivants > Théâtre",
+      "Arts Vivants > Danse"
+    ],
+    "new_cats": [
+      "Culture > Festival",
+      "Culture > Théâtre"
+    ]
+  },
+  {
+    "id": 541,
+    "title": "Marché des cépages rares Salquenen",
+    "old_cats": [
+      "Food & Drinks > Dégustations"
+    ],
+    "new_cats": [
+      "Gastronomie > Dégustation",
+      "Marché"
+    ]
+  },
+  {
+    "id": 539,
+    "title": "Alpentöne Festival Visp",
+    "old_cats": [
+      "Music > Jazz / Soul / Funk",
+      "Music > Folk / Acoustic",
+      "Festivals"
+    ],
+    "new_cats": [
+      "Culture > Festival",
+      "Music > Jazz / Blues",
+      "Tradition & Folklore"
+    ]
+  },
+  {
+    "id": 487,
+    "title": "Carnaval d'Ovronnaz",
+    "old_cats": [
+      "Arts Vivants > Théâtre",
+      "Traditions > Fêtes Locales"
+    ],
+    "new_cats": [
+      "Culture > Littérature",
+      "Tradition & Folklore"
+    ]
+  },
+  {
+    "id": 490,
+    "title": "Balade en raquettes Ovronnaz",
+    "old_cats": [
+      "Sport > Terrestre"
+    ],
+    "new_cats": [
+      "Sport > Glisse"
+    ]
+  },
+  {
+    "id": 493,
+    "title": "Soirée raclette à la Pension Ovronnaz",
+    "old_cats": [
+      "Food & Drinks > Restauration"
+    ],
+    "new_cats": [
+      "Gastronomie > Raclette / Fondue",
+      "Tradition & Folklore"
+    ]
+  },
+  {
+    "id": 510,
+    "title": "Open Air Gampel",
+    "old_cats": [
+      "Culture > Expositions",
+      "Festivals"
+    ],
+    "new_cats": [
+      "Culture > Festival"
+    ]
+  },
+  {
+    "id": 503,
+    "title": "PALP Festival Martigny",
+    "old_cats": [
+      "Music > Pop / Variété",
+      "Culture > Expositions",
+      "Arts Vivants > Théâtre"
+    ],
+    "new_cats": [
+      "Culture > Festival",
+      "Culture > Théâtre",
+      "Music > Concert"
+    ]
+  },
+  {
+    "id": 505,
+    "title": "Combat de reines Approz",
+    "old_cats": [
+      "Traditions > Fêtes Locales"
+    ],
+    "new_cats": [
+      "Tradition & Folklore"
+    ]
+  },
+  {
+    "id": 481,
+    "title": "L'art d'associer vins et fromages",
+    "old_cats": [
+      "Culture > Expositions",
+      "Food & Drinks > Dégustations"
+    ],
+    "new_cats": [
+      "Gastronomie > Dégustation",
+      "Gastronomie > Raclette / Fondue",
+      "Music > Electro / Techno"
+    ]
+  },
+  {
+    "id": 509,
+    "title": "Turtmanntal Trail Running",
+    "old_cats": [
+      "Sport > Terrestre",
+      "Nature > Découverte"
+    ],
+    "new_cats": [
+      "Nature & Famille",
+      "Sport > Terrestre"
+    ]
+  },
+  {
+    "id": 499,
+    "title": "Course Orientation raquettes",
+    "old_cats": [
+      "Sport > Terrestre"
+    ],
+    "new_cats": [
+      "Sport > Glisse",
+      "Sport > Terrestre"
+    ]
+  },
+  {
+    "id": 479,
+    "title": "Randonnaz le village disparu",
+    "old_cats": [
+      "Culture > Cinéma & Projections"
+    ],
+    "new_cats": [
+      "Culture > Cinéma",
+      "Sport > Terrestre"
+    ]
+  },
+  {
+    "id": 506,
+    "title": "Rallye du Valais",
+    "old_cats": [
+      "Culture > Expositions"
+    ],
+    "new_cats": [
+      "Événement"
+    ]
+  },
+  {
+    "id": 502,
+    "title": "54e Int. Gommerlauf Obergoms",
+    "old_cats": [
+      "Sport > Glisse"
+    ],
+    "new_cats": [
+      "Sport > Glisse",
+      "Tradition & Folklore"
+    ]
+  },
+  {
+    "id": 508,
+    "title": "Marché de Noël Montreux-Sion",
+    "old_cats": [
+      "Culture > Expositions",
+      "Food & Drinks > Dégustations",
+      "Traditions > Fêtes Locales"
+    ],
+    "new_cats": [
+      "Marché"
+    ]
+  },
+  {
+    "id": 504,
+    "title": "Fête nationale 1er août Sion",
+    "old_cats": [
+      "Culture > Expositions",
+      "Food & Drinks > Restauration",
+      "Famille > Activités"
+    ],
+    "new_cats": [
+      "Nature & Famille",
+      "Tradition & Folklore"
+    ]
+  },
+  {
+    "id": 507,
+    "title": "Fête de la Châtaigne Fully",
+    "old_cats": [
+      "Food & Drinks > Dégustations"
+    ],
+    "new_cats": [
+      "Gastronomie > Dégustation",
+      "Marché",
+      "Tradition & Folklore"
+    ]
+  },
+  {
+    "id": 495,
+    "title": "Contes et Compagnie Ovronnaz",
+    "old_cats": [
+      "Arts Vivants > Théâtre"
+    ],
+    "new_cats": [
+      "Culture > Littérature"
+    ]
+  },
+  {
+    "id": 498,
+    "title": "Conférence et dédicaces Ovronnaz",
+    "old_cats": [
+      "Culture > Conférences & Rencontres"
+    ],
+    "new_cats": [
+      "Culture > Conférence",
+      "Culture > Littérature",
+      "Music > Electro / Techno"
+    ]
+  },
+  {
+    "id": 500,
+    "title": "Sortie nature à Loutze",
+    "old_cats": [
+      "Nature > Découverte"
+    ],
+    "new_cats": [
+      "Nature & Famille"
+    ]
+  },
+  {
+    "id": 488,
+    "title": "Yoga sous la neige Ovronnaz",
+    "old_cats": [
+      "Sport > Terrestre",
+      "Nature > Découverte"
+    ],
+    "new_cats": [
+      "Nature & Famille"
+    ]
+  },
+  {
+    "id": 491,
+    "title": "Atelier Poterie Ovronnaz",
+    "old_cats": [
+      "Culture > Workshops"
+    ],
+    "new_cats": [
+      "Culture > Atelier"
+    ]
+  },
+  {
+    "id": 484,
+    "title": "Live Music Will Funk à La Pension",
+    "old_cats": [
+      "Music > Pop / Variété"
+    ],
+    "new_cats": [
+      "Music > Concert"
+    ]
+  },
+  {
+    "id": 486,
+    "title": "Balade gourmande d'hiver",
+    "old_cats": [
+      "Food & Drinks > Restauration"
+    ],
+    "new_cats": [
+      "Événement"
+    ]
+  },
+  {
+    "id": 480,
+    "title": "Nouvelliste en piste",
+    "old_cats": [
+      "Culture > Expositions"
+    ],
+    "new_cats": [
+      "Sport > Glisse"
+    ]
+  },
+  {
+    "id": 494,
+    "title": "Tournoi de Jass Ovronnaz",
+    "old_cats": [
+      "Culture > Expositions"
+    ],
+    "new_cats": [
+      "Événement"
+    ]
+  },
+  {
+    "id": 496,
+    "title": "Humagne en Piste Ovronnaz",
+    "old_cats": [
+      "Food & Drinks > Dégustations"
+    ],
+    "new_cats": [
+      "Gastronomie > Dégustation",
+      "Sport > Glisse"
+    ]
+  },
+  {
+    "id": 497,
+    "title": "Bliblablo NordixTrophy Ovronnaz",
+    "old_cats": [
+      "Culture > Expositions"
+    ],
+    "new_cats": [
+      "Sport > Glisse",
+      "Sport > Terrestre"
+    ]
+  },
+  {
+    "id": 454,
+    "title": "Good Morning Yoga Flow Zermatt",
+    "old_cats": [
+      "Sport > Terrestre"
+    ],
+    "new_cats": [
+      "Nature & Famille"
+    ]
+  },
+  {
+    "id": 465,
+    "title": "Jeu de piste animaux Val-d'Illiez",
+    "old_cats": [
+      "Culture > Expositions",
+      "Famille > Activités",
+      "Nature > Découverte"
+    ],
+    "new_cats": [
+      "Nature & Famille",
+      "Sport > Glisse"
+    ]
+  },
+  {
+    "id": 447,
+    "title": "Am Stram Gram Festival Crans-Montana",
+    "old_cats": [
+      "Famille > Activités",
+      "Festivals"
+    ],
+    "new_cats": [
+      "Culture > Festival"
+    ]
+  },
+  {
+    "id": 453,
+    "title": "Fondue Gondola Experience Zermatt",
+    "old_cats": [
+      "Food & Drinks > Restauration"
+    ],
+    "new_cats": [
+      "Gastronomie > Raclette / Fondue"
+    ]
+  },
+  {
+    "id": 449,
+    "title": "Wildstrubel by UTMB",
+    "old_cats": [
+      "Culture > Expositions"
+    ],
+    "new_cats": [
+      "Événement"
+    ]
+  },
+  {
+    "id": 448,
+    "title": "Omega European Masters Golf",
+    "old_cats": [
+      "Sport > Golf"
+    ],
+    "new_cats": [
+      "Événement"
+    ]
+  },
+  {
+    "id": 446,
+    "title": "Sortie à Loutze - Traces hivernales",
+    "old_cats": [
+      "Culture > Workshops",
+      "Nature > Découverte"
+    ],
+    "new_cats": [
+      "Événement"
+    ]
+  },
+  {
+    "id": 470,
+    "title": "La poésie de Friedrich Dürrenmatt Martigny",
+    "old_cats": [
+      "Culture > Expositions"
+    ],
+    "new_cats": [
+      "Culture > Littérature"
+    ]
+  },
+  {
+    "id": 473,
+    "title": "nVIDIA Deep Learning Course HES-SO",
+    "old_cats": [
+      "Culture > Expositions"
+    ],
+    "new_cats": [
+      "Événement"
+    ]
+  },
+  {
+    "id": 477,
+    "title": "La famille - Théâtre St-Maurice",
+    "old_cats": [
+      "Culture > Expositions",
+      "Arts Vivants > Théâtre",
+      "Famille > Activités"
+    ],
+    "new_cats": [
+      "Culture > Théâtre",
+      "Nature & Famille"
+    ]
+  },
+  {
+    "id": 476,
+    "title": "Un ange passe - Théâtre du Dé",
+    "old_cats": [
+      "Arts Vivants > Théâtre"
+    ],
+    "new_cats": [
+      "Culture > Théâtre"
+    ]
+  },
+  {
+    "id": 475,
+    "title": "Merci pour le couteau à poisson - Humour",
+    "old_cats": [
+      "Arts Vivants > Théâtre"
+    ],
+    "new_cats": [
+      "Culture > Humour"
+    ]
+  },
+  {
+    "id": 472,
+    "title": "Les pétales de Marguerite / VASSILISSA",
+    "old_cats": [
+      "Culture > Expositions"
+    ],
+    "new_cats": [
+      "Événement"
+    ]
+  },
+  {
+    "id": 471,
+    "title": "ÇTEECI PE ÇTULI Contes du crû",
+    "old_cats": [
+      "Arts Vivants > Théâtre"
+    ],
+    "new_cats": [
+      "Culture > Littérature"
+    ]
+  },
+  {
+    "id": 469,
+    "title": "La Panne - Spectacle Martigny",
+    "old_cats": [
+      "Culture > Expositions",
+      "Arts Vivants > Théâtre"
+    ],
+    "new_cats": [
+      "Culture > Théâtre"
+    ]
+  },
+  {
+    "id": 462,
+    "title": "Confection savons naturels Val-d'Illiez",
+    "old_cats": [
+      "Culture > Workshops",
+      "Nature > Découverte"
+    ],
+    "new_cats": [
+      "Nature & Famille"
+    ]
+  },
+  {
+    "id": 468,
+    "title": "Stage photo Nocturne Val-d'Illiez",
+    "old_cats": [
+      "Culture > Expositions",
+      "Culture > Workshops",
+      "Sport > Terrestre"
+    ],
+    "new_cats": [
+      "Culture > Expositions",
+      "Culture > Photographie",
+      "Sport > Glisse"
+    ]
+  },
+  {
+    "id": 450,
+    "title": "Switzerland Travel Mart Luxury Edition",
+    "old_cats": [
+      "Culture > Expositions"
+    ],
+    "new_cats": [
+      "Événement"
+    ]
+  },
+  {
+    "id": 451,
+    "title": "Zermatt Unplugged 2026",
+    "old_cats": [
+      "Festivals"
+    ],
+    "new_cats": [
+      "Événement"
+    ]
+  },
+  {
+    "id": 452,
+    "title": "Floating Sculptures AR Trail Zermatt",
+    "old_cats": [
+      "Culture > Expositions",
+      "Sport > Terrestre"
+    ],
+    "new_cats": [
+      "Sport > Terrestre"
+    ]
+  },
+  {
+    "id": 466,
+    "title": "Les vertus de nos forêts Morgins",
+    "old_cats": [
+      "Nature > Découverte"
+    ],
+    "new_cats": [
+      "Événement"
+    ]
+  },
+  {
+    "id": 464,
+    "title": "Stage photos Maîtrise appareil Morgins",
+    "old_cats": [
+      "Culture > Workshops"
+    ],
+    "new_cats": [
+      "Culture > Atelier",
+      "Culture > Photographie"
+    ]
+  },
+  {
+    "id": 461,
+    "title": "De la vigne au verre Troistorrents",
+    "old_cats": [
+      "Culture > Expositions"
+    ],
+    "new_cats": [
+      "Événement"
+    ]
+  },
+  {
+    "id": 478,
+    "title": "FestiVal d'Anniviers 2026",
+    "old_cats": [
+      "Festivals"
+    ],
+    "new_cats": [
+      "Culture > Festival"
+    ]
+  },
+  {
+    "id": 459,
+    "title": "Snow Yoga & Brunch raquettes Val-d'Illiez",
+    "old_cats": [
+      "Food & Drinks > Restauration",
+      "Sport > Terrestre"
+    ],
+    "new_cats": [
+      "Nature & Famille",
+      "Sport > Glisse"
+    ]
+  },
+  {
+    "id": 460,
+    "title": "Snow Yoga & Brunch raquettes Morgins",
+    "old_cats": [
+      "Food & Drinks > Restauration",
+      "Sport > Terrestre",
+      "Nature > Découverte"
+    ],
+    "new_cats": [
+      "Nature & Famille",
+      "Sport > Glisse"
+    ]
+  },
+  {
+    "id": 463,
+    "title": "Rivella Speed Day Troistorrents",
+    "old_cats": [
+      "Sport > Glisse"
+    ],
+    "new_cats": [
+      "Événement"
+    ]
+  },
+  {
+    "id": 467,
+    "title": "Initiation ski randonnée Col de Cou Champéry",
+    "old_cats": [
+      "Sport > Terrestre"
+    ],
+    "new_cats": [
+      "Sport > Glisse",
+      "Sport > Terrestre"
+    ]
+  },
+  {
+    "id": 474,
+    "title": "Vol & Ski Anzère 2026",
+    "old_cats": [
+      "Culture > Workshops",
+      "Sport > Aérien"
+    ],
+    "new_cats": [
+      "Sport > Glisse"
+    ]
+  },
+  {
+    "id": 458,
+    "title": "Randonnée-raquettes Pointe de l'Au Morgins",
+    "old_cats": [
+      "Sport > Terrestre"
+    ],
+    "new_cats": [
+      "Sport > Glisse",
+      "Sport > Terrestre"
+    ]
+  },
+  {
+    "id": 457,
+    "title": "Spectacle Acrobates fous Champéry",
+    "old_cats": [
+      "Culture > Expositions",
+      "Arts Vivants > Théâtre",
+      "Famille > Activités"
+    ],
+    "new_cats": [
+      "Culture > Humour",
+      "Culture > Théâtre",
+      "Nature & Famille"
+    ]
+  },
+  {
+    "id": 456,
+    "title": "Live Concert Alena Mae Zermatt",
+    "old_cats": [
+      "Music > Pop / Variété",
+      "Culture > Workshops"
+    ],
+    "new_cats": [
+      "Music > Concert"
+    ]
+  },
+  {
+    "id": 455,
+    "title": "Guided Village Tour Zermatt",
+    "old_cats": [
+      "Culture > Expositions"
+    ],
+    "new_cats": [
+      "Événement"
+    ]
+  },
+  {
+    "id": 411,
+    "title": "Festival Int. Cor des Alpes",
+    "old_cats": [
+      "Music > Folk / Acoustic",
+      "Culture > Workshops",
+      "Festivals"
+    ],
+    "new_cats": [
+      "Culture > Festival",
+      "Tradition & Folklore"
+    ]
+  },
+  {
+    "id": 409,
+    "title": "Venez jouer du cor des Alpes",
+    "old_cats": [
+      "Music > Folk / Acoustic",
+      "Culture > Expositions"
+    ],
+    "new_cats": [
+      "Culture > Patrimoine",
+      "Tradition & Folklore"
+    ]
+  },
+  {
+    "id": 408,
+    "title": "Nuit de la randonnée",
+    "old_cats": [
+      "Sport > Terrestre"
+    ],
+    "new_cats": [
+      "Nature & Famille",
+      "Sport > Terrestre"
+    ]
+  },
+  {
+    "id": 413,
+    "title": "La vie à l'étable",
+    "old_cats": [
+      "Culture > Expositions"
+    ],
+    "new_cats": [
+      "Nature & Famille"
+    ]
+  },
+  {
+    "id": 424,
+    "title": "Mon jour de chance",
+    "old_cats": [
+      "Culture > Expositions",
+      "Arts Vivants > Théâtre"
+    ],
+    "new_cats": [
+      "Culture > Théâtre"
+    ]
+  },
+  {
+    "id": 392,
+    "title": "Grand Prix Migros",
+    "old_cats": [
+      "Culture > Expositions"
+    ],
+    "new_cats": [
+      "Sport > Glisse"
+    ]
+  },
+  {
+    "id": 430,
+    "title": "PHANEE DE POOL entre ciel et scène",
+    "old_cats": [
+      "Music > Pop / Variété",
+      "Culture > Conférences & Rencontres",
+      "Arts Vivants > Théâtre"
+    ],
+    "new_cats": [
+      "Culture > Littérature",
+      "Culture > Théâtre",
+      "Music > Folk / Acoustic",
+      "Nature & Famille"
+    ]
+  },
+  {
+    "id": 393,
+    "title": "Raquettes et raclette",
+    "old_cats": [
+      "Food & Drinks > Restauration",
+      "Sport > Terrestre",
+      "Nature > Découverte"
+    ],
+    "new_cats": [
+      "Gastronomie > Raclette / Fondue",
+      "Nature & Famille",
+      "Sport > Glisse"
+    ]
+  },
+  {
+    "id": 394,
+    "title": "Ski de randonnée nocturne",
+    "old_cats": [
+      "Sport > Terrestre"
+    ],
+    "new_cats": [
+      "Sport > Glisse",
+      "Sport > Terrestre"
+    ]
+  },
+  {
+    "id": 395,
+    "title": "Full Moon Party Nendaz",
+    "old_cats": [
+      "Culture > Expositions",
+      "Food & Drinks > Restauration"
+    ],
+    "new_cats": [
+      "Music > Electro / Techno",
+      "Nature & Famille",
+      "Sport > Glisse"
+    ]
+  },
+  {
+    "id": 427,
+    "title": "Finale Nationale Race d'Hérens",
+    "old_cats": [
+      "Culture > Expositions"
+    ],
+    "new_cats": [
+      "Événement"
+    ]
+  },
+  {
+    "id": 433,
+    "title": "Au bout de la laisse - Cie Alsand",
+    "old_cats": [
+      "Culture > Workshops"
+    ],
+    "new_cats": [
+      "Événement"
+    ]
+  },
+  {
+    "id": 435,
+    "title": "Louis Jucker / Kevin Galland",
+    "old_cats": [
+      "Culture > Expositions",
+      "Food & Drinks > Dégustations"
+    ],
+    "new_cats": [
+      "Événement"
+    ]
+  },
+  {
+    "id": 436,
+    "title": "Andrina Bollinger",
+    "old_cats": [
+      "Culture > Expositions"
+    ],
+    "new_cats": [
+      "Événement"
+    ]
+  },
+  {
+    "id": 437,
+    "title": "Valentin Liechti Trio",
+    "old_cats": [
+      "Culture > Expositions"
+    ],
+    "new_cats": [
+      "Événement"
+    ]
+  },
+  {
+    "id": 442,
+    "title": "Le Soir des Lions",
+    "old_cats": [
+      "Culture > Expositions",
+      "Arts Vivants > Théâtre"
+    ],
+    "new_cats": [
+      "Culture > Littérature"
+    ]
+  },
+  {
+    "id": 439,
+    "title": "Cash-Cash!",
+    "old_cats": [
+      "Arts Vivants > Théâtre"
+    ],
+    "new_cats": [
+      "Événement"
+    ]
+  },
+  {
+    "id": 432,
+    "title": "Atelier Boissons fermentées",
+    "old_cats": [
+      "Culture > Workshops"
+    ],
+    "new_cats": [
+      "Culture > Atelier",
+      "Culture > Patrimoine",
+      "Gastronomie > Dégustation"
+    ]
+  },
+  {
+    "id": 396,
+    "title": "Stage initiation cor des Alpes",
+    "old_cats": [
+      "Music > Folk / Acoustic"
+    ],
+    "new_cats": [
+      "Tradition & Folklore"
+    ]
+  },
+  {
+    "id": 398,
+    "title": "Pâques en folie à Nendaz",
+    "old_cats": [
+      "Famille > Activités"
+    ],
+    "new_cats": [
+      "Marché",
+      "Tradition & Folklore"
+    ]
+  },
+  {
+    "id": 400,
+    "title": "Conférence Nos fourmis",
+    "old_cats": [
+      "Music > Electro",
+      "Culture > Conférences & Rencontres"
+    ],
+    "new_cats": [
+      "Culture > Conférence",
+      "Culture > Humour",
+      "Music > Electro / Techno",
+      "Sport > Aquatique"
+    ]
+  },
+  {
+    "id": 402,
+    "title": "Atelier planification de randonnée",
+    "old_cats": [
+      "Culture > Expositions",
+      "Culture > Workshops",
+      "Sport > Terrestre"
+    ],
+    "new_cats": [
+      "Culture > Littérature",
+      "Sport > Terrestre"
+    ]
+  },
+  {
+    "id": 410,
+    "title": "La vie sur l'alpage",
+    "old_cats": [
+      "Culture > Expositions",
+      "Food & Drinks > Dégustations",
+      "Food & Drinks > Restauration"
+    ],
+    "new_cats": [
+      "Gastronomie > Raclette / Fondue",
+      "Nature & Famille",
+      "Tradition & Folklore"
+    ]
+  },
+  {
+    "id": 416,
+    "title": "Calogero - Un soir dans les théâtres",
+    "old_cats": [
+      "Music > Pop / Variété",
+      "Culture > Expositions",
+      "Arts Vivants > Théâtre"
+    ],
+    "new_cats": [
+      "Culture > Théâtre"
+    ]
+  },
+  {
+    "id": 421,
+    "title": "Les trois petites louves",
+    "old_cats": [
+      "Culture > Expositions"
+    ],
+    "new_cats": [
+      "Culture > Patrimoine"
+    ]
+  },
+  {
+    "id": 412,
+    "title": "Raclette à l'étable",
+    "old_cats": [
+      "Food & Drinks > Restauration"
+    ],
+    "new_cats": [
+      "Gastronomie > Raclette / Fondue",
+      "Nature & Famille"
+    ]
+  },
+  {
+    "id": 426,
+    "title": "Tavolata Parc naturel Pfyn-Finges",
+    "old_cats": [
+      "Culture > Expositions",
+      "Food & Drinks > Restauration",
+      "Nature > Découverte"
+    ],
+    "new_cats": [
+      "Gastronomie > Dégustation",
+      "Nature & Famille"
+    ]
+  },
+  {
+    "id": 428,
+    "title": "Oesch's die Dritten",
+    "old_cats": [
+      "Music > Folk / Acoustic",
+      "Music > Pop / Variété",
+      "Food & Drinks > Restauration"
+    ],
+    "new_cats": [
+      "Music > Concert"
+    ]
+  },
+  {
+    "id": 440,
+    "title": "Bénabar",
+    "old_cats": [
+      "Music > Pop / Variété",
+      "Culture > Expositions",
+      "Arts Vivants > Théâtre"
+    ],
+    "new_cats": [
+      "Culture > Théâtre"
+    ]
+  },
+  {
+    "id": 438,
+    "title": "Raclette du Valais AOP avec Eddy Baillifard",
+    "old_cats": [
+      "Food & Drinks > Restauration"
+    ],
+    "new_cats": [
+      "Culture > Patrimoine",
+      "Gastronomie > Raclette / Fondue"
+    ]
+  },
+  {
+    "id": 434,
+    "title": "Guinness Irish Festival 2026",
+    "old_cats": [
+      "Festivals"
+    ],
+    "new_cats": [
+      "Culture > Festival",
+      "Tradition & Folklore"
+    ]
+  },
+  {
+    "id": 407,
+    "title": "Clean-Up Tour Siviez",
+    "old_cats": [
+      "Nature > Découverte"
+    ],
+    "new_cats": [
+      "Nature & Famille"
+    ]
+  },
+  {
+    "id": 391,
+    "title": "Les Folies de Tortin",
+    "old_cats": [
+      "Music > Pop / Variété",
+      "Festivals"
+    ],
+    "new_cats": [
+      "Culture > Festival",
+      "Music > Concert"
+    ]
+  },
+  {
+    "id": 397,
+    "title": "Girls Powder",
+    "old_cats": [
+      "Culture > Expositions"
+    ],
+    "new_cats": [
+      "Sport > Glisse"
+    ]
+  },
+  {
+    "id": 399,
+    "title": "Spectacle Les Prototypes de Geppetto",
+    "old_cats": [
+      "Arts Vivants > Théâtre"
+    ],
+    "new_cats": [
+      "Culture > Théâtre"
+    ]
+  },
+  {
+    "id": 401,
+    "title": "Spectacle Les 4 sans voix",
+    "old_cats": [
+      "Arts Vivants > Théâtre"
+    ],
+    "new_cats": [
+      "Culture > Humour",
+      "Culture > Théâtre"
+    ]
+  },
+  {
+    "id": 403,
+    "title": "Le réveil des marmottes",
+    "old_cats": [
+      "Famille > Activités"
+    ],
+    "new_cats": [
+      "Nature & Famille"
+    ]
+  },
+  {
+    "id": 404,
+    "title": "Leur chant d'automne",
+    "old_cats": [
+      "Arts Vivants > Théâtre"
+    ],
+    "new_cats": [
+      "Culture > Patrimoine",
+      "Culture > Théâtre"
+    ]
+  },
+  {
+    "id": 418,
+    "title": "Sauces et condiments végétaux",
+    "old_cats": [
+      "Culture > Expositions",
+      "Culture > Workshops"
+    ],
+    "new_cats": [
+      "Culture > Atelier",
+      "Gastronomie > Cuisine"
+    ]
+  },
+  {
+    "id": 414,
+    "title": "Ice disco Nendaz",
+    "old_cats": [
+      "Culture > Expositions"
+    ],
+    "new_cats": [
+      "Music > Electro / Techno"
+    ]
+  },
+  {
+    "id": 445,
+    "title": "Nous ne sommes qu'en surface",
+    "old_cats": [
+      "Culture > Expositions"
+    ],
+    "new_cats": [
+      "Sport > Aquatique"
+    ]
+  },
+  {
+    "id": 444,
+    "title": "Tangram - PAN ! La compagnie",
+    "old_cats": [
+      "Culture > Workshops"
+    ],
+    "new_cats": [
+      "Événement"
+    ]
+  },
+  {
+    "id": 443,
+    "title": "Zone avec de la boue",
+    "old_cats": [
+      "Culture > Expositions"
+    ],
+    "new_cats": [
+      "Culture > Expositions",
+      "Culture > Humour"
+    ]
+  },
+  {
+    "id": 441,
+    "title": "Haroun Bonjour quand même",
+    "old_cats": [
+      "Culture > Expositions",
+      "Arts Vivants > Théâtre"
+    ],
+    "new_cats": [
+      "Culture > Humour",
+      "Culture > Théâtre"
+    ]
+  },
+  {
+    "id": 405,
+    "title": "Visite guidée vieux village",
+    "old_cats": [
+      "Culture > Expositions",
+      "Nature > Découverte"
+    ],
+    "new_cats": [
+      "Culture > Patrimoine"
+    ]
+  },
+  {
+    "id": 406,
+    "title": "Visite du barrage de Cleuson",
+    "old_cats": [
+      "Nature > Découverte"
+    ],
+    "new_cats": [
+      "Événement"
+    ]
+  },
+  {
+    "id": 419,
+    "title": "Les cuissons du végétal",
+    "old_cats": [
+      "Culture > Workshops"
+    ],
+    "new_cats": [
+      "Culture > Atelier",
+      "Gastronomie > Cuisine"
+    ]
+  },
+  {
+    "id": 420,
+    "title": "La couleur des émotions",
+    "old_cats": [
+      "Arts Vivants > Théâtre"
+    ],
+    "new_cats": [
+      "Culture > Théâtre"
+    ]
+  },
+  {
+    "id": 422,
+    "title": "Souper de soutien du FC Saillon",
+    "old_cats": [
+      "Culture > Workshops",
+      "Food & Drinks > Restauration"
+    ],
+    "new_cats": [
+      "Événement"
+    ]
+  },
+  {
+    "id": 423,
+    "title": "Atelier Accords vins et fromages valaisans",
+    "old_cats": [
+      "Culture > Workshops",
+      "Food & Drinks > Dégustations"
+    ],
+    "new_cats": [
+      "Culture > Atelier",
+      "Culture > Patrimoine",
+      "Gastronomie > Dégustation"
+    ]
+  },
+  {
+    "id": 431,
+    "title": "Sylvie Bourban entre ciel et scène",
+    "old_cats": [
+      "Culture > Expositions"
+    ],
+    "new_cats": [
+      "Événement"
+    ]
+  },
+  {
+    "id": 429,
+    "title": "Atelier Initiation dégustation vins valaisans",
+    "old_cats": [
+      "Culture > Workshops",
+      "Food & Drinks > Dégustations"
+    ],
+    "new_cats": [
+      "Culture > Atelier",
+      "Culture > Patrimoine",
+      "Gastronomie > Dégustation"
+    ]
+  },
+  {
+    "id": 425,
+    "title": "A qui la faute ?",
+    "old_cats": [
+      "Culture > Expositions",
+      "Arts Vivants > Théâtre"
+    ],
+    "new_cats": [
+      "Culture > Théâtre"
+    ]
+  },
+  {
+    "id": 417,
+    "title": "Brassage de bière",
+    "old_cats": [
+      "Culture > Expositions",
+      "Culture > Workshops",
+      "Food & Drinks > Dégustations"
+    ],
+    "new_cats": [
+      "Culture > Atelier",
+      "Gastronomie > Cuisine",
+      "Gastronomie > Dégustation"
+    ]
+  },
+  {
+    "id": 386,
+    "title": "En février « J’peux pas, j’ai musée ! » : la visite guidée",
+    "old_cats": [
+      "Culture > Expositions",
+      "Arts Vivants > Théâtre",
+      "Nature > Découverte"
+    ],
+    "new_cats": [
+      "Culture > Expositions",
+      "Culture > Littérature",
+      "Culture > Patrimoine",
+      "Nature & Famille"
+    ]
+  },
+  {
+    "id": 351,
+    "title": "Rando'clette",
+    "old_cats": [
+      "Culture > Expositions"
+    ],
+    "new_cats": [
+      "Sport > Glisse",
+      "Sport > Terrestre"
+    ]
+  },
+  {
+    "id": 350,
+    "title": "FESTIVAL ROCK THE PISTES 2026",
+    "old_cats": [
+      "Music > Rock / Metal > Rock",
+      "Festivals"
+    ],
+    "new_cats": [
+      "Culture > Festival",
+      "Music > Rock / Pop",
+      "Sport > Glisse",
+      "Sport > Terrestre"
+    ]
+  },
+  {
+    "id": 349,
+    "title": "Défi des Faverges",
+    "old_cats": [
+      "Culture > Expositions"
+    ],
+    "new_cats": [
+      "Sport > Glisse",
+      "Sport > Terrestre"
+    ]
+  },
+  {
+    "id": 370,
+    "title": "PASS'PORTES 2026",
+    "old_cats": [
+      "Culture > Expositions"
+    ],
+    "new_cats": [
+      "Sport > Glisse",
+      "Sport > Terrestre"
+    ]
+  },
+  {
+    "id": 369,
+    "title": "Festival Les 5 Continents",
+    "old_cats": [
+      "Culture > Expositions",
+      "Festivals"
+    ],
+    "new_cats": [
+      "Culture > Festival",
+      "Sport > Glisse",
+      "Sport > Terrestre"
+    ]
+  },
+  {
+    "id": 368,
+    "title": "Festival int. de littérature",
+    "old_cats": [
+      "Culture > Conférences & Rencontres",
+      "Festivals"
+    ],
+    "new_cats": [
+      "Culture > Festival",
+      "Culture > Littérature",
+      "Sport > Glisse",
+      "Sport > Terrestre"
+    ]
+  },
+  {
+    "id": 367,
+    "title": "Festival Week-end au bord de l'eau",
+    "old_cats": [
+      "Festivals"
+    ],
+    "new_cats": [
+      "Culture > Festival",
+      "Sport > Glisse",
+      "Sport > Terrestre"
+    ]
+  },
+  {
+    "id": 366,
+    "title": "Sierre Blues Festival",
+    "old_cats": [
+      "Music > Jazz / Soul / Funk",
+      "Festivals"
+    ],
+    "new_cats": [
+      "Culture > Festival",
+      "Music > Jazz / Blues",
+      "Sport > Glisse",
+      "Sport > Terrestre"
+    ]
+  },
+  {
+    "id": 365,
+    "title": "Festival Musikdorf Ernen",
+    "old_cats": [
+      "Festivals"
+    ],
+    "new_cats": [
+      "Culture > Festival",
+      "Sport > Glisse",
+      "Sport > Terrestre"
+    ]
+  },
+  {
+    "id": 364,
+    "title": "Frauenstimmen Festival",
+    "old_cats": [
+      "Festivals"
+    ],
+    "new_cats": [
+      "Culture > Festival",
+      "Sport > Glisse",
+      "Sport > Terrestre"
+    ]
+  },
+  {
+    "id": 363,
+    "title": "Marathon des Terroirs du Valais",
+    "old_cats": [
+      "Culture > Expositions",
+      "Food & Drinks > Dégustations",
+      "Sport > Terrestre"
+    ],
+    "new_cats": [
+      "Sport > Glisse",
+      "Sport > Terrestre"
+    ]
+  },
+  {
+    "id": 362,
+    "title": "Les caves ouvertes du Valais",
+    "old_cats": [
+      "Culture > Expositions"
+    ],
+    "new_cats": [
+      "Gastronomie > Dégustation",
+      "Sport > Glisse",
+      "Sport > Terrestre"
+    ]
+  },
+  {
+    "id": 390,
+    "title": "Fleur Dièse",
+    "old_cats": [
+      "Arts Vivants > Théâtre"
+    ],
+    "new_cats": [
+      "Culture > Humour",
+      "Culture > Littérature",
+      "Culture > Théâtre",
+      "Music > Folk / Acoustic",
+      "Tradition & Folklore"
+    ]
+  },
+  {
+    "id": 389,
+    "title": "Les variations musicales",
+    "old_cats": [
+      "Music > Pop / Variété",
+      "Sport > Terrestre",
+      "Famille > Activités"
+    ],
+    "new_cats": [
+      "Music > Concert",
+      "Nature & Famille"
+    ]
+  },
+  {
+    "id": 382,
+    "title": "Joséphine Thurre",
+    "old_cats": [
+      "Arts Vivants > Théâtre",
+      "Famille > Activités"
+    ],
+    "new_cats": [
+      "Culture > Littérature",
+      "Culture > Patrimoine",
+      "Nature & Famille"
+    ]
+  },
+  {
+    "id": 381,
+    "title": "GAIA  - Poussière d’Etoiles - Création",
+    "old_cats": [
+      "Arts Vivants > Théâtre"
+    ],
+    "new_cats": [
+      "Culture > Littérature",
+      "Sport > Glisse"
+    ]
+  },
+  {
+    "id": 378,
+    "title": "Cyclosportive & Running du Valais",
+    "old_cats": [
+      "Sport > Terrestre",
+      "Sport > VTT & Vélo"
+    ],
+    "new_cats": [
+      "Sport > Glisse",
+      "Sport > Terrestre"
+    ]
+  },
+  {
+    "id": 377,
+    "title": "UCI Mountainbike Enduro Weltcup",
+    "old_cats": [
+      "Sport > VTT & Vélo"
+    ],
+    "new_cats": [
+      "Sport > Glisse",
+      "Sport > Terrestre"
+    ]
+  },
+  {
+    "id": 376,
+    "title": "Sion sous les étoiles",
+    "old_cats": [
+      "Music > Pop / Variété"
+    ],
+    "new_cats": [
+      "Nature & Famille",
+      "Sport > Glisse",
+      "Sport > Terrestre"
+    ]
+  },
+  {
+    "id": 375,
+    "title": "Verbier Festival",
+    "old_cats": [
+      "Festivals"
+    ],
+    "new_cats": [
+      "Culture > Festival",
+      "Sport > Glisse",
+      "Sport > Terrestre"
+    ]
+  },
+  {
+    "id": 374,
+    "title": "Swiss Orienteering Week",
+    "old_cats": [
+      "Culture > Expositions"
+    ],
+    "new_cats": [
+      "Sport > Glisse",
+      "Sport > Terrestre"
+    ]
+  },
+  {
+    "id": 373,
+    "title": "Am Stram Gram",
+    "old_cats": [
+      "Famille > Activités"
+    ],
+    "new_cats": [
+      "Sport > Glisse",
+      "Sport > Terrestre"
+    ]
+  },
+  {
+    "id": 372,
+    "title": "Gornergrat Zermatt Marathon",
+    "old_cats": [
+      "Sport > Terrestre"
+    ],
+    "new_cats": [
+      "Sport > Glisse",
+      "Sport > Terrestre"
+    ]
+  },
+  {
+    "id": 371,
+    "title": "Aletsch Halbmarathon",
+    "old_cats": [
+      "Sport > Terrestre"
+    ],
+    "new_cats": [
+      "Sport > Glisse",
+      "Sport > Terrestre"
+    ]
+  },
+  {
+    "id": 354,
+    "title": "Fête de la Taille à Chamoson",
+    "old_cats": [
+      "Culture > Expositions"
+    ],
+    "new_cats": [
+      "Sport > Glisse",
+      "Sport > Terrestre"
+    ]
+  },
+  {
+    "id": 388,
+    "title": "En février « J’peux pas, j’ai musée ! » : un dimanche à la Basilique",
+    "old_cats": [
+      "Culture > Expositions"
+    ],
+    "new_cats": [
+      "Culture > Expositions",
+      "Culture > Patrimoine"
+    ]
+  },
+  {
+    "id": 387,
+    "title": "En février « J’peux pas, j’ai musée ! » : l'atelier tout public",
+    "old_cats": [
+      "Culture > Expositions",
+      "Culture > Workshops",
+      "Food & Drinks > Dégustations"
+    ],
+    "new_cats": [
+      "Culture > Atelier",
+      "Culture > Expositions",
+      "Sport > Glisse"
+    ]
+  },
+  {
+    "id": 385,
+    "title": "Visite commentée publique",
+    "old_cats": [
+      "Culture > Expositions"
+    ],
+    "new_cats": [
+      "Culture > Expositions",
+      "Culture > Patrimoine"
+    ]
+  },
+  {
+    "id": 384,
+    "title": "Monopoly",
+    "old_cats": [
+      "Culture > Expositions"
+    ],
+    "new_cats": [
+      "Événement"
+    ]
+  },
+  {
+    "id": 383,
+    "title": "Marcel Baillifard",
+    "old_cats": [
+      "Music > Pop / Variété",
+      "Culture > Expositions"
+    ],
+    "new_cats": [
+      "Culture > Littérature",
+      "Culture > Patrimoine",
+      "Music > Concert"
+    ]
+  },
+  {
+    "id": 380,
+    "title": "Big Big Horse Party : Nerami + The Revox + King Automatic",
+    "old_cats": [
+      "Culture > Expositions",
+      "Food & Drinks > Dégustations"
+    ],
+    "new_cats": [
+      "Music > Electro / Techno"
+    ]
+  },
+  {
+    "id": 379,
+    "title": "Aliose chante Le Forestier",
+    "old_cats": [
+      "Music > Pop / Variété",
+      "Culture > Expositions"
+    ],
+    "new_cats": [
+      "Music > Concert",
+      "Music > Rock / Pop"
+    ]
+  },
+  {
+    "id": 361,
+    "title": "Jardin des vins",
+    "old_cats": [
+      "Food & Drinks > Dégustations"
+    ],
+    "new_cats": [
+      "Sport > Glisse",
+      "Sport > Terrestre"
+    ]
+  },
+  {
+    "id": 359,
+    "title": "Fête de l'asperge 2026",
+    "old_cats": [
+      "Culture > Expositions"
+    ],
+    "new_cats": [
+      "Sport > Glisse",
+      "Sport > Terrestre"
+    ]
+  },
+  {
+    "id": 357,
+    "title": "Nendaz Snow Vibes Festival",
+    "old_cats": [
+      "Music > Electro",
+      "Festivals"
+    ],
+    "new_cats": [
+      "Culture > Festival",
+      "Music > Electro / Techno",
+      "Sport > Glisse",
+      "Sport > Terrestre"
+    ]
+  },
+  {
+    "id": 356,
+    "title": "Marché de Pâques",
+    "old_cats": [
+      "Famille > Activités"
+    ],
+    "new_cats": [
+      "Marché",
+      "Sport > Glisse",
+      "Sport > Terrestre"
+    ]
+  },
+  {
+    "id": 355,
+    "title": "Zermatt Unplugged 2026",
+    "old_cats": [
+      "Festivals"
+    ],
+    "new_cats": [
+      "Sport > Glisse",
+      "Sport > Terrestre"
+    ]
+  },
+  {
+    "id": 358,
+    "title": "Printemps du vin",
+    "old_cats": [
+      "Food & Drinks > Dégustations"
+    ],
+    "new_cats": [
+      "Sport > Glisse",
+      "Sport > Terrestre"
+    ]
+  },
+  {
+    "id": 353,
+    "title": "YETI Xtreme Verbier",
+    "old_cats": [
+      "Culture > Expositions"
+    ],
+    "new_cats": [
+      "Sport > Glisse",
+      "Sport > Terrestre"
+    ]
+  },
+  {
+    "id": 352,
+    "title": "Maxi-Rires Festival",
+    "old_cats": [
+      "Arts Vivants > Théâtre",
+      "Festivals"
+    ],
+    "new_cats": [
+      "Culture > Festival",
+      "Culture > Humour",
+      "Sport > Glisse",
+      "Sport > Terrestre"
+    ]
+  },
+  {
+    "id": 360,
+    "title": "Wine & Brunch Tavolata",
+    "old_cats": [
+      "Food & Drinks > Restauration"
+    ],
+    "new_cats": [
+      "Gastronomie > Dégustation",
+      "Sport > Glisse",
+      "Sport > Terrestre"
+    ]
+  },
+  {
+    "id": 348,
+    "title": "TEST - Événement de validation email",
+    "old_cats": [
+      "Culture > Expositions"
+    ],
+    "new_cats": [
+      "Événement"
+    ]
+  },
+  {
+    "id": 347,
+    "title": "TEST - Événement de validation email",
+    "old_cats": [
+      "Culture > Expositions"
+    ],
+    "new_cats": [
+      "Événement"
+    ]
+  },
+  {
+    "id": 331,
+    "title": "Prix RTS Littérature Ados 2026",
+    "old_cats": [
+      "Culture > Conférences & Rencontres"
+    ],
+    "new_cats": [
+      "Culture > Littérature"
+    ]
+  },
+  {
+    "id": 334,
+    "title": "Dépêche-toi Bibiche, on va rater l’avion",
+    "old_cats": [
+      "Arts Vivants > Théâtre"
+    ],
+    "new_cats": [
+      "Culture > Théâtre"
+    ]
+  },
+  {
+    "id": 333,
+    "title": "De Manet",
+    "old_cats": [
+      "Culture > Expositions"
+    ],
+    "new_cats": [
+      "Culture > Patrimoine",
+      "Gastronomie > Cuisine"
+    ]
+  },
+  {
+    "id": 332,
+    "title": "Saison musicale 25/26",
+    "old_cats": [
+      "Music > Pop / Variété",
+      "Culture > Expositions"
+    ],
+    "new_cats": [
+      "Music > Concert"
+    ]
+  },
+  {
+    "id": 329,
+    "title": "David Lafore Boom Boom",
+    "old_cats": [
+      "Music > Pop / Variété",
+      "Arts Vivants > Théâtre",
+      "Famille > Activités"
+    ],
+    "new_cats": [
+      "Culture > Littérature",
+      "Culture > Théâtre",
+      "Music > Concert"
+    ]
+  },
+  {
+    "id": 342,
+    "title": "Concert : Opéra maori",
+    "old_cats": [
+      "Music > Classique > Formes",
+      "Music > Pop / Variété",
+      "Culture > Expositions"
+    ],
+    "new_cats": [
+      "Music > Classique",
+      "Music > Concert"
+    ]
+  },
+  {
+    "id": 340,
+    "title": "Dédicace de Fred Vignaux et Robin Recht",
+    "old_cats": [
+      "Culture > Conférences & Rencontres"
+    ],
+    "new_cats": [
+      "Culture > Littérature",
+      "Sport > Glisse"
+    ]
+  },
+  {
+    "id": 341,
+    "title": "/ COMPLET /Projection du film « LE MAGE DU KREMLIN » / COMPLET /",
+    "old_cats": [
+      "Culture > Cinéma & Projections"
+    ],
+    "new_cats": [
+      "Culture > Cinéma",
+      "Culture > Littérature"
+    ]
+  },
+  {
+    "id": 338,
+    "title": "En février « J’peux pas, j’ai musée ! » : le workshop",
+    "old_cats": [
+      "Culture > Expositions",
+      "Culture > Workshops"
+    ],
+    "new_cats": [
+      "Culture > Expositions"
+    ]
+  },
+  {
+    "id": 336,
+    "title": "Dédicace AD Salamin",
+    "old_cats": [
+      "Culture > Conférences & Rencontres"
+    ],
+    "new_cats": [
+      "Culture > Littérature"
+    ]
+  },
+  {
+    "id": 324,
+    "title": "En roux libre",
+    "old_cats": [
+      "Arts Vivants > Théâtre"
+    ],
+    "new_cats": [
+      "Culture > Humour",
+      "Culture > Théâtre"
+    ]
+  },
+  {
+    "id": 325,
+    "title": "David Lafore Boom Boom - Smoothie",
+    "old_cats": [
+      "Arts Vivants > Théâtre",
+      "Famille > Activités"
+    ],
+    "new_cats": [
+      "Culture > Littérature",
+      "Culture > Théâtre"
+    ]
+  },
+  {
+    "id": 326,
+    "title": "La Mandragore",
+    "old_cats": [
+      "Arts Vivants > Théâtre",
+      "Culture > Expositions"
+    ],
+    "new_cats": [
+      "Culture > Humour",
+      "Culture > Théâtre"
+    ]
+  },
+  {
+    "id": 327,
+    "title": "Formats",
+    "old_cats": [
+      "Arts Vivants > Théâtre"
+    ],
+    "new_cats": [
+      "Culture > Humour",
+      "Culture > Patrimoine",
+      "Culture > Théâtre"
+    ]
+  },
+  {
+    "id": 335,
+    "title": "L'Auberge Autrement : Concert JeFFLag",
+    "old_cats": [
+      "Music > Rock / Metal > Rock",
+      "Culture > Expositions"
+    ],
+    "new_cats": [
+      "Music > Concert",
+      "Music > Rock / Pop"
+    ]
+  },
+  {
+    "id": 343,
+    "title": "La mort, on en parle ?",
+    "old_cats": [
+      "Culture > Expositions",
+      "Culture > Conférences & Rencontres"
+    ],
+    "new_cats": [
+      "Culture > Conférence"
+    ]
+  },
+  {
+    "id": 344,
+    "title": "Stagiaire scientifique en médiation culturelle",
+    "old_cats": [
+      "Culture > Expositions"
+    ],
+    "new_cats": [
+      "Culture > Patrimoine"
+    ]
+  },
+  {
+    "id": 345,
+    "title": "Être artiste pédagogue aujourd'hui",
+    "old_cats": [
+      "Culture > Workshops",
+      "Culture > Expositions"
+    ],
+    "new_cats": [
+      "Culture > Atelier",
+      "Culture > Conférence"
+    ]
+  },
+  {
+    "id": 346,
+    "title": "Die Kunst der Steuererklärung",
+    "old_cats": [
+      "Culture > Workshops"
+    ],
+    "new_cats": [
+      "Culture > Atelier"
+    ]
+  },
+  {
+    "id": 337,
+    "title": "DJ Bench Live au bar du glacier sur la Gandegg",
+    "old_cats": [
+      "Music > Pop / Variété"
+    ],
+    "new_cats": [
+      "Music > Concert",
+      "Music > Electro / Techno",
+      "Sport > Glisse"
+    ]
+  },
+  {
+    "id": 339,
+    "title": "Ce samedi, c'est gratuit",
+    "old_cats": [
+      "Culture > Expositions",
+      "Famille > Activités"
+    ],
+    "new_cats": [
+      "Culture > Expositions",
+      "Culture > Photographie",
+      "Nature & Famille"
+    ]
+  },
+  {
+    "id": 328,
+    "title": "Double D – Live au Pink",
+    "old_cats": [
+      "Music > Pop / Variété"
+    ],
+    "new_cats": [
+      "Music > Concert"
+    ]
+  }
+]

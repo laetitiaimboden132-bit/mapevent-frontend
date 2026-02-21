@@ -1,73 +1,225 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MapEvent - Carte mondiale des evenements, bookings et services</title>
-    <meta name="description" content="Trouvez des evenements, artistes a reserver et services professionnels partout dans le monde sur une seule carte interactive. Gratuit.">
-    <meta name="keywords" content="evenements, carte, concerts, festivals, booking, artistes, services, agenda, gratuit, mapevent">
+    <title>MapEvent - Interactive World Map of Events, Bookings &amp; Services</title>
+    <meta name="description" content="Find events, artists to book and professional services worldwide on one interactive map. Free.">
+    <meta name="keywords" content="events, map, concerts, festivals, booking, artists, services, agenda, free, mapevent">
     <meta name="author" content="MapEvent">
     <link rel="canonical" href="https://mapevent.world/">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://mapevent.world/">
-    <meta property="og:title" content="MapEvent - Evenements, Bookings et Services sur une carte">
-    <meta property="og:description" content="3 cartes en 1 : evenements, artistes a reserver, services pros. Gratuit.">
+    <meta property="og:title" content="MapEvent - Events, Bookings &amp; Services on one map">
+    <meta property="og:description" content="3 maps in 1: events, artists to book, pro services. Free.">
     <meta property="og:image" content="https://mapevent.world/assets/og-preview.png">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <meta property="og:site_name" content="MapEvent">
-    <meta property="og:locale" content="fr_FR">
+    <meta property="og:locale" content="en_US">
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="MapEvent - Evenements, Bookings et Services sur une carte">
-    <meta name="twitter:description" content="3 cartes en 1 : evenements, artistes a reserver, services pros. Gratuit.">
+    <meta name="twitter:title" content="MapEvent - Events, Bookings &amp; Services on one map">
+    <meta name="twitter:description" content="3 maps in 1: events, artists to book, pro services. Free.">
     <meta name="twitter:image" content="https://mapevent.world/assets/og-preview.png">
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#020617">
+    <script defer data-domain="mapevent.world" src="https://plausible.io/js/script.js"></script>
     <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+    <link rel="preconnect" href="https://ctp67u5hgni2rbfr3kp4p74kxa0gxycf.lambda-url.eu-west-1.on.aws" crossorigin>
     <style>
         *{margin:0;padding:0;box-sizing:border-box}
         body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;background:#020617;color:#e2e8f0;min-height:100vh;display:flex;flex-direction:column}
         .hero{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px 20px;background:radial-gradient(ellipse at 50% 30%,rgba(0,255,195,0.08) 0%,transparent 60%)}
-        .hero h1{font-size:clamp(32px,6vw,56px);font-weight:800;margin-bottom:16px;line-height:1.1}
+        .hero h1{font-size:clamp(36px,7vw,64px);font-weight:800;margin-bottom:8px;line-height:1.1}
         .hero h1 span{color:#00ffc3}
-        .hero p.subtitle{font-size:clamp(16px,2.5vw,20px);color:#94a3b8;max-width:600px;margin:0 auto 32px;line-height:1.5}
-        .cta{display:inline-block;padding:16px 40px;background:#00ffc3;color:#020617;font-size:18px;font-weight:700;border-radius:12px;text-decoration:none;transition:transform 0.2s,box-shadow 0.2s}
+        .hero .stats{font-size:clamp(14px,2vw,17px);color:#64748b;margin-bottom:24px;min-height:24px}
+        .hero .stats b{color:#94a3b8}
+        .hero p.subtitle{font-size:clamp(16px,2.5vw,20px);color:#94a3b8;max-width:640px;margin:0 auto 36px;line-height:1.6}
+        .cta{display:inline-block;padding:18px 48px;background:#00ffc3;color:#020617;font-size:18px;font-weight:700;border-radius:12px;text-decoration:none;transition:transform 0.2s,box-shadow 0.2s}
         .cta:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(0,255,195,0.3)}
         .features{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:24px;max-width:900px;margin:48px auto 0;padding:0 20px}
         .feature{background:rgba(15,23,42,0.6);border:1px solid rgba(148,163,184,0.15);border-radius:16px;padding:28px 24px;text-align:center}
         .feature .icon{font-size:36px;margin-bottom:12px}
         .feature h3{font-size:17px;font-weight:700;margin-bottom:8px}
         .feature p{font-size:14px;color:#94a3b8;line-height:1.5}
+        .lang-select{position:fixed;top:16px;right:16px;background:rgba(15,23,42,0.8);border:1px solid rgba(148,163,184,0.2);border-radius:8px;padding:6px 10px;color:#94a3b8;font-size:13px;cursor:pointer;z-index:10}
+        .lang-select:hover{border-color:#00ffc3;color:#00ffc3}
         footer{text-align:center;padding:32px 20px;color:#64748b;font-size:13px;border-top:1px solid rgba(148,163,184,0.1)}
         footer a{color:#00ffc3;text-decoration:none}
     </style>
 </head>
 <body>
+<select class="lang-select" id="lang-select" aria-label="Language">
+    <option value="en">EN</option>
+    <option value="fr">FR</option>
+    <option value="de">DE</option>
+    <option value="es">ES</option>
+    <option value="it">IT</option>
+</select>
 <section class="hero">
     <h1><span>MapEvent</span></h1>
-    <p class="subtitle">Trouvez des evenements, artistes et services partout dans le monde sur une seule carte interactive.</p>
-    <a href="/mapevent.html" class="cta">Ouvrir la carte</a>
+    <div class="stats" id="stats-line"></div>
+    <p class="subtitle" id="subtitle"></p>
+    <a href="/mapevent.html" class="cta" id="cta-btn"></a>
     <div class="features">
         <div class="feature">
             <div class="icon">&#x1F4C5;</div>
-            <h3>Evenements</h3>
-            <p>Festivals, concerts, expositions, spectacles... Des milliers d'evenements mis a jour en continu.</p>
+            <h3 id="f1-title"></h3>
+            <p id="f1-desc"></p>
         </div>
         <div class="feature">
             <div class="icon">&#x1F3B5;</div>
-            <h3>Booking</h3>
-            <p>Artistes et musiciens disponibles. Ecoutez leurs morceaux et reservez directement.</p>
+            <h3 id="f2-title"></h3>
+            <p id="f2-desc"></p>
         </div>
         <div class="feature">
             <div class="icon">&#x1F527;</div>
-            <h3>Services</h3>
-            <p>Photographes, traiteurs, DJ, techniciens... Trouvez des professionnels proches.</p>
+            <h3 id="f3-title"></h3>
+            <p id="f3-desc"></p>
         </div>
     </div>
 </section>
+<section style="max-width:900px;margin:0 auto;padding:0 20px 40px;">
+    <h2 style="font-size:22px;font-weight:700;color:#f1f5f9;margin-bottom:16px;text-align:center;" id="cities-title">Villes populaires</h2>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:32px;">
+        <a href="/v/paris/" style="padding:6px 16px;border-radius:20px;font-size:13px;font-weight:600;background:rgba(0,255,195,0.1);color:#00ffc3;border:1px solid rgba(0,255,195,0.2);text-decoration:none;">Paris</a>
+        <a href="/v/geneve/" style="padding:6px 16px;border-radius:20px;font-size:13px;font-weight:600;background:rgba(0,255,195,0.1);color:#00ffc3;border:1px solid rgba(0,255,195,0.2);text-decoration:none;">Gen&egrave;ve</a>
+        <a href="/v/lyon/" style="padding:6px 16px;border-radius:20px;font-size:13px;font-weight:600;background:rgba(0,255,195,0.1);color:#00ffc3;border:1px solid rgba(0,255,195,0.2);text-decoration:none;">Lyon</a>
+        <a href="/v/lausanne/" style="padding:6px 16px;border-radius:20px;font-size:13px;font-weight:600;background:rgba(0,255,195,0.1);color:#00ffc3;border:1px solid rgba(0,255,195,0.2);text-decoration:none;">Lausanne</a>
+        <a href="/v/marseille/" style="padding:6px 16px;border-radius:20px;font-size:13px;font-weight:600;background:rgba(0,255,195,0.1);color:#00ffc3;border:1px solid rgba(0,255,195,0.2);text-decoration:none;">Marseille</a>
+        <a href="/v/berlin/" style="padding:6px 16px;border-radius:20px;font-size:13px;font-weight:600;background:rgba(0,255,195,0.1);color:#00ffc3;border:1px solid rgba(0,255,195,0.2);text-decoration:none;">Berlin</a>
+        <a href="/v/nantes/" style="padding:6px 16px;border-radius:20px;font-size:13px;font-weight:600;background:rgba(0,255,195,0.1);color:#00ffc3;border:1px solid rgba(0,255,195,0.2);text-decoration:none;">Nantes</a>
+        <a href="/v/zurich/" style="padding:6px 16px;border-radius:20px;font-size:13px;font-weight:600;background:rgba(0,255,195,0.1);color:#00ffc3;border:1px solid rgba(0,255,195,0.2);text-decoration:none;">Z&uuml;rich</a>
+        <a href="/v/bordeaux/" style="padding:6px 16px;border-radius:20px;font-size:13px;font-weight:600;background:rgba(0,255,195,0.1);color:#00ffc3;border:1px solid rgba(0,255,195,0.2);text-decoration:none;">Bordeaux</a>
+        <a href="/v/toulouse/" style="padding:6px 16px;border-radius:20px;font-size:13px;font-weight:600;background:rgba(0,255,195,0.1);color:#00ffc3;border:1px solid rgba(0,255,195,0.2);text-decoration:none;">Toulouse</a>
+        <a href="/v/" style="padding:6px 16px;border-radius:20px;font-size:13px;font-weight:600;background:transparent;color:#94a3b8;border:1px solid rgba(148,163,184,0.3);text-decoration:none;">Toutes les villes &rarr;</a>
+    </div>
+    <h2 style="font-size:22px;font-weight:700;color:#f1f5f9;margin-bottom:16px;text-align:center;" id="cats-title">Cat&eacute;gories</h2>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;">
+        <a href="/c/festival/" style="padding:6px 16px;border-radius:20px;font-size:13px;font-weight:600;background:rgba(0,255,195,0.1);color:#00ffc3;border:1px solid rgba(0,255,195,0.2);text-decoration:none;">Festivals</a>
+        <a href="/c/theatre/" style="padding:6px 16px;border-radius:20px;font-size:13px;font-weight:600;background:rgba(0,255,195,0.1);color:#00ffc3;border:1px solid rgba(0,255,195,0.2);text-decoration:none;">Th&eacute;&acirc;tre</a>
+        <a href="/c/conference/" style="padding:6px 16px;border-radius:20px;font-size:13px;font-weight:600;background:rgba(0,255,195,0.1);color:#00ffc3;border:1px solid rgba(0,255,195,0.2);text-decoration:none;">Conf&eacute;rences</a>
+        <a href="/c/danse/" style="padding:6px 16px;border-radius:20px;font-size:13px;font-weight:600;background:rgba(0,255,195,0.1);color:#00ffc3;border:1px solid rgba(0,255,195,0.2);text-decoration:none;">Danse</a>
+        <a href="/c/atelier/" style="padding:6px 16px;border-radius:20px;font-size:13px;font-weight:600;background:rgba(0,255,195,0.1);color:#00ffc3;border:1px solid rgba(0,255,195,0.2);text-decoration:none;">Ateliers</a>
+        <a href="/c/jazz/" style="padding:6px 16px;border-radius:20px;font-size:13px;font-weight:600;background:rgba(0,255,195,0.1);color:#00ffc3;border:1px solid rgba(0,255,195,0.2);text-decoration:none;">Jazz</a>
+        <a href="/c/techno/" style="padding:6px 16px;border-radius:20px;font-size:13px;font-weight:600;background:rgba(0,255,195,0.1);color:#00ffc3;border:1px solid rgba(0,255,195,0.2);text-decoration:none;">Techno</a>
+        <a href="/c/rock/" style="padding:6px 16px;border-radius:20px;font-size:13px;font-weight:600;background:rgba(0,255,195,0.1);color:#00ffc3;border:1px solid rgba(0,255,195,0.2);text-decoration:none;">Rock</a>
+        <a href="/c/sport/" style="padding:6px 16px;border-radius:20px;font-size:13px;font-weight:600;background:rgba(0,255,195,0.1);color:#00ffc3;border:1px solid rgba(0,255,195,0.2);text-decoration:none;">Sport</a>
+        <a href="/c/yoga/" style="padding:6px 16px;border-radius:20px;font-size:13px;font-weight:600;background:rgba(0,255,195,0.1);color:#00ffc3;border:1px solid rgba(0,255,195,0.2);text-decoration:none;">Yoga</a>
+        <a href="/c/" style="padding:6px 16px;border-radius:20px;font-size:13px;font-weight:600;background:transparent;color:#94a3b8;border:1px solid rgba(148,163,184,0.3);text-decoration:none;">Toutes les cat&eacute;gories &rarr;</a>
+    </div>
+</section>
 <footer>
-    <p><a href="/mapevent.html">mapevent.world</a> - Carte mondiale des evenements, bookings et services.</p>
-    <p style="margin-top:8px"><a href="/mentions-legales.html">Mentions legales</a></p>
+    <p><a href="/mapevent.html">mapevent.world</a> &mdash; <span id="footer-text"></span></p>
+    <p style="margin-top:8px"><a href="/mentions-legales.html" id="footer-legal"></a></p>
 </footer>
+<script>
+var L = {
+  en: {
+    subtitle: 'Find events, artists and services worldwide on one interactive map.',
+    cta: 'Open the map',
+    f1t: 'Events', f1d: 'Festivals, concerts, exhibitions, shows... Thousands of events updated continuously.',
+    f2t: 'Booking', f2d: 'Available artists and musicians. Listen to their tracks and book directly.',
+    f3t: 'Services', f3d: 'Photographers, caterers, DJs, technicians... Find professionals near you.',
+    footer: 'Interactive world map of events, bookings and services.',
+    legal: 'Legal notice',
+    stats: function(e,b,s){return '<b>'+e+'</b> events &bull; <b>'+b+'</b> bookings &bull; <b>'+s+'</b> services';}
+  },
+  fr: {
+    subtitle: 'Trouvez des \u00e9v\u00e9nements, artistes et services partout dans le monde sur une seule carte interactive.',
+    cta: 'Ouvrir la carte',
+    f1t: '\u00c9v\u00e9nements', f1d: 'Festivals, concerts, expositions, spectacles... Des milliers d\'\u00e9v\u00e9nements mis \u00e0 jour en continu.',
+    f2t: 'Booking', f2d: 'Artistes et musiciens disponibles. \u00c9coutez leurs morceaux et r\u00e9servez directement.',
+    f3t: 'Services', f3d: 'Photographes, traiteurs, DJ, techniciens... Trouvez des professionnels proches.',
+    footer: 'Carte mondiale interactive des \u00e9v\u00e9nements, bookings et services.',
+    legal: 'Mentions l\u00e9gales',
+    stats: function(e,b,s){return '<b>'+e+'</b> \u00e9v\u00e9nements &bull; <b>'+b+'</b> bookings &bull; <b>'+s+'</b> services';}
+  },
+  de: {
+    subtitle: 'Finden Sie Veranstaltungen, K\u00fcnstler und Dienstleistungen weltweit auf einer interaktiven Karte.',
+    cta: 'Karte \u00f6ffnen',
+    f1t: 'Veranstaltungen', f1d: 'Festivals, Konzerte, Ausstellungen, Shows... Tausende laufend aktualisierte Veranstaltungen.',
+    f2t: 'Booking', f2d: 'Verf\u00fcgbare K\u00fcnstler und Musiker. H\u00f6ren Sie Tracks und buchen Sie direkt.',
+    f3t: 'Dienstleistungen', f3d: 'Fotografen, Caterer, DJs, Techniker... Finden Sie Profis in Ihrer N\u00e4he.',
+    footer: 'Interaktive Weltkarte der Veranstaltungen, Buchungen und Dienstleistungen.',
+    legal: 'Impressum',
+    stats: function(e,b,s){return '<b>'+e+'</b> Veranstaltungen &bull; <b>'+b+'</b> Buchungen &bull; <b>'+s+'</b> Dienstleistungen';}
+  },
+  es: {
+    subtitle: 'Encuentra eventos, artistas y servicios en todo el mundo en un mapa interactivo.',
+    cta: 'Abrir el mapa',
+    f1t: 'Eventos', f1d: 'Festivales, conciertos, exposiciones, espect\u00e1culos... Miles de eventos actualizados continuamente.',
+    f2t: 'Booking', f2d: 'Artistas y m\u00fasicos disponibles. Escucha sus canciones y reserva directamente.',
+    f3t: 'Servicios', f3d: 'Fot\u00f3grafos, catering, DJs, t\u00e9cnicos... Encuentra profesionales cercanos.',
+    footer: 'Mapa mundial interactivo de eventos, reservas y servicios.',
+    legal: 'Aviso legal',
+    stats: function(e,b,s){return '<b>'+e+'</b> eventos &bull; <b>'+b+'</b> reservas &bull; <b>'+s+'</b> servicios';}
+  },
+  it: {
+    subtitle: 'Trova eventi, artisti e servizi in tutto il mondo su una mappa interattiva.',
+    cta: 'Apri la mappa',
+    f1t: 'Eventi', f1d: 'Festival, concerti, mostre, spettacoli... Migliaia di eventi aggiornati continuamente.',
+    f2t: 'Booking', f2d: 'Artisti e musicisti disponibili. Ascolta i brani e prenota direttamente.',
+    f3t: 'Servizi', f3d: 'Fotografi, catering, DJ, tecnici... Trova professionisti vicini.',
+    footer: 'Mappa mondiale interattiva di eventi, prenotazioni e servizi.',
+    legal: 'Note legali',
+    stats: function(e,b,s){return '<b>'+e+'</b> eventi &bull; <b>'+b+'</b> prenotazioni &bull; <b>'+s+'</b> servizi';}
+  }
+};
+
+function detectLang() {
+  var stored = localStorage.getItem('mapevent_lang');
+  if (stored && L[stored]) return stored;
+  var nav = (navigator.language || 'en').substring(0, 2).toLowerCase();
+  return L[nav] ? nav : 'en';
+}
+
+function applyLang(lang) {
+  var t = L[lang] || L.en;
+  document.documentElement.lang = lang;
+  document.getElementById('subtitle').textContent = t.subtitle;
+  document.getElementById('cta-btn').textContent = t.cta;
+  document.getElementById('f1-title').textContent = t.f1t;
+  document.getElementById('f1-desc').textContent = t.f1d;
+  document.getElementById('f2-title').textContent = t.f2t;
+  document.getElementById('f2-desc').textContent = t.f2d;
+  document.getElementById('f3-title').textContent = t.f3t;
+  document.getElementById('f3-desc').textContent = t.f3d;
+  document.getElementById('footer-text').textContent = t.footer;
+  document.getElementById('footer-legal').textContent = t.legal;
+  document.getElementById('lang-select').value = lang;
+  localStorage.setItem('mapevent_lang', lang);
+  if (window._statsData) {
+    var d = window._statsData;
+    document.getElementById('stats-line').innerHTML = t.stats(d.e, d.b, d.s);
+  }
+}
+
+var currentLang = detectLang();
+applyLang(currentLang);
+
+document.getElementById('lang-select').addEventListener('change', function() {
+  applyLang(this.value);
+});
+
+function fmt(n) {
+  if (n >= 1000000) return (n/1e6).toFixed(1).replace(/\.0$/, '') + 'M';
+  if (n >= 1000) return (n/1000).toFixed(1).replace(/\.0$/, '') + 'k';
+  return String(n);
+}
+
+fetch('https://ctp67u5hgni2rbfr3kp4p74kxa0gxycf.lambda-url.eu-west-1.on.aws/api/stats/counts')
+  .then(function(r){return r.json();})
+  .then(function(d){
+    window._statsData = { e: fmt(d.events||0), b: fmt(d.bookings||0), s: fmt(d.services||0) };
+    var t = L[document.documentElement.lang] || L.en;
+    document.getElementById('stats-line').innerHTML = t.stats(window._statsData.e, window._statsData.b, window._statsData.s);
+  })
+  .catch(function(){
+    window._statsData = { e: '61k', b: '6.2k', s: '400' };
+    var t = L[document.documentElement.lang] || L.en;
+    document.getElementById('stats-line').innerHTML = t.stats('61k', '6.2k', '400');
+  });
+</script>
 </body>
 </html>

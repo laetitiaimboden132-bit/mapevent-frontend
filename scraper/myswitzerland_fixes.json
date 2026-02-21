@@ -1,0 +1,54 @@
+[
+  {
+    "id": 1137,
+    "location": "Lieu, 1005 Lausanne"
+  },
+  {
+    "id": 1131,
+    "location": "Marc-Olivier Drapel, Chemin des Artisans 13, 1860 Aigle"
+  },
+  {
+    "id": 1129,
+    "location": "Mélanie Revaz, Route de l'hôpital 9, 1660 Château-d'Œx"
+  },
+  {
+    "id": 1139,
+    "location": "Contact, Avenue Claude Nobs 5, 1820 Montreux"
+  },
+  {
+    "id": 1136,
+    "location": "Red Pigs Festival, 1530 Payerne"
+  },
+  {
+    "id": 1140,
+    "location": "Paléo Festival Nyon, Route de St-Cergue 312, CP 1320, 1260 Nyon"
+  },
+  {
+    "id": 1138,
+    "location": "Contact, Avenue des Bergières 11, 1004 Lausanne"
+  },
+  {
+    "id": 1128,
+    "location": "Contact, Place de la Gare 17, 1003 Lausanne"
+  },
+  {
+    "id": 1135,
+    "location": "Caribana Festival, 1299 Crans (VD)"
+  },
+  {
+    "id": 1130,
+    "location": "Morges Fleur du Léman, Rue du Parc 12, 1110 Morges"
+  },
+  {
+    "id": 1133,
+    "location": "Office de la culture, Place Saint-Louis 2, 1110 Morges"
+  },
+  {
+    "id": 1132,
+    "location": "Villars Afterseason Electronic Festival, Route du Col de la Croix, 1884 Villars-sur-Ollon"
+  },
+  {
+    "id": 1134,
+    "location": "Lieu, Place de la Tour, 1344 L'Abbaye"
+  }
+]

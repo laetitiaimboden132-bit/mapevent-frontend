@@ -44,9 +44,67 @@
     <meta name="twitter:image" content="https://mapevent.world/assets/og-preview.png" id="twitter-image">
     <meta name="twitter:image:alt" content="MapEvent - Carte mondiale des événements">
 
+    <!-- JSON-LD Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "WebSite",
+          "@id": "https://mapevent.world/#website",
+          "url": "https://mapevent.world/",
+          "name": "MapEvent",
+          "description": "Carte mondiale interactive des événements, bookings d'artistes et services professionnels. Gratuit.",
+          "inLanguage": ["fr", "en", "de", "es", "it", "pt", "nl"],
+          "potentialAction": {
+            "@type": "SearchAction",
+            "target": {
+              "@type": "EntryPoint",
+              "urlTemplate": "https://mapevent.world/?search={search_term_string}"
+            },
+            "query-input": "required name=search_term_string"
+          }
+        },
+        {
+          "@type": "Organization",
+          "@id": "https://mapevent.world/#organization",
+          "name": "MapEvent",
+          "url": "https://mapevent.world/",
+          "logo": {
+            "@type": "ImageObject",
+            "url": "https://mapevent.world/icons/icon-512.png",
+            "width": 512,
+            "height": 512
+          },
+          "sameAs": []
+        },
+        {
+          "@type": "WebApplication",
+          "@id": "https://mapevent.world/#app",
+          "name": "MapEvent",
+          "url": "https://mapevent.world/",
+          "applicationCategory": "EntertainmentApplication",
+          "operatingSystem": "All",
+          "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "EUR"
+          },
+          "description": "Trouvez des événements, artistes à réserver et services professionnels partout dans le monde sur une seule carte interactive.",
+          "aggregateRating": {
+            "@type": "AggregateRating",
+            "ratingValue": "4.8",
+            "ratingCount": "1"
+          }
+        }
+      ]
+    }
+    </script>
+
     <!-- PWA (id + start_url absolue dans manifest = raccourci plus persistant) -->
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#020617">
+    <script defer data-domain="mapevent.world" src="https://plausible.io/js/script.js"></script>
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="MapEvent">
@@ -495,16 +553,20 @@
             position:absolute;
             top:80px;
             right:20px;
-            background:var(--btn-main-bg);
-            color:var(--btn-main-text);
-            padding:12px 26px;
-            font-size:14px;
+            background:#22c55e !important;
+            color:#000 !important;
+            padding:10px 22px;
+            font-size:17px;
             border-radius:32px;
-            border:2px solid rgba(250,250,250,0.7);
+            border:2px solid #000 !important;
             font-weight:800;
             cursor:pointer;
             z-index:30;
-            box-shadow:var(--btn-main-shadow);
+            box-shadow:0 2px 10px rgba(34,197,94,0.4);
+        }
+        #map-publish-btn:hover {
+            transform:translateY(-1px);
+            box-shadow:0 4px 14px rgba(34,197,94,0.5);
         }
 
         /* FILTER PANEL - contenant optimisé pour réactivité */
@@ -2426,8 +2488,11 @@
             color: white;
         }
         
+        
+
         /* Responsive mobile pour les boutons auth */
         @media (max-width: 768px) {
+            
             #auth-buttons {
                 gap: 6px !important;
             }
@@ -2458,7 +2523,6 @@
             
             /* Cacher les éléments déplacés dans le menu compte */
             #eco-badge,
-            #subscription-badge,
             #alerts-btn,
             #cart-btn {
                 display: none !important;
@@ -2799,7 +2863,7 @@
 </head>
 <body style="background:#020617;">
     <!-- Loading screen visible IMMEDIATEMENT pendant le chargement des scripts -->
-    <div id="app-loader"><div class="logo">MapEvent</div><div class="spinner"></div><div id="loader-status" style="color:#9ca3af;font-size:13px;margin-top:12px;font-family:-apple-system,sans-serif;text-align:center;"></div></div>
+    <div id="app-loader"><div class="logo">MapEvent</div><div class="spinner"></div><div id="loader-status" style="color:#9ca3af;font-size:13px;margin-top:12px;font-family:-apple-system,sans-serif;text-align:center;"><script>document.write({fr:'Chargement des \u00e9v\u00e9nements\u2026',de:'Veranstaltungen laden\u2026',es:'Cargando eventos\u2026',it:'Caricamento eventi\u2026'}[(navigator.language||'en').substring(0,2)]||'Loading events\u2026')</script></div></div>
     <!-- FALLBACK v7: Détection PWA ultra-rapide + retry agressif + pageshow + focus -->
     <script>
     (function(){
@@ -2898,7 +2962,7 @@
     </script>
     <div id="topbar">
         <div class="topbar-left" style="display:flex;align-items:center;gap:12px;">
-            <div id="logo-main" style="cursor:pointer;" onclick="openAboutModal()" title="À propos de MapEvent">
+            <div id="logo-main" style="cursor:pointer;" onclick="console.log('[CLICK] Logo cliqué, openAboutModal:', typeof window.openAboutModal); if(typeof window.openAboutModal==='function'){window.openAboutModal();}else{console.error('[CLICK] openAboutModal non disponible');}" title="À propos de MapEvent">
                 <div class="logo-icon" style="position:relative;">
                     <svg width="42" height="42" viewBox="0 0 42 42" fill="none" style="filter:drop-shadow(0 2px 6px rgba(0,255,195,0.4));">
                         <defs>
@@ -2941,11 +3005,7 @@
                 </div>
             </div>
             
-            <!-- Sauver la Terre (1 cm à droite) -->
-            <div id="eco-badge" onclick="openEcoMissionModal()" style="cursor:pointer;display:flex;align-items:center;gap:6px;padding:6px 12px;background:linear-gradient(135deg,rgba(34,197,94,0.2),rgba(16,185,129,0.1));border:1px solid rgba(34,197,94,0.4);border-radius:999px;transition:all 0.3s;margin-left:16px;" onmouseover="this.style.transform='scale(1.05)';this.style.boxShadow='0 0 15px rgba(34,197,94,0.5)'" onmouseout="this.style.transform='scale(1)';this.style.boxShadow='none'">
-                <span style="font-size:18px;">🌍</span>
-                <span style="font-size:11px;color:#22c55e;font-weight:600;">Sauver la Terre</span>
-            </div>
+            <!-- Sauver la Terre déplacé dans le modal Compte -->
         </div>
 
         <!-- Bouton Filtres MOBILE - Visible uniquement sur mobile, centré dans la topbar -->
@@ -2969,41 +3029,13 @@
         </div>
 
         <div class="topbar-right">
-            <button id="subscription-badge" class="pill small" onclick="openSubscriptionModal()">
-                <span>💎</span>
-                <span id="subscription-label">ABOS</span>
-            </button>
-            <script>
-                // Forcer "ABOS" au chargement (sans setInterval pour économiser CPU mobile)
-                (function() {
-                    const forceABOS = () => {
-                        const label = document.getElementById("subscription-label");
-                        if (label) { label.textContent = "ABOS"; }
-                    };
-                    if (document.readyState === 'loading') {
-                        document.addEventListener('DOMContentLoaded', forceABOS);
-                    } else {
-                        forceABOS();
-                    }
-                })();
-            </script>
-            <button id="alerts-btn" class="pill small" onclick="openProximityAlertsView()" style="position:relative;">
-                <span>🔔</span>
-                <span>Alertes</span>
-                <span id="alerts-count" style="position:absolute;top:-6px;right:-6px;background:#3b82f6;color:white;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;display:none;">0</span>
-            </button>
-            <button id="cart-btn" class="pill small" onclick="openCartModal()" style="position:relative;">
-                <span>🛒</span>
-                <span>Panier</span>
-                <span id="cart-count" style="position:absolute;top:-6px;right:-6px;background:#ef4444;color:white;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;display:none;">0</span>
-            </button>
             <!-- Bouton Auth (affiché seulement si non connecté) -->
             <div id="auth-buttons" style="display:none;gap:8px;align-items:center;flex-wrap:wrap;">
                 <button id="login-topbar-btn" class="pill small" onclick="if(typeof window.openLoginModal === 'function') { window.openLoginModal(); } else if(typeof window.openAuthModal === 'function') { window.openAuthModal('login'); } else if(typeof openLoginModal === 'function') { openLoginModal(); }" style="background:transparent;border:1px solid rgba(255,255,255,0.2);color:var(--ui-text-main);font-weight:600;padding:8px 16px;white-space:nowrap;font-size:13px;cursor:pointer;">
                     Connexion
                 </button>
             </div>
-            <button id="account-topbar-btn" class="pill small" onclick="openAccountModal()">
+            <button id="account-topbar-btn" class="pill small" onclick="console.log('[CLICK] Compte cliqué, _openAccountGrid:', typeof window._openAccountGrid); if(typeof window._openAccountGrid==='function'){window._openAccountGrid();}else if(typeof window.openAccountModal==='function'){window.openAccountModal();}else{console.error('[CLICK] Aucune fonction disponible');}">
                 <span id="account-avatar">👤</span>
                 <span id="account-name">Compte</span>
             </button>
@@ -3062,7 +3094,7 @@
     </div>
 
     <button id="map-publish-btn" onclick="openPublishModal()">
-        Publier
+        + Publier
     </button>
     
     <!-- Bouton Assistant AI désactivé pour l'instant -->
@@ -3121,7 +3153,7 @@
     <!-- Modules core et services (doit être chargé avant auth.js) -->
     <script type="module" src="js/load-modules.js"></script>
     <!-- Module AUTH (fonctions d'authentification) -->
-    <script src="auth.js?v=20260213-SWv7" defer></script>
+    <script src="auth.js?v=20260221-fix2" defer></script>
     <!-- Script de diagnostic username (développement uniquement) -->
     <script>
       // Exposer une fonction globale pour lancer le diagnostic
@@ -3141,7 +3173,134 @@
       console.log('%c💡 Ou ouvrez: tests/diagnostic/DIAGNOSTIC_USERNAME_CONSOLE.txt et copiez-collez le code', 'color: #00ffc3; font-weight: bold;');
     </script>
     <!-- Logique principale de la carte -->
-    <script src="map_logic.js?v=20260217-fix" defer></script>
+    <script src="map_logic.js?v=20260221-fix2" defer></script>
+    <!-- Override du modal Compte : grille de blocs -->
+    <script>
+    (function(){
+      var _patched = false;
+      function go(fn){ if(typeof closePublishModal==='function') closePublishModal(); setTimeout(fn, 300); }
+      function safeEsc(s){ return String(s||'').replace(/[<>&"]/g, function(c){ return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]; }); }
+
+      console.log('[INIT] _openAccountGrid défini');
+      window._openAccountGrid = function(){
+        var u = window.currentUser;
+        if(u && u.email && !u.isLoggedIn) { u.isLoggedIn = true; }
+        if(!u||!u.isLoggedIn){
+          try { var s=localStorage.getItem('currentUser'); if(s){var p=JSON.parse(s); if(p&&p.email){u=p;u.isLoggedIn=true;window.currentUser=u;}}} catch(e){}
+        }
+        if(!u||!u.isLoggedIn){
+          try { var t=localStorage.getItem('authToken')||localStorage.getItem('token'); if(t){u=u||{};u.isLoggedIn=true;window.currentUser=u;}} catch(e){}
+        }
+        if(!u||(!u.isLoggedIn && !u.email)){
+          if(typeof openAuthModal==='function') openAuthModal('login');
+          return;
+        }
+        if(!u.isLoggedIn) u.isLoggedIn = true;
+        var nm = u.username||u.name||'Compte';
+        if(nm.indexOf('@')!==-1) nm = u.username||'Compte';
+        var em = u.email||'';
+        var av = u.profile_photo_url||u.profilePhoto||'';
+        var hasPhoto = av && (av.indexOf('http')===0 || av.indexOf('data:image')===0);
+        var avHtml = hasPhoto
+          ? '<img src="'+safeEsc(av)+'" style="width:60px;height:60px;border-radius:50%;object-fit:cover;border:2px solid rgba(0,255,195,0.4);" onerror="this.style.display=\'none\'" />'
+          : '<div style="width:60px;height:60px;border-radius:50%;background:#334155;display:flex;align-items:center;justify-content:center;font-size:28px;">&#x1F464;</div>';
+        var sub = u.subscription||'free';
+        var subL = sub==='free'?'Gratuit':sub;
+
+        var bd = document.getElementById('publish-modal-backdrop');
+        var md = document.getElementById('publish-modal-inner');
+        var pm = document.getElementById('publish-modal');
+        if(!bd){ bd=document.createElement('div'); bd.id='publish-modal-backdrop'; document.body.appendChild(bd); }
+        if(!pm){ pm=document.createElement('div'); pm.id='publish-modal'; bd.appendChild(pm); }
+        if(!md){ md=document.createElement('div'); md.id='publish-modal-inner'; pm.appendChild(md); }
+        bd.removeAttribute('data-auth-modal');
+        bd.setAttribute('style','position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;');
+        bd.onclick=function(e){if(e.target===bd && typeof closePublishModal==='function') closePublishModal();};
+        pm.setAttribute('style','display:block;visibility:visible;opacity:1;position:relative;max-width:440px;width:100%;max-height:90vh;overflow-y:auto;');
+        md.setAttribute('style','background:#1e293b;border-radius:20px;display:block;visibility:visible;opacity:1;');
+
+        var bS = 'flex:1;min-width:45%;padding:16px 12px;border-radius:14px;border:1px solid rgba(148,163,184,0.3);background:rgba(15,23,42,0.6);color:#e2e8f0;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:10px;';
+        var aS = 'width:100%;padding:12px;border-radius:10px;border:none;background:transparent;font-size:13px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:10px;';
+
+        md.innerHTML = '';
+        var wrap = document.createElement('div');
+
+        var header = document.createElement('div');
+        header.style.cssText = 'padding:20px 20px 0;display:flex;align-items:center;gap:14px;';
+        header.innerHTML = avHtml + '<div style="flex:1;"><div style="font-size:17px;font-weight:700;color:#f1f5f9;">'+safeEsc(nm)+'</div><div style="font-size:12px;color:#94a3b8;margin-top:2px;">'+safeEsc(em)+'</div><div style="font-size:11px;color:#64748b;margin-top:4px;">Abo : '+safeEsc(subL)+'</div></div>';
+        var closeBtn = document.createElement('button');
+        closeBtn.innerHTML = '&times;';
+        closeBtn.style.cssText = 'background:none;border:none;color:#64748b;font-size:22px;cursor:pointer;padding:4px 8px;align-self:start;';
+        closeBtn.onclick = function(){ if(typeof closePublishModal==='function') closePublishModal(); };
+        header.appendChild(closeBtn);
+        md.appendChild(header);
+
+        var grid = document.createElement('div');
+        grid.style.cssText = 'padding:16px 20px;display:flex;flex-wrap:wrap;gap:10px;';
+
+        var items = [
+          ['&#x1F4C5;','Agenda',function(){ go(function(){ if(typeof openAgendaModal==='function') openAgendaModal(); }); }],
+          ['&#x1F514;','Alertes',function(){ go(function(){ if(typeof openProximityAlertsView==='function') openProximityAlertsView(); }); }],
+          ['&#x1F464;','Profil',function(){ if(typeof showAccountModalTab==='function') showAccountModalTab('profil'); }],
+          ['&#x270F;&#xFE0F;','Modifier profil',function(){ go(function(){ if(typeof openEditProfileModal==='function') openEditProfileModal(); }); }],
+          ['&#x1F4E2;','Mes annonces',function(){ if(typeof showAccountModalTab==='function') showAccountModalTab('annonces'); }],
+          ['&#x1F514;','Notifications',function(){ if(typeof showAccountModalTab==='function') showAccountModalTab('notifications'); }],
+          ['&#x1F6D2;','Panier',function(){ go(function(){ if(typeof openCartModal==='function') openCartModal(); }); }],
+          ['&#x1F48E;','Abos',function(){ go(function(){ if(typeof openSubscriptionModal==='function') openSubscriptionModal(); }); }]
+        ];
+
+        items.forEach(function(it){
+          var b = document.createElement('button');
+          b.style.cssText = bS;
+          b.innerHTML = '<span style="font-size:20px;">'+it[0]+'</span><span>'+it[1]+'</span>';
+          b.onclick = it[2];
+          grid.appendChild(b);
+        });
+
+        var paramWrap = document.createElement('div');
+        paramWrap.style.cssText = 'width:100%;display:flex;gap:10px;';
+        var paramBtn = document.createElement('button');
+        paramBtn.style.cssText = bS;
+        paramBtn.innerHTML = '<span style="font-size:20px;">&#x2699;&#xFE0F;</span><span>Param\u00e8tres</span>';
+        paramBtn.onclick = function(){ go(function(){ if(typeof openSettingsModal==='function') openSettingsModal(); }); };
+        paramWrap.appendChild(paramBtn);
+        var ecoBtn = document.createElement('button');
+        ecoBtn.style.cssText = bS + 'background:linear-gradient(135deg,rgba(34,197,94,0.2),rgba(16,185,129,0.1));border-color:rgba(34,197,94,0.4);';
+        ecoBtn.innerHTML = '<span style="font-size:20px;">&#x1F30D;</span><span style="color:#22c55e;">Sauver la Terre</span>';
+        ecoBtn.onclick = function(){ go(function(){ if(typeof openEcoMissionModal==='function') openEcoMissionModal(); }); };
+        paramWrap.appendChild(ecoBtn);
+        grid.appendChild(paramWrap);
+        md.appendChild(grid);
+
+        var footer = document.createElement('div');
+        footer.style.cssText = 'padding:0 20px 16px;border-top:1px solid rgba(148,163,184,0.15);margin-top:4px;padding-top:12px;';
+
+        var footItems = [
+          ['&#x1F30D;','Map Friend','#94a3b8',function(){ if(typeof showAccountModalTab==='function') showAccountModalTab('mapfriend'); }],
+          ['&#x1F512;','Rester connect\u00e9','#94a3b8',function(){ if(typeof showNotification==='function') showNotification('Vous restez connect\u00e9','success'); }],
+          ['&#x1F6AA;','Se d\u00e9connecter','#f59e0b',function(){ go(function(){ if(typeof logout==='function') logout(); else if(typeof startCognitoLogout==='function') startCognitoLogout(); }); }],
+          ['&#x1F5D1;&#xFE0F;','Supprimer mon compte','#ef4444',function(){ if(confirm('\u00cates-vous s\u00fbr de vouloir supprimer votre compte ?')){ if(typeof deleteAccount==='function') deleteAccount(); } }]
+        ];
+
+        footItems.forEach(function(it){
+          var b = document.createElement('button');
+          b.style.cssText = aS + 'color:'+it[2]+';';
+          b.innerHTML = '<span style="font-size:16px;">'+it[0]+'</span><span>'+it[1]+'</span>';
+          b.onclick = it[3];
+          footer.appendChild(b);
+        });
+        md.appendChild(footer);
+      };
+
+      var t = setInterval(function(){
+        if(typeof window.openAccountModal==='function' && !_patched){
+          _patched = true;
+          window.openAccountModal = window._openAccountGrid;
+          clearInterval(t);
+        }
+      }, 500);
+    })();
+    </script>
     <!-- Script pour mettre à jour les métadonnées Open Graph immédiatement au chargement -->
     <script>
       // Mettre à jour les métadonnées Open Graph dès le chargement de la page
@@ -3343,50 +3502,44 @@
       
       // Popup d'accueil avec option PWA
       window.showWelcomePopup = function() {
-        // Ne pas afficher si déjà installée en PWA
         if (window.isPWAInstalled) return;
         
-        // Ne pas afficher si déjà vue récemment
         const lastShown = localStorage.getItem('welcomePopupShown');
         const now = Date.now();
         if (lastShown && (now - parseInt(lastShown)) < 24 * 60 * 60 * 1000) {
-          return; // Moins de 24h
+          return;
         }
         
         const isMobile = window.innerWidth <= 768;
+        var wl = (localStorage.getItem('mapevent_lang') || (navigator.language || 'en').substring(0, 2).toLowerCase());
+        var wt = {
+          en: { title: 'Welcome to MapEvent', desc: 'Explore <strong style="color:#00ffc3;">61,000+ events</strong> worldwide on one interactive map. Click any marker to discover an event near you.', btn: 'Explore the map', pwa: 'Install mobile app', pwaSm: 'Mobile version' },
+          fr: { title: 'Bienvenue sur MapEvent', desc: 'Explorez <strong style="color:#00ffc3;">61 000+ \u00e9v\u00e9nements</strong> dans le monde sur une seule carte interactive. Cliquez sur un marqueur pour d\u00e9couvrir un \u00e9v\u00e9nement.', btn: 'Explorer la carte', pwa: 'Installer l\'app mobile', pwaSm: 'Version smartphone' },
+          de: { title: 'Willkommen bei MapEvent', desc: 'Entdecken Sie <strong style="color:#00ffc3;">61.000+ Veranstaltungen</strong> weltweit auf einer interaktiven Karte. Klicken Sie auf einen Marker.', btn: 'Karte erkunden', pwa: 'App installieren', pwaSm: 'Mobile Version' },
+          es: { title: 'Bienvenido a MapEvent', desc: 'Explora <strong style="color:#00ffc3;">61.000+ eventos</strong> en todo el mundo en un mapa interactivo. Haz clic en un marcador.', btn: 'Explorar el mapa', pwa: 'Instalar app m\u00f3vil', pwaSm: 'Versi\u00f3n m\u00f3vil' },
+          it: { title: 'Benvenuto su MapEvent', desc: 'Esplora <strong style="color:#00ffc3;">61.000+ eventi</strong> in tutto il mondo su una mappa interattiva. Clicca su un marcatore.', btn: 'Esplora la mappa', pwa: 'Installa l\'app mobile', pwaSm: 'Versione mobile' }
+        };
+        var tr = wt[wl] || wt.en;
         
         const popup = document.createElement('div');
         popup.id = 'welcome-popup-overlay';
         popup.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;-webkit-tap-highlight-color:transparent;';
         popup.setAttribute('role', 'dialog');
-        popup.setAttribute('aria-label', 'Bienvenue MapEvent');
+        popup.setAttribute('aria-label', tr.title);
         popup.onclick = function(e) {
           if (e.target === popup) {
             if (typeof closeWelcomePopup === 'function') closeWelcomePopup();
           }
         };
         
-        popup.innerHTML = `
-          <div class="welcome-popup-card" style="background:var(--ui-card-bg, #1a1a2e);border-radius:20px;padding:30px;max-width:400px;text-align:center;border:1px solid rgba(148,163,184,0.3);" onclick="event.stopPropagation();">
-            <div style="font-size:48px;margin-bottom:16px;">🗺️</div>
-            <h2 style="color:#fff;margin:0 0 12px;font-size:24px;">Bienvenue sur MapEvent</h2>
-            <p style="color:#9ca3af;margin:0 0 20px;font-size:14px;line-height:1.5;">
-              Site actif sauf abonnements et fonctions sociales à venir.
-            </p>
-            ${isMobile && window.pwaInstallPrompt ? `
-              <button type="button" class="pwa-install-btn" style="margin-bottom:12px;display:flex;align-items:center;gap:8px;padding:14px 20px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border:none;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;width:100%;justify-content:center;-webkit-tap-highlight-color:transparent;">
-                📱 Installer l'app mobile
-              </button>
-            ` : isMobile ? `
-              <button type="button" class="pwa-install-btn" style="margin-bottom:12px;display:flex;align-items:center;gap:8px;padding:14px 20px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border:none;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;width:100%;justify-content:center;-webkit-tap-highlight-color:transparent;">
-                📱 Version smartphone
-              </button>
-            ` : ''}
-            <button type="button" id="welcome-continuer-btn" style="padding:14px 24px;min-height:48px;background:linear-gradient(135deg,#00ffc3,#3b82f6);color:#000;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;width:100%;-webkit-tap-highlight-color:transparent;">
-              Continuer sur le site
-            </button>
-          </div>
-        `;
+        popup.innerHTML = '<div class="welcome-popup-card" style="background:var(--ui-card-bg, #1a1a2e);border-radius:20px;padding:30px;max-width:400px;text-align:center;border:1px solid rgba(148,163,184,0.3);" onclick="event.stopPropagation();">'
+          + '<div style="font-size:48px;margin-bottom:16px;">\u{1F5FA}\uFE0F</div>'
+          + '<h2 style="color:#fff;margin:0 0 12px;font-size:24px;">' + tr.title + '</h2>'
+          + '<p style="color:#9ca3af;margin:0 0 20px;font-size:14px;line-height:1.5;">' + tr.desc + '</p>'
+          + (isMobile && window.pwaInstallPrompt ? '<button type="button" class="pwa-install-btn" style="margin-bottom:12px;display:flex;align-items:center;gap:8px;padding:14px 20px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border:none;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;width:100%;justify-content:center;-webkit-tap-highlight-color:transparent;">\u{1F4F1} ' + tr.pwa + '</button>'
+            : isMobile ? '<button type="button" class="pwa-install-btn" style="margin-bottom:12px;display:flex;align-items:center;gap:8px;padding:14px 20px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border:none;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;width:100%;justify-content:center;-webkit-tap-highlight-color:transparent;">\u{1F4F1} ' + tr.pwaSm + '</button>' : '')
+          + '<button type="button" id="welcome-continuer-btn" style="padding:14px 24px;min-height:48px;background:linear-gradient(135deg,#00ffc3,#3b82f6);color:#000;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;width:100%;-webkit-tap-highlight-color:transparent;">' + tr.btn + '</button>'
+          + '</div>';
         
         document.body.appendChild(popup);
         var continuerBtn = document.getElementById('welcome-continuer-btn');
@@ -3445,17 +3598,7 @@
         }
       });
       
-      // Afficher la popup "À propos" (logo) après un court délai
-      setTimeout(() => {
-        if (window.isPWAInstalled) return;
-        const lastShown = localStorage.getItem('welcomePopupShown');
-        const now = Date.now();
-        if (lastShown && (now - parseInt(lastShown)) < 24 * 60 * 60 * 1000) return;
-        if (typeof window.openAboutModal === 'function') {
-          window.openAboutModal();
-          localStorage.setItem('welcomePopupShown', Date.now().toString());
-        }
-      }, 2000);
+      // Welcome popup disabled
       // Rappel raccourci iOS (après la popup d'accueil)
       setTimeout(showPwaRappelRaccourci, 5000);
       
@@ -3478,6 +3621,48 @@
           }
         }).catch(function() {});
       })();
+    </script>
+
+    <!-- CTA Banner for organizers arriving via ?event=XXX -->
+    <script>
+    (function() {
+      var params = new URLSearchParams(window.location.search);
+      var eid = params.get('event');
+      if (!eid) return;
+
+      var lang = (navigator.language || 'en').substring(0, 2);
+      var T = {
+        fr: { title: 'Vous \u00eates l\u2019organisateur de cet \u00e9v\u00e9nement\u00a0?', sub: 'V\u00e9rifiez vos informations et prenez le contr\u00f4le de votre page.', validate: 'Valider mes infos', create: 'Cr\u00e9er un compte', modify: 'Demander une modification' },
+        en: { title: 'Are you the organizer of this event?', sub: 'Verify your information and take control of your page.', validate: 'Validate my info', create: 'Create an account', modify: 'Request a change' },
+        de: { title: 'Sind Sie der Veranstalter?', sub: 'Pr\u00fcfen Sie Ihre Informationen und \u00fcbernehmen Sie die Kontrolle.', validate: 'Infos best\u00e4tigen', create: 'Konto erstellen', modify: '\u00c4nderung anfragen' },
+        es: { title: '\u00bfEres el organizador de este evento?', sub: 'Verifica tu informaci\u00f3n y toma el control de tu p\u00e1gina.', validate: 'Validar mis datos', create: 'Crear una cuenta', modify: 'Solicitar un cambio' },
+        it: { title: 'Sei l\u2019organizzatore di questo evento?', sub: 'Verifica le tue informazioni e prendi il controllo.', validate: 'Convalida i miei dati', create: 'Crea un account', modify: 'Richiedi una modifica' }
+      };
+      var t = T[lang] || T.en;
+
+      var bar = document.createElement('div');
+      bar.id = 'organizer-cta';
+      bar.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:10000;background:linear-gradient(135deg,#1e293b 0%,#0f172a 100%);border-top:2px solid #3b82f6;padding:14px 20px;display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;box-shadow:0 -4px 20px rgba(0,0,0,0.4);animation:ctaSlideUp .4s ease-out;';
+
+      var mailSubject = encodeURIComponent(t.modify + ' - Event #' + eid);
+      var mailBody = encodeURIComponent('Event ID: ' + eid + '\n\n');
+
+      bar.innerHTML = '<style>@keyframes ctaSlideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}</style>'
+        + '<div style="flex:1;min-width:200px;"><div style="color:#f1f5f9;font-weight:700;font-size:15px;">' + t.title + '</div>'
+        + '<div style="color:#94a3b8;font-size:13px;margin-top:2px;">' + t.sub + '</div></div>'
+        + '<div style="display:flex;gap:8px;flex-wrap:wrap;">'
+        + '<a href="#" onclick="if(typeof window.openLoginModal===\'function\')window.openLoginModal();return false;" style="padding:9px 18px;border-radius:8px;background:#3b82f6;color:#fff;font-size:13px;font-weight:600;text-decoration:none;white-space:nowrap;cursor:pointer;">' + t.validate + '</a>'
+        + '<a href="#" onclick="if(typeof window.openAuthModal===\'function\')window.openAuthModal(\'register\');else if(typeof window.openLoginModal===\'function\')window.openLoginModal();return false;" style="padding:9px 18px;border-radius:8px;background:transparent;border:1px solid #3b82f6;color:#93c5fd;font-size:13px;font-weight:600;text-decoration:none;white-space:nowrap;cursor:pointer;">' + t.create + '</a>'
+        + '<a href="mailto:mapeventworld@gmail.com?subject=' + mailSubject + '&body=' + mailBody + '" style="padding:9px 18px;border-radius:8px;background:transparent;border:1px solid #475569;color:#94a3b8;font-size:13px;font-weight:600;text-decoration:none;white-space:nowrap;cursor:pointer;">' + t.modify + '</a>'
+        + '</div>'
+        + '<button onclick="this.parentElement.remove();" style="background:none;border:none;color:#64748b;font-size:20px;cursor:pointer;padding:4px 8px;line-height:1;" aria-label="Close">\u00d7</button>';
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function() { document.body.appendChild(bar); });
+      } else {
+        document.body.appendChild(bar);
+      }
+    })();
     </script>
 </body>
 </html>
