@@ -1,415 +1,99 @@
 {
   "Events": {
-    "Music": {
-      "Electronic": {
-        "Techno": [
-          "Acid Techno",
-          "Minimal Techno",
-          "Hard Techno",
-          "Industrial Techno",
-          "Peak Time Techno",
-          "Detroit Techno",
-          "Melodic Techno",
-          "Dub Techno",
-          "Hypnotic Techno"
-        ],
-        "House": [
-          "Deep House",
-          "Electro House",
-          "Tech House",
-          "Progressive House",
-          "Tribal House",
-          "Funky House",
-          "Afro House",
-          "Soulful House"
-        ],
-        "Trance": [
-          "Psytrance",
-          "Full On",
-          "Goa",
-          "Progressive Psy",
-          "Dark Psy",
-          "Psyprog",
-          "Forest",
-          "Hi-Tech",
-          "Uplifting Trance",
-          "Vocal Trance",
-          "Classic Trance",
-          "Acid Trance"
-        ],
-        "Drum & Bass": [
-          "Neurofunk",
-          "Jungle",
-          "Liquid DnB",
-          "Jump Up",
-          "Halftime DnB",
-          "Darkstep",
-          "Ragga Jungle"
-        ],
-        "Bass Music": [
-          "Dubstep",
-          "Riddim",
-          "UK Bass",
-          "Future Bass",
-          "Trap Bass"
-        ],
-        "Hard Music": [
-          "Hardstyle",
-          "Hardcore",
-          "Gabber",
-          "Rawstyle"
-        ],
-        "Chill / Ambient": [
-          "Ambient",
-          "Chillout",
-          "Lofi",
-          "Downtempo"
-        ]
+
+    "Musique": {
+      "Électro": {
+        "Techno":          ["Acid Techno", "Minimal Techno", "Hard Techno", "Industrial Techno", "Peak Time Techno", "Detroit Techno", "Melodic Techno", "Dub Techno", "Hypnotic Techno"],
+        "House":           ["Deep House", "Tech House", "Progressive House", "Afro House", "Funky House", "Soulful House", "Tribal House", "Electro House"],
+        "Trance":          ["Psytrance", "Full On", "Goa", "Progressive Psy", "Dark Psy", "Forest", "Hi-Tech", "Uplifting Trance", "Vocal Trance", "Acid Trance"],
+        "Drum & Bass":     ["Neurofunk", "Liquid DnB", "Jump Up", "Jungle", "Halftime", "Darkstep", "Ragga Jungle"],
+        "Bass Music":      ["Dubstep", "Riddim", "UK Bass", "Future Bass", "Trap Bass"],
+        "Hard Music":      ["Hardstyle", "Hardcore", "Gabber", "Rawstyle", "Frenchcore"],
+        "Disco / Nu-Disco": ["Disco", "Nu-Disco", "Italo Disco", "Funk électronique"],
+        "Ambient / Chill": ["Ambient", "Chillout", "Lofi", "Downtempo", "Dark Ambient"]
       },
-      "Urban": {
-        "Rap": [],
-        "Trap": [],
-        "Drill": [],
-        "Hip-Hop": [],
-        "RnB": [],
-        "Grime": [],
-        "Afro / Afrobeats": [],
-        "Dancehall": [],
-        "Reggaeton": [],
-        "Jersey Club": [],
-        "Phonk": []
+      "Urbain": {
+        "Rap / Hip-Hop":   ["Rap FR", "Rap US", "Old School", "Conscious", "Trap", "Drill", "Phonk"],
+        "RnB / Soul":      ["RnB", "Neo Soul", "Contemporary Soul"],
+        "Afro / Caraïbes": ["Afrobeats", "Afro-Pop", "Dancehall", "Reggaeton", "Kompa"],
+        "Grime / UK":      ["Grime", "UK Garage", "Jersey Club"]
       },
       "Rock / Metal": {
-        "Rock": [
-          "Indie Rock",
-          "Alternative Rock",
-          "Punk Rock",
-          "Classic Rock",
-          "Grunge",
-          "Garage Rock"
-        ],
-        "Metal": [
-          "Heavy Metal",
-          "Thrash Metal",
-          "Black Metal",
-          "Death Metal",
-          "Metalcore",
-          "Nu Metal",
-          "Symphonic Metal",
-          "Progressive Metal",
-          "Doom Metal"
-        ]
+        "Rock":  ["Hard Rock", "Indie Rock", "Alternative Rock", "Punk Rock", "Classic Rock", "Grunge", "Garage Rock"],
+        "Metal": ["Heavy Metal", "Thrash Metal", "Black Metal", "Death Metal", "Metalcore", "Nu Metal", "Symphonic Metal", "Progressive Metal", "Doom Metal"]
       },
-      "Reggae / Ska / World": [
-        "Reggae",
-        "Dub",
-        "Ska",
-        "Roots Reggae",
-        "Dancehall Roots",
-        "Cumbia",
-        "Afrobeat"
-      ],
-      "Jazz / Soul / Funk": [
-        "Jazz",
-        "Smooth Jazz",
-        "Blues",
-        "Soul",
-        "Funk",
-        "Neo Soul",
-        "Swing",
-        "Fusion Jazz"
-      ],
-      "Pop / Variété": [
-        "Pop",
-        "K-Pop",
-        "J-Pop",
-        "Chanson Française",
-        "Variété Internationale",
-        "Indie Pop",
-        "Electro Pop"
-      ],
-      "Folk / Acoustic": [
-        "Folk",
-        "Country",
-        "Bluegrass",
-        "Acoustic Live",
-        "Irish / Celtic"
-      ],
+      "Jazz / Blues / Soul": ["Jazz", "Smooth Jazz", "Blues", "Soul", "Funk", "Swing", "Fusion", "Nu Jazz"],
+      "Reggae / World":      ["Reggae", "Dub", "Ska", "Roots Reggae", "Cumbia", "Afrobeat", "Balkan", "Latin", "Oriental"],
+      "Pop / Variété":       ["Pop", "Indie Pop", "Electro Pop", "K-Pop", "J-Pop", "Chanson Française", "Variété internationale"],
+      "Folk / Acoustic":     ["Folk", "Country", "Bluegrass", "Acoustic Live", "Celtic / Irish"],
       "Classique": {
-        "Périodes": [
-          "Médiéval",
-          "Renaissance",
-          "Baroque",
-          "Classique",
-          "Romantique",
-          "Moderne",
-          "Contemporain"
-        ],
-        "Formes": [
-          "Symphonie",
-          "Concerto",
-          "Sonate",
-          "Opéra",
-          "Opérette",
-          "Oratorio",
-          "Requiem",
-          "Messe",
-          "Cantate",
-          "Lied"
-        ],
-        "Ensembles": [
-          "Orchestre symphonique",
-          "Orchestre de chambre",
-          "Quatuor à cordes",
-          "Trio",
-          "Duo",
-          "Solo",
-          "Chœur",
-          "Ensemble vocal",
-          "Brass Band",
-          "Harmonie"
-        ],
-        "Instruments": [
-          "Piano",
-          "Violon",
-          "Violoncelle",
-          "Flûte",
-          "Clarinette",
-          "Hautbois",
-          "Trompette",
-          "Cor",
-          "Orgue",
-          "Harpe"
-        ]
+        "Périodes":   ["Médiéval", "Renaissance", "Baroque", "Classique", "Romantique", "Moderne", "Contemporain"],
+        "Formes":     ["Opéra", "Symphonie", "Concerto", "Sonate", "Récital", "Oratorio", "Messe", "Lied"],
+        "Ensembles":  ["Orchestre symphonique", "Orchestre de chambre", "Quatuor à cordes", "Trio", "Duo", "Solo", "Chœur", "Ensemble vocal", "Brass Band"]
       }
     },
 
-    "Culture": {
-      "Cinéma & Projections": [
-        "Projection film",
-        "Avant-première",
-        "Court-métrage",
-        "Ciné-concert"
-      ],
-      "Expositions": [
-        "Galerie",
-        "Vernissage",
-        "Photographie",
-        "Peinture",
-        "Sculpture",
-        "Art numérique",
-        "Street Art"
-      ],
-      "Conférences & Rencontres": [
-        "Conférence",
-        "Débat",
-        "Rencontre associative",
-        "Rencontre célibataire",
-        "Lecture publique",
-        "Présentation",
-        "Histoire / Société"
-      ],
-      "Ateliers": [
-        "Atelier créatif",
-        "Atelier enfants",
-        "Atelier bien-être",
-        "Atelier danse",
-        "Atelier musique",
-        "Atelier écriture",
-        "Atelier cuisine",
-        "Atelier cocktails",
-        "Atelier professionnel"
-      ],
-      "Littérature & Conte": [
-        "Lecture publique",
-        "Conte",
-        "Dédicace / Rencontre auteur",
-        "Slam / Poésie"
-      ],
-      "Humour": [
-        "Stand-up",
-        "One-man show",
-        "Sketch",
-        "Improvisation comique"
-      ],
-      "Visites & Patrimoine": [
-        "Visite guidée",
-        "Journées du patrimoine",
-        "Visite historique",
-        "Musée"
-      ]
+    "Arts Vivants": {
+      "Théâtre":          ["Classique", "Contemporain", "Comédie musicale", "Improvisation", "Lecture scénique"],
+      "Danse":            ["Contemporaine", "Ballet / Classique", "Hip-Hop / Urbaine", "Latine", "Orientale", "Flamenco", "K-Pop Dance"],
+      "Cirque & Cabaret": ["Cirque contemporain", "Cabaret", "Burlesque", "Magie", "Acrobatie", "Clown"],
+      "Performance":      ["Spectacle immersif", "Performance artistique", "Show visuel", "Théâtre de rue"]
     },
 
-    "Arts Vivants": {
-      "Théâtre": [
-        "Théâtre classique",
-        "Théâtre contemporain",
-        "Stand-up",
-        "Improvisation",
-        "Comédie musicale",
-        "One-man show"
-      ],
-      "Danse": [
-        "Danse contemporaine",
-        "Danse classique / Ballet",
-        "Danse urbaine",
-        "Danse latine",
-        "Danse orientale",
-        "K-pop Dance"
-      ],
-      "Cirque": [],
-      "Autres": [
-        "Performance artistique",
-        "Lecture scénique",
-        "Spectacle immersif",
-        "Show visuel",
-        "Cabaret"
-      ]
+    "Culture": {
+      "Expositions":          ["Galerie", "Vernissage", "Photographie", "Peinture", "Sculpture", "Art numérique", "Street Art", "Design"],
+      "Cinéma":               ["Projection", "Avant-première", "Court-métrage", "Festival cinéma", "Ciné-concert", "Documentaire"],
+      "Conférences & Débats": ["Conférence", "Débat", "Table ronde", "Présentation", "Histoire / Société"],
+      "Humour":               ["Stand-up", "One-man show", "Sketch", "Improvisation comique"],
+      "Littérature":          ["Lecture publique", "Dédicace / Rencontre auteur", "Slam / Poésie", "Conte"],
+      "Ateliers":             ["Créatif", "Cuisine", "Cocktails", "Musique", "Danse", "Écriture", "Bien-être", "Professionnel"],
+      "Patrimoine & Visites": ["Visite guidée", "Musée", "Journées du patrimoine", "Site historique"]
     },
+
+    "Festivals": [
+      "Festival musique", "Open Air", "Block Party", "Street Parade", "Pride", "Rave / Warehouse",
+      "Festival culturel", "Festival cinéma", "Festival gastronomique",
+      "Salon", "Grande foire", "Nuit blanche", "Carnaval"
+    ],
 
     "Food & Drinks": {
-      "Dégustations": [
-        "Dégustation vin",
-        "Dégustation bière",
-        "Dégustation spiritueux",
-        "Dégustation gastronomie"
-      ],
-      "Restauration": [
-        "Brunch",
-        "BBQ",
-        "Soirée cocktails",
-        "Food Trucks",
-        "Marché alimentaire"
-      ]
-    },
-
-    "Loisirs & Animation": {
-      "Jeux & Soirées": [
-        "Karaoke",
-        "Blind Test",
-        "Quiz",
-        "Soirée jeux",
-        "Jeux - lottos",
-        "Jeux - tournois"
-      ],
-      "Défilés & Fêtes": [
-        "Défilé",
-        "Brocante",
-        "Marché",
-        "Marché artisanal",
-        "Fête de village",
-        "Carnaval",
-        "Marché de Noël"
-      ]
+      "Dégustations":       ["Vin", "Bière / Craft", "Spiritueux", "Gastronomie"],
+      "Événements culinaires": ["Brunch", "BBQ", "Food Trucks", "Marché alimentaire", "Soirée cocktails"]
     },
 
     "Sport": {
-      "Aquatique": [
-        "Natation",
-        "Aquagym",
-        "Water-polo",
-        "Surf aquatique",
-        "Plongée",
-        "Paddle"
-      ],
-      "Terrestre": [
-        "Course à pied",
-        "Trail",
-        "Randonnée",
-        "Cyclisme",
-        "Fitness / Bootcamp",
-        "CrossFit",
-        "Football",
-        "Volleyball",
-        "Tennis",
-        "Handball",
-        "Rugby",
-        "Basket",
-        "Golf"
-      ],
-      "Aériens": [
-        "Parapente",
-        "ULM",
-        "Montgolfière",
-        "Drone Racing",
-        "Planeur",
-        "Wing Suit"
-      ],
-      "Glisse": [
-        "Ski",
-        "Snowboard",
-        "Patinage",
-        "Hockey",
-        "Luge",
-        "Trottinette freestyle",
-        "Longboard"
-      ],
-      "Conduite": [
-        "Karting",
-        "Rallye",
-        "Moto",
-        "Drift",
-        "Offroad / 4x4",
-        "Simulation Esport"
-      ]
+      "Sports collectifs":  ["Football", "Rugby", "Basket", "Volleyball", "Handball", "Hockey"],
+      "Sports individuels": ["Tennis", "Golf", "Boxe", "Arts martiaux", "Natation", "Cyclisme", "Escalade"],
+      "Endurance":          ["Course à pied", "Trail", "Triathlon", "CrossFit", "Fitness / Bootcamp"],
+      "Glisse":             ["Ski", "Snowboard", "Surf", "Skate", "Patinage", "Longboard", "Trottinette freestyle"],
+      "Sports aériens":     ["Parapente", "ULM", "Montgolfière", "Wing Suit", "Drone Racing"],
+      "Sports mécaniques":  ["Karting", "Rallye", "Moto", "Drift", "Offroad / 4x4"]
     },
 
-    "Festivals & Grandes Fêtes": [
-      "Festival musique",
-      "Festival food",
-      "Festival culturel",
-      "Festival cinéma",
-      "Open Air",
-      "Block Party",
-      "Street Parade",
-      "Pride",
-      "Grande foire",
-      "Salon",
-      "Rave géante",
-      "Nuit blanche"
+    "Loisirs & Jeux": {
+      "Soirées & Jeux":  ["Karaoke", "Blind Test", "Quiz", "Soirée jeux", "Escape Game", "Jeux - tournois"],
+      "Marchés & Fêtes": ["Brocante", "Marché artisanal", "Fête de village", "Marché de Noël", "Défilé"],
+      "Gaming & Esport": ["LAN Party", "Tournoi esport", "Gaming event", "Simulation / Racing"]
+    },
+
+    "Famille & Enfants": [
+      "Spectacle enfants", "Atelier enfants", "Conte / Lecture", "Marionnettes",
+      "Sortie nature famille", "Jeux plein air", "Anniversaire", "Goûter festif"
     ],
-
-    "Famille & Enfants": {
-      "Activités": [
-        "Sortie nature",
-        "Atelier enfants",
-        "Conte / Lecture",
-        "Spectacle enfants",
-        "Marionnettes",
-        "Jeux en plein air"
-      ],
-      "Fêtes": [
-        "Anniversaire",
-        "Fête de famille",
-        "Goûter festif"
-      ]
-    },
 
     "Nature & Plein Air": [
-      "Randonnée",
-      "Observation faune",
-      "Balade nature",
-      "Jardin / Botanique",
-      "Plein air"
+      "Randonnée", "Balade nature", "Observation faune", "Jardins / Botanique",
+      "Camping / Bivouac", "Orientation", "Paddle / Kayak"
     ],
 
-    "Business & Communauté": [
-      "Networking",
-      "Salon professionnel",
-      "Séminaire",
-      "Masterclass",
-      "Lancement produit",
-      "Meetup tech",
-      "Esport LAN Party",
-      "Gaming event"
+    "Business & Pro": [
+      "Networking", "Salon professionnel", "Séminaire", "Masterclass",
+      "Conférence tech", "Lancement produit", "Meetup", "Hackathon"
     ],
 
     "Bien-être": [
-      "Yoga",
-      "Méditation",
-      "Sophrologie",
-      "Spa / Sauna",
-      "Retraite bien-être"
+      "Yoga", "Méditation", "Sophrologie", "Retraite bien-être",
+      "Spa / Sauna", "Bain sonore", "Breathwork", "Pleine conscience"
     ]
   }
 }

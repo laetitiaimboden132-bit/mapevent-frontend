@@ -567,7 +567,7 @@ function showProRegisterForm() {
               type="password" 
               id="pro-password" 
               class="pro-register-input" 
-              placeholder="Minimum 8 caractères"
+              placeholder="Minimum 12 caractères"
               required
             value="${window.registerData.password || ''}"
             oninput="if(window.registerData) window.registerData.password = this.value; if(typeof validateProPassword === 'function') validateProPassword(this.value)"
@@ -592,8 +592,8 @@ function showProRegisterForm() {
               class="pro-register-input" 
               placeholder="Répétez le mot de passe"
               required
-              value="${window.window.window.registerData.passwordConfirm || ''}"
-              oninput="window.window.registerData.passwordConfirm = this.value; validateProPasswordMatch()"
+              value="${window.registerData?.passwordConfirm || ''}"
+              oninput="if(!window.registerData) window.registerData = {}; window.registerData.passwordConfirm = this.value; validateProPasswordMatch()"
             >
             <button type="button" class="pro-register-password-toggle" onclick="event.preventDefault();event.stopPropagation();toggleProPasswordVisibility('pro-password-confirm', event);return false;">👁️</button>
           </div>
@@ -613,7 +613,7 @@ function showProRegisterForm() {
               id="pro-postal-address" 
               class="pro-register-input" 
               placeholder="Commencez à taper votre adresse..."
-              value="${window.window.registerData.postalAddress || ''}"
+              value="${window.registerData?.postalAddress || ''}"
               autocomplete="off"
               oninput="if(typeof autoSaveRegistrationForm === 'function') autoSaveRegistrationForm();"
             >
@@ -2465,7 +2465,7 @@ async function handleProRegisterSubmit(event) {
   window.registerData.email = document.getElementById('pro-email')?.value.trim() || '';
   window.registerData.username = document.getElementById('pro-username')?.value.trim() || '';
   window.registerData.password = document.getElementById('pro-password')?.value || '';
-  window.window.registerData.passwordConfirm = document.getElementById('pro-password-confirm')?.value || '';
+  window.registerData.passwordConfirm = document.getElementById('pro-password-confirm')?.value || '';
   const skipAddress = document.getElementById('pro-skip-address')?.checked || false;
   window.registerData.postalAddress = skipAddress ? '' : (document.getElementById('pro-postal-address')?.value.trim() || '');
   
@@ -2595,10 +2595,10 @@ async function handleProRegisterSubmit(event) {
   
   console.log('[REGISTER] registerData.photoData APRÈS:', window.registerData?.photoData ? `PRÉSENT (${window.registerData.photoData.length} chars)` : 'NULL');
   
-  const hasPhotoData = window.registerData.photoData && 
-                       window.registerData.photoData !== 'null' && 
-                       window.registerData.photoData !== '' &&
-                       window.registerData.photoData.length > 0;
+  let hasPhotoData = window.registerData.photoData && 
+                    window.registerData.photoData !== 'null' && 
+                    window.registerData.photoData !== '' &&
+                    window.registerData.photoData.length > 0;
   const hasProfilePhoto = window.registerData.profilePhoto && 
                          window.registerData.profilePhoto !== 'null' && 
                          window.registerData.profilePhoto !== '' &&

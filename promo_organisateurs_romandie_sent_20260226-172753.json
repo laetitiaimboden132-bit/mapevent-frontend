@@ -1,0 +1,215 @@
+{
+  "zone_focus": "Suisse romande (Vaud + Valais)",
+  "subject": "Code promo publication offerte (0.-) - Map Event World [V2 20260226-172753]",
+  "requested": 34,
+  "sent_count": 34,
+  "error_count": 0,
+  "sent": [
+    {
+      "email": "info@nvrm.ch",
+      "canton": "Valais",
+      "event_title": "Les Folies de Tortin",
+      "source_url": "https://www.nendaz.ch/fr/P89194/les-folies-de-tortin"
+    },
+    {
+      "email": "info@omegaeuropeanmasters.com",
+      "canton": "Valais",
+      "event_title": "Omega European Masters Golf",
+      "source_url": "https://www.crans-montana.ch/en/?idcmt=Partenaire_Event_1e7b23404967470b6fa1d1ce2011ae10"
+    },
+    {
+      "email": "info@operaimperatrice.ch",
+      "canton": "Vaud",
+      "event_title": "Ottone, re di Germania - Handel | Constance Larrieu",
+      "source_url": "https://vd.leprogramme.ch/concerts/ottone-re-di-germania-handel-constance-larrieu/payerne/abbatiale-de-payerne/"
+    },
+    {
+      "email": "info@orientalp.ch",
+      "canton": "Vaud",
+      "event_title": "World Dance Festival Orient'alp",
+      "source_url": "https://www.myswitzerland.com/fr-ch/decouvrir/manifestations/world-dance-festival-orientalp/"
+    },
+    {
+      "email": "info@ovronnaz.ch",
+      "canton": "Valais",
+      "event_title": "Randonnaz le village disparu",
+      "source_url": "https://www.ovronnaz.ch/en/agenda/#randonnaz-le-village-disparu-2026-03-05"
+    },
+    {
+      "email": "info@paleo.ch",
+      "canton": "Vaud",
+      "event_title": "Paléo Festival",
+      "source_url": "https://www.myswitzerland.com/fr-ch/decouvrir/manifestations/paleo-festival/"
+    },
+    {
+      "email": "info@pays-denhaut.ch",
+      "canton": "Vaud",
+      "event_title": "Soirée fondue et luge - Cabane des Monts Chevreuils",
+      "source_url": "https://www.vaud.ch/tourisme/tous-les-evenements/soiree-fondue-et-luge-cabane-des-monts-chevreuils"
+    },
+    {
+      "email": "info@promochamoson.ch",
+      "canton": "Valais",
+      "event_title": "Fête de la Taille à Chamoson",
+      "source_url": "https://www.valais.ch/fr/evenements/fete-de-la-taille-a-chamoson"
+    },
+    {
+      "email": "info@rd-cycling.com",
+      "canton": "Valais",
+      "event_title": "Marathon des Terroirs du Valais",
+      "source_url": "https://www.valais.ch/fr/evenements/marathon-des-terroirs-du-valais-bcvs-2026"
+    },
+    {
+      "email": "info@saillontourisme.ch",
+      "canton": "Valais",
+      "event_title": "Fête de l'asperge 2026",
+      "source_url": "https://www.valais.ch/fr/evenements/fete-de-l-asperge-2026"
+    },
+    {
+      "email": "info@sauvageraie.ch",
+      "canton": "Vaud",
+      "event_title": "Bonvillars & Truffe : Cours de cavage et cuisine à la Sauvageraie",
+      "source_url": "https://www.vaud.ch/tourisme/tous-les-evenements/bonvillars-truffe-cours-de-cavage-et-cuisine-a-la-sauvageraie"
+    },
+    {
+      "email": "info@schonegg.ch",
+      "canton": "Valais",
+      "event_title": "Fondue Gondola Experience Zermatt",
+      "source_url": "https://zermatt.swiss/en/p/fondue-gondola-experience-01tVj00000E0lDNIAZ"
+    },
+    {
+      "email": "info@swisswinevalais.ch",
+      "canton": "Valais",
+      "event_title": "Les caves ouvertes du Valais",
+      "source_url": "https://www.valais.ch/fr/evenements/les-caves-ouvertes-du-valais-celebrent-leur-20e-edition"
+    },
+    {
+      "email": "info@theatreneuf.ch",
+      "canton": "Valais",
+      "event_title": "Les brumes de Manchester Monthey",
+      "source_url": "https://www.tempslibre.ch/valais/spectacles/447999-th-tre-les-brumes-de-manchester"
+    },
+    {
+      "email": "info@truffesuisse.ch",
+      "canton": "Vaud",
+      "event_title": "Bonvillars & Truffe : Cours de cavage et cuisine à la Sauvageraie",
+      "source_url": "https://www.vaud.ch/tourisme/tous-les-evenements/bonvillars-truffe-cours-de-cavage-et-cuisine-a-la-sauvageraie"
+    },
+    {
+      "email": "info@vaud-promotion.ch",
+      "canton": "Vaud",
+      "event_title": "Exposition temporaire Top Secret\"\"",
+      "source_url": "https://www.vaud.ch/tourisme/tous-les-evenements/exposition-temporaire-top-secret"
+    },
+    {
+      "email": "info@verbierfestival.com",
+      "canton": "Valais",
+      "event_title": "Verbier Festival",
+      "source_url": "https://www.valais.ch/fr/evenements/verbier-festival"
+    },
+    {
+      "email": "info@village-du-livre.ch",
+      "canton": "Valais",
+      "event_title": "33e Fête du Livre St-Pierre-de-Clages",
+      "source_url": "https://www.tempslibre.ch/valais/manifestations/442770-33e-f-te-du-livre-de-st-pierre-de-clages"
+    },
+    {
+      "email": "info@zermatt-unplugged.ch",
+      "canton": "Valais",
+      "event_title": "Zermatt Unplugged 2026",
+      "source_url": "https://www.valais.ch/fr/evenements/zermatt-unplugged-2026"
+    },
+    {
+      "email": "info@zeughauskultur.ch",
+      "canton": "Valais",
+      "event_title": "Monopoly",
+      "source_url": "https://agenda.culturevalais.ch/fr/event/show/38587"
+    },
+    {
+      "email": "lausanne213152570art.brut@lausanne.ch",
+      "canton": "Vaud",
+      "event_title": "La Collection de l'Art Brut au Festival de la Cité",
+      "source_url": "https://www.myswitzerland.com/fr-ch/decouvrir/manifestations/la-collection-de-lart-brut-au-festival-de-la-cite/"
+    },
+    {
+      "email": "lorenz@festify.ch",
+      "canton": "Valais",
+      "event_title": "Floating Sculptures AR Trail Zermatt",
+      "source_url": "https://zermatt.swiss/en/p/zermatts-floating-sculptures-switzerlands-first-augmented-reality-trail-01tVj00000DaFQtIAN"
+    },
+    {
+      "email": "mcba@plateforme10.ch",
+      "canton": "Vaud",
+      "event_title": "Projection commentée – Festival Histoire et Cité 2026",
+      "source_url": "https://www.myswitzerland.com/fr-ch/decouvrir/manifestations/projection-commentee-festival-histoire-et-cite-2026/"
+    },
+    {
+      "email": "melanie@nindart.ch",
+      "canton": "Valais",
+      "event_title": "Leur chant d'automne",
+      "source_url": "https://www.nendaz.ch/fr/P209240/leur-chant-d-automne"
+    },
+    {
+      "email": "misshdutrem@icloud.com",
+      "canton": "Vaud",
+      "event_title": "Love Mantra Charabia - Hélène du Trémolet",
+      "source_url": "https://www.tempslibre.ch/vaud/expositions/448434-love-mantra-charabia-h-l-ne-du-tr-molet"
+    },
+    {
+      "email": "montschevreuils1698@gmail.com",
+      "canton": "Vaud",
+      "event_title": "Soirée fondue et luge - Cabane des Monts Chevreuils",
+      "source_url": "https://www.vaud.ch/tourisme/tous-les-evenements/soiree-fondue-et-luge-cabane-des-monts-chevreuils"
+    },
+    {
+      "email": "mudac@plateforme10.ch",
+      "canton": "Vaud",
+      "event_title": "Projection commentée – Festival Histoire et Cité 2026",
+      "source_url": "https://www.myswitzerland.com/fr-ch/decouvrir/manifestations/projection-commentee-festival-histoire-et-cite-2026/"
+    },
+    {
+      "email": "sc-museescantonaux@admin.vs.ch",
+      "canton": "Valais",
+      "event_title": "En février « J’peux pas; j’ai musée ! » : la visite guidée",
+      "source_url": "https://agenda.culturevalais.ch/fr/event/show/41481"
+    },
+    {
+      "email": "shop@beausobre.ch",
+      "canton": "Vaud",
+      "event_title": "Un succès fou | Sébastien Castro - José Paul",
+      "source_url": "https://vd.leprogramme.ch/theatre/un-succes-fou-sebastien-castro-jose-paul/morges/theatre-de-beausobre/"
+    },
+    {
+      "email": "stadtpolizei@brig-glis.ch",
+      "canton": "Valais",
+      "event_title": "Marché de Pâques",
+      "source_url": "https://www.valais.ch/fr/evenements/marche-de-paques"
+    },
+    {
+      "email": "tourisme@adnv.ch",
+      "canton": "Vaud",
+      "event_title": "Bonvillars & Truffe : Cours de cavage et cuisine à la Sauvageraie",
+      "source_url": "https://www.vaud.ch/tourisme/tous-les-evenements/bonvillars-truffe-cours-de-cavage-et-cuisine-a-la-sauvageraie"
+    },
+    {
+      "email": "valaissportorganisation@gmail.com",
+      "canton": "Valais",
+      "event_title": "Cyclosportive & Running du Valais",
+      "source_url": "https://www.valais.ch/fr/evenements/cyclosportive-running-du-valais"
+    },
+    {
+      "email": "vereinsekretariat@salgesch.ch",
+      "canton": "Valais",
+      "event_title": "Printemps du vin",
+      "source_url": "https://www.valais.ch/fr/evenements/printemps-du-vin"
+    },
+    {
+      "email": "wildstrubel@service.utmb.world",
+      "canton": "Valais",
+      "event_title": "Wildstrubel by UTMB",
+      "source_url": "https://www.crans-montana.ch/en/?idcmt=Partenaire_Event_2b53c00f4f0b62e354fd3501039202d2"
+    }
+  ],
+  "errors": [],
+  "generated_at_utc": "2026-02-26T17:29:00.408141+00:00"
+}

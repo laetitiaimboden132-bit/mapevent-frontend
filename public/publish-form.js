@@ -117,7 +117,7 @@ function buildPublishFormHtml() {
       <div style="display:flex;flex-direction:column;gap:6px;">
         <label style="display:flex;align-items:center;gap:8px;padding:6px;border-radius:6px;cursor:pointer;transition:background 0.2s;" onmouseover="this.style.background='rgba(0,255,195,0.05)'" onmouseout="this.style.background='transparent'">
           <input type="radio" name="pub-boost" value="standard" checked onchange="updateTotalPrice()" style="accent-color:#00ffc3;">
-          <span><b>Standard</b> - Point basique (inclus)</span>
+          <span><b>Standard</b> - Point standard: +1.- CHF</span>
         </label>
         <label style="display:flex;align-items:center;gap:8px;padding:6px;border-radius:6px;cursor:pointer;transition:background 0.2s;" onmouseover="this.style.background='rgba(205,127,50,0.1)'" onmouseout="this.style.background='transparent'">
           <input type="radio" name="pub-boost" value="bronze" onchange="updateTotalPrice()" style="accent-color:#cd7f32;">
@@ -126,6 +126,10 @@ function buildPublishFormHtml() {
         <label style="display:flex;align-items:center;gap:8px;padding:6px;border-radius:6px;cursor:pointer;transition:background 0.2s;" onmouseover="this.style.background='rgba(192,192,192,0.1)'" onmouseout="this.style.background='transparent'">
           <input type="radio" name="pub-boost" value="silver" onchange="updateTotalPrice()" style="accent-color:#c0c0c0;">
           <span><b style="color:#c0c0c0;">🥈 Silver</b> - +10.- CHF (bonne visibilité)</span>
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;padding:6px;border-radius:6px;cursor:pointer;transition:background 0.2s;" onmouseover="this.style.background='rgba(234,179,8,0.12)'" onmouseout="this.style.background='transparent'">
+          <input type="radio" name="pub-boost" value="gold" onchange="updateTotalPrice()" style="accent-color:#eab308;">
+          <span><b style="color:#eab308;">🥇 Or</b> - +15.- CHF (bordure or)</span>
         </label>
         <label style="display:flex;align-items:center;gap:8px;padding:6px;border-radius:6px;cursor:pointer;transition:background 0.2s;" onmouseover="this.style.background='rgba(139,92,246,0.1)'" onmouseout="this.style.background='transparent'">
           <input type="radio" name="pub-boost" value="platinum" onchange="updateTotalPrice(); openPlatinumAuctionModal()" style="accent-color:#8b5cf6;">
@@ -252,20 +256,15 @@ function buildPublishFormHtml() {
       ${bookingLevel}
       ${paymentBlock}
       
-      <div style="margin-top:16px;padding:12px;background:linear-gradient(135deg,rgba(139,92,246,0.15),rgba(59,130,246,0.1));border:2px solid rgba(139,92,246,0.4);border-radius:12px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-          <div>
-            <div style="font-weight:700;font-size:14px;color:#a78bfa;margin-bottom:4px;">💎 ${window.t("subscription_recommended")}</div>
-            <div style="font-size:11px;color:var(--ui-text-muted);">
-              ${currentMode === 'event' ? window.t("save_on_events") : window.t("unlimited_contacts")}
-            </div>
-          </div>
-          <button type="button" onclick="openSubscriptionModal()" style="padding:8px 16px;border-radius:999px;border:2px solid #a78bfa;background:rgba(139,92,246,0.2);color:#a78bfa;font-weight:600;cursor:pointer;font-size:12px;">
-            ${window.t("view_subs")}
-          </button>
+      <div style="margin-top:16px;padding:12px;background:linear-gradient(135deg,rgba(205,127,50,0.14),rgba(59,130,246,0.08));border:2px solid rgba(205,127,50,0.45);border-radius:12px;">
+        <div style="font-weight:700;font-size:14px;color:#fbbf24;margin-bottom:6px;">🎟️ Code promo publication</div>
+        <div style="font-size:11px;color:var(--ui-text-muted);line-height:1.5;margin-bottom:10px;">
+          Entrez votre code promo. Si le code est valide, publication <strong style="color:#00ffc3;">entièrement gratuite</strong> (pointeur <strong style="color:#cd7f32;">Bronze</strong>), rien ne sera facturé.
         </div>
-        <div style="font-size:10px;color:var(--ui-text-muted);text-align:center;margin-top:6px;">
-          ${currentMode === 'event' ? 'Events Explorer: 5.–/mois • Events Alertes Pro: 10.–/mois' : 'Booking/Service Pro: 10.–/mois • Ultra: 18.–/mois'}
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input id="pub-promo-code" oninput="updateTotalPrice()" placeholder="Ex: CH-AB12CD34" style="flex:1;padding:8px 10px;border-radius:8px;border:2px solid #475569;background:#0f172a;color:#f8fafc;font-size:13px;text-transform:uppercase;">
+          <button type="button" onclick="copyPromoCodeFromPublish()" style="padding:7px 10px;border-radius:8px;border:1px solid #334155;background:rgba(59,130,246,0.18);color:#bfdbfe;font-size:11px;font-weight:700;cursor:pointer;">📋 Copier</button>
+          <span style="padding:7px 10px;border-radius:8px;background:rgba(205,127,50,0.2);border:1px solid rgba(205,127,50,0.55);font-size:11px;color:#fbbf24;font-weight:700;">🥉 Bronze</span>
         </div>
       </div>
 
@@ -384,6 +383,21 @@ function openPublishModal() {
   setTimeout(() => {
     restorePublishFormData();
   }, 300);
+
+  // Pré-remplir le code promo depuis l'URL si présent
+  setTimeout(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const code = (params.get("promo_code") || localStorage.getItem('pendingPromoCode') || "").trim().toUpperCase();
+      const promoInput = document.getElementById("pub-promo-code");
+      if (promoInput && code) {
+        promoInput.value = code;
+        updateTotalPrice();
+      }
+    } catch (err) {
+      console.warn("[PUBLISH] Promo code URL non appliqué:", err);
+    }
+  }, 350);
 }
 
 // ⚠️⚠️⚠️ NOUVEAU : Fonction pour ouvrir le filtre depuis le bouton Publier
@@ -648,6 +662,7 @@ function updateTotalPrice() {
   const basePrice = 1;
   let totalPrice = basePrice;
   let details = ["Base: 1.-"];
+  const promoCode = (document.getElementById("pub-promo-code")?.value || "").trim().toUpperCase();
   
   // Prix de répétition
   const repeatEnabled = document.getElementById("pub-repeat-enabled")?.checked;
@@ -673,7 +688,7 @@ function updateTotalPrice() {
       if (bidAmount) bidAmount.textContent = `${currentPlatinumBid}.- CHF`;
     } else {
       // Boost standard (Bronze, Silver)
-      const boostPrices = { standard: 0, bronze: 5, silver: 10 };
+      const boostPrices = { standard: 0, bronze: 5, silver: 10, gold: 15 };
       const boostPrice = boostPrices[boostRadio.value] || 0;
       if (boostPrice > 0) {
         totalPrice += boostPrice;
@@ -684,6 +699,14 @@ function updateTotalPrice() {
       const bidInfo = document.getElementById("pub-platinum-bid-info");
       if (bidInfo) bidInfo.style.display = "none";
     }
+  }
+
+  // Code promo: publication offerte, aucun paiement
+  if (promoCode) {
+    totalPrice = 0;
+    details = ["Base: 1.-", "Code promo: -100%", "Publication offerte (Bronze)"];
+    const bidInfo = document.getElementById("pub-platinum-bid-info");
+    if (bidInfo) bidInfo.style.display = "none";
   }
   
   // Afficher le prix total
@@ -846,6 +869,7 @@ function savePublishFormData() {
       socialLinks: document.getElementById("pub-social-links")?.value || "",
       website: document.getElementById("pub-website")?.value || "",
       tags: document.getElementById("pub-tags")?.value || "",
+      promoCode: document.getElementById("pub-promo-code")?.value || "",
       boost: document.querySelector('input[name="pub-boost"]:checked')?.value || "standard",
       platinumBid: currentPlatinumBid || 0,
       timestamp: Date.now()
@@ -944,6 +968,7 @@ function restorePublishFormData() {
       setVal("pub-social-links", formData.socialLinks);
       setVal("pub-website", formData.website);
       setVal("pub-tags", formData.tags);
+      setVal("pub-promo-code", formData.promoCode || "");
       
       // Checkbox répétition
       const repeatCheckbox = document.getElementById("pub-repeat-enabled");
@@ -994,7 +1019,7 @@ function resetPublishForm() {
     "pub-title", "pub-main-category", "pub-address", "pub-address-lat", "pub-address-lng",
     "pub-email", "pub-description", "pub-start", "pub-end", "pub-repeat-frequency",
     "pub-repeat-until", "pub-capacity", "pub-price", "pub-event-type", "pub-ticket-link",
-    "pub-audio-links", "pub-social-links", "pub-website", "pub-tags"
+    "pub-audio-links", "pub-social-links", "pub-website", "pub-tags", "pub-promo-code"
   ];
   
   fields.forEach(id => {
@@ -1024,10 +1049,75 @@ function resetPublishForm() {
   console.log('[FORM] 🔄 Formulaire réinitialisé');
 }
 
+async function copyPromoCodeFromPublish() {
+  const input = document.getElementById("pub-promo-code");
+  const code = (input?.value || "").trim();
+  if (!code) {
+    showNotification("⚠️ Aucun code promo à copier", "warning");
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(code);
+    showNotification("✅ Code promo copié", "success");
+  } catch (e) {
+    if (input) {
+      input.focus();
+      input.select();
+    }
+    showNotification("ℹ️ Code sélectionné: Ctrl+C", "info");
+  }
+}
+
 // ⚠️⚠️⚠️ VALIDATION ET RECHERCHE D'ADRESSE MONDIALE
 let addressSearchTimeout = null;
+let publishSelectedAddressLabel = "";
+
+function isPreciseAddressCandidate(result) {
+  if (!result) return false;
+  const addr = result.address || {};
+  const hasStreetNumber = !!(addr.house_number || /\d+/.test(String(result.display_name || "")));
+  const hasStreetName = !!(addr.road || addr.pedestrian || addr.footway || addr.cycleway || addr.path);
+  const hasVenue =
+    !!(addr.amenity || addr.tourism || addr.leisure || addr.shop || addr.building || addr.office || addr.attraction);
+  const coarseType = new Set(["city", "town", "village", "administrative", "county", "state", "country"]);
+  const type = String(result.type || "").toLowerCase();
+  if (coarseType.has(type) && !hasVenue && !hasStreetName && !hasStreetNumber) return false;
+  return hasStreetNumber || hasStreetName || hasVenue;
+}
+
+async function fetchAddressCandidates(query, limit = 5) {
+  const encoded = encodeURIComponent(query);
+  const endpoints = [
+    `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encoded}&limit=${limit}&addressdetails=1&dedupe=1`,
+    `https://nominatim.openstreetmap.org/search?format=json&q=${encoded}&limit=${limit}&addressdetails=1`
+  ];
+  for (const url of endpoints) {
+    try {
+      // IMPORTANT: pas de headers custom ici (sinon certains navigateurs/proxys cassent la requête).
+      const response = await fetch(url);
+      if (!response.ok) continue;
+      const results = await response.json();
+      if (Array.isArray(results)) return results;
+    } catch (_) {}
+  }
+  return [];
+}
 
 function debounceAddressSearch() {
+  const input = document.getElementById("pub-address");
+  const latInput = document.getElementById("pub-address-lat");
+  const lngInput = document.getElementById("pub-address-lng");
+  const statusDiv = document.getElementById("pub-address-status");
+  const current = (input?.value || "").trim();
+  if (current && publishSelectedAddressLabel && current !== publishSelectedAddressLabel) {
+    publishSelectedAddressLabel = "";
+    if (latInput) latInput.value = "";
+    if (lngInput) lngInput.value = "";
+    if (statusDiv) {
+      statusDiv.innerHTML = '<span style="color:#ff4444;">⚠️ Adresse non valide. Sélectionne une adresse précise dans la liste.</span>';
+      statusDiv.style.display = "block";
+    }
+  }
   clearTimeout(addressSearchTimeout);
   addressSearchTimeout = setTimeout(() => {
     searchAddress();
@@ -1047,24 +1137,17 @@ async function searchAddress() {
   }
   
   try {
-    // Utiliser Nominatim (OpenStreetMap) pour la recherche mondiale
-    const response = await fetch(
-      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1`,
-      {
-        headers: {
-          'Accept-Language': 'fr',
-          'User-Agent': 'MapEvent/1.0'
-        }
-      }
-    );
-    
-    if (!response.ok) return;
-    
-    const results = await response.json();
+    const rawResults = await fetchAddressCandidates(query, 8);
+    const results = rawResults.filter(isPreciseAddressCandidate).slice(0, 8);
     
     if (results.length === 0) {
-      suggestionsDiv.innerHTML = '<div style="padding:8px;color:var(--ui-text-muted);font-size:11px;">Aucune adresse trouvée</div>';
+      suggestionsDiv.innerHTML = '<div style="padding:8px;color:#ff4444;font-size:11px;">⚠️ Adresse non valide (trop vague ou introuvable)</div>';
       suggestionsDiv.style.display = "block";
+      const statusDiv = document.getElementById("pub-address-status");
+      if (statusDiv) {
+        statusDiv.innerHTML = '<span style="color:#ff4444;">⚠️ Adresse non valide. Ajoute rue + numéro puis choisis une suggestion.</span>';
+        statusDiv.style.display = "block";
+      }
       return;
     }
     
@@ -1110,6 +1193,7 @@ function selectAddress(displayName, lat, lng) {
   
   if (input) {
     input.value = displayName;
+    publishSelectedAddressLabel = displayName;
     console.log('[ADDRESS] ✅ Adresse écrite dans input:', input.value);
   } else {
     console.error('[ADDRESS] ❌ Element pub-address introuvable!');
@@ -1148,45 +1232,23 @@ async function validateAddress() {
   if (!input || !input.value.trim()) return false;
   
   const addressValue = input.value.trim();
+  const sameAsSelected = publishSelectedAddressLabel && addressValue === publishSelectedAddressLabel;
   
-  // Vérifier qu'il y a un numéro de rue (obligatoire)
-  const hasStreetNumber = /\d+/.test(addressValue);
-  if (!hasStreetNumber) {
-    if (statusDiv) {
-      statusDiv.innerHTML = '<span style="color:#ff4444;">⚠️ Numéro de rue obligatoire (ex: 15 Rue de la Paix)</span>';
-      statusDiv.style.display = "block";
-    }
-    input.style.borderColor = "#ff4444";
-    input.style.background = "rgba(255,68,68,0.1)";
-    if (starSpan) starSpan.style.color = "#ff4444";
-    return false;
-  }
-  
-  // Si déjà validée (coordonnées présentes), c'est bon
-  if (latInput?.value && lngInput?.value) {
+  // Si déjà validée et inchangée (coordonnées présentes), c'est bon
+  if (sameAsSelected && latInput?.value && lngInput?.value) {
     return true;
   }
   
   // Sinon, essayer de géocoder l'adresse
   try {
-    const response = await fetch(
-      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(input.value)}&limit=1`,
-      {
-        headers: {
-          'Accept-Language': 'fr',
-          'User-Agent': 'MapEvent/1.0'
-        }
-      }
-    );
+    const results = await fetchAddressCandidates(input.value, 6);
+    const preciseResult = results.find(isPreciseAddressCandidate);
     
-    if (!response.ok) throw new Error('Erreur réseau');
-    
-    const results = await response.json();
-    
-    if (results.length > 0) {
-      const r = results[0];
+    if (preciseResult) {
+      const r = preciseResult;
       if (latInput) latInput.value = r.lat;
       if (lngInput) lngInput.value = r.lon;
+      publishSelectedAddressLabel = r.display_name || addressValue;
       
       if (statusDiv) {
         statusDiv.innerHTML = '<span style="color:#00ffc3;">✅ Adresse validée automatiquement</span>';
@@ -1199,15 +1261,18 @@ async function validateAddress() {
       
       return true;
     } else {
-      // Adresse non trouvée
+      // Adresse non valide
       if (statusDiv) {
-        statusDiv.innerHTML = '<span style="color:#ff4444;">⚠️ Adresse non reconnue - Le pointeur ne pourra pas être placé correctement</span>';
+        statusDiv.innerHTML = '<span style="color:#ff4444;">⚠️ Adresse non valide. Choisis une adresse précise dans la liste.</span>';
         statusDiv.style.display = "block";
       }
       
       input.style.borderColor = "#ff4444";
       input.style.background = "rgba(255,68,68,0.1)";
       if (starSpan) starSpan.style.color = "#ff4444";
+      if (latInput) latInput.value = "";
+      if (lngInput) lngInput.value = "";
+      publishSelectedAddressLabel = "";
       
       return false;
     }
@@ -1600,6 +1665,7 @@ async function onSubmitPublishForm(e) {
   const socialLinks = document.getElementById("pub-social")?.value.trim();
   const videoLinks = document.getElementById("pub-videos")?.value.trim();
   const audioEventLinks = document.getElementById("pub-audio-links")?.value.trim(); // Liens sons pour events
+  const promoCode = (document.getElementById("pub-promo-code")?.value || "").trim().toUpperCase();
   
   // Pour les events : dates
   const startDate = document.getElementById("pub-start")?.value;
@@ -1669,7 +1735,10 @@ async function onSubmitPublishForm(e) {
   
   // Boost sélectionné
   const boostRadio = document.querySelector('input[name="pub-boost"]:checked');
-  const boost = boostRadio?.value || 'basic';
+  let boost = boostRadio?.value || 'basic';
+  if (promoCode) {
+    boost = "bronze";
+  }
   
   // Validation
   if (!title || !mainCategory || !address || !email || !description) {
@@ -1751,6 +1820,7 @@ async function onSubmitPublishForm(e) {
     createdAt: now,
     type: currentMode
   };
+  if (promoCode) newItem.promoCode = promoCode;
   
   if (currentMode === "event") {
     newItem.startDate = startDate;
@@ -1845,7 +1915,8 @@ async function onSubmitPublishForm(e) {
   }
   
   // Calculer le prix final
-  const finalPrice = window.currentPublishPrice || 1;
+  const hasPromoCode = !!promoCode;
+  const finalPrice = hasPromoCode ? 0 : (window.currentPublishPrice || 1);
   
   // Stocker les données pour après le paiement
   window.pendingPublishData = {
@@ -1857,6 +1928,13 @@ async function onSubmitPublishForm(e) {
     price: finalPrice
   };
   
+  // Si code promo valide: publier directement sans paiement
+  if (finalPrice <= 0) {
+    showNotification("✅ Code promo appliqué: publication gratuite. Aucune facturation.", "success");
+    await finalizePublish();
+    return false;
+  }
+
   // Ouvrir le modal de paiement Stripe
   openStripePaymentModal(finalPrice, boost);
   
@@ -1962,6 +2040,7 @@ function openStripePaymentModal(amount, boost) {
     standard: 'Standard',
     bronze: '🥉 Bronze',
     silver: '🥈 Silver',
+    gold: '🥇 Or',
     platinum: '💎 Platinum'
   };
   
@@ -1988,7 +2067,7 @@ function openStripePaymentModal(amount, boost) {
             ${boost !== 'standard' ? `
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
               <span style="color:#e2e8f0;font-size:13px;">Boost ${boostLabels[boost] || boost}</span>
-              <span style="color:#a78bfa;font-weight:600;">+${boost === 'platinum' ? currentPlatinumBid : (boost === 'bronze' ? 5 : boost === 'silver' ? 10 : 0)}.- CHF</span>
+              <span style="color:#a78bfa;font-weight:600;">+${boost === 'platinum' ? currentPlatinumBid : (boost === 'gold' ? 15 : boost === 'bronze' ? 5 : boost === 'silver' ? 10 : 0)}.- CHF</span>
             </div>
             ` : ''}
             ${document.getElementById("pub-repeat-enabled")?.checked ? `

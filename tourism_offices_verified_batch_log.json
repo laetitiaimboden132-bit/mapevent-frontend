@@ -1,0 +1,87 @@
+{
+  "sent_count": 10,
+  "failed_count": 0,
+  "sent": [
+    {
+      "city": "Lille",
+      "slug": "lille",
+      "email": "contact@lilletourism.com",
+      "source_url": "https://www.lilletourism.com/mentions-legales/",
+      "http_status": 200,
+      "api_preview": "{\"errors\":[],\"failed\":0,\"sent\":1,\"success\":true}\n"
+    },
+    {
+      "city": "Nantes",
+      "slug": "nantes",
+      "email": "info@levoyageanantes.fr",
+      "source_url": "https://www.nantes-tourisme.com/fr/pratique/nantes-tourisme",
+      "http_status": 200,
+      "api_preview": "{\"errors\":[],\"failed\":0,\"sent\":1,\"success\":true}\n"
+    },
+    {
+      "city": "Genève",
+      "slug": "geneve",
+      "email": "info@geneve.com",
+      "source_url": "https://www.geneve.com/fr",
+      "http_status": 200,
+      "api_preview": "{\"errors\":[],\"failed\":0,\"sent\":1,\"success\":true}\n"
+    },
+    {
+      "city": "Rennes",
+      "slug": "rennes",
+      "email": "infos@destinationrennes.com",
+      "source_url": "https://www.tourisme-rennes.com/credits-et-mentions-legales/",
+      "http_status": 200,
+      "api_preview": "{\"errors\":[],\"failed\":0,\"sent\":1,\"success\":true}\n"
+    },
+    {
+      "city": "Rouen",
+      "slug": "rouen",
+      "email": "accueil@rouentourisme.com",
+      "source_url": "https://www.visiterouen.com/pratique/informations/nous-contacter/",
+      "http_status": 200,
+      "api_preview": "{\"errors\":[],\"failed\":0,\"sent\":1,\"success\":true}\n"
+    },
+    {
+      "city": "Saint-Malo",
+      "slug": "saint-malo",
+      "email": "info@saint-malo-tourisme.com",
+      "source_url": "https://www.saint-malo-tourisme.com/mentions-legales/",
+      "http_status": 200,
+      "api_preview": "{\"errors\":[],\"failed\":0,\"sent\":1,\"success\":true}\n"
+    },
+    {
+      "city": "Paris",
+      "slug": "paris",
+      "email": "concierge@parisjetaime.com",
+      "source_url": "https://parisjetaime.com/",
+      "http_status": 200,
+      "api_preview": "{\"errors\":[],\"failed\":0,\"sent\":1,\"success\":true}\n"
+    },
+    {
+      "city": "Nyon",
+      "slug": "nyon",
+      "email": "info@nrt.ch",
+      "source_url": "https://www.lacote-tourisme.ch/fr/Z14700/contacts-et-horaires",
+      "http_status": 200,
+      "api_preview": "{\"errors\":[],\"failed\":0,\"sent\":1,\"success\":true}\n"
+    },
+    {
+      "city": "Toulouse",
+      "slug": "toulouse",
+      "email": "infos@toulouse-tourisme.com",
+      "source_url": "https://www.toulouse-tourisme.com/contact/",
+      "http_status": 200,
+      "api_preview": "{\"errors\":[],\"failed\":0,\"sent\":1,\"success\":true}\n"
+    },
+    {
+      "city": "Rochefort",
+      "slug": "rochefort",
+      "email": "contact@rochefort-ocean.com",
+      "source_url": "https://www.rochefort-ocean.com/mentions-legales",
+      "http_status": 200,
+      "api_preview": "{\"errors\":[],\"failed\":0,\"sent\":1,\"success\":true}\n"
+    }
+  ],
+  "failed": []
+}

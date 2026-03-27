@@ -150,7 +150,7 @@ function renderExplorer() {
         </label>
         <label class="date-checkbox-label ${selectedDates.includes('month') ? 'active' : ''}">
           <input type="checkbox" ${selectedDates.includes('month') ? 'checked' : ''} onchange="toggleDateFilter('month')">
-          Ce mois
+          30 jours
         </label>
       </div>
       
@@ -218,9 +218,14 @@ function closeLeftPanel() {
 function toggleDateFilter(dateType) {
   if (selectedDates.includes(dateType)) {
     selectedDates = selectedDates.filter(d => d !== dateType);
-        } else {
-    selectedDates.push(dateType);
+  } else {
+    // Un seul preset rapide actif à la fois
+    selectedDates = [dateType];
   }
+  // Presets rapides exclusifs de la plage personnalisée
+  dateRangeStart = null;
+  dateRangeEnd = null;
+  timeFilter = null;
   // Rafraîchir l'affichage des checkboxes
   renderExplorer();
   applyExplorerFilter();
@@ -241,6 +246,8 @@ function setupDateRangePicker() {
   updateDateRangeDisplay();
   
   startInput.addEventListener("change", () => {
+    // Une plage personnalisée remplace les presets rapides
+    if (selectedDates.length > 0) selectedDates = [];
     dateRangeStart = startInput.value || null;
     // Si pas de date de fin, mettre la même que le début
     if (dateRangeStart && !dateRangeEnd) {
@@ -258,6 +265,8 @@ function setupDateRangePicker() {
       });
   
   endInput.addEventListener("change", () => {
+    // Une plage personnalisée remplace les presets rapides
+    if (selectedDates.length > 0) selectedDates = [];
     dateRangeEnd = endInput.value || null;
     // Si pas de date de début, mettre la même que la fin
     if (dateRangeEnd && !dateRangeStart) {
@@ -770,17 +779,30 @@ async function loadAllEventsForFilter() {
   console.log('[FILTER] Chargement de TOUS les events pour le filtre...');
   
   try {
-    const r = await fetch(`${window.API_BASE_URL}/events/viewport?zoom=10&south=-90&north=90&west=-180&east=180`);
-    if (!r.ok) { _allEventsLoading = false; return; }
-    const data = await r.json();
-    if (data.type !== 'events' || !data.k || !data.d) { _allEventsLoading = false; return; }
+    const pageSize = 50000;
+    let offset = 0;
+    let keys = null;
+    let allRows = [];
+    for (let page = 0; page < 20; page++) {
+      const r = await fetch(`${window.API_BASE_URL}/events?limit=${pageSize}&offset=${offset}`);
+      if (!r.ok) break;
+      const chunk = await r.json();
+      if (!chunk || !chunk.k || !chunk.d) break;
+      if (!keys) keys = chunk.k;
+      if (chunk.d.length === 0) break;
+      allRows = allRows.concat(chunk.d);
+      if (chunk.d.length < pageSize) break;
+      offset += pageSize;
+    }
+    if (!keys || allRows.length === 0) { _allEventsLoading = false; return; }
     
-    const keys = data.k;
+    const data = { k: keys, d: allRows };
+    const keysLocal = data.k;
     let newCount = 0;
     data.d.forEach(row => {
       const obj = {};
-      for (let i = 0; i < keys.length; i++) {
-        if (row[i] !== null && row[i] !== undefined) obj[keys[i]] = row[i];
+      for (let i = 0; i < keysLocal.length; i++) {
+        if (row[i] !== null && row[i] !== undefined) obj[keysLocal[i]] = row[i];
       }
       if (loadedEventIds.has(obj.id)) return;
       loadedEventIds.add(obj.id);
@@ -1003,50 +1025,48 @@ function findCategoryDescendants(targetCat, tree) {
 }
 
 function eventMatchesTimeFilter(ev) {
-  // Si aucun filtre de date actif, tout passe
-  if (selectedDates.length === 0 && !dateRangeStart && !dateRangeEnd) return true;
-  if (!ev.startDate) return true;
-
-  const evStart = new Date(ev.startDate);
-  if (isNaN(evStart.getTime())) return true;
-
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  // Filtre par plage de dates personnalisée
+  const { start: evStart, end: evEnd } = getEventDateRange(ev);
+  if (!evStart || !evEnd) return true;
+
+  // Règle globale: ne jamais afficher un event terminé.
+  if (evEnd < today) return false;
+
+  // Si aucun filtre de date actif, l'event (non passé) passe.
+  if (selectedDates.length === 0 && !dateRangeStart && !dateRangeEnd) return true;
+
+  // Filtre plage personnalisée, avec borne basse clampée à "aujourd'hui".
   if (dateRangeStart || dateRangeEnd) {
-    const evDate = new Date(ev.startDate);
-    evDate.setHours(0, 0, 0, 0);
-    
-    if (dateRangeStart && dateRangeEnd) {
-      const rangeStart = new Date(dateRangeStart + "T00:00:00");
-      const rangeEnd = new Date(dateRangeEnd + "T23:59:59");
-      if (evDate >= rangeStart && evDate <= rangeEnd) return true;
-    } else if (dateRangeStart) {
-      const rangeStart = new Date(dateRangeStart + "T00:00:00");
-      if (evDate >= rangeStart) return true;
-    } else if (dateRangeEnd) {
-      const rangeEnd = new Date(dateRangeEnd + "T23:59:59");
-      if (evDate <= rangeEnd) return true;
-    }
-    // Si seulement plage active et pas de match, retourner false
+    const requestedStart = dateRangeStart ? new Date(dateRangeStart + "T00:00:00") : null;
+    const requestedEnd = dateRangeEnd ? new Date(dateRangeEnd + "T23:59:59") : null;
+    const rangeStart = requestedStart && requestedStart > today ? requestedStart : today;
+    const rangeEnd = requestedEnd || new Date("9999-12-31T23:59:59");
+
+    if (intervalsOverlap(evStart, evEnd, rangeStart, rangeEnd)) return true;
+
+    // Si seulement la plage est active et pas de match.
     if (selectedDates.length === 0) return false;
   }
 
-  // Vérifier les filtres de dates cumulés (OR entre eux)
+  // Vérifier les filtres rapides cumulés (OR), toujours sans passé.
   if (selectedDates.length > 0) {
-    return selectedDates.some(filter => matchesDateFilter(evStart, filter, today));
+    return selectedDates.some(filter => matchesDateFilter(evStart, evEnd, filter, today));
   }
 
   return true;
 }
 
 // Vérifie si une date correspond à un filtre spécifique
-function matchesDateFilter(evStart, filter, today) {
+function matchesDateFilter(evStart, evEnd, filter, today) {
+  let windowStart = null;
+  let windowEnd = null;
+
   if (filter === "today") {
-    const tomorrow = new Date(today);
-    tomorrow.setDate(today.getDate() + 1);
-    return evStart >= today && evStart < tomorrow;
+    windowStart = new Date(today);
+    windowEnd = new Date(today);
+    windowEnd.setDate(today.getDate() + 1);
   }
 
   if (filter === "tomorrow") {
@@ -1054,37 +1074,67 @@ function matchesDateFilter(evStart, filter, today) {
     tomorrow.setDate(today.getDate() + 1);
     const after = new Date(tomorrow);
     after.setDate(tomorrow.getDate() + 1);
-    return evStart >= tomorrow && evStart < after;
+    windowStart = tomorrow;
+    windowEnd = after;
   }
 
   if (filter === "weekend") {
     const wd = today.getDay();
-    const sat = new Date(today);
-    sat.setDate(today.getDate() + ((6 - wd + 7) % 7));
-    sat.setHours(0, 0, 0, 0);
-    const mon = new Date(sat);
-    mon.setDate(sat.getDate() + 2);
+    // Week-end demandé: vendredi + samedi + dimanche
+    const fri = new Date(today);
+    const daysToFriday = wd === 0 ? -2 : (5 - wd + 7) % 7;
+    fri.setDate(today.getDate() + daysToFriday);
+    fri.setHours(0, 0, 0, 0);
+    const mon = new Date(fri);
+    mon.setDate(fri.getDate() + 3);
     mon.setHours(0, 0, 0, 0);
-    return evStart >= sat && evStart < mon;
+    windowStart = fri;
+    windowEnd = mon;
   }
 
   if (filter === "week") {
-    const js = today.getDay() || 7;
-    const monday = new Date(today);
-    monday.setDate(today.getDate() - (js - 1));
-    monday.setHours(0, 0, 0, 0);
-    const nextMonday = new Date(monday);
-    nextMonday.setDate(monday.getDate() + 7);
-    return evStart >= monday && evStart < nextMonday;
+    // "Cette semaine" = à partir de maintenant jusqu'à lundi prochain (pas les jours passés de la semaine).
+    const js = today.getDay() || 7; // 1..7
+    const nextMonday = new Date(today);
+    nextMonday.setDate(today.getDate() + (8 - js));
+    nextMonday.setHours(0, 0, 0, 0);
+    windowStart = new Date(today);
+    windowEnd = nextMonday;
   }
 
   if (filter === "month") {
-    const m0 = new Date(today.getFullYear(), today.getMonth(), 1);
-    const m1 = new Date(today.getFullYear(), today.getMonth() + 1, 1);
-    return evStart >= m0 && evStart < m1;
+    // "30 jours" = de maintenant à J+30.
+    const m0 = new Date(today);
+    const m1 = new Date(today);
+    m1.setDate(today.getDate() + 30);
+    windowStart = m0;
+    windowEnd = m1;
   }
 
-  return false;
+  if (!windowStart || !windowEnd) return false;
+  return intervalsOverlap(evStart, evEnd, windowStart, windowEnd);
+}
+
+function getEventDateRange(ev) {
+  const startRaw = ev?.startDate || (ev?.date ? new Date(ev.date + (ev.time ? "T" + ev.time : "T00:00:00")) : null);
+  const endRaw =
+    ev?.endDate ||
+    (ev?.end_date ? new Date(ev.end_date + (ev.end_time ? "T" + ev.end_time : "T23:59:59")) : null) ||
+    startRaw;
+
+  const start = startRaw instanceof Date ? new Date(startRaw) : new Date(startRaw);
+  const end = endRaw instanceof Date ? new Date(endRaw) : new Date(endRaw);
+  if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+    return { start: null, end: null };
+  }
+
+  start.setHours(0, 0, 0, 0);
+  end.setHours(23, 59, 59, 999);
+  return { start, end };
+}
+
+function intervalsOverlap(aStart, aEnd, bStart, bEnd) {
+  return aStart <= bEnd && aEnd >= bStart;
 }
 
 // ============================================

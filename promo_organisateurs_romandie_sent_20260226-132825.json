@@ -1,0 +1,311 @@
+{
+  "zone_focus": "Suisse romande (Vaud + Valais)",
+  "subject": "Code promo publication offerte (0.-) - Map Event World [20260226-132825]",
+  "requested": 50,
+  "sent_count": 50,
+  "error_count": 0,
+  "sent": [
+    {
+      "email": "aim@aiglinmusic.ch",
+      "canton": "Vaud",
+      "event_title": "Repas - concert du Aigl'in Music",
+      "source_url": "https://www.myswitzerland.com/fr-ch/decouvrir/manifestations/repas-concert-du-aiglin-music/"
+    },
+    {
+      "email": "anita@zigzago.ch",
+      "canton": "Valais",
+      "event_title": "Raquettes et raclette",
+      "source_url": "https://www.nendaz.ch/fr/P76638/raquettes-et-raclette"
+    },
+    {
+      "email": "annick.barbezat@2m2c.ch",
+      "canton": "Vaud",
+      "event_title": "Montreux Jazz Festival",
+      "source_url": "https://www.myswitzerland.com/fr-ch/decouvrir/manifestations/montreux-jazz-festival/"
+    },
+    {
+      "email": "arnaud.favre@riddes.ch",
+      "canton": "Valais",
+      "event_title": "Aliose chante Le Forestier",
+      "source_url": "https://agenda.culturevalais.ch/fr/event/show/39001"
+    },
+    {
+      "email": "art.brut@lausanne.ch",
+      "canton": "Vaud",
+      "event_title": "La Collection de l'Art Brut au Festival de la Cité",
+      "source_url": "https://www.myswitzerland.com/fr-ch/decouvrir/manifestations/la-collection-de-lart-brut-au-festival-de-la-cite/"
+    },
+    {
+      "email": "bike@aletscharena.ch",
+      "canton": "Valais",
+      "event_title": "UCI Mountainbike Enduro Weltcup",
+      "source_url": "https://www.valais.ch/fr/evenements/uci-mountainbike-enduro-weltcup"
+    },
+    {
+      "email": "billetterie@afterseason.ch",
+      "canton": "Vaud",
+      "event_title": "Villars Afterseason Electronic Festival",
+      "source_url": "https://www.myswitzerland.com/fr-ch/decouvrir/manifestations/villars-afterseason-electronic-festival/"
+    },
+    {
+      "email": "billetterie@contheyshow.ch",
+      "canton": "Valais",
+      "event_title": "Attache ta tuque ! Le Québec à Conthey",
+      "source_url": "https://www.tempslibre.ch/valais/manifestations/445516-attache-ta-tuque-le-qu-bec-d-barque-conthey"
+    },
+    {
+      "email": "billetterie@cpo-ouchy.ch",
+      "canton": "Vaud",
+      "event_title": "Open Mic - Collectif Open Musical",
+      "source_url": "https://vd.leprogramme.ch/concerts/open-mic-collectif-open-musical-3/lausanne/cpo/"
+    },
+    {
+      "email": "billetterie@equilibre-nuithonie.ch",
+      "canton": "Vaud",
+      "event_title": "La prochaine fois que tu mordras la poussière | Panayotis Pascot - Paul Pascot",
+      "source_url": "https://vd.leprogramme.ch/theatre/la-prochaine-fois-que-tu-mordras-la-poussiere-panayotis-pascot-paul-pascot-2/villars-sur-glane/nuithonie/"
+    },
+    {
+      "email": "billetterie@lereflet.ch",
+      "canton": "Vaud",
+      "event_title": "L'Art d'avoir toujours raison | Cie Cassandre",
+      "source_url": "https://vd.leprogramme.ch/theatre/l-art-d-avoir-toujours-raison-cie-cassandre/vevey/theatre-le-reflet/"
+    },
+    {
+      "email": "billetterie@theatre-rolle.ch",
+      "canton": "Vaud",
+      "event_title": "La Belle Histoire de Coline Serreau",
+      "source_url": "https://vd.leprogramme.ch/theatre/la-belle-histoire-de-coline-serreau/rolle/casino-theatre-de-rolle/"
+    },
+    {
+      "email": "billetterie@usineagaz.ch",
+      "canton": "Vaud",
+      "event_title": "L’Art d’avoir toujours raison | Cie Cassandre",
+      "source_url": "https://vd.leprogramme.ch/theatre/l-art-d-avoir-toujours-raison-cie-cassandre-2/nyon/usine-a-gaz/"
+    },
+    {
+      "email": "billetterie@vidy.ch",
+      "canton": "Vaud",
+      "event_title": "Stephan Eicher - François Gremaud | Seul en scène",
+      "source_url": "https://vd.leprogramme.ch/theatre/stephan-eicher-francois-gremaud-seul-en-scene/lausanne/vidy-theatre-lausanne/"
+    },
+    {
+      "email": "centresportif@nendaz.org",
+      "canton": "Valais",
+      "event_title": "Ice disco Nendaz",
+      "source_url": "https://www.nendaz.ch/fr/P91048/ice-disco"
+    },
+    {
+      "email": "chateau-morges@vd.ch",
+      "canton": "Vaud",
+      "event_title": "Exposition temporaire Top Secret\"\"",
+      "source_url": "https://www.vaud.ch/tourisme/tous-les-evenements/exposition-temporaire-top-secret"
+    },
+    {
+      "email": "cindy@nendazfreeride.ch",
+      "canton": "Valais",
+      "event_title": "Girls Powder",
+      "source_url": "https://www.nendaz.ch/fr/P153906/girls-powder"
+    },
+    {
+      "email": "contact@redpigsfestival.ch",
+      "canton": "Vaud",
+      "event_title": "Red Pigs Festival",
+      "source_url": "https://www.myswitzerland.com/fr-ch/decouvrir/manifestations/red-pigs-festival/"
+    },
+    {
+      "email": "culture@gland.ch",
+      "canton": "Vaud",
+      "event_title": "Cie Jolia | Il était une fois le violon",
+      "source_url": "https://vd.leprogramme.ch/spectacle-pour-enfant-famille/cie-jolia-il-etait-une-fois-le-violon-2/gland/theatre-de-grand-champ/spectacle-enfants/"
+    },
+    {
+      "email": "culture@morges.ch",
+      "canton": "Vaud",
+      "event_title": "Fête de la danse à Morges",
+      "source_url": "https://www.myswitzerland.com/fr-ch/decouvrir/manifestations/fete-de-la-danse-a-morges/"
+    },
+    {
+      "email": "durable@prilly.ch",
+      "canton": "Vaud",
+      "event_title": "La toile du mois pour le climat",
+      "source_url": "https://www.tempslibre.ch/vaud/spectacles/432878-la-toile-du-mois-pour-le-climat"
+    },
+    {
+      "email": "evenements@portesdusoleil.com",
+      "canton": "Valais",
+      "event_title": "FESTIVAL ROCK THE PISTES 2026",
+      "source_url": "https://www.valais.ch/fr/evenements/festival-rock-the-pistes-2026"
+    },
+    {
+      "email": "festival@sipiano.com",
+      "canton": "Vaud",
+      "event_title": "Soirée clavecin | Lionel Party",
+      "source_url": "https://vd.leprogramme.ch/concerts/soiree-clavecin-lionel-party/saint-legier/eglise-de-la-chiesaz/"
+    },
+    {
+      "email": "fondation@auborddeleau.ch",
+      "canton": "Valais",
+      "event_title": "Festival Week-end au bord de l'eau",
+      "source_url": "https://www.valais.ch/fr/evenements/19-festival-week-end-au-bord-de-l-eau"
+    },
+    {
+      "email": "grandprix@swiss-ski.ch",
+      "canton": "Valais",
+      "event_title": "Grand Prix Migros",
+      "source_url": "https://www.nendaz.ch/fr/P76646/grand-prix-migros"
+    },
+    {
+      "email": "grimentz@anniviers.ch",
+      "canton": "Valais",
+      "event_title": "Rando'clette",
+      "source_url": "https://www.valais.ch/fr/evenements/rando-clette"
+    },
+    {
+      "email": "hello@hedonistica.ch",
+      "canton": "Valais",
+      "event_title": "Atelier Boissons fermentées",
+      "source_url": "https://infomaniak.events/fr-ch/loisirs/30042026-atelier-du-terroir-apprenez-a-creer-vos-propres-boissons-fermentees-avec-melanie-vouillamoz-et-johanna-dayer/9e5e965f-2824-4682-b41e-2744613db5da/event/1573217"
+    },
+    {
+      "email": "hotel@grand-chalet.ch",
+      "canton": "Vaud",
+      "event_title": "Les After Work du Grand Chalet",
+      "source_url": "https://www.vaud.ch/tourisme/tous-les-evenements/les-after-work-du-grand-chalet"
+    },
+    {
+      "email": "infaillible@la-potagere.ch",
+      "canton": "Valais",
+      "event_title": "Big Big Horse Party : Nerami + The Revox + King Automatic",
+      "source_url": "https://agenda.culturevalais.ch/fr/event/show/41725"
+    },
+    {
+      "email": "info@5continents.ch",
+      "canton": "Valais",
+      "event_title": "Festival Les 5 Continents",
+      "source_url": "https://www.valais.ch/fr/evenements/festival-les-5-continents"
+    },
+    {
+      "email": "info@aigle-tourisme.ch",
+      "canton": "Vaud",
+      "event_title": "Les After Work du Grand Chalet",
+      "source_url": "https://www.vaud.ch/tourisme/tous-les-evenements/les-after-work-du-grand-chalet"
+    },
+    {
+      "email": "info@aletsch-halbmarathon.ch",
+      "canton": "Valais",
+      "event_title": "Aletsch Halbmarathon",
+      "source_url": "https://www.valais.ch/fr/evenements/aletsch-halbmarathon-weekend"
+    },
+    {
+      "email": "info@arcenciel-siviez.ch",
+      "canton": "Valais",
+      "event_title": "Descente aux flambeaux Siviez",
+      "source_url": "https://www.nendaz.ch/fr/P76645/descente-aux-flambeaux"
+    },
+    {
+      "email": "info@beausobre.ch",
+      "canton": "Vaud",
+      "event_title": "Léopold Lemarchand | Premier spectacle",
+      "source_url": "https://vd.leprogramme.ch/theatre/leopold-lemarchand-premier-spectacle/morges/theatre-de-beausobre/morges-sous-rire-2026"
+    },
+    {
+      "email": "info@caribana.ch",
+      "canton": "Vaud",
+      "event_title": "Caribana Festival",
+      "source_url": "https://www.myswitzerland.com/fr-ch/decouvrir/manifestations/caribana-festival/"
+    },
+    {
+      "email": "info@champeryfilmfestival.ch",
+      "canton": "Valais",
+      "event_title": "Champéry Film Festival",
+      "source_url": "https://www.tempslibre.ch/valais/festivals/430485-champ-ry-film-festival"
+    },
+    {
+      "email": "info@crans-montana.ch",
+      "canton": "Valais",
+      "event_title": "Am Stram Gram Festival Crans-Montana",
+      "source_url": "https://www.crans-montana.ch/en/?idcmt=Partenaire_Event_5bebb618909c05205ddf983c94cc1c46"
+    },
+    {
+      "email": "info@cultureontour.ch",
+      "canton": "Valais",
+      "event_title": "Spectacle Les Prototypes de Geppetto",
+      "source_url": "https://www.nendaz.ch/fr/P205437/spectacle-les-prototypes-de-geppetto"
+    },
+    {
+      "email": "info@culturevalais.ch",
+      "canton": "Valais",
+      "event_title": "Double D – Live au Pink",
+      "source_url": "https://agenda.culturevalais.ch/fr/event/show/41999"
+    },
+    {
+      "email": "info@gianadda.ch",
+      "canton": "Valais",
+      "event_title": "Saison musicale 25/26",
+      "source_url": "https://agenda.culturevalais.ch/fr/event/show/38842"
+    },
+    {
+      "email": "info@jardin-des-vins.ch",
+      "canton": "Valais",
+      "event_title": "Jardin des vins",
+      "source_url": "https://www.valais.ch/fr/evenements/jardin-des-vins"
+    },
+    {
+      "email": "info@lesmosses.ch",
+      "canton": "Vaud",
+      "event_title": "Les After Work du Grand Chalet",
+      "source_url": "https://www.vaud.ch/tourisme/tous-les-evenements/les-after-work-du-grand-chalet"
+    },
+    {
+      "email": "info@leysin-tourisme.ch",
+      "canton": "Vaud",
+      "event_title": "Les After Work du Grand Chalet",
+      "source_url": "https://www.vaud.ch/tourisme/tous-les-evenements/les-after-work-du-grand-chalet"
+    },
+    {
+      "email": "info@literaturfestival.ch",
+      "canton": "Valais",
+      "event_title": "Festival int. de littérature",
+      "source_url": "https://www.valais.ch/fr/evenements/festival-int-de-litterature"
+    },
+    {
+      "email": "info@livemusic.ch",
+      "canton": "Valais",
+      "event_title": "Sion sous les étoiles",
+      "source_url": "https://www.valais.ch/fr/evenements/sion-sous-les-etoiles"
+    },
+    {
+      "email": "info@maxi-rires.ch",
+      "canton": "Valais",
+      "event_title": "Maxi-Rires Festival",
+      "source_url": "https://www.valais.ch/fr/evenements/maxi-rires-festival"
+    },
+    {
+      "email": "info@mjf.ch",
+      "canton": "Vaud",
+      "event_title": "Montreux Jazz Festival",
+      "source_url": "https://www.myswitzerland.com/fr-ch/decouvrir/manifestations/montreux-jazz-festival/"
+    },
+    {
+      "email": "info@morges-tourisme.ch",
+      "canton": "Vaud",
+      "event_title": "Exposition temporaire Top Secret\"\"",
+      "source_url": "https://www.vaud.ch/tourisme/tous-les-evenements/exposition-temporaire-top-secret"
+    },
+    {
+      "email": "info@myvalleedejoux.ch",
+      "canton": "Vaud",
+      "event_title": "Chalets de Noël",
+      "source_url": "https://www.vaud.ch/tourisme/tous-les-evenements/chalets-de-noel"
+    },
+    {
+      "email": "info@nendaz.ch",
+      "canton": "Valais",
+      "event_title": "Pâques en folie à Nendaz",
+      "source_url": "https://www.nendaz.ch/fr/P76852/paques-en-folie-a-nendaz"
+    }
+  ],
+  "errors": [],
+  "generated_at_utc": "2026-02-26T13:30:03.573548+00:00"
+}

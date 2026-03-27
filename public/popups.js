@@ -40,6 +40,54 @@ function maskAddressNumber(address) {
   return masked;
 }
 
+function isPlaceholderEventDescription(text) {
+  if (!text || typeof text !== 'string') return false;
+  const d = text.trim().toLowerCase();
+  if (!d) return false;
+  return (
+    d.includes('historique 80k') ||
+    d.includes('importe depuis l historique 80k') ||
+    d.includes('informations disponibles via la publication originale') ||
+    d.includes('details et horaires disponibles via la publication originale') ||
+    d.includes('détails et horaires disponibles via la publication originale') ||
+    d === 'description non disponible' ||
+    d === 'description indisponible'
+  );
+}
+
+function cleanEventDescriptionText(text) {
+  if (!text || typeof text !== 'string') return '';
+  return text
+    .replace(/https?:\/\/\S+/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/[|]{2,}/g, ' ')
+    .replace(/[.]{4,}/g, '...')
+    .replace(/\(\s*lieu\s*:\s*[^)]+\)/gi, '')
+    .trim();
+}
+
+function buildEventFallbackSummary(ev) {
+  const title = (ev && (ev.title || ev.name)) ? String(ev.title || ev.name).trim() : 'Événement';
+  const cat = (ev && (ev.mainCategory || (Array.isArray(ev.categories) ? ev.categories[0] : '')))
+    ? String(ev.mainCategory || ev.categories[0]).trim()
+    : '';
+  if (cat) {
+    return `${title} - ${cat}. Résumé disponible via la publication originale.`;
+  }
+  return `${title} - Résumé disponible via la publication originale.`;
+}
+
+function getEventDescriptionForPopup(ev, evTranslated) {
+  const translatedRaw = evTranslated && typeof evTranslated.description === 'string' ? evTranslated.description : '';
+  const sourceRaw = ev && typeof ev.description === 'string' ? ev.description : '';
+  const translated = cleanEventDescriptionText(translatedRaw);
+  const raw = cleanEventDescriptionText(sourceRaw);
+
+  if (translated && translated.length >= 24 && !isPlaceholderEventDescription(translated)) return translated;
+  if (raw && raw.length >= 24 && !isPlaceholderEventDescription(raw)) return raw;
+  return buildEventFallbackSummary(ev);
+}
+
 function buildPopupHtml(item) {
   // Protection contre les erreurs TDZ - s'assurer que window.t() est disponible
   // NE PAS logger d'avertissement ici car cela génère des milliers de messages
@@ -175,6 +223,8 @@ function buildEventPopup(ev) {
   const statusOverlay = buildStatusOverlay(ev.status);
   const borderColor = getBoostColor(ev.boost);
   const cats = (evTranslated.categories || ev.categories || []).join(" • ");
+  const popupAddress = ev.address || ev.location || ev.city || "";
+  const popupDescription = getEventDescriptionForPopup(ev, evTranslated);
   
   // ⚠️ CRITIQUE : Utiliser l'image de statut si le statut n'est pas "active"
   // Les images de statut remplacent complètement l'image de l'événement
@@ -299,18 +349,12 @@ function buildEventPopup(ev) {
   
   // Badge de validation organisateur (pour événements scrapés)
   let validationBadge = "";
-  if (ev.validation_status === 'validated') {
+  if (ev.validation_status === 'validated' || ev.validation_status === 'auto_validated') {
     validationBadge = `
       <div style="margin:8px 0;padding:8px 14px;background:linear-gradient(135deg,rgba(34,197,94,0.12),rgba(22,163,74,0.08));border:1px solid rgba(34,197,94,0.4);border-radius:10px;display:flex;align-items:center;gap:8px;">
         <span style="font-size:16px;">✅</span>
-        <span style="font-size:11px;font-weight:700;color:#22c55e;line-height:1.3;">Informations validées par l'organisateur</span>
+        <span style="font-size:11px;font-weight:700;color:#22c55e;line-height:1.3;">Validé</span>
       </div>
-    `;
-  } else if (ev.validation_status === 'pending') {
-    validationBadge = `
-      <span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:999px;background:rgba(245,158,11,0.2);border:1px solid rgba(245,158,11,0.5);color:#f59e0b;font-size:10px;font-weight:600;">
-        En attente de validation
-      </span>
     `;
   }
   
@@ -322,11 +366,11 @@ function buildEventPopup(ev) {
     </a>
   ` : "";
   
-  // Indicateur publication MapEvent
+  // Indicateur source (sans mention "Publié par MapEvent")
   const aiIndicator = ev.isAI ? `
     <div style="margin-top:8px;padding:8px 12px;background:linear-gradient(135deg,rgba(59,130,246,0.1),rgba(139,92,246,0.1));border:1px solid rgba(59,130,246,0.3);border-radius:10px;font-size:11px;color:#94a3b8;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
       <span style="font-size:14px;">📢</span>
-      <span>Publié par <strong style="color:#60a5fa;">MapEvent</strong> : il peut y avoir des erreurs, merci de <a href="${escapeHtml(evSourceUrl || '#')}" target="_blank" style="color:#60a5fa;text-decoration:underline;font-weight:600;">vérifier la source</a></span>
+      <span>Source originale : <a href="${escapeHtml(evSourceUrl || '#')}" target="_blank" style="color:#60a5fa;text-decoration:underline;font-weight:600;">vérifier la source</a></span>
     </div>
   ` : "";
 
@@ -537,7 +581,7 @@ function buildEventPopup(ev) {
           </div>
           <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.2);border-radius:10px;">
             <span style="font-size:20px;">📍</span>
-            <div style="font-size:13px;font-weight:500;color:var(--ui-text-main);flex:1;">${escapeHtml(ev.address || ev.city || ev.location || "")}</div>
+            <div style="font-size:13px;font-weight:500;color:var(--ui-text-main);flex:1;">${escapeHtml(popupAddress)}</div>
           </div>
           ${(ev.source_url || ev.sourceUrl) ? `
             <a href="${escapeHtml(ev.source_url || ev.sourceUrl || '#')}" target="_blank" rel="noopener noreferrer" style="display:flex;align-items:center;gap:10px;padding:12px;background:linear-gradient(135deg,rgba(245,158,11,0.15),rgba(234,88,12,0.1));border:2px solid rgba(245,158,11,0.5);border-radius:10px;text-decoration:none;transition:all 0.2s;" onmouseover="this.style.background='linear-gradient(135deg,rgba(245,158,11,0.25),rgba(234,88,12,0.2))';this.style.transform='scale(1.01)'" onmouseout="this.style.background='linear-gradient(135deg,rgba(245,158,11,0.15),rgba(234,88,12,0.1))';this.style.transform='scale(1)'">
@@ -548,16 +592,13 @@ function buildEventPopup(ev) {
               </div>
               <span style="font-size:18px;color:#f59e0b;">→</span>
             </a>
-            <div style="margin-top:8px;padding:8px 12px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.25);border-radius:8px;font-size:11px;color:#f87171;text-align:center;">
-              ⚠️ Publié par MapEvent – peut contenir des erreurs
-            </div>
           ` : ''}
         </div>
         
         <!-- Description -->
-        ${ev.description ? `
+        ${popupDescription ? `
           <div style="font-size:14px;color:#ffffff;line-height:1.7;margin-bottom:12px;padding:12px;background:transparent;border-radius:8px;">
-            ${escapeHtml(evTranslated.description || ev.description)}
+            ${escapeHtml(popupDescription)}
           </div>
         ` : ""}
         
@@ -740,10 +781,10 @@ function buildBookingPopup(b) {
     </a>
   ` : "";
 
-  // Indicateur publication MapEvent
+  // Indicateur source (sans mention "Publié par MapEvent")
   const aiIndicator = b.isAI ? `
     <div style="margin:6px 0;padding:6px 10px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);border-radius:8px;font-size:11px;color:#94a3b8;">
-      📢 Publié par <strong style="color:#60a5fa;">MapEvent</strong> : il peut y avoir des erreurs, merci de <a href="${sourceUrl || '#'}" target="_blank" style="color:#60a5fa;text-decoration:underline;">vérifier la source</a>
+      📢 Source originale : <a href="${sourceUrl || '#'}" target="_blank" style="color:#60a5fa;text-decoration:underline;">vérifier la source</a>
     </div>
   ` : "";
 
@@ -887,10 +928,10 @@ function buildServicePopup(s) {
     </div>
   ` : "";
 
-  // Indicateur publication MapEvent
+  // Indicateur source (sans mention "Publié par MapEvent")
   const aiIndicator = s.isAI ? `
     <div style="margin:6px 0;padding:6px 10px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);border-radius:8px;font-size:11px;color:#94a3b8;">
-      📢 Publié par <strong style="color:#60a5fa;">MapEvent</strong> : il peut y avoir des erreurs, merci de <a href="${s.sourceUrl || '#'}" target="_blank" style="color:#60a5fa;text-decoration:underline;">vérifier la source</a>
+      📢 Source originale : <a href="${s.sourceUrl || '#'}" target="_blank" style="color:#60a5fa;text-decoration:underline;">vérifier la source</a>
     </div>
   ` : "";
 

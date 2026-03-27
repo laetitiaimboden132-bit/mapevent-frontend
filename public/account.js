@@ -1328,6 +1328,12 @@ function openAccountModal() {
           <div style="font-weight:600;font-size:14px;color:#fff;">Map Friend</div>
           <div style="font-size:11px;color:#94a3b8;margin-top:4px;">Fil social - Partage d'events et messages</div>
         </div>
+        
+        <div id="account-eco-mission-block" onclick="openEcoMissionModal()" style="padding:24px;border-radius:16px;background:rgba(34,197,94,0.1);border:2px solid rgba(34,197,94,0.35);cursor:pointer;transition:all 0.3s;grid-column:span 2;" onmouseover="this.style.borderColor='rgba(34,197,94,0.65)';this.style.background='rgba(34,197,94,0.16)';this.style.transform='translateY(-2px)';" onmouseout="this.style.borderColor='rgba(34,197,94,0.35)';this.style.background='rgba(34,197,94,0.1)';this.style.transform='translateY(0)';">
+          <div style="font-size:32px;margin-bottom:8px;">🌍</div>
+          <div style="font-weight:700;font-size:14px;color:#dcfce7;">Sauver la Terre</div>
+          <div style="font-size:11px;color:#bbf7d0;margin-top:4px;">Ce bloc est permanent pour tous les comptes</div>
+        </div>
       </div>
       
       <!-- Zone de contenu - Option "Rester connecté" -->
@@ -1404,6 +1410,12 @@ function openAccountModal() {
     const rememberMeKnob = document.getElementById('account-remember-me-knob');
     const pwaInstallBtn = document.getElementById('account-pwa-install-btn');
     const mobileExtras = document.getElementById('account-mobile-extras');
+    const ecoMissionBlock = document.getElementById('account-eco-mission-block');
+    if (ecoMissionBlock) {
+      // Garde-fou: ne jamais masquer ce bloc, meme si du CSS externe est applique.
+      ecoMissionBlock.style.display = 'block';
+      ecoMissionBlock.style.visibility = 'visible';
+    }
     
     // Afficher les éléments mobile si on est sur mobile
     const isMobile = window.innerWidth <= 768;
@@ -1937,6 +1949,52 @@ async function showMesAnnoncesModal() {
   // Récupérer les annonces depuis l'API backend ET les données locales
   const userAnnonces = [];
   const userId = currentUser ? (currentUser.id || currentUser.cognitoSub) : null;
+  const normalizeEmail = (email) => {
+    if (!email || typeof email !== 'string') return '';
+    const raw = email.trim().toLowerCase();
+    const atIndex = raw.indexOf('@');
+    if (atIndex <= 0) return raw;
+    const local = raw.slice(0, atIndex);
+    let domain = raw.slice(atIndex + 1);
+    if (domain === 'googlemail.com') domain = 'gmail.com';
+    if (domain === 'gmail.com') {
+      const noTag = local.split('+')[0];
+      return `${noTag.replace(/\./g, '')}@gmail.com`;
+    }
+    return `${local}@${domain}`;
+  };
+  const userEmails = Array.from(new Set([
+    currentUser?.email,
+    currentUser?.loginEmail,
+    currentUser?.originalEmail,
+    currentUser?.user?.email
+  ].map(normalizeEmail).filter(Boolean)));
+  const userIds = Array.from(new Set([
+    userId,
+    currentUser?.id,
+    currentUser?.cognitoSub
+  ].filter(Boolean).map(v => String(v))));
+  const matchesUserRecord = (item) => {
+    if (!item) return false;
+    const recordIds = [
+      item.userId,
+      item.createdBy,
+      item.creator_id,
+      item.ownerId,
+      item.authorId
+    ].filter(v => v !== undefined && v !== null).map(v => String(v));
+    const hasIdMatch = recordIds.some(id => userIds.includes(id));
+    if (hasIdMatch) return true;
+    const recordEmails = [
+      item.email,
+      item.organizer_email,
+      item.organizerEmail,
+      item.contactEmail,
+      item.ownerEmail,
+      item.createdByEmail
+    ].map(normalizeEmail).filter(Boolean);
+    return recordEmails.some(email => userEmails.includes(email));
+  };
   const token = typeof getAuthToken === 'function' ? getAuthToken() : localStorage.getItem('accessToken');
   
   // Charger depuis l'API backend
@@ -1971,6 +2029,7 @@ async function showMesAnnoncesModal() {
               endDate: e.end_date ? new Date(e.end_date + (e.end_time ? 'T' + e.end_time : '')) : null,
               status: e.status || 'active',
               creator_id: e.creator_id,
+              organizer_email: e.organizer_email || '',
               image_url: e.image_url,
               categories: e.categories || [],
               boost: '1.-',
@@ -1990,16 +2049,20 @@ async function showMesAnnoncesModal() {
   }
   
   // Chercher aussi dans les données locales (fallback + bookings/services)
-  eventsData.filter(e => e.userId === userId || e.createdBy === userId || e.creator_id === userId).forEach(e => {
+  eventsData.filter(matchesUserRecord).forEach(e => {
     if (!userAnnonces.find(a => a.id === e.id && a.type === 'event')) {
       userAnnonces.push({ id: e.id, title: e.title || e.name, location: e.location || e.address, lat: e.lat, lng: e.lng, status: e.status || 'active', type: 'event', emoji: '📅' });
     }
   });
-  bookingsData.filter(b => b.userId === userId || b.createdBy === userId).forEach(b => {
-    userAnnonces.push({ id: b.id, title: b.title || b.name, location: b.location || b.address, lat: b.lat, lng: b.lng, status: 'active', type: 'booking', emoji: '🏨' });
+  bookingsData.filter(matchesUserRecord).forEach(b => {
+    if (!userAnnonces.find(a => a.id === b.id && a.type === 'booking')) {
+      userAnnonces.push({ id: b.id, title: b.title || b.name, location: b.location || b.address, lat: b.lat, lng: b.lng, status: 'active', type: 'booking', emoji: '🏨' });
+    }
   });
-  servicesData.filter(s => s.userId === userId || s.createdBy === userId).forEach(s => {
-    userAnnonces.push({ id: s.id, title: s.title || s.name, location: s.location || s.address, lat: s.lat, lng: s.lng, status: 'active', type: 'service', emoji: '🔧' });
+  servicesData.filter(matchesUserRecord).forEach(s => {
+    if (!userAnnonces.find(a => a.id === s.id && a.type === 'service')) {
+      userAnnonces.push({ id: s.id, title: s.title || s.name, location: s.location || s.address, lat: s.lat, lng: s.lng, status: 'active', type: 'service', emoji: '🔧' });
+    }
   });
   
   const statusLabels = {

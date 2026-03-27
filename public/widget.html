@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>MapEvent Widget</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" crossorigin="">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" crossorigin=""></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.css">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;background:#0f172a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#e2e8f0;overflow:hidden}
+#map{width:100%;height:100%}
+.leaflet-container{background:#0f172a!important}
+.leaflet-popup-content-wrapper{background:#1e293b!important;color:#e2e8f0!important;border-radius:12px!important;box-shadow:0 8px 32px rgba(0,0,0,.5)!important;border:1px solid rgba(148,163,184,.2)!important}
+.leaflet-popup-tip{background:#1e293b!important}
+.leaflet-popup-close-button{color:#94a3b8!important;font-size:18px!important;top:6px!important;right:8px!important}
+.leaflet-popup-close-button:hover{color:#f1f5f9!important}
+.leaflet-popup-content{margin:12px 14px!important;line-height:1.5!important;min-width:200px!important}
+.w-title{font-weight:700;font-size:14px;margin-bottom:6px;line-height:1.3}
+.w-date{font-size:12px;color:#f59e0b;margin-bottom:4px}
+.w-loc{font-size:11px;color:#94a3b8;margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px}
+.w-cats{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px}
+.w-cat{font-size:10px;background:rgba(59,130,246,.15);color:#60a5fa;padding:2px 7px;border-radius:6px;white-space:nowrap}
+.w-link{display:inline-block;padding:7px 14px;background:linear-gradient(135deg,#22c55e,#4ade80);color:#022c22;font-weight:700;font-size:12px;border-radius:8px;text-decoration:none;transition:transform .15s}
+.w-link:hover{transform:scale(1.04)}
+#powered{position:absolute;bottom:6px;right:8px;z-index:1000;background:rgba(15,23,42,.85);padding:4px 10px;border-radius:8px;font-size:11px;color:#94a3b8;text-decoration:none;border:1px solid rgba(148,163,184,.15);backdrop-filter:blur(4px);transition:all .2s}
+#powered:hover{color:#00ffc3;border-color:rgba(0,255,195,.3)}
+#powered span{color:#00ffc3;font-weight:700}
+#loading{position:absolute;inset:0;z-index:1001;background:#0f172a;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity .4s}
+#loading.hide{opacity:0;pointer-events:none}
+#loading .spin{width:36px;height:36px;border:3px solid rgba(0,255,195,.2);border-top-color:#00ffc3;border-radius:50%;animation:s .7s linear infinite}
+@keyframes s{to{transform:rotate(360deg)}}
+#loading p{color:#64748b;font-size:12px;margin-top:12px}
+#dbg{position:absolute;top:8px;left:8px;z-index:1002;background:rgba(0,0,0,.85);color:#0f0;font-family:monospace;font-size:11px;padding:8px 12px;border-radius:8px;max-width:400px;line-height:1.5;pointer-events:none}
+.marker-cluster-small{background:rgba(34,197,94,.3)!important}
+.marker-cluster-small div{background:rgba(34,197,94,.7)!important;color:#fff!important;font-weight:700!important}
+.marker-cluster-medium{background:rgba(245,158,11,.3)!important}
+.marker-cluster-medium div{background:rgba(245,158,11,.7)!important;color:#fff!important;font-weight:700!important}
+.marker-cluster-large{background:rgba(239,68,68,.3)!important}
+.marker-cluster-large div{background:rgba(239,68,68,.7)!important;color:#fff!important;font-weight:700!important}
+</style>
+</head>
+<body>
+<div id="map"></div>
+<a id="powered" href="https://mapevent.world" target="_blank" rel="noopener">Powered by <span>MapEvent</span></a>
+<div id="loading"><div class="spin"></div><p>Chargement...</p></div>
+<div id="dbg">Widget v3 init...</div>
+
+<script>
+(function(){
+  var dbg=document.getElementById('dbg');
+  var logs=[];
+  function log(msg){
+    logs.push(msg);
+    dbg.textContent=logs.join('\n');
+    console.log('[Widget]',msg);
+  }
+
+  log('v3-viewport starting');
+
+  var API='https://ctp67u5hgni2rbfr3kp4p74kxa0gxycf.lambda-url.eu-west-1.on.aws/api';
+  var P=new URLSearchParams(window.location.search);
+  var city=P.get('city')||'';
+  var theme=P.get('theme')||'dark';
+  var userZoom=parseInt(P.get('zoom'))||0;
+
+  if(theme==='light'){
+    document.body.style.background='#f8fafc';
+    document.getElementById('loading').style.background='#f8fafc';
+    var st=document.createElement('style');
+    st.textContent='.leaflet-container{background:#f1f5f9!important}.leaflet-popup-content-wrapper{background:#fff!important;color:#1e293b!important;border:1px solid #e2e8f0!important}.leaflet-popup-tip{background:#fff!important}.w-title{color:#0f172a}.w-loc{color:#64748b}#powered{background:rgba(255,255,255,.9);color:#64748b;border-color:#e2e8f0}';
+    document.head.appendChild(st);
+  }
+
+  var CC={
+    'geneve':[46.2044,6.1432],'geneva':[46.2044,6.1432],'lausanne':[46.5197,6.6323],
+    'vernier':[46.2131843,6.0815756],
+    'zurich':[47.3769,8.5417],'berne':[46.9480,7.4474],'bern':[46.9480,7.4474],
+    'basel':[47.5596,7.5886],'bale':[47.5596,7.5886],
+    'paris':[48.8566,2.3522],'lyon':[45.7640,4.8357],'marseille':[43.2965,5.3698],
+    'toulouse':[43.6047,1.4442],'bordeaux':[44.8378,-0.5792],'lille':[50.6292,3.0573],
+    'nantes':[47.2184,-1.5536],'strasbourg':[48.5734,7.7521],'nice':[43.7102,7.2620],
+    'montpellier':[43.6108,3.8767],'rennes':[48.1173,-1.6778],
+    'berlin':[52.5200,13.4050],'munich':[48.1351,11.5820],'hamburg':[53.5511,9.9937],
+    'madrid':[40.4168,-3.7038],'barcelona':[41.3874,2.1686],'london':[51.5074,-0.1278],
+    'amsterdam':[52.3676,4.9041],'brussels':[50.8503,4.3517],'bruxelles':[50.8503,4.3517],
+    'rome':[41.9028,12.4964],'milan':[45.4642,9.1900],'vienna':[48.2082,16.3738],
+    'prague':[50.0755,14.4378],'lisbon':[38.7223,-9.1393],'lisboa':[38.7223,-9.1393],
+    'helsinki':[60.1699,24.9384],'montreal':[45.5017,-73.5673],
+    'toronto':[43.6532,-79.3832],'new-york':[40.7128,-74.0060],
+    'annecy':[45.8992,6.1294],'grenoble':[45.1885,5.7245],
+    'sion':[46.2298,7.3607],'sierre':[46.2920,7.5353],'montreux':[46.4312,6.9107],
+    'fribourg':[46.8065,7.1620],'neuchatel':[46.9900,6.9293],
+    'colmar':[48.0794,7.3584],'dunkerque':[51.0343,2.3768],'troyes':[48.2973,4.0744],
+    'auxerre':[47.7979,3.5714],'chalon-sur-saone':[46.7806,4.8528],'macon':[46.3069,4.8283],
+    'lorient':[47.7483,-3.3666],'vannes':[47.6581,-2.7604],'rochefort':[45.9413,-0.9574],
+    'niort':[46.3234,-0.4646],'cherbourg':[49.6337,-1.6221],'biarritz':[43.4832,-1.5586],
+    'beziers':[43.3440,3.2151],'narbonne':[43.1840,3.0040],'sete':[43.4054,3.6960],
+    'hyeres':[43.1204,6.1286],'antibes':[43.5808,7.1239],'grasse':[43.6591,6.9227],
+    'saint-malo':[48.6493,-2.0070],'bourges':[47.0810,2.3988],'bayonne':[43.4929,-1.4748],
+    'reims':[49.2583,3.5794],'senlis':[49.2070,2.5856],'ajaccio':[41.9192,8.7386],
+    'toulon':[43.1242,5.9280],'cannes':[43.5528,7.0174],'perpignan':[42.6887,2.8948],
+    'dijon':[47.3220,5.0415],'tours':[47.3941,0.6848],'clermont-ferrand':[45.7772,3.0870],
+    'metz':[49.1193,6.1757],'rouen':[49.4432,1.0993],
+    'yverdon':[46.7785,6.6410],'yverdon-les-bains':[46.7785,6.6410],'nyon':[46.3830,6.2396],
+    'morges':[46.5119,6.4988],'vevey':[46.4603,6.8430],'martigny':[46.1019,7.0723],
+    'monthey':[46.2546,6.9534],'bulle':[46.6172,7.0564],
+    'soleure':[47.2088,7.5370],'solothurn':[47.2088,7.5370],
+    'zoug':[47.1724,8.5173],'zug':[47.1724,8.5173],'davos':[46.8027,9.8365],
+    'winterthur':[47.4990,8.7242],'thun':[46.7580,7.6280],'aarau':[47.3924,8.0443],
+    'biel':[47.1368,7.2467],'schaffhausen':[47.6960,8.6350],'lugano':[46.0037,8.9511],
+    'luzern':[47.0502,8.3093],'lucerne':[47.0502,8.3093],
+    'st-gallen':[47.4245,9.3767],'interlaken':[46.6863,7.8632],
+    'gent':[51.0543,3.7174],'gand':[51.0543,3.7174],
+    'antwerpen':[51.2194,4.4025],'anvers':[51.2194,4.4025]
+  };
+
+  var clat=parseFloat(P.get('lat'))||0;
+  var clng=parseFloat(P.get('lng'))||0;
+  var ckey=city.toLowerCase().replace(/\s+/g,'-').normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  if(ckey && CC[ckey]){
+    if(!clat) clat=CC[ckey][0];
+    if(!clng) clng=CC[ckey][1];
+  }
+  if(!clat && !clng){ clat=46.8; clng=8.2; }
+  var zm=userZoom||(city?13:5);
+  var spread=city?0.15:50;
+
+  log('city='+city+' center='+clat+','+clng+' zoom='+zm);
+
+  var map=L.map('map',{zoomControl:true,attributionControl:false}).setView([clat,clng],zm);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,subdomains:'abc'}).addTo(map);
+  L.control.attribution({position:'bottomleft',prefix:false}).addAttribution('\u00a9 <a href="https://openstreetmap.org" target="_blank">OSM</a>').addTo(map);
+
+  var cluster=L.markerClusterGroup({maxClusterRadius:50,spiderfyOnMaxZoom:true,showCoverageOnHover:false,chunkedLoading:true});
+
+  function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+  function fmtD(d){if(!d)return '';try{return new Date(d).toLocaleDateString('fr-FR',{day:'numeric',month:'short',year:'numeric'});}catch(e){return d;}}
+
+  var south=clat-spread, north=clat+spread, west=clng-spread*1.5, east=clng+spread*1.5;
+  var url=API+'/events/viewport?zoom='+zm+'&south='+south.toFixed(4)+'&north='+north.toFixed(4)+'&west='+west.toFixed(4)+'&east='+east.toFixed(4);
+
+  log('Fetching: ...viewport?zoom='+zm);
+
+  var t0=Date.now();
+  fetch(url)
+  .then(function(resp){
+    log('HTTP '+resp.status+' in '+(Date.now()-t0)+'ms');
+    if(!resp.ok) throw new Error('HTTP '+resp.status);
+    return resp.json();
+  })
+  .then(function(data){
+    var keys=data.k||[];
+    var rows=data.d||[];
+    log('Parsed: '+rows.length+' events, '+keys.length+' keys');
+
+    if(!rows.length){
+      log('NO EVENTS in response!');
+      document.querySelector('#loading p').textContent='Aucun evenement dans cette zone';
+      document.getElementById('loading').classList.add('hide');
+      return;
+    }
+
+    var iLat=keys.indexOf('latitude');
+    var iLng=keys.indexOf('longitude');
+    var iTitle=keys.indexOf('title');
+    var iLoc=keys.indexOf('location');
+    var iDate=keys.indexOf('date');
+    var iCats=keys.indexOf('categories');
+    var iId=keys.indexOf('id');
+    var iTime=keys.indexOf('time');
+    var iEndDate=keys.indexOf('end_date');
+
+    log('Indexes: lat='+iLat+' lng='+iLng+' title='+iTitle);
+
+    if(iLat<0||iLng<0){
+      log('ERROR: lat/lng keys not found!');
+      return;
+    }
+
+    var count=0;
+    var skipped=0;
+    var markers=[];
+
+    for(var i=0;i<rows.length;i++){
+      var ev=rows[i];
+      var elat=ev[iLat], elng=ev[iLng];
+      if(!elat || !elng){ skipped++; continue; }
+
+      var title=ev[iTitle]||'';
+      var loc=ev[iLoc]||'';
+      var date=ev[iDate]||'';
+      var cats=ev[iCats]||[];
+      var evId=ev[iId]||'';
+      var time=ev[iTime]||'';
+      var endDate=ev[iEndDate]||'';
+      if(typeof cats==='string'){try{cats=JSON.parse(cats);}catch(e){cats=[];}}
+
+      var catStr='';
+      if(cats && cats.length){
+        catStr='<div class="w-cats">';
+        for(var c=0;c<Math.min(cats.length,3);c++) catStr+='<span class="w-cat">'+esc(cats[c])+'</span>';
+        catStr+='</div>';
+      }
+
+      var timeStr=time?(' \u00b7 '+String(time).substring(0,5)):'';
+      var dateStr=fmtD(date);
+      if(endDate && endDate!==date) dateStr+=' \u2192 '+fmtD(endDate);
+      var popup='<div class="w-title">'+esc(title)+'</div>'+
+        '<div class="w-date">'+dateStr+timeStr+'</div>'+
+        '<div class="w-loc">'+esc(loc)+'</div>'+
+        catStr+
+        '<a class="w-link" href="https://mapevent.world/e/'+evId+'/" target="_blank" rel="noopener">Voir sur MapEvent</a>';
+
+      var icon=L.divIcon({
+        className:'',
+        html:'<div style="width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,#22c55e,#4ade80);border:2px solid #fff;display:flex;align-items:center;justify-content:center;font-size:11px;box-shadow:0 2px 6px rgba(0,0,0,.3);cursor:pointer;color:#022c22;font-weight:bold;">E</div>',
+        iconSize:[26,26],iconAnchor:[13,13],popupAnchor:[0,-15]
+      });
+
+      markers.push(L.marker([elat,elng],{icon:icon}).bindPopup(popup,{maxWidth:260,minWidth:180}));
+      count++;
+    }
+
+    log('Created '+count+' markers ('+skipped+' skipped)');
+    log('Adding to cluster...');
+
+    cluster.addLayers(markers);
+    map.addLayer(cluster);
+
+    log('DONE - '+count+' on map');
+
+    document.getElementById('loading').classList.add('hide');
+    document.querySelector('#loading p').textContent=count+' evenement'+(count>1?'s':'')+' trouve'+(count>1?'s':'');
+
+    setTimeout(function(){ dbg.style.display='none'; }, 8000);
+  })
+  .catch(function(err){
+    log('ERROR: '+err.message);
+    document.querySelector('#loading p').textContent='Erreur: '+err.message;
+    setTimeout(function(){document.getElementById('loading').classList.add('hide');},5000);
+  });
+})();
+</script>
+</body>
+</html>

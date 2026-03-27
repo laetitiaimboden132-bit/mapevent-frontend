@@ -1,0 +1,122 @@
+[
+  {
+    "city": "Yverdon-les-Bains",
+    "email": "tourisme@adnv.ch",
+    "source_url": "https://yverdonlesbainsregion.ch/contact/",
+    "org": "Office du Tourisme du Nord vaudois / Yverdon-les-Bains Région"
+  },
+  {
+    "city": "Nyon",
+    "email": "info@nrt.ch",
+    "source_url": "https://www.lacote-tourisme.ch/fr/Z14700/contacts-et-horaires",
+    "org": "Nyon Région Tourisme / Office du Tourisme de Nyon"
+  },
+  {
+    "city": "Morges",
+    "email": "info@morges-tourisme.ch",
+    "source_url": "https://www.morges-tourisme.ch/fr/G1109/points-d-informations-touristiques",
+    "org": "Morges Région Tourisme / Maison du Tourisme de Morges"
+  },
+  {
+    "city": "Vevey",
+    "email": "info@montreuxriviera.com",
+    "source_url": "https://www.montreuxriviera.com",
+    "org": "Office du Tourisme Montreux Riviera (bureau à Vevey)"
+  },
+  {
+    "city": "Martigny",
+    "email": "",
+    "source_url": "https://www.martigny.com/en/activity/martigny-tourist-office-9091/",
+    "org": "Martigny Tourisme"
+  },
+  {
+    "city": "Monthey",
+    "email": "administration@monthey.ch",
+    "source_url": "https://www.monthey.ch/contact",
+    "org": "Ville de Monthey (Culture, Tourisme & Jumelage via formulaire ou administration)"
+  },
+  {
+    "city": "Bulle",
+    "email": "info@la-gruyere.ch",
+    "source_url": "https://www.la-gruyere.ch",
+    "org": "La Gruyère Tourisme / Office du Tourisme de Bulle"
+  },
+  {
+    "city": "Soleure",
+    "email": "info@solothurn-city.ch",
+    "source_url": "https://www.solothurn-city.ch/fr/",
+    "org": "Solothurn Tourismus / Soleure Tourisme"
+  },
+  {
+    "city": "Zoug",
+    "email": "info@zug.ch",
+    "source_url": "https://www.zug-tourismus.ch/fr/team",
+    "org": "Zug Tourismus / Zoug Tourisme"
+  },
+  {
+    "city": "Davos",
+    "email": "info@davos.ch",
+    "source_url": "https://www.davos.ch/en/service/website-infos/impressum",
+    "org": "Destination Davos Klosters"
+  },
+  {
+    "city": "",
+    "email": "contact@konbini.com",
+    "source_url": "https://www.konbini.com/mentions-legales/",
+    "org": "Konbini"
+  },
+  {
+    "city": "",
+    "email": "contact@lesinrocks.com",
+    "source_url": "https://www.lesinrocks.com/contact/",
+    "org": "Les Inrockuptibles / Les Inrocks"
+  },
+  {
+    "city": "",
+    "email": "courrier@telerama.fr",
+    "source_url": "https://www.telerama.fr/courrier/courrier.php",
+    "org": "Télérama (courrier des lecteurs)"
+  },
+  {
+    "city": "Lyon",
+    "email": "relationabonnes@leprogres.fr",
+    "source_url": "https://www.leprogres.fr/contact-redaction",
+    "org": "Le Progrès"
+  },
+  {
+    "city": "",
+    "email": "relationclients@dna.fr",
+    "source_url": "https://www.dna.fr/contact",
+    "org": "DNA - Dernières Nouvelles d'Alsace"
+  },
+  {
+    "city": "",
+    "email": "s.lecteur@lalsace.fr",
+    "source_url": "https://www.lalsace.fr/contact",
+    "org": "L'Alsace"
+  },
+  {
+    "city": "",
+    "email": "lerabonnement@estrepublicain.fr",
+    "source_url": "https://www.estrepublicain.fr/contact-redaction",
+    "org": "L'Est Républicain"
+  },
+  {
+    "city": "",
+    "email": "courrierlecteurs@sudouest.fr",
+    "source_url": "https://www.sudouest.fr/contact/",
+    "org": "Sud Ouest (courrier des lecteurs)"
+  },
+  {
+    "city": "",
+    "email": "contact@laprovence.com",
+    "source_url": "https://www.laprovence.com/contacteznous",
+    "org": "La Provence"
+  },
+  {
+    "city": "Toulouse",
+    "email": "courrier@ladepeche.fr",
+    "source_url": "https://www.ladepeche.fr/page/contactez-nous",
+    "org": "La Dépêche du Midi (courrier des lecteurs / rédaction)"
+  }
+]

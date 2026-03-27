@@ -1,0 +1,100 @@
+{
+  "send_mode": false,
+  "selected_cities": 13,
+  "processed": 13,
+  "results": [
+    {
+      "slug": "nyon",
+      "city": "Nyon",
+      "events": 1020,
+      "email": "info@nrt.ch",
+      "source_url": "https://www.lacote-tourisme.ch/fr/Z14700/contacts-et-horaires",
+      "source": "seed_file",
+      "subject": "[MODELE EXACT] Nyon widget",
+      "demo_url": "https://mapevent.world/widget-promo.html?city=nyon&theme=dark",
+      "send_status": "dry_run"
+    },
+    {
+      "slug": "senlis",
+      "city": "Senlis",
+      "events": 189,
+      "status": "no_contact_found"
+    },
+    {
+      "slug": "bordeaux",
+      "city": "Bordeaux",
+      "events": 2386,
+      "status": "no_contact_found"
+    },
+    {
+      "slug": "lille",
+      "city": "Lille",
+      "events": 1419,
+      "status": "no_contact_found"
+    },
+    {
+      "slug": "nantes",
+      "city": "Nantes",
+      "events": 1611,
+      "status": "no_contact_found"
+    },
+    {
+      "slug": "geneve",
+      "city": "Geneve",
+      "events": 1016,
+      "status": "no_contact_found"
+    },
+    {
+      "slug": "rochefort",
+      "city": "Rochefort",
+      "events": 80,
+      "email": "contact@rochefort-ocean.com",
+      "source_url": "https://www.rochefort-ocean.com/mentions-legales",
+      "source": "seed_file",
+      "subject": "[MODELE EXACT] Rochefort widget",
+      "demo_url": "https://mapevent.world/widget-promo.html?city=rochefort&theme=dark",
+      "send_status": "dry_run"
+    },
+    {
+      "slug": "rennes",
+      "city": "Rennes",
+      "events": 676,
+      "status": "no_contact_found"
+    },
+    {
+      "slug": "rouen",
+      "city": "Rouen",
+      "events": 323,
+      "status": "no_contact_found"
+    },
+    {
+      "slug": "toulouse",
+      "city": "Toulouse",
+      "events": 1197,
+      "email": "courrier@ladepeche.fr",
+      "source_url": "https://www.ladepeche.fr/page/contactez-nous",
+      "source": "seed_file",
+      "subject": "[MODELE EXACT] Toulouse widget",
+      "demo_url": "https://mapevent.world/widget-promo.html?city=toulouse&theme=dark",
+      "send_status": "dry_run"
+    },
+    {
+      "slug": "paris",
+      "city": "Paris",
+      "events": 4365,
+      "status": "no_contact_found"
+    },
+    {
+      "slug": "sete",
+      "city": "Sete",
+      "events": 82,
+      "status": "no_contact_found"
+    },
+    {
+      "slug": "saint-malo",
+      "city": "Saint Malo",
+      "events": 80,
+      "status": "no_contact_found"
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "input_rows": 86,
+  "clean_kept": 85,
+  "review_rows": 1,
+  "fixed": 0,
+  "invalid_no_at": 0,
+  "invalid_format": 0,
+  "suspicious": 1,
+  "duplicates_removed": 0
+}

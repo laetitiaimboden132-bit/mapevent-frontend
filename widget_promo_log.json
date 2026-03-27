@@ -1,0 +1,97 @@
+[
+  {
+    "to": "info@nicetourisme.com",
+    "org": "Office de Tourisme de Nice",
+    "status": "sent"
+  },
+  {
+    "to": "info@rouentourisme.com",
+    "org": "Rouen Tourisme",
+    "status": "sent"
+  },
+  {
+    "to": "info@clermont-auvergne-tourisme.com",
+    "org": "Clermont Auvergne Tourisme",
+    "status": "sent"
+  },
+  {
+    "to": "info@caen-tourisme.fr",
+    "org": "Caen Tourisme",
+    "status": "sent"
+  },
+  {
+    "to": "info@avignon-tourisme.com",
+    "org": "Avignon Tourisme",
+    "status": "sent"
+  },
+  {
+    "to": "info@perpignantourisme.com",
+    "org": "Perpignan Tourisme",
+    "status": "sent"
+  },
+  {
+    "to": "contact@quimper-tourisme.com",
+    "org": "Quimper Tourisme",
+    "status": "sent"
+  },
+  {
+    "to": "info@neuchatelville.ch",
+    "org": "Neuchâtel Tourisme",
+    "status": "sent"
+  },
+  {
+    "to": "info@interlakentourism.ch",
+    "org": "Interlaken Tourismus",
+    "status": "sent"
+  },
+  {
+    "to": "info@luganoregion.com",
+    "org": "Lugano Region",
+    "status": "sent"
+  },
+  {
+    "to": "info@atout-france.fr",
+    "org": "Atout France",
+    "status": "sent"
+  },
+  {
+    "to": "redaction@lyoncapitale.fr",
+    "org": "Lyon Capitale",
+    "status": "sent"
+  },
+  {
+    "to": "contact@lillelanuit.com",
+    "org": "Lille La Nuit",
+    "status": "sent"
+  },
+  {
+    "to": "contact@bordeauxmaville.com",
+    "org": "Bordeaux Ma Ville",
+    "status": "sent"
+  },
+  {
+    "to": "redaction@marseillenews.net",
+    "org": "Marseille News",
+    "status": "sent"
+  },
+  {
+    "to": "info@whatson.ch",
+    "org": "What's On (agenda Suisse)",
+    "status": "sent"
+  },
+  {
+    "to": "info@agenda-culturel.ch",
+    "org": "Agenda Culturel Suisse",
+    "status": "sent"
+  },
+  {
+    "to": "contact@unidivers.fr",
+    "org": "Unidivers (agenda culturel)",
+    "status": "sent"
+  },
+  {
+    "to": "info@offi.fr",
+    "org": "L'Officiel des spectacles",
+    "status": "sent"
+  }
+]

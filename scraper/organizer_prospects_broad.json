@@ -1,0 +1,786 @@
+[
+  {
+    "email": "contact@chaplinsworld.com",
+    "title": "Les soirées cinéma à Chaplin's World",
+    "source_url": "",
+    "source_name": "",
+    "type": "club"
+  },
+  {
+    "email": "info@atelieraikoo.com",
+    "title": "Date Night Créative",
+    "source_url": "",
+    "source_name": "",
+    "type": "club"
+  },
+  {
+    "email": "info@diamono.art",
+    "title": "Soirée flamenco – danse, chant et guitare à l’Espace Diamono",
+    "source_url": "",
+    "source_name": "",
+    "type": "club"
+  },
+  {
+    "email": "sunsetbar1920@gmail.com",
+    "title": "Chicandier et Mathou - Interdit au public",
+    "source_url": "",
+    "source_name": "",
+    "type": "bar"
+  },
+  {
+    "email": "tourisme@moudon.ch",
+    "title": "Le théâtre Barnabé en coulisses",
+    "source_url": "",
+    "source_name": "",
+    "type": "bar"
+  },
+  {
+    "email": "billetterie@yverdon-les-bains.ch",
+    "title": "Midi théâtre - Un churros et au lit ! - Collectif les cRis de l’asphAlte",
+    "source_url": "",
+    "source_name": "",
+    "type": "salle_culturelle"
+  },
+  {
+    "email": "info@lepetittheatre.ch",
+    "title": "Théâtre: Grain de génie",
+    "source_url": "",
+    "source_name": "",
+    "type": "salle_culturelle"
+  },
+  {
+    "email": "info@specta-c-tor.ch",
+    "title": "Eli & Laïla - Théâtre-forum sur le racisme",
+    "source_url": "",
+    "source_name": "",
+    "type": "salle_culturelle"
+  },
+  {
+    "email": "info@troupe-tam-tam.ch",
+    "title": "Théâtre - Espèces menacées",
+    "source_url": "",
+    "source_name": "",
+    "type": "salle_culturelle"
+  },
+  {
+    "email": "info@zigzagtheatre.ch",
+    "title": "Théâtre - Ma grand-mère est une aventurière",
+    "source_url": "",
+    "source_name": "",
+    "type": "salle_culturelle"
+  },
+  {
+    "email": "leterrier.lectures@gmail.com",
+    "title": "Théâtre - Abel, le Six Août",
+    "source_url": "",
+    "source_name": "",
+    "type": "salle_culturelle"
+  },
+  {
+    "email": "reservation@grutli.ch",
+    "title": "Théâtre - Hé, Prométhée !  Dis-moi pourquoi je brûle...",
+    "source_url": "",
+    "source_name": "",
+    "type": "salle_culturelle"
+  },
+  {
+    "email": "reservation@mosaiquetheatre.ch",
+    "title": "Théâtre : Intendance",
+    "source_url": "",
+    "source_name": "",
+    "type": "salle_culturelle"
+  },
+  {
+    "email": "reservation@touchenoire.ch",
+    "title": "Théâtre - Des fleurs pour Algernon",
+    "source_url": "",
+    "source_name": "",
+    "type": "salle_culturelle"
+  },
+  {
+    "email": "reservations@lecrevecoeur.ch",
+    "title": "Théâtre - Family Dream",
+    "source_url": "",
+    "source_name": "",
+    "type": "salle_culturelle"
+  },
+  {
+    "email": "contact@contheyshow.ch",
+    "title": "Festival \"Le sommet de la magie\"",
+    "source_url": "",
+    "source_name": "",
+    "type": "festival"
+  },
+  {
+    "email": "contact@visionsdureel.ch",
+    "title": "Festival Visions du Réel",
+    "source_url": "",
+    "source_name": "",
+    "type": "festival"
+  },
+  {
+    "email": "direction@festivaldufilmvert.ch",
+    "title": "Festival du Film Vert",
+    "source_url": "",
+    "source_name": "",
+    "type": "festival"
+  },
+  {
+    "email": "info@animatou.com",
+    "title": "Festival International du film d'animation - Animatou",
+    "source_url": "",
+    "source_name": "",
+    "type": "festival"
+  },
+  {
+    "email": "info@avenchestattoo.ch",
+    "title": "Festival Avenches Tattoo",
+    "source_url": "",
+    "source_name": "",
+    "type": "festival"
+  },
+  {
+    "email": "info@cinematheque.ch",
+    "title": "Les vendredis de la peur à la Cinémathèque suisse",
+    "source_url": "",
+    "source_name": "",
+    "type": "festival"
+  },
+  {
+    "email": "info@everybodysperfect.ch",
+    "title": "Everybody's Perfect - Geneva Internationl Queer Film Festival",
+    "source_url": "",
+    "source_name": "",
+    "type": "festival"
+  },
+  {
+    "email": "info@fifad.ch",
+    "title": "Festival International du Film Alpin des Diablerets - FIFAD",
+    "source_url": "",
+    "source_name": "",
+    "type": "festival"
+  },
+  {
+    "email": "restauration@brp.ch",
+    "title": "\"Délicieux\" en dîner-cinéma",
+    "source_url": "",
+    "source_name": "",
+    "type": "festival"
+  },
+  {
+    "email": "cm.miller@orange.fr",
+    "title": "Exposition d'art comtemporain - ORGANIC",
+    "source_url": "",
+    "source_name": "",
+    "type": "musee_galerie"
+  },
+  {
+    "email": "contact@jagal.swiss",
+    "title": "Common Ground - Exposition",
+    "source_url": "",
+    "source_name": "",
+    "type": "musee_galerie"
+  },
+  {
+    "email": "creactions@trajets.org",
+    "title": "La galerie Trajets EXPOSITIONS",
+    "source_url": "",
+    "source_name": "",
+    "type": "musee_galerie"
+  },
+  {
+    "email": "event@espacediorama.com",
+    "title": "Exposition - PATRIMOINE PHOTOGRAPHIQUE DU TIBET",
+    "source_url": "",
+    "source_name": "",
+    "type": "musee_galerie"
+  },
+  {
+    "email": "info.natureum@vd.ch",
+    "title": "Exposition Natura Picta",
+    "source_url": "",
+    "source_name": "",
+    "type": "musee_galerie"
+  },
+  {
+    "email": "info@abbatiale.ch",
+    "title": "Visite commentée de l'exposition \"Louis Bosset (1880-1950) : du compas à la truelle\"",
+    "source_url": "",
+    "source_name": "",
+    "type": "musee_galerie"
+  },
+  {
+    "email": "info@ccmanoir.ch",
+    "title": "Vernissage de l'exposition de Pierre Montant",
+    "source_url": "",
+    "source_name": "",
+    "type": "musee_galerie"
+  },
+  {
+    "email": "info@musee-yverdon-region.ch",
+    "title": "Exposition - On ferme ! Mémoires de la crise industrielle",
+    "source_url": "",
+    "source_name": "",
+    "type": "musee_galerie"
+  },
+  {
+    "email": "info@museejenisch.ch",
+    "title": "Visite guidée de l'exposition \"Impressions du Japon\"",
+    "source_url": "",
+    "source_name": "",
+    "type": "musee_galerie"
+  },
+  {
+    "email": "info@odae-romand.ch",
+    "title": "Exposition \"Vieillir en Suisse en tant qu'étranger·ère\"",
+    "source_url": "",
+    "source_name": "",
+    "type": "musee_galerie"
+  },
+  {
+    "email": "info@terminus-orsieres.ch",
+    "title": "Vivi Mo Creations ¦ Exposition \"Sur les cimes de nos montagnes\"",
+    "source_url": "",
+    "source_name": "",
+    "type": "musee_galerie"
+  },
+  {
+    "email": "reception.semdosi@etat.ge.ch",
+    "title": "Exposition \"À la recherche de la vérité - le journalisme et nous\"",
+    "source_url": "",
+    "source_name": "",
+    "type": "musee_galerie"
+  },
+  {
+    "email": "a.orlik7@gmail.com",
+    "title": "Récital Constantin Macherel violoncelle seul- Chef d’oeuvres du 20 siècle",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "agmj.reservation@gmail.com",
+    "title": "GABRIEL ZUFFEREY PIANO SOLO / NATAN NIDDAM VINCENT SCHMIDT DUO - concert JCB",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "billetterie@comedie.ch",
+    "title": "Bal de la Saint-Valentin, amour & mascarade",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "billetterie@locg.ch",
+    "title": "Concert de l'OCG - L'orchestre cherche et trouve autour du monde",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "billetterie@ocl.ch",
+    "title": "L'OCL avec Kristiina Poska et Katia & Marielle Labèque - Grand Concert n°7",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "billetterie@preauxmoines.ch",
+    "title": "LES PETITS CHANTEURS À LA GUEULE DE BOIS",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "billetterie@sion-violon-musique.ch",
+    "title": "Concert de professeurs | Felix Froschhammer, Guilhaume Santana, Christian Chamorel",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "billetterie@tkm.ch",
+    "title": "Fantasio",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "blitzartcontact@gmail.com",
+    "title": "YEUX DE NUIT",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "bolero@versoix.ch",
+    "title": "Silver Power - Des romandes fières de leurs cheveux gris",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "christopheaxd@gmail.com",
+    "title": "RECLUSES FEST#9 avec Les Wampas+Les Ramoneurs de Menhirs+Opium du Peuple+La Raymonde+Dirty old Mat",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "classicalmusicbooking@gmail.com",
+    "title": "Récital: Bach pour violon seul. Anna Orlik violon",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "communication@conservatoirepopulaire.ch",
+    "title": "Portes ouvertes 2026 du Conservatoire populaire",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "communication@japan-impact.ch",
+    "title": "Japan Impact 2026 - 17e édition",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "compagnie.arcadia@gmail.com",
+    "title": "Gala d'Opéra",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "contact@anzere-vacances.ch",
+    "title": "St-Valentin Spectacle d’humour \"L’amour improvisé !\"",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "contact@classicosy.ch",
+    "title": "Intégrale Beethoven : les 16 quatuors à cordes",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "contact@clayaway.ch",
+    "title": "Breakfast & Clay",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "contact@declicsetcie.ch",
+    "title": "Méditation guidée matinale: Exploration consciente",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "contact@elargisteshorizons.ch",
+    "title": "Visite de la parfumerie COTY à Versoix - pour jeunes filles entre 10 et 18 ans",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "contact@genevastringacademy.com",
+    "title": "Quintettes à cordes de Schubert et Chostakovitch",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "contact@karinec.ch",
+    "title": "PARCE QU'ON N'EST PAS TOUS EQUIPES PAREIL",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "contact@latribe.co",
+    "title": "Spectacles de feu et performances LED – La Tribe",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "contact@lempreinte.art",
+    "title": "Atelier de gravure sur briques d'emballage",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "contact@liedetmelodie.org",
+    "title": "Récital Sehnsucht",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "contact@orlandisnc.ch",
+    "title": "Tout va très bien ! Laurent Ournac et Arhur Jugnot",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "contact@ouchui.ch",
+    "title": "Visite guidée par application mobile",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "contact@rrp.ch",
+    "title": "BYRON LEON - CHAMAN",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "contact@sonaloha.ch",
+    "title": "Cours de Yoga (Hatha Yoga et Yin Yoga)",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "contact@soprod.org",
+    "title": "François Cluzet - Encore une journée divine",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "culture@veyrier.ch",
+    "title": "Concert Estelle Revaz & Laudine Dard \"Amor y Pasión\"",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "daiageneve@projektil.ch",
+    "title": "Pixel Zoo Jungle, une aventure immersive pour toute la famille",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "e.deplanta@lancy.ch",
+    "title": "Mosaïque urbaine 2024 : « Patrimoine d’hier et d’aujourd’hui »",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "event@mir.ch",
+    "title": "Conférence: \"Calvin sur la montage\" - Les réformés et la matérialisation du divin dans les Alpes au XVIe siècle",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "fermedelachapelle@lancy.ch",
+    "title": "Almost tender - Grégory Sugnaux",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "gaelle.mot@gmail.com",
+    "title": "Un nouvel atelier de peinture à Carouge",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "galerieruedesartistes@gmail.com",
+    "title": "Retour vers ... le futur",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "geraldinebess84@gmail.com",
+    "title": "Petites et Grandes chansons d'amour",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "hello@galerieodile.ch",
+    "title": "HUMAN NATURE",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "ideeslire@gmail.com",
+    "title": "Formation unique sur le Tarot de Marseille archétypale",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "info.museum@olympic.org",
+    "title": "Espace Let's Move : Bougez!",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "info@auraisin.ch",
+    "title": "JAKSTAFF AND THE TWO OLD BOYS",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "info@cityclubpully.ch",
+    "title": "FILM ET CONCERT « COURANTS CONTINUS » AVEC ÇHÂÑT ÉLEČTRÓNÏQÙE",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "info@concertsdegrandson.net",
+    "title": "Concerts de Grandson - QUATUOR BYRON ET MATTEO MELA, GUITARE",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "info@exalon.ch",
+    "title": "Concert - Flamboyance",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "info@henosis.ch",
+    "title": "Echraq - Ensemble de Musique et danse iranienne",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "info@jansemaubert.ch",
+    "title": "Gene Mann & teo jakob: conversations",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "info@jorgecanete.com",
+    "title": "Le dialogue du retour, installation rituelle par Jorge Canete",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "info@lavauxvinbio.ch",
+    "title": "10e Salon Lavaux Vin Bio & tavolata",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "info@lemanexperiences.com",
+    "title": "Saint Valentin - Jeu de piste amoureux et Escale gourmande en Vieille Ville",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "info@lesboutures.ch",
+    "title": "Copie de : Stage de cirque pour enfants",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "info@lessor.ch",
+    "title": "L'agenda 2026",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "info@maisondudesert.ch",
+    "title": "Café-concert classique avec le Quatuor Momo",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "info@meel.ch",
+    "title": "Workshop : écriture jeunesse avec Florence Cochet et Natacha Farquet",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "info@millennium.ch",
+    "title": "Conférence de Luc Julia, l’une des grandes voix de l’Intelligence Artificielle au Milllennium",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "info@musee-chateau-doex.ch",
+    "title": "Jubilé de rubis, 40 ans de passion pour le papier découpé",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "info@my-expo.ch",
+    "title": "Braderie de Printemps",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "info@rmvj.ch",
+    "title": "Les Bons Becs - Vent de folie",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "info@salondulivre.ch",
+    "title": "Salon du Livre de Genève",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "info@silent-disco.com",
+    "title": "Bye Bye Winter Silent-Disco 2026",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "info@slurp-lesrencontres.ch",
+    "title": "BD dans les ruches",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "info@theatricul.net",
+    "title": "Spectacle - Sarclo",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "info@viviprod.ch",
+    "title": "HUMOUR DANS LES PRÉS - LA VOISINE",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "julien@kummerling.ch",
+    "title": "LES SECRETS DE LÉA",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "l.hugi@ntel.ch",
+    "title": "Fabrication de papier - Atelier de peinture",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "larbreblanc.ch@gmail.com",
+    "title": "Balade olfactive",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "lesateliersdejatno@gmail.com",
+    "title": "Atelier \" à la lumière de la Terre \"",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "lescaves@versoix.ch",
+    "title": "Ya ! De Angel a Perra",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "lfdt@fermedestilleuls.ch",
+    "title": "Maisons-mères – Architectures utopiques et concrètes",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "polhymnia@gmail.com",
+    "title": "Venus and Adonis",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "reservation@gmail.com",
+    "title": "Balade des vignobles en TukTuk et dégustation dans la campagne genevoise !",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "saisonculturellechampittet@gmail.com",
+    "title": "QUATUOR AROD: SCHUBERT",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "sc-museeart@admin.vs.ch",
+    "title": "Expo - Les grandes inspirations",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "sddstsulpice@gmail.com",
+    "title": "DUO DE GUITARES EGLISE ROMANE DE ST-SULPICE",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "sprachenbar.sion@outlook.com",
+    "title": "Parlez, riez, progressez",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "tcherkassov.s@sunrise.ch",
+    "title": "Récital de piano par Justus Friedrich Eichhorn",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  }
+]

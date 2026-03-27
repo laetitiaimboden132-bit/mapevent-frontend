@@ -1,0 +1,21 @@
+{
+  "generated_at_utc": "2026-02-26T17:48:11.842737+00:00",
+  "send_mode": false,
+  "policy_threshold_per_100k": 166.1,
+  "unsent_eligible_count": 0,
+  "unsent_eligible": [],
+  "enrichment_priority_count": 1,
+  "enrichment_priority": [
+    {
+      "slug": "perpignan",
+      "email": "monsieur.le.maire@mairie-perpignan.com",
+      "lang": "fr",
+      "events": 170,
+      "required_events": 199,
+      "missing_events_to_send": 29,
+      "coverage_ratio_vs_threshold": 0.854
+    }
+  ],
+  "sent_now_count": 0,
+  "sent_now": []
+}

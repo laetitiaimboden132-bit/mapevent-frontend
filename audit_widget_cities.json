@@ -1,0 +1,467 @@
+{
+  "need_import": [
+    {
+      "city": "Antwerpen",
+      "count": 0
+    },
+    {
+      "city": "Schaffhausen",
+      "count": 0
+    },
+    {
+      "city": "Lugano",
+      "count": 0
+    },
+    {
+      "city": "Saint-Gall",
+      "count": 0
+    },
+    {
+      "city": "Davos",
+      "count": 0
+    },
+    {
+      "city": "Fribourg",
+      "count": 0
+    },
+    {
+      "city": "Lucerne",
+      "count": 0
+    },
+    {
+      "city": "Schaffhouse",
+      "count": 0
+    },
+    {
+      "city": "Zoug",
+      "count": 0
+    },
+    {
+      "city": "Thoune",
+      "count": 0
+    },
+    {
+      "city": "Interlaken",
+      "count": 0
+    },
+    {
+      "city": "Soleure",
+      "count": 0
+    },
+    {
+      "city": "Basel",
+      "count": 1
+    },
+    {
+      "city": "Bienne",
+      "count": 1
+    },
+    {
+      "city": "Montreux",
+      "count": 1
+    },
+    {
+      "city": "Biel",
+      "count": 1
+    },
+    {
+      "city": "Anvers",
+      "count": 1
+    },
+    {
+      "city": "St. Gallen",
+      "count": 1
+    },
+    {
+      "city": "Brussels",
+      "count": 1
+    },
+    {
+      "city": "Antibes",
+      "count": 1
+    },
+    {
+      "city": "Senlis",
+      "count": 1
+    },
+    {
+      "city": "Zug",
+      "count": 1
+    },
+    {
+      "city": "Toulon",
+      "count": 2
+    },
+    {
+      "city": "Vevey",
+      "count": 2
+    },
+    {
+      "city": "Yverdon",
+      "count": 2
+    },
+    {
+      "city": "Monthey",
+      "count": 2
+    },
+    {
+      "city": "Hyeres",
+      "count": 2
+    },
+    {
+      "city": "Troyes",
+      "count": 3
+    },
+    {
+      "city": "Neuchatel",
+      "count": 3
+    },
+    {
+      "city": "Luzern",
+      "count": 4
+    },
+    {
+      "city": "Colmar",
+      "count": 4
+    },
+    {
+      "city": "Cannes",
+      "count": 4
+    },
+    {
+      "city": "Auxerre",
+      "count": 4
+    },
+    {
+      "city": "Aarau",
+      "count": 5
+    },
+    {
+      "city": "Ajaccio",
+      "count": 5
+    },
+    {
+      "city": "Thun",
+      "count": 6
+    },
+    {
+      "city": "Winterthur",
+      "count": 6
+    },
+    {
+      "city": "Cherbourg",
+      "count": 6
+    },
+    {
+      "city": "Morges",
+      "count": 7
+    },
+    {
+      "city": "Macon",
+      "count": 7
+    },
+    {
+      "city": "Chalon-sur-Saone",
+      "count": 7
+    },
+    {
+      "city": "Lisbonne",
+      "count": 8
+    },
+    {
+      "city": "Barcelone",
+      "count": 8
+    },
+    {
+      "city": "Niort",
+      "count": 9
+    },
+    {
+      "city": "Geneva",
+      "count": 9
+    },
+    {
+      "city": "Zurich",
+      "count": 11
+    },
+    {
+      "city": "Gand",
+      "count": 12
+    },
+    {
+      "city": "Nevers",
+      "count": 13
+    },
+    {
+      "city": "Nyon",
+      "count": 14
+    },
+    {
+      "city": "Bulle",
+      "count": 15
+    },
+    {
+      "city": "Martigny",
+      "count": 15
+    },
+    {
+      "city": "Bayonne",
+      "count": 16
+    },
+    {
+      "city": "Vannes",
+      "count": 16
+    },
+    {
+      "city": "Lorient",
+      "count": 16
+    },
+    {
+      "city": "Reims",
+      "count": 17
+    },
+    {
+      "city": "Biarritz",
+      "count": 17
+    },
+    {
+      "city": "Grasse",
+      "count": 19
+    },
+    {
+      "city": "Beziers",
+      "count": 19
+    }
+  ],
+  "ok": [
+    {
+      "city": "Dunkerque",
+      "count": 20
+    },
+    {
+      "city": "Besancon",
+      "count": 21
+    },
+    {
+      "city": "Charleville-Mezieres",
+      "count": 23
+    },
+    {
+      "city": "Tours",
+      "count": 24
+    },
+    {
+      "city": "Guerande",
+      "count": 24
+    },
+    {
+      "city": "Narbonne",
+      "count": 25
+    },
+    {
+      "city": "Sierre",
+      "count": 25
+    },
+    {
+      "city": "Bourges",
+      "count": 25
+    },
+    {
+      "city": "Amiens",
+      "count": 25
+    },
+    {
+      "city": "Mulhouse",
+      "count": 27
+    },
+    {
+      "city": "Valence",
+      "count": 27
+    },
+    {
+      "city": "Saint-Malo",
+      "count": 27
+    },
+    {
+      "city": "Sete",
+      "count": 29
+    },
+    {
+      "city": "Rochefort",
+      "count": 34
+    },
+    {
+      "city": "Poitiers",
+      "count": 35
+    },
+    {
+      "city": "Bruxelles",
+      "count": 36
+    },
+    {
+      "city": "Brest",
+      "count": 37
+    },
+    {
+      "city": "Nice",
+      "count": 39
+    },
+    {
+      "city": "Nancy",
+      "count": 40
+    },
+    {
+      "city": "Dijon",
+      "count": 43
+    },
+    {
+      "city": "La Rochelle",
+      "count": 45
+    },
+    {
+      "city": "Angouleme",
+      "count": 47
+    },
+    {
+      "city": "Caen",
+      "count": 48
+    },
+    {
+      "city": "Metz",
+      "count": 49
+    },
+    {
+      "city": "Montpellier",
+      "count": 51
+    },
+    {
+      "city": "Lausanne",
+      "count": 57
+    },
+    {
+      "city": "Strasbourg",
+      "count": 57
+    },
+    {
+      "city": "Avignon",
+      "count": 59
+    },
+    {
+      "city": "Lyon",
+      "count": 63
+    },
+    {
+      "city": "Clermont-Ferrand",
+      "count": 74
+    },
+    {
+      "city": "Aix-en-Provence",
+      "count": 79
+    },
+    {
+      "city": "Perpignan",
+      "count": 87
+    },
+    {
+      "city": "Saint-Etienne",
+      "count": 93
+    },
+    {
+      "city": "Rouen",
+      "count": 94
+    },
+    {
+      "city": "Marseille",
+      "count": 98
+    },
+    {
+      "city": "Quimper",
+      "count": 120
+    },
+    {
+      "city": "Lisboa",
+      "count": 167
+    },
+    {
+      "city": "Bern",
+      "count": 169
+    },
+    {
+      "city": "Gent",
+      "count": 177
+    },
+    {
+      "city": "Ales",
+      "count": 178
+    },
+    {
+      "city": "Orleans",
+      "count": 228
+    },
+    {
+      "city": "Arles",
+      "count": 287
+    },
+    {
+      "city": "Sion",
+      "count": 294
+    },
+    {
+      "city": "Pau",
+      "count": 367
+    },
+    {
+      "city": "Limoges",
+      "count": 398
+    },
+    {
+      "city": "Versailles",
+      "count": 427
+    },
+    {
+      "city": "Rennes",
+      "count": 574
+    },
+    {
+      "city": "Lille",
+      "count": 603
+    },
+    {
+      "city": "Toulouse",
+      "count": 749
+    },
+    {
+      "city": "Geneve",
+      "count": 775
+    },
+    {
+      "city": "Barcelona",
+      "count": 779
+    },
+    {
+      "city": "Madrid",
+      "count": 850
+    },
+    {
+      "city": "Bordeaux",
+      "count": 1069
+    },
+    {
+      "city": "Nantes",
+      "count": 1239
+    },
+    {
+      "city": "Paris",
+      "count": 2408
+    },
+    {
+      "city": "Berlin",
+      "count": 9912
+    },
+    {
+      "city": "Helsinki",
+      "count": 11222
+    }
+  ],
+  "total_events": 50000
+}

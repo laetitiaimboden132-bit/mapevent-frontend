@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>MapEvent – Événements</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" crossorigin="">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" crossorigin=""></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.css">
+<style>
+:root {
+  --bg: #0f172a;
+  --bg2: #1e293b;
+  --bg3: #334155;
+  --text: #f1f5f9;
+  --text2: #94a3b8;
+  --accent: #00ffc3;
+  --accent2: #22c55e;
+  --accent-gradient: linear-gradient(135deg, #00ffc3, #22c55e);
+  --card-border: rgba(148,163,184,.12);
+  --card-hover: rgba(0,255,195,.06);
+  --radius: 14px;
+}
+.theme-light {
+  --bg: #f8fafc;
+  --bg2: #ffffff;
+  --bg3: #e2e8f0;
+  --text: #0f172a;
+  --text2: #64748b;
+  --accent: #059669;
+  --accent2: #10b981;
+  --accent-gradient: linear-gradient(135deg, #059669, #10b981);
+  --card-border: rgba(0,0,0,.08);
+  --card-hover: rgba(5,150,105,.04);
+}
+.theme-natural {
+  --bg: #f5f5ef;
+  --bg2: #ffffff;
+  --bg3: #e6e2d6;
+  --text: #1f2937;
+  --text2: #6b7280;
+  --accent: #16a34a;
+  --accent2: #22c55e;
+  --accent-gradient: linear-gradient(135deg, #16a34a, #22c55e);
+  --card-border: rgba(0,0,0,.1);
+  --card-hover: rgba(22,163,74,.06);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { height: 100%; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); overflow: hidden; }
+
+.widget-container { display: flex; flex-direction: column; height: 100%; }
+
+.widget-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 16px;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--card-border);
+  flex-shrink: 0;
+}
+.header-left { display: flex; align-items: center; gap: 10px; }
+.logo-icon {
+  width: 32px; height: 32px; border-radius: 8px;
+  background: var(--accent-gradient);
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 900; font-size: 16px; color: #022c22;
+}
+.header-title { font-weight: 700; font-size: 15px; line-height: 1.2; }
+.header-city { font-size: 12px; color: var(--text2); }
+.header-right { display: flex; align-items: center; gap: 8px; }
+.theme-toggle {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px;
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  background: var(--bg3);
+}
+.theme-btn {
+  border: 0;
+  background: transparent;
+  color: var(--text2);
+  border-radius: 8px;
+  padding: 5px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.theme-btn.active {
+  background: var(--accent-gradient);
+  color: #022c22;
+}
+.event-count {
+  font-size: 11px; font-weight: 700; color: var(--accent);
+  background: rgba(0,255,195,.1); padding: 4px 10px; border-radius: 20px;
+}
+.theme-light .event-count, .theme-natural .event-count { background: rgba(5,150,105,.1); }
+.cta-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 7px 14px; border-radius: 8px;
+  background: var(--accent-gradient);
+  color: #022c22; font-weight: 700; font-size: 12px;
+  text-decoration: none; transition: transform .15s, box-shadow .15s;
+  white-space: nowrap;
+}
+.cta-btn:hover { transform: scale(1.03); box-shadow: 0 4px 16px rgba(0,255,195,.3); }
+.cta-btn svg { width: 14px; height: 14px; }
+
+.widget-body { display: flex; flex: 1; min-height: 0; }
+
+#map { flex: 1; min-width: 0; }
+.leaflet-container { background: var(--bg) !important; }
+.theme-light .leaflet-container { background: #e2e8f0 !important; }
+.theme-natural .leaflet-container { background: #e9e7dc !important; }
+
+.sidebar {
+  width: 320px; flex-shrink: 0; display: flex; flex-direction: column;
+  background: var(--bg2); border-left: 1px solid var(--card-border);
+  overflow: hidden;
+}
+.sidebar-header {
+  padding: 12px 14px; font-weight: 700; font-size: 13px;
+  border-bottom: 1px solid var(--card-border);
+  display: flex; align-items: center; gap: 6px;
+  color: var(--text2); flex-shrink: 0;
+}
+.sidebar-header svg { width: 14px; height: 14px; color: var(--accent); }
+.event-list { flex: 1; overflow-y: auto; padding: 6px; }
+.event-list::-webkit-scrollbar { width: 4px; }
+.event-list::-webkit-scrollbar-thumb { background: var(--bg3); border-radius: 4px; }
+
+.event-card {
+  padding: 10px 12px; border-radius: 10px; cursor: pointer;
+  border: 1px solid transparent; transition: all .2s;
+  margin-bottom: 4px;
+}
+.event-card:hover { background: var(--card-hover); border-color: var(--card-border); }
+.event-card.active { background: var(--card-hover); border-color: rgba(0,255,195,.25); }
+.theme-light .event-card.active, .theme-natural .event-card.active { border-color: rgba(5,150,105,.3); }
+.ev-date { font-size: 11px; font-weight: 600; color: var(--accent); margin-bottom: 3px; display: flex; align-items: center; gap: 5px; }
+.ev-title { font-size: 13px; font-weight: 600; line-height: 1.3; margin-bottom: 3px; }
+.ev-loc { font-size: 11px; color: var(--text2); white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.35; }
+.ev-cats { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 5px; }
+.ev-cat {
+  font-size: 9px; padding: 2px 6px; border-radius: 5px;
+  background: rgba(0,255,195,.1); color: var(--accent); font-weight: 500;
+}
+.theme-light .ev-cat, .theme-natural .ev-cat { background: rgba(5,150,105,.1); }
+
+.sidebar-footer {
+  padding: 10px 14px; text-align: center;
+  border-top: 1px solid var(--card-border); flex-shrink: 0;
+}
+.sidebar-footer a {
+  display: block; padding: 9px; border-radius: 8px;
+  background: var(--accent-gradient); color: #022c22;
+  font-weight: 700; font-size: 12px; text-decoration: none;
+  transition: transform .15s;
+}
+.sidebar-footer a:hover { transform: scale(1.02); }
+
+.leaflet-popup-content-wrapper { background: var(--bg2) !important; color: var(--text) !important; border-radius: 12px !important; box-shadow: 0 8px 32px rgba(0,0,0,.4) !important; border: 1px solid var(--card-border) !important; }
+.theme-light .leaflet-popup-content-wrapper, .theme-natural .leaflet-popup-content-wrapper { background: #fff !important; color: #1e293b !important; box-shadow: 0 8px 32px rgba(0,0,0,.12) !important; }
+.leaflet-popup-tip { background: var(--bg2) !important; }
+.theme-light .leaflet-popup-tip, .theme-natural .leaflet-popup-tip { background: #fff !important; }
+.leaflet-popup-close-button { color: var(--text2) !important; font-size: 18px !important; top: 6px !important; right: 8px !important; }
+.leaflet-popup-content { margin: 12px 14px !important; line-height: 1.5 !important; min-width: 200px !important; }
+.p-title { font-weight: 700; font-size: 14px; margin-bottom: 6px; line-height: 1.3; }
+.p-date { font-size: 12px; color: var(--accent); margin-bottom: 4px; }
+.p-loc { font-size: 11px; color: var(--text2); margin-bottom: 6px; white-space: normal; overflow: visible; text-overflow: clip; max-width: none; line-height: 1.35; }
+.p-desc { font-size: 11px; color: var(--text2); margin-bottom: 8px; line-height: 1.45; overflow: visible; opacity: .95; white-space: pre-wrap; }
+.p-cats { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 10px; }
+.p-cat { font-size: 10px; background: rgba(0,255,195,.12); color: var(--accent); padding: 2px 7px; border-radius: 6px; }
+.p-cat-icon, .ev-cat-icon {
+  width: 22px; height: 22px; border-radius: 999px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: rgba(0,255,195,.14); border: 1px solid rgba(0,255,195,.25);
+  font-size: 12px; line-height: 1;
+}
+.theme-light .p-cat-icon, .theme-light .ev-cat-icon, .theme-natural .p-cat-icon, .theme-natural .ev-cat-icon {
+  background: rgba(5,150,105,.1); border-color: rgba(5,150,105,.25);
+}
+.p-link { display: inline-block; padding: 7px 14px; background: var(--accent-gradient); color: #022c22; font-weight: 700; font-size: 12px; border-radius: 8px; text-decoration: none; transition: transform .15s; }
+.p-link:hover { transform: scale(1.04); }
+.p-source { display: block; margin-top: 6px; font-size: 10px; color: var(--text2); text-decoration: none; opacity: .7; transition: opacity .2s; white-space: normal; overflow: visible; text-overflow: clip; max-width: none; word-break: break-word; }
+.p-source:hover { opacity: 1; color: var(--accent); }
+
+.marker-cluster-small { background: rgba(0,255,195,.2) !important; }
+.marker-cluster-small div { background: rgba(0,255,195,.6) !important; color: #022c22 !important; font-weight: 700 !important; }
+.marker-cluster-medium { background: rgba(245,158,11,.2) !important; }
+.marker-cluster-medium div { background: rgba(245,158,11,.6) !important; color: #fff !important; font-weight: 700 !important; }
+.marker-cluster-large { background: rgba(239,68,68,.2) !important; }
+.marker-cluster-large div { background: rgba(239,68,68,.6) !important; color: #fff !important; font-weight: 700 !important; }
+.theme-light .marker-cluster-small, .theme-natural .marker-cluster-small { background: rgba(5,150,105,.2) !important; }
+.theme-light .marker-cluster-small div, .theme-natural .marker-cluster-small div { background: rgba(5,150,105,.6) !important; }
+
+.event-marker {
+  width: 34px; height: 34px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, #00ffc3, #22c55e);
+  border: 2.5px solid #fff;
+  box-shadow: 0 3px 14px rgba(0, 0, 0, .35);
+  color: #022c22; font-weight: 800; font-size: 14px;
+}
+.theme-light .event-marker, .theme-natural .event-marker {
+  border-color: #0f172a;
+  box-shadow: 0 3px 12px rgba(15, 23, 42, .25);
+}
+.event-marker-cat {
+  display: inline-flex; align-items: center; justify-content: center;
+  line-height: 1; transform: translateY(-.5px);
+}
+
+#loading {
+  position: absolute; inset: 0; z-index: 1001; background: var(--bg);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  transition: opacity .5s;
+}
+#loading.hide { opacity: 0; pointer-events: none; }
+.spinner { width: 40px; height: 40px; border: 3px solid rgba(0,255,195,.15); border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+#loading p { color: var(--text2); font-size: 13px; margin-top: 14px; }
+
+#error-msg {
+  display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+  z-index: 1002; background: var(--bg2); padding: 24px 32px; border-radius: var(--radius);
+  border: 1px solid var(--card-border); text-align: center; max-width: 340px;
+}
+#error-msg h3 { font-size: 15px; margin-bottom: 8px; }
+#error-msg p { font-size: 12px; color: var(--text2); }
+
+@media (max-width: 640px) {
+  .widget-body { flex-direction: column; }
+  #map { height: 45%; flex: none; }
+  .sidebar { width: 100%; border-left: none; border-top: 1px solid var(--card-border); flex: 1; }
+  .header-city { display: none; }
+}
+@media (max-width: 400px) {
+  .cta-btn span { display: none; }
+  .sidebar { width: 100%; }
+}
+</style>
+</head>
+<body>
+<div class="widget-container">
+  <div class="widget-header">
+    <div class="header-left">
+      <div class="logo-icon">M</div>
+      <div>
+        <div class="header-title">MapEvent</div>
+        <div class="header-city" id="headerCity">Événements à découvrir</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle" role="tablist" aria-label="Thème carte">
+        <button type="button" class="theme-btn" data-theme="dark">Dark</button>
+        <button type="button" class="theme-btn" data-theme="light">Light</button>
+        <button type="button" class="theme-btn" data-theme="natural">Naturel</button>
+      </div>
+      <div class="event-count" id="eventCount">–</div>
+      <a class="cta-btn" id="ctaLink" href="https://mapevent.world" target="_blank" rel="noopener">
+        <span>Explorer</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17l9.2-9.2M17 17V7H7"/></svg>
+      </a>
+    </div>
+  </div>
+
+  <div class="widget-body">
+    <div id="map"></div>
+    <div class="sidebar">
+      <div class="sidebar-header">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        <span id="sidebarTitle">Prochains événements</span>
+      </div>
+      <div class="event-list" id="eventList"></div>
+      <div class="sidebar-footer">
+        <a id="footerLink" href="https://mapevent.world" target="_blank" rel="noopener">
+          Voir tous les événements sur MapEvent ↗
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="loading"><div class="spinner"></div><p>Chargement des événements...</p></div>
+<div id="error-msg"><h3>Oups !</h3><p>Impossible de charger les événements. Réessayez plus tard.</p></div>
+
+<script>
+(function() {
+  var STATIC_BASE = (location.hostname === 'mapevent.world' || location.hostname.includes('cloudfront'))
+    ? '/widget-data/'
+    : 'widget-data/';
+  var API = 'https://ctp67u5hgni2rbfr3kp4p74kxa0gxycf.lambda-url.eu-west-1.on.aws/api';
+
+  var P = new URLSearchParams(location.search);
+  var city = P.get('city') || '';
+  var theme = P.get('theme') || 'dark';
+  if (['dark', 'light', 'natural'].indexOf(theme) < 0) theme = 'dark';
+  var maxEvents = parseInt(P.get('max')) || 50;
+  var userZoom = parseInt(P.get('zoom')) || 0;
+
+  var themeButtons = Array.prototype.slice.call(document.querySelectorAll('.theme-btn'));
+  function setThemeClasses(nextTheme) {
+    document.body.classList.remove('theme-light', 'theme-natural');
+    if (nextTheme === 'light') document.body.classList.add('theme-light');
+    if (nextTheme === 'natural') document.body.classList.add('theme-natural');
+  }
+  function setThemeButtons(nextTheme) {
+    for (var i = 0; i < themeButtons.length; i++) {
+      var isActive = themeButtons[i].getAttribute('data-theme') === nextTheme;
+      themeButtons[i].classList.toggle('active', isActive);
+      themeButtons[i].setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    }
+  }
+  setThemeClasses(theme);
+  setThemeButtons(theme);
+
+  var CITIES = {
+    'geneve':[46.2044,6.1432,'Genève'],'geneva':[46.2044,6.1432,'Geneva'],'lausanne':[46.5197,6.6323,'Lausanne'],
+    'vernier':[46.2131843,6.0815756,'Vernier'],
+    'zurich':[47.3769,8.5417,'Zürich'],'berne':[46.9480,7.4474,'Berne'],'bern':[46.9480,7.4474,'Bern'],
+    'basel':[47.5596,7.5886,'Bâle'],'bale':[47.5596,7.5886,'Bâle'],
+    'paris':[48.8566,2.3522,'Paris'],'lyon':[45.7640,4.8357,'Lyon'],'marseille':[43.2965,5.3698,'Marseille'],
+    'toulouse':[43.6047,1.4442,'Toulouse'],'bordeaux':[44.8378,-0.5792,'Bordeaux'],'lille':[50.6292,3.0573,'Lille'],
+    'nantes':[47.2184,-1.5536,'Nantes'],'strasbourg':[48.5734,7.7521,'Strasbourg'],'nice':[43.7102,7.2620,'Nice'],
+    'montpellier':[43.6108,3.8767,'Montpellier'],'rennes':[48.1173,-1.6778,'Rennes'],
+    'berlin':[52.5200,13.4050,'Berlin'],'munich':[48.1351,11.5820,'Munich'],'hamburg':[53.5511,9.9937,'Hamburg'],
+    'madrid':[40.4168,-3.7038,'Madrid'],'barcelona':[41.3874,2.1686,'Barcelona'],'london':[51.5074,-0.1278,'London'],
+    'amsterdam':[52.3676,4.9041,'Amsterdam'],'brussels':[50.8503,4.3517,'Brussels'],'bruxelles':[50.8503,4.3517,'Bruxelles'],
+    'rome':[41.9028,12.4964,'Rome'],'milan':[45.4642,9.1900,'Milan'],'vienna':[48.2082,16.3738,'Vienna'],
+    'prague':[50.0755,14.4378,'Prague'],'lisbon':[38.7223,-9.1393,'Lisbon'],'lisboa':[38.7223,-9.1393,'Lisboa'],
+    'helsinki':[60.1699,24.9384,'Helsinki'],'montreal':[45.5017,-73.5673,'Montréal'],
+    'toronto':[43.6532,-79.3832,'Toronto'],'new-york':[40.7128,-74.0060,'New York'],
+    'annecy':[45.8992,6.1294,'Annecy'],'grenoble':[45.1885,5.7245,'Grenoble'],
+    'sion':[46.2298,7.3607,'Sion'],'sierre':[46.2920,7.5353,'Sierre'],'montreux':[46.4312,6.9107,'Montreux'],
+    'fribourg':[46.8065,7.1620,'Fribourg'],'neuchatel':[46.9900,6.9293,'Neuchâtel'],
+    'colmar':[48.0794,7.3584,'Colmar'],'dijon':[47.3220,5.0415,'Dijon'],'tours':[47.3941,0.6848,'Tours'],
+    'clermont-ferrand':[45.7772,3.0870,'Clermont-Ferrand'],'metz':[49.1193,6.1757,'Metz'],'rouen':[49.4432,1.0993,'Rouen'],
+    'reims':[49.2583,3.5794,'Reims'],'toulon':[43.1242,5.9280,'Toulon'],'cannes':[43.5528,7.0174,'Cannes'],
+    'perpignan':[42.6887,2.8948,'Perpignan'],'ajaccio':[41.9192,8.7386,'Ajaccio'],
+    'bayonne':[43.4929,-1.4748,'Bayonne'],'biarritz':[43.4832,-1.5586,'Biarritz'],
+    'saint-malo':[48.6493,-2.0070,'Saint-Malo'],'bourges':[47.0810,2.3988,'Bourges'],
+    'antibes':[43.5808,7.1239,'Antibes'],'grasse':[43.6591,6.9227,'Grasse'],
+    'dunkerque':[51.0343,2.3768,'Dunkerque'],'troyes':[48.2973,4.0744,'Troyes'],
+    'narbonne':[43.1840,3.0040,'Narbonne'],'sete':[43.4054,3.6960,'Sète'],
+    'vannes':[47.6581,-2.7604,'Vannes'],'lorient':[47.7483,-3.3666,'Lorient'],
+    'yverdon':[46.7785,6.6410,'Yverdon'],'nyon':[46.3830,6.2396,'Nyon'],
+    'morges':[46.5119,6.4988,'Morges'],'vevey':[46.4603,6.8430,'Vevey'],
+    'martigny':[46.1019,7.0723,'Martigny'],'monthey':[46.2546,6.9534,'Monthey'],
+    'bulle':[46.6172,7.0564,'Bulle'],'aarau':[47.3924,8.0443,'Aarau'],
+    'biel':[47.1368,7.2467,'Biel'],'winterthur':[47.4990,8.7242,'Winterthur'],
+    'thun':[46.7580,7.6280,'Thun'],'lugano':[46.0037,8.9511,'Lugano'],
+    'luzern':[47.0502,8.3093,'Luzern'],'lucerne':[47.0502,8.3093,'Lucerne'],
+    'zug':[47.1724,8.5173,'Zug'],'davos':[46.8027,9.8365,'Davos'],
+    'st-gallen':[47.4245,9.3767,'St. Gallen'],'interlaken':[46.6863,7.8632,'Interlaken'],
+    'gent':[51.0543,3.7174,'Gent'],'antwerpen':[51.2194,4.4025,'Antwerpen'],
+    'schaffhausen':[47.6960,8.6350,'Schaffhausen'],'solothurn':[47.2088,7.5370,'Solothurn'],
+    'chalon-sur-saone':[46.7806,4.8528,'Chalon-sur-Saône'],'macon':[46.3069,4.8283,'Mâcon'],
+    'auxerre':[47.7979,3.5714,'Auxerre'],'cherbourg':[49.6337,-1.6221,'Cherbourg'],
+    'niort':[46.3234,-0.4646,'Niort'],'rochefort':[45.9413,-0.9574,'Rochefort'],
+    'senlis':[49.2070,2.5856,'Senlis'],'beziers':[43.3440,3.2151,'Béziers'],
+    'hyeres':[43.1204,6.1286,'Hyères'],'montpellier':[43.6108,3.8767,'Montpellier']
+  };
+
+  var ckey = city.toLowerCase().replace(/\s+/g, '-').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  var cityInfo = CITIES[ckey];
+  var cityLabel = cityInfo ? cityInfo[2] : (city || '');
+  var clat = parseFloat(P.get('lat')) || (cityInfo ? cityInfo[0] : 46.8);
+  var clng = parseFloat(P.get('lng')) || (cityInfo ? cityInfo[1] : 8.2);
+  var zm = userZoom || (city ? 13 : 5);
+
+  if (cityLabel) {
+    document.getElementById('headerCity').textContent = 'Événements à ' + cityLabel;
+    document.getElementById('sidebarTitle').textContent = 'À ' + cityLabel + ' prochainement';
+    document.title = 'MapEvent – ' + cityLabel;
+  }
+
+  var map = L.map('map', { zoomControl: true, attributionControl: false }).setView([clat, clng], zm);
+
+  function makeTileLayer(nextTheme) {
+    var tileUrl = nextTheme === 'light'
+      ? 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
+      : (nextTheme === 'natural'
+        ? 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
+        : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png');
+    var tileOpts = nextTheme === 'natural' ? { maxZoom: 19 } : { maxZoom: 19, subdomains: 'abcd' };
+    return L.tileLayer(tileUrl, tileOpts);
+  }
+  var baseTileLayer = makeTileLayer(theme).addTo(map);
+  L.control.attribution({ position: 'bottomleft', prefix: false })
+    .addAttribution('© <a href="https://openstreetmap.org" target="_blank">OSM</a> · <a href="https://carto.com" target="_blank">CARTO</a>')
+    .addTo(map);
+
+  var cluster = L.markerClusterGroup({
+    maxClusterRadius: 50, spiderfyOnMaxZoom: true,
+    showCoverageOnHover: false, chunkedLoading: true
+  });
+
+  var CATEGORY_ICON_RULES = [
+    { re: /(electro|techno|house|trance|dnb|drum|dubstep|hardstyle|dj)/i, icon: '🎧' },
+    { re: /(theatre|théâtre|spectacle|scene|scène|opera|opéra|comedie|comédie)/i, icon: '🎭' },
+    { re: /(expo|exposition|musee|musée|galerie|art|photo|cinema|cinéma|projection)/i, icon: '🖼️' },
+    { re: /(sport|foot|football|rugby|basket|tennis|velo|vélo|run|course|natation|marathon)/i, icon: '🏅' },
+    { re: /(famille|enfant|kids|junior|parent|bébé|bebe)/i, icon: '👨‍👩‍👧‍👦' },
+    { re: /(food|gastronomie|cuisine|vin|wine|marche|marché|brunch|degustation|dégustation)/i, icon: '🍽️' },
+    { re: /(atelier|workshop|formation|masterclass|cours|stage)/i, icon: '🛠️' },
+    { re: /(conference|conférence|meetup|talk|forum|business|tech)/i, icon: '🎤' },
+    { re: /(danse|dance|ballet)/i, icon: '💃' },
+    { re: /(concert|musique|music|jazz|rap|rock|festival)/i, icon: '🎵' }
+  ];
+
+  function categoryIcon(cats, title, desc, location) {
+    var text = '';
+    if (cats && cats.length) text += cats.join(' ') + ' ';
+    if (title) text += String(title);
+    if (desc) text += ' ' + String(desc);
+    if (location) text += ' ' + String(location);
+    text = text.trim();
+    if (!text) return '🎫';
+    for (var i = 0; i < CATEGORY_ICON_RULES.length; i++) {
+      if (CATEGORY_ICON_RULES[i].re.test(text)) return CATEGORY_ICON_RULES[i].icon;
+    }
+    return '🎫';
+  }
+  function categoryIcons(cats, maxCount, fallbackIcon) {
+    if (!cats || !cats.length) return [fallbackIcon || '🎫'];
+    var out = [];
+    for (var i = 0; i < cats.length; i++) {
+      var icon = categoryIcon([cats[i]]);
+      if (out.indexOf(icon) < 0) out.push(icon);
+      if (out.length >= maxCount) break;
+    }
+    return out.length ? out : [fallbackIcon || '🎫'];
+  }
+
+  function esc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  function fmtDate(d) {
+    if (!d) return '';
+    try {
+      var dt = new Date(d);
+      if (isNaN(dt)) return d;
+      var now = new Date();
+      var diff = Math.floor((dt - now) / 86400000);
+      var label = dt.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
+      if (diff === 0) return "Aujourd'hui";
+      if (diff === 1) return 'Demain';
+      return label;
+    } catch (e) { return d; }
+  }
+  function fmtDateLong(d) {
+    if (!d) return '';
+    try { return new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }); }
+    catch (e) { return d; }
+  }
+
+  var markerRefs = [];
+  var rendered = false;
+
+  function renderEvents(events) {
+    cluster.clearLayers();
+    map.removeLayer(cluster);
+
+    var today = new Date().toISOString().split('T')[0];
+    var futureEvents = events.filter(function(ev) {
+      var endDate = ev.endDate || ev.d;
+      return endDate >= today;
+    });
+    futureEvents.sort(function(a, b) { return (a.d || '') < (b.d || '') ? -1 : 1; });
+
+    var displayed = futureEvents.slice(0, maxEvents);
+    var count = displayed.length;
+
+    document.getElementById('eventCount').textContent = count + ' événement' + (count > 1 ? 's' : '');
+
+    var listEl = document.getElementById('eventList');
+    listEl.innerHTML = '';
+    markerRefs = [];
+
+    for (var i = 0; i < displayed.length; i++) {
+      var ev = displayed[i];
+      if (!ev.la || !ev.ln) continue;
+
+      var cats = ev.c || [];
+      var markerIcon = categoryIcon(cats, ev.t, ev.desc, ev.l);
+      var catIcons = categoryIcons(cats, 3, markerIcon);
+      var catHtml = '';
+      if (catIcons.length) {
+        for (var c = 0; c < catIcons.length; c++) {
+          var catLabel = cats[c] ? esc(cats[c]) : 'Catégorie';
+          catHtml += '<span class="p-cat-icon" title="' + catLabel + '">' + catIcons[c] + '</span>';
+        }
+      }
+
+      var descHtml = ev.desc ? ('<div class="p-desc">' + esc(ev.desc) + '</div>') : '';
+
+      var linkUrl = ev.src || ('https://mapevent.world/e/' + ev.id + '/');
+      var linkLabel = ev.src ? "Voir l'événement" : 'Voir sur MapEvent';
+
+      var popupHtml =
+        '<div class="p-title">' + esc(ev.t) + '</div>' +
+        '<div class="p-date">' + fmtDateLong(ev.d) + (ev.time ? ' · ' + ev.time.substring(0, 5) : '') + '</div>' +
+        '<div class="p-loc">' + esc(ev.l) + '</div>' +
+        descHtml +
+        (catHtml ? '<div class="p-cats">' + catHtml + '</div>' : '') +
+        '<a class="p-link" href="' + esc(linkUrl) + '" target="_blank" rel="noopener">' + linkLabel + ' &#8594;</a>';
+
+      var icon = L.divIcon({
+        className: '',
+        html: '<div class="event-marker"><span class="event-marker-cat">' + markerIcon + '</span></div>',
+        iconSize: [34, 34], iconAnchor: [17, 17], popupAnchor: [0, -18]
+      });
+
+      var marker = L.marker([ev.la, ev.ln], { icon: icon })
+        .bindPopup(popupHtml, { maxWidth: 280, minWidth: 200 });
+      cluster.addLayer(marker);
+
+      var evCatCards = '';
+      if (catIcons.length) {
+        evCatCards = '<div class="ev-cats">';
+        for (var cc = 0; cc < Math.min(catIcons.length, 2); cc++) {
+          var cardLabel = cats[cc] ? esc(cats[cc]) : 'Catégorie';
+          evCatCards += '<span class="ev-cat-icon" title="' + cardLabel + '">' + catIcons[cc] + '</span>';
+        }
+        evCatCards += '</div>';
+      }
+
+      var card = document.createElement('div');
+      card.className = 'event-card';
+      card.innerHTML =
+        '<div class="ev-date">' + fmtDate(ev.d) + '</div>' +
+        '<div class="ev-title">' + esc(ev.t) + '</div>' +
+        '<div class="ev-loc">' + esc(ev.l) + '</div>' +
+        evCatCards;
+
+      (function(m, c) {
+        c.addEventListener('click', function() {
+          document.querySelectorAll('.event-card.active').forEach(function(el) { el.classList.remove('active'); });
+          c.classList.add('active');
+          map.setView(m.getLatLng(), 15, { animate: true });
+          cluster.zoomToShowLayer(m, function() { m.openPopup(); });
+        });
+      })(marker, card);
+
+      listEl.appendChild(card);
+      markerRefs.push({ marker: marker, card: card });
+    }
+
+    map.addLayer(cluster);
+    document.getElementById('loading').classList.add('hide');
+    rendered = true;
+
+    if (!count) {
+      listEl.innerHTML = '<div style="text-align:center;padding:30px 14px;color:var(--text2);font-size:13px;">Aucun événement à venir dans cette zone.</div>';
+    }
+  }
+
+  function normalizeStaticEvents(data) {
+    var events = data.events || [];
+    return events.map(function(ev) {
+      return { id: ev.id, t: ev.t, l: ev.l, d: ev.d, la: ev.la, ln: ev.ln, c: ev.c || [], time: ev.time || null, endDate: ev.end_date || ev.d, desc: ev.desc || ev.description || '', src: ev.src || ev.source_url || '' };
+    });
+  }
+
+  function normalizeApiEvents(data) {
+    var keys = data.k || [];
+    var rows = data.d || [];
+    var iId = keys.indexOf('id'), iTitle = keys.indexOf('title'), iLoc = keys.indexOf('location');
+    var iLat = keys.indexOf('latitude'), iLng = keys.indexOf('longitude');
+    var iDate = keys.indexOf('date'), iTime = keys.indexOf('time');
+    var iCats = keys.indexOf('categories'), iEnd = keys.indexOf('end_date');
+    var iDesc = keys.indexOf('description'), iSrc = keys.indexOf('source_url');
+    if (iLat < 0 || iLng < 0) return [];
+    return rows.map(function(r) {
+      var cats = r[iCats] || [];
+      if (typeof cats === 'string') try { cats = JSON.parse(cats); } catch (e) { cats = []; }
+      return { id: r[iId], t: r[iTitle] || '', l: r[iLoc] || '', d: r[iDate] || '', la: r[iLat], ln: r[iLng], c: cats, time: r[iTime] || null, endDate: r[iEnd] || r[iDate], desc: iDesc >= 0 ? (r[iDesc] || '') : '', src: iSrc >= 0 ? (r[iSrc] || '') : '' };
+    });
+  }
+
+  function loadFromApi() {
+    var spread = city ? 0.3 : 50;
+    var s = clat - spread, n = clat + spread, w = clng - spread * 1.5, e = clng + spread * 1.5;
+    var url = API + '/events/viewport?zoom=' + zm + '&south=' + s.toFixed(4) + '&north=' + n.toFixed(4) + '&west=' + w.toFixed(4) + '&east=' + e.toFixed(4);
+
+    return fetch(url, { signal: AbortSignal.timeout ? AbortSignal.timeout(90000) : undefined })
+      .then(function(resp) {
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        return resp.json();
+      })
+      .then(function(data) {
+        return normalizeApiEvents(data);
+      });
+  }
+
+  function loadFromStatic() {
+    var slug = ckey;
+    if (!slug) return Promise.reject(new Error('no city'));
+    var aliases = { 'geneva': 'geneve', 'bern': 'berne', 'bale': 'basel', 'bruxelles': 'brussels', 'lisboa': 'lisbon', 'lucerne': 'luzern', 'gand': 'gent', 'anvers': 'antwerpen', 'soleure': 'solothurn', 'zoug': 'zug', 'yverdon-les-bains': 'yverdon' };
+    if (aliases[slug]) slug = aliases[slug];
+
+    return fetch(STATIC_BASE + slug + '.json')
+      .then(function(resp) {
+        if (!resp.ok) throw new Error('No static data for ' + slug);
+        return resp.json();
+      })
+      .then(function(data) {
+        return normalizeStaticEvents(data);
+      });
+  }
+
+  // For city-specific widgets, keep a strict city view:
+  // prefer static city dataset, then API fallback only if static is unavailable.
+  if (city) {
+    loadFromStatic()
+      .then(function(events) {
+        if (!events || !events.length) throw new Error('No city static events');
+        renderEvents(events);
+      })
+      .catch(function() {
+        loadFromApi()
+          .then(function(events) { renderEvents(events); })
+          .catch(showError);
+      });
+  } else {
+    loadFromApi()
+      .then(function(events) {
+        renderEvents(events);
+      })
+      .catch(function() {
+        if (!rendered) showError(new Error('API unavailable'));
+      });
+  }
+
+  function applyTheme(nextTheme) {
+    if (nextTheme === theme) return;
+    theme = nextTheme;
+    setThemeClasses(theme);
+    setThemeButtons(theme);
+    if (baseTileLayer) map.removeLayer(baseTileLayer);
+    baseTileLayer = makeTileLayer(theme).addTo(map);
+    var params = new URLSearchParams(location.search);
+    params.set('theme', theme);
+    history.replaceState(null, '', location.pathname + '?' + params.toString());
+  }
+  for (var tb = 0; tb < themeButtons.length; tb++) {
+    (function(btn) {
+      btn.addEventListener('click', function() {
+        applyTheme(btn.getAttribute('data-theme'));
+      });
+    })(themeButtons[tb]);
+  }
+
+  function showError(err) {
+    console.error('[Widget]', err);
+    document.getElementById('loading').classList.add('hide');
+    document.getElementById('error-msg').style.display = 'block';
+  }
+})();
+</script>
+</body>
+</html>

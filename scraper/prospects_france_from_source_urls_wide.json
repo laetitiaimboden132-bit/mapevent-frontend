@@ -1,0 +1,1452 @@
+[
+  {
+    "email": "tdc@cerclepaulbert.asso.fr",
+    "source_url": "https://openagenda.com/sortir-rennesmetropole/events/stage-impro-theatrale-pour-ado-avec-sophie-galle",
+    "host": "cerclepaulbert.asso.fr"
+  },
+  {
+    "email": "fbuvry@cma-normandie.fr",
+    "source_url": "https://openagenda.com/francenum/events/atelier-metiers-dart-decouverte-de-la-machine-laser-et-de-limpression-3d-au-fablab-soliseine-76",
+    "host": "cma-normandie.fr"
+  },
+  {
+    "email": "contact.chateau-de-pau@culture.gouv.fr",
+    "source_url": "https://openagenda.com/culture/events/rencontre-autour-du-jardin-en-mouvement",
+    "host": "culture.gouv.fr"
+  },
+  {
+    "email": "ddfip03.ppr.logistique@dgfip.finances.gouv.fr",
+    "source_url": "https://openagenda.com/maiavelo/events/afterwork-biking",
+    "host": "dgfip.finances.gouv.fr"
+  },
+  {
+    "email": "accueil.mdenoisy@est-ensemble.fr",
+    "source_url": "https://openagenda.com/maiavelo/events/printemps-a-velo-village-du-cycle",
+    "host": "est-ensemble.fr"
+  },
+  {
+    "email": "patrimoine@laterredargence.fr",
+    "source_url": "https://openagenda.com/culture/events/visites-guidees-burlesques-le-musee-aux-clowns",
+    "host": "laterredargence.fr"
+  },
+  {
+    "email": "clothilde.nee@lpo.fr",
+    "source_url": "https://openagenda.com/ville-de-bordeaux/events/amenager-son-espace-pour-accueillir-la-biodiversite",
+    "host": "lpo.fr"
+  },
+  {
+    "email": "dgac.biblio.ibclusion@mairie-bordeaux.fr",
+    "source_url": "https://openagenda.com/ville-de-bordeaux/events/soluces-bastide-maison-france-service-benauge",
+    "host": "mairie-bordeaux.fr"
+  },
+  {
+    "email": "seniors@mairie-bordeaux.fr",
+    "source_url": "https://openagenda.com/ville-de-bordeaux/events/petit-bac",
+    "host": "mairie-bordeaux.fr"
+  },
+  {
+    "email": "communication@mairie-miniac-morvan.fr",
+    "source_url": "https://openagenda.com/miniac-morvan/events/marche-aux-fleurs-8288148",
+    "host": "mairie-miniac-morvan.fr"
+  },
+  {
+    "email": "bibliotheque.pinel@mairie-toulouse.fr",
+    "source_url": "https://openagenda.com/bibliotheques-de-toulouse/events/parents-enfants-tout-un-art-7526286",
+    "host": "mairie-toulouse.fr"
+  },
+  {
+    "email": "contact@mine-temoin.fr",
+    "source_url": "https://openagenda.com/ales-agglomeration/events/journees-europeennes-du-patrimoine-a-la-mine-temoin-197253",
+    "host": "mine-temoin.fr"
+  },
+  {
+    "email": "jboureux@neuf.fr",
+    "source_url": "https://openagenda.com/catalogue-culturel-du-loiret/events/joke-trio-9108189",
+    "host": "neuf.fr"
+  },
+  {
+    "email": "officedetourisme@nievresomme.fr",
+    "source_url": "https://openagenda.com/maiavelo/events/atelier-reparation-velo-5618519",
+    "host": "nievresomme.fr"
+  },
+  {
+    "email": "aiec@orange.fr",
+    "source_url": "https://openagenda.com/culture/events/croquons-notre-jardin",
+    "host": "orange.fr"
+  },
+  {
+    "email": "alexis.renauld@orange.fr",
+    "source_url": "https://openagenda.com/culture/events/decouverte-du-jardin-dinspiration-medieval-de-chaumont",
+    "host": "orange.fr"
+  },
+  {
+    "email": "apa.blandineleon@orange.fr",
+    "source_url": "https://openagenda.com/culture/events/visite-du-jardin-botanique-de-gondremer-9237365",
+    "host": "orange.fr"
+  },
+  {
+    "email": "ciedubelier@orange.fr",
+    "source_url": "https://openagenda.com/catalogue-culturel-du-loiret/events/le-chat-de-moliere-2667029",
+    "host": "orange.fr"
+  },
+  {
+    "email": "comite-spf-stmedard@orange.fr",
+    "source_url": "https://openagenda.com/saint-medard-en-jalles-mediatheques/events/braderie-solidaire-du-secours-populaire-883368",
+    "host": "orange.fr"
+  },
+  {
+    "email": "domaine.regniere.ecluse@orange.fr",
+    "source_url": "https://openagenda.com/culture/events/veillee-du-patrimoine-a-regniere-ecluse",
+    "host": "orange.fr"
+  },
+  {
+    "email": "gio.marino@orange.fr",
+    "source_url": "https://openagenda.com/catalogue-culturel-du-loiret/events/system-en-concert-2319142",
+    "host": "orange.fr"
+  },
+  {
+    "email": "landais-vouneuil@orange.fr",
+    "source_url": "https://openagenda.com/maiavelo/events/traversee-cyclo-vouneuil-moretta",
+    "host": "orange.fr"
+  },
+  {
+    "email": "lapierrequipousse@orange.fr",
+    "source_url": "https://openagenda.com/agenda-des-voisins/events/reunion-publique-recherche-de-figurants-pour-la-deambulation-historique-le-retour-de-guillaume-de-la-querneille-du-9-aout-2026-a-la-carneille",
+    "host": "orange.fr"
+  },
+  {
+    "email": "les.potzik@orange.fr",
+    "source_url": "https://openagenda.com/catalogue-culturel-du-loiret/events/indochine-tribute-by-les-indopotzik",
+    "host": "orange.fr"
+  },
+  {
+    "email": "lesbaladins.arcenciel@orange.fr",
+    "source_url": "https://openagenda.com/catalogue-culturel-du-loiret/events/latitude-scene-2623930",
+    "host": "orange.fr"
+  },
+  {
+    "email": "leventouzet@orange.fr",
+    "source_url": "https://openagenda.com/catalogue-structures-accueil-hebergement/events/domaine-du-ventouzet",
+    "host": "orange.fr"
+  },
+  {
+    "email": "marc.sereys@orange.fr",
+    "source_url": "https://openagenda.com/culture/events/les-roses-de-margot-3183189",
+    "host": "orange.fr"
+  },
+  {
+    "email": "marquet.christian2@orange.fr",
+    "source_url": "https://openagenda.com/culture/events/visite-libre-jardin-prive",
+    "host": "orange.fr"
+  },
+  {
+    "email": "mfk.christian@orange.fr",
+    "source_url": "https://openagenda.com/culture/events/des-bassins-et-des-palmiers-normands",
+    "host": "orange.fr"
+  },
+  {
+    "email": "pigafeta@orange.fr",
+    "source_url": "https://openagenda.com/culture/events/peintures-et-sculptures-au-jardin",
+    "host": "orange.fr"
+  },
+  {
+    "email": "terresdebrume@orange.fr",
+    "source_url": "https://openagenda.com/culture/events/peintures-et-sculptures-au-jardin",
+    "host": "orange.fr"
+  },
+  {
+    "email": "reservationmusee@orleans-metropole.fr",
+    "source_url": "https://openagenda.com/les-musees-dorleans/events/dessiner-au-musee-6730724",
+    "host": "orleans-metropole.fr"
+  },
+  {
+    "email": "ingrannes@ouloiret.fr",
+    "source_url": "https://openagenda.com/catalogue-structures-accueil-hebergement/events/centre-oul-le-gue-bourdon",
+    "host": "ouloiret.fr"
+  },
+  {
+    "email": "thibaut.beaute@outlook.fr",
+    "source_url": "https://openagenda.com/culture/events/visite-decouverte-du-jardin-du-halage-8355232",
+    "host": "outlook.fr"
+  },
+  {
+    "email": "thomas@outsiders-asso.fr",
+    "source_url": "https://openagenda.com/catalogue-culturel-du-loiret/events/le-conte-de-la-rose",
+    "host": "outsiders-asso.fr"
+  },
+  {
+    "email": "contact@ozcour.fr",
+    "source_url": "https://openagenda.com/culture/events/les-jardins-ouverts-et-metiers-dantan",
+    "host": "ozcour.fr"
+  },
+  {
+    "email": "tourisme@paysdenexon-montsdechalus.fr",
+    "source_url": "https://openagenda.com/culture/events/balade-patrimoine-and-fleurs-une-journee-au-coeur-de-lart-de-vivre-rural",
+    "host": "paysdenexon-montsdechalus.fr"
+  },
+  {
+    "email": "contact@petitesgraines31.fr",
+    "source_url": "https://openagenda.com/commealamaison/events/gouter-conte-musical",
+    "host": "petitesgraines31.fr"
+  },
+  {
+    "email": "orientation@pl.chambagri.fr",
+    "source_url": "https://openagenda.com/agrimouv/events/de-la-decouverte-au-projet-paysage-machecoul-44",
+    "host": "pl.chambagri.fr"
+  },
+  {
+    "email": "stephane.hanquez@pl.chambagri.fr",
+    "source_url": "https://openagenda.com/chambre-agriculture-pays-de-la-loire/events/visite-dessai-de-travail-du-sol-a-sainte-cecile-85",
+    "host": "pl.chambagri.fr"
+  },
+  {
+    "email": "reservations@rallyelangage.fr",
+    "source_url": "https://openagenda.com/planlibre/events/rallye-langage-faut-quca-swingue-centre-social-et-culturel-larbrisseau",
+    "host": "rallyelangage.fr"
+  },
+  {
+    "email": "service.culturel@riorges.fr",
+    "source_url": "https://openagenda.com/culture/events/a-ciel-ouvert-parcours-dart-actuel-7220028",
+    "host": "riorges.fr"
+  },
+  {
+    "email": "lasource@roncq.fr",
+    "source_url": "https://openagenda.com/la-source-roncq/events/une-page-de-musique-audition-des-professeurs-de-lemm",
+    "host": "roncq.fr"
+  },
+  {
+    "email": "musee@saint-lo.fr",
+    "source_url": "https://openagenda.com/musees-de-saint-lo/events/atelier-6mois-3ans-a-tout-petits-pas-paques",
+    "host": "saint-lo.fr"
+  },
+  {
+    "email": "fablabmanager@saint-medard-en-jalles.fr",
+    "source_url": "https://openagenda.com/saint-medard-en-jalles-mediatheques/events/atelier-decouverte-du-fablab-copernic-7953911",
+    "host": "saint-medard-en-jalles.fr"
+  },
+  {
+    "email": "mediatheques@saint-medard-en-jalles.fr",
+    "source_url": "https://openagenda.com/saint-medard-en-jalles-mediatheques/events/decouvrir-canva",
+    "host": "saint-medard-en-jalles.fr"
+  },
+  {
+    "email": "musee.municipal@saintgermainenlaye.fr",
+    "source_url": "https://openagenda.com/culture/events/le-chateau-neuf-au-son-de-la-harpe",
+    "host": "saintgermainenlaye.fr"
+  },
+  {
+    "email": "contact-sfe@sfr.fr",
+    "source_url": "https://openagenda.com/culture/events/visite-libre-des-jardins-de-plantes-medicinales-et-toxiques-du-cloitre-des-recollets",
+    "host": "sfr.fr"
+  },
+  {
+    "email": "jacques.subileau@sfr.fr",
+    "source_url": "https://openagenda.com/catalogue-culturel-du-loiret/events/failte-7833988",
+    "host": "sfr.fr"
+  },
+  {
+    "email": "reponsablepoleculturel@sslv.fr",
+    "source_url": "https://openagenda.com/culture/events/atelier-dinitiation-a-laquarelle-et-fabrication-dun-pot-en-rotin",
+    "host": "sslv.fr"
+  },
+  {
+    "email": "mairie@sthilairelesplaces.fr",
+    "source_url": "https://openagenda.com/culture/events/balade-patrimoine-and-fleurs-une-journee-au-coeur-de-lart-de-vivre-rural",
+    "host": "sthilairelesplaces.fr"
+  },
+  {
+    "email": "production@stupefy.fr",
+    "source_url": "https://openagenda.com/culture/events/ca-disparait-990379",
+    "host": "stupefy.fr"
+  },
+  {
+    "email": "mediatheques@talence.fr",
+    "source_url": "https://openagenda.com/mediatheques-talence/events/idees-a-lire-5596798",
+    "host": "talence.fr"
+  },
+  {
+    "email": "louisa.crispe@terresdargentan.fr",
+    "source_url": "https://openagenda.com/maiavelo/events/la-fete-du-velo-7476193",
+    "host": "terresdargentan.fr"
+  },
+  {
+    "email": "billetterie@theatrecinema-flf.fr",
+    "source_url": "https://openagenda.com/theatre-cinema/events/parler-pointu-4303336",
+    "host": "theatrecinema-flf.fr"
+  },
+  {
+    "email": "contact@theatrecinema-flf.fr",
+    "source_url": "https://openagenda.com/theatre-cinema/events/parler-pointu-4303336",
+    "host": "theatrecinema-flf.fr"
+  },
+  {
+    "email": "accueil@theatredunord.fr",
+    "source_url": "https://openagenda.com/planlibre/events/lorenzaccio-5286333",
+    "host": "theatredunord.fr"
+  },
+  {
+    "email": "contact@tourisme-paraylemonial.fr",
+    "source_url": "https://openagenda.com/maiavelo/events/mai-a-velo-la-fete-du-velo",
+    "host": "tourisme-paraylemonial.fr"
+  },
+  {
+    "email": "direction@tourisme-paraylemonial.fr",
+    "source_url": "https://openagenda.com/maiavelo/events/mai-a-velo-la-fete-du-velo",
+    "host": "tourisme-paraylemonial.fr"
+  },
+  {
+    "email": "mediation.meb@u-bordeaux.fr",
+    "source_url": "https://openagenda.com/culture/events/nomme-le-vivant-dire-le-monde",
+    "host": "u-bordeaux.fr"
+  },
+  {
+    "email": "pepiniere.gardons@unapei30.fr",
+    "source_url": "https://openagenda.com/ales-agglomeration/events/chasse-aux-oeufs-9507387",
+    "host": "unapei30.fr"
+  },
+  {
+    "email": "com@unilim.fr",
+    "source_url": "https://openagenda.com/universite-de-limoges/events/conference-liens-le-programme-du-mois-davril",
+    "host": "unilim.fr"
+  },
+  {
+    "email": "scienticulture@unilim.fr",
+    "source_url": "https://openagenda.com/universite-de-limoges/events/cafe-des-chercheurs-rencontrez-des-chercheurs-autour-dun-cafe",
+    "host": "unilim.fr"
+  },
+  {
+    "email": "culture@univ-catholille.fr",
+    "source_url": "https://openagenda.com/planlibre/events/chapelles-et-enluminures-de-levangeliaire-de-saint-mihiel",
+    "host": "univ-catholille.fr"
+  },
+  {
+    "email": "univ-perm@univ-nantes.fr",
+    "source_url": "https://openagenda.com/nantesmetropole/events/50-ans-dantiquite-et-darcheologie-dans-lart-daujourdhui-conference-par-annaig-caillaud",
+    "host": "univ-nantes.fr"
+  },
+  {
+    "email": "educ@univ-rennes.fr",
+    "source_url": "https://openagenda.com/cmi-rennes/events/doctorants-tese-days-2026-3-edition-direction-la-norvege-pour-explorer-vos-perspectives-professionnelles",
+    "host": "univ-rennes.fr"
+  },
+  {
+    "email": "info.handicap@universcience.fr",
+    "source_url": "https://openagenda.com/echosciences/events/journee-mondiale-de-sensibilisation-a-lautisme-2026",
+    "host": "universcience.fr"
+  },
+  {
+    "email": "info.sourd@universcience.fr",
+    "source_url": "https://openagenda.com/echosciences/events/visites-en-lsf-de-lexposition-jardiner-4212221",
+    "host": "universcience.fr"
+  },
+  {
+    "email": "resagroupescite@universcience.fr",
+    "source_url": "https://openagenda.com/le-printemps-de-lesprit-critique/events/quiz-des-idees-recues-sur-le-cerveau-4207529",
+    "host": "universcience.fr"
+  },
+  {
+    "email": "communication.polytech@universite-paris-saclay.fr",
+    "source_url": "https://openagenda.com/pops/events/arpentages-thematiques-une-histoire-des-produits-menstruels-de-jeanne-guien",
+    "host": "universite-paris-saclay.fr"
+  },
+  {
+    "email": "artethistoire@valenceromansagglo.fr",
+    "source_url": "https://openagenda.com/jea-2026/events/les-fouilles-de-la-maison-du-mouton-et-de-lhotel-de-loulle",
+    "host": "valenceromansagglo.fr"
+  },
+  {
+    "email": "alexandra.estival@var.chambagri.fr",
+    "source_url": "https://openagenda.com/jna2026/events/marches-des-producteurs-de-pays-du-castellet-2214386",
+    "host": "var.chambagri.fr"
+  },
+  {
+    "email": "contact@vengeurdemasque.fr",
+    "source_url": "https://openagenda.com/catalogue-culturel-du-loiret/events/sur-les-traces-de-lecolo-groumpf-mini-vengeurs",
+    "host": "vengeurdemasque.fr"
+  },
+  {
+    "email": "nregiespectacles@ville-boulogne-sur-mer.fr",
+    "source_url": "https://openagenda.com/theatre-monsigny/events/opera-2-legumes-cie-patacloune-nicolas-grard",
+    "host": "ville-boulogne-sur-mer.fr"
+  },
+  {
+    "email": "mdn@ville-caen.fr",
+    "source_url": "https://openagenda.com/culture/events/exposition-le-chateau-des-photographes",
+    "host": "ville-caen.fr"
+  },
+  {
+    "email": "reservation-rutebeuf@ville-clichy.fr",
+    "source_url": "https://openagenda.com/theatre-rutebeuf/events/mathieu-au-milieu",
+    "host": "ville-clichy.fr"
+  },
+  {
+    "email": "e.truquet@ville-gravelines.fr",
+    "source_url": "https://openagenda.com/culture/events/atelier-dessin-et-aquarelle",
+    "host": "ville-gravelines.fr"
+  },
+  {
+    "email": "reservation.scenes2guyancourt@ville-guyancourt.fr",
+    "source_url": "https://openagenda.com/boxsons/events/raul-paz-7061718",
+    "host": "ville-guyancourt.fr"
+  },
+  {
+    "email": "fort-des-dunes@ville-leffrinckoucke.fr",
+    "source_url": "https://openagenda.com/23e-journees-des-espaces-fortifies/events/lappel-du-matin-lecture-de-textes-de-charlotte-delbo",
+    "host": "ville-leffrinckoucke.fr"
+  },
+  {
+    "email": "chateaufort.museepyreneen@ville-lourdes.fr",
+    "source_url": "https://openagenda.com/culture/events/visite-ludique-du-musee-pour-les-familles",
+    "host": "ville-lourdes.fr"
+  },
+  {
+    "email": "communication@ville-louviers.fr",
+    "source_url": "https://openagenda.com/villedelouviers/events/concert-gesticule-pour-mouflets",
+    "host": "ville-louviers.fr"
+  },
+  {
+    "email": "musees@ville-macon.fr",
+    "source_url": "https://openagenda.com/culture/events/visite-nocturne-du-musee-des-ursulines-9294801",
+    "host": "ville-macon.fr"
+  },
+  {
+    "email": "musee.jakovsky@ville-nice.fr",
+    "source_url": "https://openagenda.com/culture/events/visite-libre-du-musee-et-de-son-exposition-temporaire-africa-pop",
+    "host": "ville-nice.fr"
+  },
+  {
+    "email": "palais.lascaris@ville-nice.fr",
+    "source_url": "https://openagenda.com/lclo-2026/events/les-murs-parlent-histoires-baroques-du-palais-lascaris",
+    "host": "ville-nice.fr"
+  },
+  {
+    "email": "bibliotheque.cloteaux-brequigny@ville-rennes.fr",
+    "source_url": "https://openagenda.com/bibliotheques-de-rennes/events/jim-curious-voyage-au-coeur-de-locean",
+    "host": "ville-rennes.fr"
+  },
+  {
+    "email": "bibliotheque.villejean@ville-rennes.fr",
+    "source_url": "https://openagenda.com/bibliotheques-de-rennes/events/lectures-5064072",
+    "host": "ville-rennes.fr"
+  },
+  {
+    "email": "la-criee@ville-rennes.fr",
+    "source_url": "https://openagenda.com/sortir-rennesmetropole/events/le-voyage-dans-la-lune-marcel-dzama-4631605",
+    "host": "ville-rennes.fr"
+  },
+  {
+    "email": "mba-reservations@ville-rennes.fr",
+    "source_url": "https://openagenda.com/sortir-rennesmetropole/events/visite-flash-passions-et-violences-dans-lart",
+    "host": "ville-rennes.fr"
+  },
+  {
+    "email": "museemaurepas@ville-rennes.fr",
+    "source_url": "https://openagenda.com/planlibre/events/thes-artistiques-8-ateliers-gorgees-sucrees",
+    "host": "ville-rennes.fr"
+  },
+  {
+    "email": "mjoachim-arnaud@ville-romainville.fr",
+    "source_url": "https://openagenda.com/maiavelo/events/printemps-a-velo-village-du-cycle",
+    "host": "ville-romainville.fr"
+  },
+  {
+    "email": "mperard@ville-roubaix.fr",
+    "source_url": "https://openagenda.com/mediatheque-de-roubaix/events/retrogaming-et-raspberry-pi",
+    "host": "ville-roubaix.fr"
+  },
+  {
+    "email": "musees-accueil@ville-saint-omer.fr",
+    "source_url": "https://openagenda.com/culture/events/atelier-musical-mon-musee-sonore",
+    "host": "ville-saint-omer.fr"
+  },
+  {
+    "email": "mediatheque@ville-salindres.fr",
+    "source_url": "https://openagenda.com/ales-agglomeration/events/escape-game-5192973",
+    "host": "ville-salindres.fr"
+  },
+  {
+    "email": "mediatheque@ville-tourcoing.fr",
+    "source_url": "https://openagenda.com/clint/events/juliette-raconte-7611901",
+    "host": "ville-tourcoing.fr"
+  },
+  {
+    "email": "mediathequecesaire@ville-tourcoing.fr",
+    "source_url": "https://openagenda.com/clint/events/a-fond-les-manettes-3406438",
+    "host": "ville-tourcoing.fr"
+  },
+  {
+    "email": "mediathequechedid@ville-tourcoing.fr",
+    "source_url": "https://openagenda.com/clint/events/les-petites-boites-a-musique-5639529",
+    "host": "ville-tourcoing.fr"
+  },
+  {
+    "email": "mediathequemalraux@ville-tourcoing.fr",
+    "source_url": "https://openagenda.com/clint/events/juliette-raconte-7611901",
+    "host": "ville-tourcoing.fr"
+  },
+  {
+    "email": "numeritheque@ville-tourcoing.fr",
+    "source_url": "https://openagenda.com/clint/events/intelligence-artificielle-et-pollution-numerique-comprendre-et-agir",
+    "host": "ville-tourcoing.fr"
+  },
+  {
+    "email": "contact-mba@ville-tours.fr",
+    "source_url": "https://openagenda.com/culture/events/un-musee-de-nuit-2401947",
+    "host": "ville-tours.fr"
+  },
+  {
+    "email": "bertrand.lemort@wanadoo.fr",
+    "source_url": "https://openagenda.com/coeur-de-flandre-agglo/events/exposition-d-oiseaux-4238395",
+    "host": "wanadoo.fr"
+  },
+  {
+    "email": "delbeph@wanadoo.fr",
+    "source_url": "https://openagenda.com/maiavelo/events/randonnee-cyclotouriste-mai-a-velo-9186549",
+    "host": "wanadoo.fr"
+  },
+  {
+    "email": "latuffiere2@wanadoo.fr",
+    "source_url": "https://openagenda.com/catalogue-structures-accueil-hebergement/events/gite-la-tuffiere",
+    "host": "wanadoo.fr"
+  },
+  {
+    "email": "lenoir.eric@wanadoo.fr",
+    "source_url": "https://openagenda.com/culture/events/rendez-vous-aux-jardins-2314317",
+    "host": "wanadoo.fr"
+  },
+  {
+    "email": "mediatheque.andre.chamson@wanadoo.fr",
+    "source_url": "https://openagenda.com/ales-agglomeration/events/spectacle-anolisciel-contes-elementaires",
+    "host": "wanadoo.fr"
+  },
+  {
+    "email": "noppe@wanadoo.fr",
+    "source_url": "https://openagenda.com/culture/events/visite-des-jardins-du-pays-dauge",
+    "host": "wanadoo.fr"
+  },
+  {
+    "email": "puech-merlhou@wanadoo.fr",
+    "source_url": "https://openagenda.com/catalogue-structures-accueil-hebergement/events/earl-ferme-equestre-puech-merlhou",
+    "host": "wanadoo.fr"
+  },
+  {
+    "email": "vers.les.cimes@wanadoo.fr",
+    "source_url": "https://openagenda.com/catalogue-structures-accueil-hebergement/events/vers-les-cimes",
+    "host": "wanadoo.fr"
+  },
+  {
+    "email": "bouinclementine@yahoo.fr",
+    "source_url": "https://openagenda.com/catalogue-culturel-du-loiret/events/la-collection-tinelle-640340",
+    "host": "yahoo.fr"
+  },
+  {
+    "email": "chateaudelosse24@yahoo.fr",
+    "source_url": "https://openagenda.com/culture/events/visite-guidee-des-jardins-avec-une-jardiniere",
+    "host": "yahoo.fr"
+  },
+  {
+    "email": "ddzachary@yahoo.fr",
+    "source_url": "https://openagenda.com/culture/events/entre-gutenberg-et-louis-braille-exposition-et-atelier",
+    "host": "yahoo.fr"
+  },
+  {
+    "email": "dominique301256@yahoo.fr",
+    "source_url": "https://openagenda.com/culture/events/visites-libres-3242208",
+    "host": "yahoo.fr"
+  },
+  {
+    "email": "estiennehebert@yahoo.fr",
+    "source_url": "https://openagenda.com/culture/events/decouvrez-le-parc-du-chateau-de-lhermenault-et-ses-platanes-remarquables",
+    "host": "yahoo.fr"
+  },
+  {
+    "email": "jbirova@yahoo.fr",
+    "source_url": "https://openagenda.com/20mars2026/events/35e-tour-des-olympiades-en-langue-francaise",
+    "host": "yahoo.fr"
+  },
+  {
+    "email": "marionetabg@yahoo.fr",
+    "source_url": "https://openagenda.com/culture/events/le-loup-et-les-cept-chevrots-3086298",
+    "host": "yahoo.fr"
+  },
+  {
+    "email": "musicavoz@yahoo.fr",
+    "source_url": "https://openagenda.com/catalogue-culturel-du-loiret/events/cuisine-de-diva-ou-comment-apprecier-et-aimer-lart-lyrique-avec-simplicite-humour-et-tendresse-un-spectacle-lyricomique-aux-saveurs-dopera-187240",
+    "host": "yahoo.fr"
+  },
+  {
+    "email": "terreoceane@yahoo.fr",
+    "source_url": "https://openagenda.com/culture/events/le-monde-vegetal-au-dela-du-regard",
+    "host": "yahoo.fr"
+  },
+  {
+    "email": "veronique.felenbok@yahoo.fr",
+    "source_url": "https://openagenda.com/culture/events/portrait-de-ludmilla-en-nine-simone-1416107",
+    "host": "yahoo.fr"
+  },
+  {
+    "email": "jcc@3clics.com",
+    "source_url": "https://openagenda.com/francenum/events/atelier-immobilier-and-ia",
+    "host": "3clics.com"
+  },
+  {
+    "email": "info@3museesinsolitesenanjou.com",
+    "source_url": "https://openagenda.com/jea-2026/events/balade-commentee-sur-les-vestiges-du-chateau-de-beaufort",
+    "host": "3museesinsolitesenanjou.com"
+  },
+  {
+    "email": "accueil@3regards.com",
+    "source_url": "https://openagenda.com/3-regards-leo-lagrange/events/club-special-jazz-manouche",
+    "host": "3regards.com"
+  },
+  {
+    "email": "bbr@abage.ch",
+    "source_url": "https://openagenda.com/geneve-communes/events/biblioweekend-a-vous-de-jouer",
+    "host": "abage.ch"
+  },
+  {
+    "email": "admin@academieprovidence.ca",
+    "source_url": "https://openagenda.com/culture/events/dis-moi-dix-mots-le-grand-voyage-des-mots",
+    "host": "academieprovidence.ca"
+  },
+  {
+    "email": "michelkera@aol.com",
+    "source_url": "https://openagenda.com/culture/events/ermenonville-de-jardin-en-jardin",
+    "host": "aol.com"
+  },
+  {
+    "email": "contact@atelier-mhp.com",
+    "source_url": "https://openagenda.com/culture/events/jardin-du-chateau-de-fretay",
+    "host": "atelier-mhp.com"
+  },
+  {
+    "email": "info@aubp.ch",
+    "source_url": "https://openagenda.com/coolturalia/events/philo-aux-bains-science-knowledge-and-mysteries-surrounding-the-animal-body-with-virginie-jean",
+    "host": "aubp.ch"
+  },
+  {
+    "email": "musees@auxerre.com",
+    "source_url": "https://openagenda.com/culture/events/workshop-ceramique-avec-frederick-gautier-ceramiste-designer",
+    "host": "auxerre.com"
+  },
+  {
+    "email": "info@bagblues.ch",
+    "source_url": "https://openagenda.com/geneve-communes/events/geneva-blues-festival-2026",
+    "host": "bagblues.ch"
+  },
+  {
+    "email": "developpement@becarreproduction.com",
+    "source_url": "https://openagenda.com/catalogue-culturel-du-loiret/events/siestes-musicales-8433774",
+    "host": "becarreproduction.com"
+  },
+  {
+    "email": "visitatossal@benidorm.org",
+    "source_url": "https://openagenda.com/jea-2026-spain/events/castellum-del-tossal-de-la-cala-de-benidorm",
+    "host": "benidorm.org"
+  },
+  {
+    "email": "communication@blues-sur-seine.com",
+    "source_url": "https://openagenda.com/maiavelo/events/velo-blues-2e-edition",
+    "host": "blues-sur-seine.com"
+  },
+  {
+    "email": "communication@borddesmondes.com",
+    "source_url": "https://openagenda.com/catalogue-culturel-du-loiret/events/bestia-la-parade-des-creatures-7772839",
+    "host": "borddesmondes.com"
+  },
+  {
+    "email": "ateliers@chana-orloff.org",
+    "source_url": "https://openagenda.com/culture/events/los-fantasmas-benevolos-de-la-villa-seurat-5838523",
+    "host": "chana-orloff.org"
+  },
+  {
+    "email": "losse@chateaudelosse.com",
+    "source_url": "https://openagenda.com/culture/events/visite-guidee-des-jardins-avec-une-jardiniere",
+    "host": "chateaudelosse.com"
+  },
+  {
+    "email": "info@chateaudeturenne.com",
+    "source_url": "https://openagenda.com/culture/events/visite-des-jardins-suspendus-du-chateau",
+    "host": "chateaudeturenne.com"
+  },
+  {
+    "email": "contact@chevillon.eu",
+    "source_url": "https://openagenda.com/catalogue-structures-accueil-hebergement/events/domaine-equestre-de-chevillon",
+    "host": "chevillon.eu"
+  },
+  {
+    "email": "contact@cirquenavacelles.com",
+    "source_url": "https://openagenda.com/jea-2026/events/gouter-prehistorique-au-dolmen-1778181",
+    "host": "cirquenavacelles.com"
+  },
+  {
+    "email": "reception@cis-lamourelle.org",
+    "source_url": "https://openagenda.com/catalogue-structures-accueil-hebergement/events/centre-international-de-sejour-lamourelle",
+    "host": "cis-lamourelle.org"
+  },
+  {
+    "email": "contact@club-presse-valdeloire.com",
+    "source_url": "https://openagenda.com/le-printemps-de-lesprit-critique/events/science-et-verite",
+    "host": "club-presse-valdeloire.com"
+  },
+  {
+    "email": "pat@coeurentre2mers.com",
+    "source_url": "https://openagenda.com/jna2026/events/lentre-deux-mers-fete-lagriculture-et-lalimentation",
+    "host": "coeurentre2mers.com"
+  },
+  {
+    "email": "contact@collectif-lesfolepis.org",
+    "source_url": "https://openagenda.com/sortir-rennesmetropole/events/balade-plantes-sauvages-comestibles",
+    "host": "collectif-lesfolepis.org"
+  },
+  {
+    "email": "reservations@compagnie-tandem.ch",
+    "source_url": "https://openagenda.com/geneve-communes/events/between-us-humour-triptych",
+    "host": "compagnie-tandem.ch"
+  },
+  {
+    "email": "contact@compagnielabase.com",
+    "source_url": "https://openagenda.com/culture/events/partie-7615165",
+    "host": "compagnielabase.com"
+  },
+  {
+    "email": "elise.voisin@cpie-authie.org",
+    "source_url": "https://openagenda.com/le-printemps-des-castors/events/le-retour-du-bievre-en-hauts-de-france",
+    "host": "cpie-authie.org"
+  },
+  {
+    "email": "office@debatecameroon.org",
+    "source_url": "https://openagenda.com/20mars2026/events/cocam-2026-coupe-oratoire-du-cameroun-3eme-edition",
+    "host": "debatecameroon.org"
+  },
+  {
+    "email": "info@dekonou.com",
+    "source_url": "https://openagenda.com/nantesmetropole/events/stage-percussions-et-danse-africaine-3832042",
+    "host": "dekonou.com"
+  },
+  {
+    "email": "contact@demeureduchaos.org",
+    "source_url": "https://openagenda.com/culture/events/la-magia-esta-omnipresente-en-la-demeure-du-chaos-que-parece-haber-sido-creada-para-visitarla-de-noche",
+    "host": "demeureduchaos.org"
+  },
+  {
+    "email": "codev@deodatie.com",
+    "source_url": "https://openagenda.com/maiavelo/events/defi-jy-vais-7773774",
+    "host": "deodatie.com"
+  },
+  {
+    "email": "tina.sarrafi@dervichediffusion.com",
+    "source_url": "https://openagenda.com/culture/events/juste-irena-8014894",
+    "host": "dervichediffusion.com"
+  },
+  {
+    "email": "contact@ensemblelareveuse.com",
+    "source_url": "https://openagenda.com/catalogue-culturel-du-loiret/events/le-rossignol-et-lempereur-de-chine-8303858",
+    "host": "ensemblelareveuse.com"
+  },
+  {
+    "email": "hello@fabriquebilingue.com",
+    "source_url": "https://openagenda.com/ville-de-bordeaux/events/spring-camps",
+    "host": "fabriquebilingue.com"
+  },
+  {
+    "email": "creil.alpes@fol74.org",
+    "source_url": "https://openagenda.com/catalogue-structures-accueil-hebergement/events/creilalpes",
+    "host": "fol74.org"
+  },
+  {
+    "email": "productions.vegetales@gab85.org",
+    "source_url": "https://openagenda.com/chambre-agriculture-pays-de-la-loire/events/visite-dessai-de-travail-du-sol-a-sainte-cecile-85",
+    "host": "gab85.org"
+  },
+  {
+    "email": "asso.siparhasard@gamil.com",
+    "source_url": "https://openagenda.com/catalogue-culturel-du-loiret/events/cuarteto-cafe-con-pan-4055517",
+    "host": "gamil.com"
+  },
+  {
+    "email": "pierre.roy@glenat.com",
+    "source_url": "https://openagenda.com/culture/events/atelier-tisane-du-couvent-sainte-cecile",
+    "host": "glenat.com"
+  },
+  {
+    "email": "78boxsons@gmail.com",
+    "source_url": "https://openagenda.com/boxsons/events/virginie-daide-quartet-greater-jazz-actuel",
+    "host": "gmail.com"
+  },
+  {
+    "email": "abbayetroisfontaines@gmail.com",
+    "source_url": "https://openagenda.com/culture/events/rendez-vous-aux-jardins-a-labbaye-de-trois-fontaines-2985148",
+    "host": "gmail.com"
+  },
+  {
+    "email": "aconterdaujourdhui@gmail.com",
+    "source_url": "https://openagenda.com/catalogue-culturel-du-loiret/events/hissez-eau-87349",
+    "host": "gmail.com"
+  },
+  {
+    "email": "akanladeriv@gmail.com",
+    "source_url": "https://openagenda.com/culture/events/ombre-8275120",
+    "host": "gmail.com"
+  },
+  {
+    "email": "alinemarty1@gmail.com",
+    "source_url": "https://openagenda.com/nantesmetropole/events/stage-de-taichichuan-a-leventail",
+    "host": "gmail.com"
+  },
+  {
+    "email": "arnoalden@gmail.com",
+    "source_url": "https://openagenda.com/catalogue-culturel-du-loiret/events/walden-trio-acoustique",
+    "host": "gmail.com"
+  },
+  {
+    "email": "artaujardin@gmail.com",
+    "source_url": "https://openagenda.com/culture/events/rendez-vous-aux-jardins-6429361",
+    "host": "gmail.com"
+  },
+  {
+    "email": "asso.siparhasard@gmail.com",
+    "source_url": "https://openagenda.com/catalogue-culturel-du-loiret/events/cuarteto-cafe-con-pan-4055517",
+    "host": "gmail.com"
+  },
+  {
+    "email": "assochateaulatourlandry@gmail.com",
+    "source_url": "https://openagenda.com/culture/events/sous-le-regard-du-temps-dix-ans-de-parc-et-jardins-en-mouvement-au-chateau-de-la-tourlandry",
+    "host": "gmail.com"
+  },
+  {
+    "email": "association.lanacrouse.musiques@gmail.com",
+    "source_url": "https://openagenda.com/catalogue-culturel-du-loiret/events/balkan-jazz-paradise",
+    "host": "gmail.com"
+  },
+  {
+    "email": "atout.fruit@gmail.com",
+    "source_url": "https://openagenda.com/maiavelo/events/en-mai-fete-des-plants",
+    "host": "gmail.com"
+  },
+  {
+    "email": "auniris45@gmail.com",
+    "source_url": "https://openagenda.com/catalogue-culturel-du-loiret/events/auniris-1442647",
+    "host": "gmail.com"
+  },
+  {
+    "email": "auxcharmesdesfelines@gmail.com",
+    "source_url": "https://openagenda.com/catalogue-culturel-du-loiret/events/aux-charmes-des-felines",
+    "host": "gmail.com"
+  },
+  {
+    "email": "bambouseraie.brisson@gmail.com",
+    "source_url": "https://openagenda.com/culture/events/la-bambouseraie-brisson",
+    "host": "gmail.com"
+  },
+  {
+    "email": "cie.labase@gmail.com",
+    "source_url": "https://openagenda.com/culture/events/partie-7615165",
+    "host": "gmail.com"
+  },
+  {
+    "email": "cie.sudlointain1@gmail.com",
+    "source_url": "https://openagenda.com/culture/events/dans-ses-yeux-9678829",
+    "host": "gmail.com"
+  },
+  {
+    "email": "ciebandedecopains@gmail.com",
+    "source_url": "https://openagenda.com/catalogue-culturel-du-loiret/events/le-poil-dans-la-patte-5032533",
+    "host": "gmail.com"
+  },
+  {
+    "email": "cieoups@gmail.com",
+    "source_url": "https://openagenda.com/catalogue-culturel-du-loiret/events/pardon-8303419",
+    "host": "gmail.com"
+  },
+  {
+    "email": "classeslebienveillant38@gmail.com",
+    "source_url": "https://openagenda.com/catalogue-departemental-des-structures-daccueil-et-dhebergement-isere/events/le-bien-veillant",
+    "host": "gmail.com"
+  },
+  {
+    "email": "collectifpadna@gmail.com",
+    "source_url": "https://openagenda.com/catalogue-culturel-du-loiret/events/la-ptite-boutique-7488568",
+    "host": "gmail.com"
+  },
+  {
+    "email": "com.agenda.emiol@gmail.com",
+    "source_url": "https://openagenda.com/nantesmetropole/events/ensemble-vocal-emiol-concerto-brandebourgeois-membra-jesu-nostri-6976891",
+    "host": "gmail.com"
+  },
+  {
+    "email": "compagniediscrete.prod@gmail.com",
+    "source_url": "https://openagenda.com/catalogue-culturel-du-loiret/events/ijsberg-2105198",
+    "host": "gmail.com"
+  },
+  {
+    "email": "compagnielaroucihe@gmail.com",
+    "source_url": "https://openagenda.com/catalogue-culturel-du-loiret/events/douze-etudes-concert-de-vielle-alto",
+    "host": "gmail.com"
+  },
+  {
+    "email": "contactsjbsav@gmail.com",
+    "source_url": "https://openagenda.com/culture/events/un-jardin-enchanteur-le-jardin-botanique-du-col-de-saverne",
+    "host": "gmail.com"
+  },
+  {
+    "email": "coriacecompagnie@gmail.com",
+    "source_url": "https://openagenda.com/catalogue-culturel-du-loiret/events/jeu-des-proverbes-9100246",
+    "host": "gmail.com"
+  },
+  {
+    "email": "coucouneniu@gmail.com",
+    "source_url": "https://openagenda.com/catalogue-culturel-du-loiret/events/neniu",
+    "host": "gmail.com"
+  },
+  {
+    "email": "ctpoitiers@gmail.com",
+    "source_url": "https://openagenda.com/maiavelo/events/parade-velo",
+    "host": "gmail.com"
+  },
+  {
+    "email": "cuisinalamaison@gmail.com",
+    "source_url": "https://openagenda.com/agenda-des-voisins/events/cuisine-a-la-maison-cooking-in-english-with-alex-7919456",
+    "host": "gmail.com"
+  },
+  {
+    "email": "cyclo.club.de.la.tour.24@gmail.com",
+    "source_url": "https://openagenda.com/maiavelo/events/mai-a-velo-1231192",
+    "host": "gmail.com"
+  },
+  {
+    "email": "des1des100@gmail.com",
+    "source_url": "https://openagenda.com/catalogue-culturel-du-loiret/events/la-devise-6507596",
+    "host": "gmail.com"
+  },
+  {
+    "email": "domainedesrochesblanches@gmail.com",
+    "source_url": "https://openagenda.com/culture/events/visite-guidee-du-domaine-des-roches-blanches-9743552",
+    "host": "gmail.com"
+  },
+  {
+    "email": "dominiqueberthin41@gmail.com",
+    "source_url": "https://openagenda.com/maiavelo/events/randonnee-cyclotouriste-promenade-cyclotouristique-en-sologne-739644",
+    "host": "gmail.com"
+  },
+  {
+    "email": "dr.rollerbug@gmail.com",
+    "source_url": "https://openagenda.com/saint-medard-en-jalles-mediatheques/events/stages-roller-et-sorties-ludiques-vacances-paques-2026-5274230",
+    "host": "gmail.com"
+  },
+  {
+    "email": "emplumes@gmail.com",
+    "source_url": "https://openagenda.com/catalogue-culturel-du-loiret/events/lee-emplumes-dans-les-annees-folles",
+    "host": "gmail.com"
+  },
+  {
+    "email": "enclume.tour@gmail.com",
+    "source_url": "https://openagenda.com/catalogue-culturel-du-loiret/events/twister-cover-1579179",
+    "host": "gmail.com"
+  },
+  {
+    "email": "envolmajeur@gmail.com",
+    "source_url": "https://openagenda.com/catalogue-culturel-du-loiret/events/sil-neigeait-au-mois-de-juin-1563965",
+    "host": "gmail.com"
+  },
+  {
+    "email": "famillewalili@gmail.com",
+    "source_url": "https://openagenda.com/sortir-rennesmetropole/events/le-grand-degel-3-7663279",
+    "host": "gmail.com"
+  },
+  {
+    "email": "fanjan.music@gmail.com",
+    "source_url": "https://openagenda.com/catalogue-culturel-du-loiret/events/fanjan-5489464",
+    "host": "gmail.com"
+  },
+  {
+    "email": "ffn.loiret@gmail.com",
+    "source_url": "https://openagenda.com/evenements-sportifs-du-loiret/events/4eme-plot-trophee-u13",
+    "host": "gmail.com"
+  },
+  {
+    "email": "francoise8545@gmail.com",
+    "source_url": "https://openagenda.com/culture/events/marche-artisanal-et-de-producteurs-et-visite-decouverte-du-jardin-pedagogique-de-plantes-medicinales-et-aromatiques",
+    "host": "gmail.com"
+  },
+  {
+    "email": "frederic.bucher75@gmail.com",
+    "source_url": "https://openagenda.com/culture/events/jardin-des-langottieres",
+    "host": "gmail.com"
+  },
+  {
+    "email": "fulldropcontact@gmail.com",
+    "source_url": "https://openagenda.com/catalogue-culturel-du-loiret/events/full-drop-8273415",
+    "host": "gmail.com"
+  },
+  {
+    "email": "gestesetexpression@gmail.com",
+    "source_url": "https://openagenda.com/saint-medard-en-jalles-mediatheques/events/stage-de-peinture-pour-les-enfants-5271712",
+    "host": "gmail.com"
+  },
+  {
+    "email": "grupo.guajiro45@gmail.com",
+    "source_url": "https://openagenda.com/catalogue-culturel-du-loiret/events/guajiro-4705934",
+    "host": "gmail.com"
+  },
+  {
+    "email": "hana.zanos@gmail.com",
+    "source_url": "https://openagenda.com/culture/events/promenade-avec-havko-et-polarka",
+    "host": "gmail.com"
+  },
+  {
+    "email": "jardinsdelafermebleue@gmail.com",
+    "source_url": "https://openagenda.com/culture/events/visite-decouverte-des-jardins-de-la-ferme-bleue-9187172",
+    "host": "gmail.com"
+  },
+  {
+    "email": "jardinverger64@gmail.com",
+    "source_url": "https://openagenda.com/culture/events/apprendre-a-voir-autrement",
+    "host": "gmail.com"
+  },
+  {
+    "email": "kflardans@gmail.com",
+    "source_url": "https://openagenda.com/jna2026/events/visite-libre-de-nos-jardins-en-permaculture",
+    "host": "gmail.com"
+  },
+  {
+    "email": "la.brouette.en.scene@gmail.com",
+    "source_url": "https://openagenda.com/culture/events/les-insectes-utiles-au-jardin",
+    "host": "gmail.com"
+  },
+  {
+    "email": "labelleorange.prod@gmail.com",
+    "source_url": "https://openagenda.com/catalogue-culturel-du-loiret/events/mue-4736478",
+    "host": "gmail.com"
+  },
+  {
+    "email": "laborderiedugo@gmail.com",
+    "source_url": "https://openagenda.com/culture/events/2677547",
+    "host": "gmail.com"
+  },
+  {
+    "email": "lackno.compagnie@gmail.com",
+    "source_url": "https://openagenda.com/catalogue-culturel-du-loiret/events/7631466",
+    "host": "gmail.com"
+  },
+  {
+    "email": "lacocotte@gmail.com",
+    "source_url": "https://openagenda.com/nantesmetropole/events/atelier-cuisine-menu-gourmand-et-menopause",
+    "host": "gmail.com"
+  },
+  {
+    "email": "lacolline.flavigny@gmail.com",
+    "source_url": "https://openagenda.com/culture/events/livres-au-jardin-2026",
+    "host": "gmail.com"
+  },
+  {
+    "email": "ladamedupremier@gmail.com",
+    "source_url": "https://openagenda.com/culture/events/miche-et-drate-9809609",
+    "host": "gmail.com"
+  },
+  {
+    "email": "lasaugrenue37@gmail.com",
+    "source_url": "https://openagenda.com/catalogue-culturel-du-loiret/events/la-fanfare-saugrenue-8600296",
+    "host": "gmail.com"
+  },
+  {
+    "email": "lauramauger.info@gmail.com",
+    "source_url": "https://openagenda.com/catalogue-culturel-du-loiret/events/les-chansons-a-la-criee",
+    "host": "gmail.com"
+  },
+  {
+    "email": "lebienveillant38@gmail.com",
+    "source_url": "https://openagenda.com/catalogue-departemental-des-structures-daccueil-et-dhebergement-isere/events/le-bien-veillant",
+    "host": "gmail.com"
+  },
+  {
+    "email": "lecaillou61@gmail.com",
+    "source_url": "https://openagenda.com/suisse-normande-territoire-preserve/events/concert-2368320",
+    "host": "gmail.com"
+  },
+  {
+    "email": "lemortierjan@gmail.com",
+    "source_url": "https://openagenda.com/culture/events/rendez-vous-aux-jardins-2454354",
+    "host": "gmail.com"
+  },
+  {
+    "email": "leprintempsdedurcet@gmail.com",
+    "source_url": "https://openagenda.com/agenda-des-voisins/events/le-printemps-de-durcet-40eme-anniversaire-itinerrance-poetique",
+    "host": "gmail.com"
+  },
+  {
+    "email": "lesincrevables2020@gmail.com",
+    "source_url": "https://openagenda.com/nantesmetropole/events/femmes-velo-liberte",
+    "host": "gmail.com"
+  },
+  {
+    "email": "lesmursontdesorteils@gmail.com",
+    "source_url": "https://openagenda.com/catalogue-culturel-du-loiret/events/il-etait-2-fois",
+    "host": "gmail.com"
+  },
+  {
+    "email": "lestrade.art@gmail.com",
+    "source_url": "https://openagenda.com/suisse-normande-territoire-preserve/events/exhibition-photographs",
+    "host": "gmail.com"
+  },
+  {
+    "email": "levinyldejupiter@gmail.com",
+    "source_url": "https://openagenda.com/nantesmetropole/events/soiree-tribute-100-percent-rock-the-wankers-tribute-green-day-the-funky-monks-tribute-red-hot-chili-peppers-8239879",
+    "host": "gmail.com"
+  },
+  {
+    "email": "madeleinejanet@gmail.com",
+    "source_url": "https://openagenda.com/culture/events/visite-des-jardins-de-latelier-du-roy",
+    "host": "gmail.com"
+  },
+  {
+    "email": "maite.louis@gmail.com",
+    "source_url": "https://openagenda.com/culture/events/visite-libre-du-jardin-paysager-et-poetique-dune-ancienne-ferme-alsacienne-renovee-a-lancienne-salon-de-the-ephemere-sur-place",
+    "host": "gmail.com"
+  },
+  {
+    "email": "martine.hetzel56@gmail.com",
+    "source_url": "https://openagenda.com/culture/events/jardins-de-roses-dabeilles-et-de-groseilles-9200843",
+    "host": "gmail.com"
+  },
+  {
+    "email": "metaczyk.api@gmail.com",
+    "source_url": "https://openagenda.com/jna2026/events/vente-de-produits-fermiers-7832513",
+    "host": "gmail.com"
+  },
+  {
+    "email": "musee.leoniegardeau@gmail.com",
+    "source_url": "https://openagenda.com/culture/events/un-musee-dans-le-noir",
+    "host": "gmail.com"
+  },
+  {
+    "email": "myriam.rica@gmail.com",
+    "source_url": "https://openagenda.com/culture/events/visite-des-jardins-du-prieure",
+    "host": "gmail.com"
+  },
+  {
+    "email": "nouveaustudiotheatre@gmail.com",
+    "source_url": "https://openagenda.com/nantesmetropole/events/atelier-decriture-1365753",
+    "host": "gmail.com"
+  },
+  {
+    "email": "openmic.lacarriere@gmail.com",
+    "source_url": "https://openagenda.com/nantesmetropole/events/open-mic-a-la-carriere",
+    "host": "gmail.com"
+  },
+  {
+    "email": "parabailarnork@gmail.com",
+    "source_url": "https://openagenda.com/plakatak/events/vamos-a-bailar-nork-kizomba-bachata-y-salsa-3461366",
+    "host": "gmail.com"
+  },
+  {
+    "email": "pelousse.paradise.resa@gmail.com",
+    "source_url": "https://openagenda.com/ales-agglomeration/events/spectacle-perception",
+    "host": "gmail.com"
+  },
+  {
+    "email": "pilotecrea@gmail.com",
+    "source_url": "https://openagenda.com/ville-de-bordeaux/events/salon-des-metiers-dart-et-artisanats-5136940",
+    "host": "gmail.com"
+  },
+  {
+    "email": "productions.anecdotiques@gmail.com",
+    "source_url": "https://openagenda.com/culture/events/tempi-temtoa-5622931",
+    "host": "gmail.com"
+  },
+  {
+    "email": "proprietemarro@gmail.com",
+    "source_url": "https://openagenda.com/culture/events/jardin-de-la-propriete-marro",
+    "host": "gmail.com"
+  },
+  {
+    "email": "repaircafepibrac@gmail.com",
+    "source_url": "https://openagenda.com/repaircafe/events/repair-cafe-de-pibrac-seance-de-reparation-4643988",
+    "host": "gmail.com"
+  },
+  {
+    "email": "resa.nouveaustudiotheatre@gmail.com",
+    "source_url": "https://openagenda.com/nantesmetropole/events/atelier-jardinage-ouvert-a-toustes",
+    "host": "gmail.com"
+  },
+  {
+    "email": "resamandragore@gmail.com",
+    "source_url": "https://openagenda.com/la-source-roncq/events/jaime-beaucoup-ce-que-vous-faites-par-le-theatre-mandragore-3659743",
+    "host": "gmail.com"
+  },
+  {
+    "email": "slavicarib@gmail.com",
+    "source_url": "https://openagenda.com/catalogue-culturel-du-loiret/events/les-oiseaux-de-baba-yaga-3955574",
+    "host": "gmail.com"
+  },
+  {
+    "email": "sopkoff@gmail.com",
+    "source_url": "https://openagenda.com/culture/events/ouverture-jardin",
+    "host": "gmail.com"
+  },
+  {
+    "email": "tralalair41@gmail.com",
+    "source_url": "https://openagenda.com/catalogue-culturel-du-loiret/events/jane-porter-quartet-4602219",
+    "host": "gmail.com"
+  },
+  {
+    "email": "troupeducerfvolant@gmail.com",
+    "source_url": "https://openagenda.com/catalogue-culturel-du-loiret/events/comedie-theatrale-2027",
+    "host": "gmail.com"
+  },
+  {
+    "email": "walteretjosephine@gmail.com",
+    "source_url": "https://openagenda.com/culture/events/cendrillon-love-story",
+    "host": "gmail.com"
+  },
+  {
+    "email": "yannmalek@gmail.com",
+    "source_url": "https://openagenda.com/catalogue-culturel-du-loiret/events/louisiana-mambo",
+    "host": "gmail.com"
+  },
+  {
+    "email": "contact@gondremer.com",
+    "source_url": "https://openagenda.com/culture/events/visite-du-jardin-botanique-de-gondremer-9237365",
+    "host": "gondremer.com"
+  },
+  {
+    "email": "contact@grandeurnature48.com",
+    "source_url": "https://openagenda.com/catalogue-departemental-des-structures-daccueil-et-dhebergement-lozere/events/5476470",
+    "host": "grandeurnature48.com"
+  },
+  {
+    "email": "espacesverts.metropole@grandnancy.eu",
+    "source_url": "https://openagenda.com/culture/events/visite-libre-a-montaigu",
+    "host": "grandnancy.eu"
+  },
+  {
+    "email": "ecsi@guinee44.org",
+    "source_url": "https://openagenda.com/nantesmetropole/events/guinee-en-lumiere-soiree-interculturelle",
+    "host": "guinee44.org"
+  },
+  {
+    "email": "la-clusaz@hifrance.org",
+    "source_url": "https://openagenda.com/catalogue-structures-accueil-hebergement/events/auberge-de-jeunesse-hi-la-clusaz",
+    "host": "hifrance.org"
+  },
+  {
+    "email": "christine_lefevre@hotmail.com",
+    "source_url": "https://openagenda.com/catalogue-culturel-du-loiret/events/roue-libre-2379481",
+    "host": "hotmail.com"
+  },
+  {
+    "email": "ks_prod@hotmail.com",
+    "source_url": "https://openagenda.com/catalogue-culturel-du-loiret/events/leen-ade-concert-guitare-harpe",
+    "host": "hotmail.com"
+  },
+  {
+    "email": "nicolas@jambonfromage.org",
+    "source_url": "https://openagenda.com/maiavelo/events/velo-vin-copains-gaillac-la-bicyclettine-2026",
+    "host": "jambonfromage.org"
+  },
+  {
+    "email": "museomalaga.ccul@juntadeandalucia.es",
+    "source_url": "https://openagenda.com/jea-2026-spain/events/conferencia-malaga-neandertal-poblamiento-y-expresiones-rupestres",
+    "host": "juntadeandalucia.es"
+  },
+  {
+    "email": "musee-du-jouet@jurasud.net",
+    "source_url": "https://openagenda.com/culture/events/restitution-la-classe-loeuvre-444627",
+    "host": "jurasud.net"
+  },
+  {
+    "email": "contact@kevindupont.com",
+    "source_url": "https://openagenda.com/catalogue-culturel-du-loiret/events/kevin-dupont-close-up",
+    "host": "kevindupont.com"
+  },
+  {
+    "email": "contact@labelleimagefanfare.com",
+    "source_url": "https://openagenda.com/catalogue-culturel-du-loiret/events/despues-6420555",
+    "host": "labelleimagefanfare.com"
+  },
+  {
+    "email": "classesdecouvertes-vse@laliguenormandie.org",
+    "source_url": "https://openagenda.com/catalogue-departemental-des-structures-daccueil-et-dhebergement-savoie/events/chalet-du-havre",
+    "host": "laliguenormandie.org"
+  },
+  {
+    "email": "jardinpartagedebarr@laposte.net",
+    "source_url": "https://openagenda.com/culture/events/rendre-visible-tout-ce-monde-qui-sactive-autour-des-plantes-du-jardin",
+    "host": "laposte.net"
+  },
+  {
+    "email": "communication@lart-scene-association.com",
+    "source_url": "https://openagenda.com/kerlandrier/events/eddy-le-quartier-le-family-landerneau",
+    "host": "lart-scene-association.com"
+  },
+  {
+    "email": "billetterie@lelieuunique.com",
+    "source_url": "https://openagenda.com/nantesmetropole/events/lenveillee-juliette-kempf-saison-lieu-unique",
+    "host": "lelieuunique.com"
+  },
+  {
+    "email": "contact@lemaurier.com",
+    "source_url": "https://openagenda.com/culture/events/visite-decouverte-du-jardin-botanique-5648430",
+    "host": "lemaurier.com"
+  },
+  {
+    "email": "informations@lepingalant.com",
+    "source_url": "https://openagenda.com/ville-de-bordeaux/events/lile-des-reves",
+    "host": "lepingalant.com"
+  },
+  {
+    "email": "info@lessurvenues.com",
+    "source_url": "https://openagenda.com/catalogue-culturel-du-loiret/events/banquet-4169079",
+    "host": "lessurvenues.com"
+  },
+  {
+    "email": "accueil@lestive.com",
+    "source_url": "https://openagenda.com/adt-ariege-pyrenees/events/happy-manif-walk-on-the-love-side-david-rolland-choregraphies",
+    "host": "lestive.com"
+  },
+  {
+    "email": "info@madrid.es",
+    "source_url": "https://openagenda.com/jea-2026-spain/events/visita-guiada-al-castell-vell-y-su-centro-de-interpretacion",
+    "host": "madrid.es"
+  },
+  {
+    "email": "archeologie.srj@mailo.com",
+    "source_url": "https://openagenda.com/jea-2026/events/8594434",
+    "host": "mailo.com"
+  },
+  {
+    "email": "bm.webmaster@mairie-avignon.com",
+    "source_url": "https://openagenda.com/avignon-bibliotheques/events/babillages-6299661",
+    "host": "mairie-avignon.com"
+  },
+  {
+    "email": "contact@maulnes.com",
+    "source_url": "https://openagenda.com/culture/events/decouverte-des-nouveaux-jardins-du-chateau-de-maulnes",
+    "host": "maulnes.com"
+  },
+  {
+    "email": "contact@mtariicrisurilor.ro",
+    "source_url": "https://openagenda.com/culture/events/les-musees-doradea-se-reunissent-8542329",
+    "host": "mtariicrisurilor.ro"
+  },
+  {
+    "email": "info@mucc.es",
+    "source_url": "https://openagenda.com/jea-2026-spain/events/visita-guiada-al-castell-vell-y-su-centro-de-interpretacion",
+    "host": "mucc.es"
+  },
+  {
+    "email": "resa.cimes@neaclub.com",
+    "source_url": "https://openagenda.com/catalogue-structures-accueil-hebergement/events/les-cimes-du-leman",
+    "host": "neaclub.com"
+  },
+  {
+    "email": "fourques@netcourrier.com",
+    "source_url": "https://openagenda.com/jna2026/events/raisins-et-trottinettes-785416",
+    "host": "netcourrier.com"
+  },
+  {
+    "email": "info@pagode-chanteloup.com",
+    "source_url": "https://openagenda.com/culture/events/modelisme-naval-3846788",
+    "host": "pagode-chanteloup.com"
+  },
+  {
+    "email": "contact@pep75.org",
+    "source_url": "https://openagenda.com/catalogue-structures-accueil-hebergement/events/mon-abri-les-pep75",
+    "host": "pep75.org"
+  },
+  {
+    "email": "centre-du-porteau@pep85.com",
+    "source_url": "https://openagenda.com/catalogue-departemental-des-structures-daccueil-et-dhebergement-vendee/events/centre-du-porteau-pep85",
+    "host": "pep85.com"
+  },
+  {
+    "email": "delegation90@pepcbfc.org",
+    "source_url": "https://openagenda.com/catalogue-departemental-des-structures-daccueil-et-dhebergement-haute-saone/events/centre-pep-cbfc-90-70500-aisey-et-richecourt",
+    "host": "pepcbfc.org"
+  },
+  {
+    "email": "tourisme@pontivycommunaute.com",
+    "source_url": "https://openagenda.com/pays-dart-et-dhistoire-des-rohan/events/visite-guidee-ludique-les-enfants-au-chateau-de-pontivy",
+    "host": "pontivycommunaute.com"
+  },
+  {
+    "email": "contact@prehistorama.com",
+    "source_url": "https://openagenda.com/ales-agglomeration/events/vacances-de-printemps-ateliers-enfants",
+    "host": "prehistorama.com"
+  },
+  {
+    "email": "info@ptrnet.ch",
+    "source_url": "https://openagenda.com/geneve-communes/events/picture-this",
+    "host": "ptrnet.ch"
+  },
+  {
+    "email": "contact@rencontres-audiovisuelles.org",
+    "source_url": "https://openagenda.com/planlibre/events/special-kids-la-fete-du-court-metrage-mon-jardin-merveilleux-lhybride-lille",
+    "host": "rencontres-audiovisuelles.org"
+  },
+  {
+    "email": "contact@rockschool-barbey.com",
+    "source_url": "https://openagenda.com/ville-de-bordeaux/events/modelactriz",
+    "host": "rockschool-barbey.com"
+  },
+  {
+    "email": "infos@saluterre.com",
+    "source_url": "https://openagenda.com/ateliers-saisonniers-jardins-haute-biodiversite/events/jardiner-au-naturel-lors-des-buccoliques-lormont",
+    "host": "saluterre.com"
+  },
+  {
+    "email": "contact@studiolalla.com",
+    "source_url": "https://openagenda.com/nantesmetropole/events/atelier-tissage-et-creation-textile",
+    "host": "studiolalla.com"
+  },
+  {
+    "email": "valleraugue@sudcevennes.com",
+    "source_url": "https://openagenda.com/toutes-les-chambres-agriculture-agregees/events/fete-de-la-transhumance-6090530",
+    "host": "sudcevennes.com"
+  },
+  {
+    "email": "reservation@swissfoodacademy.ch",
+    "source_url": "https://openagenda.com/geneve-communes/events/ramene-ta-peche-camp-dete-pour-les-6-a-12-ans",
+    "host": "swissfoodacademy.ch"
+  },
+  {
+    "email": "facebook@system.le.groupe",
+    "source_url": "https://openagenda.com/catalogue-culturel-du-loiret/events/system-en-concert-2319142",
+    "host": "system.le.groupe"
+  },
+  {
+    "email": "mediation@theatre-massenet.com",
+    "source_url": "https://openagenda.com/planlibre/events/tristes-en-ete-compagnie-adele-bazar-or-theatre-massenet-et-theatre-de-la-verriere",
+    "host": "theatre-massenet.com"
+  },
+  {
+    "email": "reservations@theatre-thouars.com",
+    "source_url": "https://openagenda.com/accueil-agenda-spectacle-vivant-drac-na/events/lhypothese-dastree",
+    "host": "theatre-thouars.com"
+  },
+  {
+    "email": "alexandra@theatre100noms.com",
+    "source_url": "https://openagenda.com/nantesmetropole/events/climax-spectacle-burlesque-musical",
+    "host": "theatre100noms.com"
+  },
+  {
+    "email": "contact@totems.bzh",
+    "source_url": "https://openagenda.com/villedepace/events/fete-mondiale-du-jeu-4699388",
+    "host": "totems.bzh"
+  },
+  {
+    "email": "jenny@universalsounds.ch",
+    "source_url": "https://openagenda.com/geneve-communes/events/malte-marten-autumn-tour-2026",
+    "host": "universalsounds.ch"
+  },
+  {
+    "email": "infosolutionce@up.coop",
+    "source_url": "https://openagenda.com/solutionscse/events/6448002",
+    "host": "up.coop"
+  },
+  {
+    "email": "billetterie@versaillespalaisdescongres.com",
+    "source_url": "https://openagenda.com/versailles-palais-des-congres/events/philippine-delaire-fifiille-a-papa",
+    "host": "versaillespalaisdescongres.com"
+  }
+]

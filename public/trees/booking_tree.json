@@ -1,6 +1,6 @@
 {
   "mode": "BOOKING",
-  "version": "2.0",
+  "version": "3.0",
 
   "defaultMetadata": {
     "verification": {
@@ -33,235 +33,167 @@
   },
 
   "artistLevels": {
-    "Débutant": { "description": "Nouveau talent, peu d'expérience", "minScore": 0, "bonusVisibility": 0.0 },
-    "Semi-pro": { "description": "Expérience modérée, quelques bookings", "minScore": 20, "bonusVisibility": 0.1 },
-    "Pro": { "description": "Professionnel actif avec portfolio solide", "minScore": 40, "bonusVisibility": 0.25 },
-    "Headliner": { "description": "Tête d'affiche reconnue", "minScore": 70, "bonusVisibility": 0.5 },
-    "International": { "description": "Artiste tournant dans plusieurs pays", "minScore": 100, "bonusVisibility": 0.8 },
-    "Légende": { "description": "Statut exceptionnel ou carrière historique", "minScore": 150, "bonusVisibility": 1.2 },
-    "Non détecté": { "description": "Niveau non identifiable par l'IA", "minScore": 0, "bonusVisibility": 0 }
+    "Débutant":     { "description": "Nouveau talent, peu d'expérience",               "minScore": 0,   "bonusVisibility": 0.0 },
+    "Semi-pro":     { "description": "Expérience modérée, quelques bookings",           "minScore": 20,  "bonusVisibility": 0.1 },
+    "Pro":          { "description": "Professionnel actif avec portfolio solide",       "minScore": 40,  "bonusVisibility": 0.25 },
+    "Headliner":    { "description": "Tête d'affiche reconnue",                         "minScore": 70,  "bonusVisibility": 0.5 },
+    "International":{ "description": "Artiste tournant dans plusieurs pays",            "minScore": 100, "bonusVisibility": 0.8 },
+    "Légende":      { "description": "Statut exceptionnel ou carrière historique",      "minScore": 150, "bonusVisibility": 1.2 },
+    "Non détecté":  { "description": "Niveau non identifiable par l'IA",               "minScore": 0,   "bonusVisibility": 0 }
   },
 
   "categories": {
     "name": "Artistes & Performers",
     "children": [
+
       {
-        "name": "Electro",
+        "name": "Électro",
         "children": [
-          {
-            "name": "Electronic",
-            "children": [
-              { "name": "Techno" },
-              { "name": "Acid Techno" },
-              { "name": "Minimal Techno" },
-              { "name": "Hard Techno" },
-              { "name": "Industrial Techno" },
-              { "name": "Melodic Techno" },
-              { "name": "Detroit Techno" }
-            ]
-          },
-          {
-            "name": "House",
-            "children": [
-              { "name": "Deep House" },
-              { "name": "Tech House" },
-              { "name": "Progressive House" },
-              { "name": "Funky House" },
-              { "name": "Tribal House" },
-              { "name": "Afro House" }
-            ]
-          },
-          {
-            "name": "Trance",
-            "children": [
-              { "name": "Psytrance" },
-              { "name": "Full On" },
-              { "name": "Goa" },
-              { "name": "Progressive Psy" },
-              { "name": "Dark Psy" },
-              { "name": "Forest" },
-              { "name": "Hi-Tech" },
-              { "name": "Uplifting Trance" }
-            ]
-          },
-          {
-            "name": "Bass Music",
-            "children": [
-              { "name": "Drum & Bass" },
-              { "name": "Dubstep" },
-              { "name": "Riddim" },
-              { "name": "UK Bass" },
-              { "name": "Future Bass" },
-              { "name": "Jungle" },
-              { "name": "Neurofunk" }
-            ]
-          },
-          {
-            "name": "Hard Music",
-            "children": [
-              { "name": "Hardstyle" },
-              { "name": "Hardcore" },
-              { "name": "Gabber" },
-              { "name": "Rawstyle" },
-              { "name": "Frenchcore" }
-            ]
-          },
-          {
-            "name": "Chill / Ambient",
-            "children": [
-              { "name": "Ambient" },
-              { "name": "Chillout" },
-              { "name": "Lofi" },
-              { "name": "Downtempo" }
-            ]
-          },
-          {
-            "name": "Disco",
-            "children": [
-              { "name": "Disco" },
-              { "name": "Nu-Disco" },
-              { "name": "Italo Disco" }
-            ]
-          }
+          { "name": "Techno",     "children": [
+            { "name": "Acid Techno" }, { "name": "Minimal Techno" }, { "name": "Hard Techno" },
+            { "name": "Industrial Techno" }, { "name": "Peak Time Techno" }, { "name": "Detroit Techno" },
+            { "name": "Melodic Techno" }, { "name": "Dub Techno" }
+          ]},
+          { "name": "House",      "children": [
+            { "name": "Deep House" }, { "name": "Tech House" }, { "name": "Progressive House" },
+            { "name": "Afro House" }, { "name": "Funky House" }, { "name": "Soulful House" }, { "name": "Tribal House" }
+          ]},
+          { "name": "Trance",     "children": [
+            { "name": "Psytrance" }, { "name": "Full On" }, { "name": "Goa" },
+            { "name": "Progressive Psy" }, { "name": "Dark Psy" }, { "name": "Forest" },
+            { "name": "Hi-Tech" }, { "name": "Uplifting Trance" }, { "name": "Vocal Trance" }
+          ]},
+          { "name": "Drum & Bass","children": [
+            { "name": "Neurofunk" }, { "name": "Liquid DnB" }, { "name": "Jump Up" },
+            { "name": "Jungle" }, { "name": "Halftime" }, { "name": "Darkstep" }
+          ]},
+          { "name": "Bass Music", "children": [
+            { "name": "Dubstep" }, { "name": "Riddim" }, { "name": "UK Bass" },
+            { "name": "Future Bass" }, { "name": "Trap Bass" }
+          ]},
+          { "name": "Hard Music", "children": [
+            { "name": "Hardstyle" }, { "name": "Hardcore" }, { "name": "Gabber" },
+            { "name": "Rawstyle" }, { "name": "Frenchcore" }
+          ]},
+          { "name": "Disco / Nu-Disco", "children": [
+            { "name": "Disco" }, { "name": "Nu-Disco" }, { "name": "Italo Disco" }, { "name": "Funk électronique" }
+          ]},
+          { "name": "Ambient / Chill", "children": [
+            { "name": "Ambient" }, { "name": "Chillout" }, { "name": "Lofi" },
+            { "name": "Downtempo" }, { "name": "Dark Ambient" }
+          ]}
         ]
       },
+
       {
-        "name": "Urban & Hip-Hop",
+        "name": "Urbain",
         "children": [
-          { "name": "Rap" },
-          { "name": "Trap" },
-          { "name": "Drill" },
-          { "name": "Hip-Hop" },
-          { "name": "RnB" },
-          { "name": "Afrobeats" },
-          { "name": "Dancehall" },
-          { "name": "Reggaeton" },
-          { "name": "Phonk" },
-          { "name": "Jersey Club" }
+          { "name": "Rap / Hip-Hop",   "children": [
+            { "name": "Rap FR" }, { "name": "Rap US" }, { "name": "Old School" },
+            { "name": "Trap" }, { "name": "Drill" }, { "name": "Phonk" }, { "name": "Conscious" }
+          ]},
+          { "name": "RnB / Soul",      "children": [
+            { "name": "RnB" }, { "name": "Neo Soul" }, { "name": "Contemporary Soul" }
+          ]},
+          { "name": "Afro / Caraïbes", "children": [
+            { "name": "Afrobeats" }, { "name": "Afro-Pop" }, { "name": "Dancehall" },
+            { "name": "Reggaeton" }, { "name": "Kompa" }
+          ]},
+          { "name": "Grime / UK",      "children": [
+            { "name": "Grime" }, { "name": "UK Garage" }, { "name": "Jersey Club" }
+          ]}
         ]
       },
+
       {
-        "name": "Rock & Metal",
+        "name": "Rock / Metal",
         "children": [
-          { "name": "Rock" },
-          { "name": "Indie Rock" },
-          { "name": "Alternative Rock" },
-          { "name": "Punk Rock" },
-          { "name": "Metal" },
-          { "name": "Heavy Metal" },
-          { "name": "Metalcore" },
-          { "name": "Progressive Metal" }
+          { "name": "Rock",  "children": [
+            { "name": "Hard Rock" }, { "name": "Indie Rock" }, { "name": "Alternative Rock" },
+            { "name": "Punk Rock" }, { "name": "Classic Rock" }, { "name": "Grunge" }, { "name": "Garage Rock" }
+          ]},
+          { "name": "Metal", "children": [
+            { "name": "Heavy Metal" }, { "name": "Thrash Metal" }, { "name": "Black Metal" },
+            { "name": "Death Metal" }, { "name": "Metalcore" }, { "name": "Nu Metal" },
+            { "name": "Symphonic Metal" }, { "name": "Progressive Metal" }, { "name": "Doom Metal" }
+          ]}
         ]
       },
+
       {
-        "name": "Jazz & Soul",
+        "name": "Jazz / Blues / Soul",
         "children": [
-          { "name": "Jazz" },
-          { "name": "Smooth Jazz" },
-          { "name": "Blues" },
-          { "name": "Soul" },
-          { "name": "Funk" },
-          { "name": "Neo Soul" },
-          { "name": "Swing" }
+          { "name": "Jazz" }, { "name": "Smooth Jazz" }, { "name": "Blues" },
+          { "name": "Soul" }, { "name": "Funk" }, { "name": "Swing" }, { "name": "Fusion" }, { "name": "Nu Jazz" }
         ]
       },
+
       {
-        "name": "World & Reggae",
+        "name": "Reggae / World",
         "children": [
-          { "name": "Reggae" },
-          { "name": "Dub" },
-          { "name": "Ska" },
-          { "name": "Cumbia" },
-          { "name": "Afrobeat" },
-          { "name": "Latin" },
-          { "name": "Balkan" },
-          { "name": "Oriental" }
+          { "name": "Reggae" }, { "name": "Dub" }, { "name": "Ska" }, { "name": "Roots Reggae" },
+          { "name": "Cumbia" }, { "name": "Afrobeat" }, { "name": "Balkan" }, { "name": "Latin" }, { "name": "Oriental" }
         ]
       },
+
       {
-        "name": "Pop & Variété",
+        "name": "Pop / Variété",
         "children": [
-          { "name": "Pop" },
-          { "name": "Indie Pop" },
-          { "name": "Electro Pop" },
-          { "name": "Disco" },
-          { "name": "K-Pop" },
-          { "name": "Chanson Française" }
+          { "name": "Pop" }, { "name": "Indie Pop" }, { "name": "Electro Pop" },
+          { "name": "K-Pop" }, { "name": "J-Pop" }, { "name": "Chanson Française" }, { "name": "Variété" }
         ]
       },
+
+      {
+        "name": "Folk / Acoustic",
+        "children": [
+          { "name": "Folk" }, { "name": "Country" }, { "name": "Bluegrass" },
+          { "name": "Acoustic Live" }, { "name": "Celtic / Irish" }
+        ]
+      },
+
       {
         "name": "Classique",
         "children": [
-          { "name": "Orchestre" },
-          { "name": "Chambre" },
-          { "name": "Opéra" },
-          { "name": "Piano solo" },
-          { "name": "Violon solo" }
+          { "name": "Orchestre symphonique" }, { "name": "Orchestre de chambre" },
+          { "name": "Opéra" }, { "name": "Récital solo" }, { "name": "Quatuor / Trio" },
+          { "name": "Chœur / Ensemble vocal" }, { "name": "Brass Band" }
         ]
       },
-      {
-        "name": "Folk & Acoustic",
-        "children": [
-          { "name": "Folk" },
-          { "name": "Country" },
-          { "name": "Acoustic" },
-          { "name": "Bluegrass" }
-        ]
-      },
-      {
-        "name": "Classique & Folk",
-        "children": [
-          { "name": "Classique" },
-          { "name": "Folk" },
-          { "name": "Country" },
-          { "name": "Soundtrack" }
-        ]
-      },
+
       {
         "name": "Live Acts",
         "children": [
-          { "name": "Synth Live" },
-          { "name": "Modular" },
-          { "name": "Chant / Vocal" },
-          { "name": "Guitare" },
-          { "name": "Percussions" },
-          { "name": "Piano" },
-          { "name": "Saxophone" },
-          { "name": "Violon" }
+          { "name": "Synth Live" }, { "name": "Modular" }, { "name": "Chant / Vocal" },
+          { "name": "Guitare" }, { "name": "Percussions" }, { "name": "Piano" },
+          { "name": "Saxophone" }, { "name": "Violon" }, { "name": "Basse" }
         ]
       },
+
       {
         "name": "Performers",
         "children": [
-          { "name": "Danseurs" },
-          { "name": "Jongleurs" },
-          { "name": "Fire Show" },
-          { "name": "LED Show" },
-          { "name": "Acrobates" },
-          { "name": "Cosplay" },
-          { "name": "Go-Go Dancers" },
-          { "name": "Stilt Walkers" }
+          { "name": "Danseurs" }, { "name": "Acrobates" }, { "name": "Jongleurs" },
+          { "name": "Fire Show" }, { "name": "LED Show" }, { "name": "Go-Go Dancers" },
+          { "name": "Stilt Walkers" }, { "name": "Cosplay" }
         ]
       },
+
       {
         "name": "VJ & Visuels",
         "children": [
-          { "name": "VJ Software" },
-          { "name": "Mapping 3D" },
-          { "name": "Projections" },
-          { "name": "Laser Artist" },
-          { "name": "LED Artist" }
+          { "name": "VJ Software" }, { "name": "Mapping 3D" }, { "name": "Projections" },
+          { "name": "Laser Artist" }, { "name": "LED Artist" }
         ]
       },
+
       {
         "name": "MCs & Animateurs",
         "children": [
-          { "name": "MC" },
-          { "name": "Animateur" },
-          { "name": "Speaker" },
-          { "name": "Host" }
+          { "name": "MC" }, { "name": "Animateur" }, { "name": "Speaker" }, { "name": "Host" }
         ]
       }
+
     ]
   }
 }

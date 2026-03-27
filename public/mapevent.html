@@ -12,6 +12,10 @@
     <!-- Preconnect pour les tuiles de carte -->
     <link rel="preconnect" href="https://a.tile.openstreetmap.org" crossorigin>
     <link rel="dns-prefetch" href="https://a.tile.openstreetmap.org">
+    <link rel="dns-prefetch" href="https://b.tile.openstreetmap.org">
+    <link rel="dns-prefetch" href="https://c.tile.openstreetmap.org">
+    <!-- Preload Leaflet CSS (render-critical) -->
+    <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" as="style" crossorigin>
     <meta charset="UTF-8">
     <title>MapEvent – Carte mondiale des événements, bookings et services</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -29,7 +33,7 @@
     <meta property="og:url" content="https://mapevent.world/" id="og-url">
     <meta property="og:title" content="MapEvent – Événements, Bookings et Services sur une carte" id="og-title">
     <meta property="og:description" content="Trouvez des événements, artistes à réserver et services professionnels partout dans le monde. 3 cartes en 1, gratuit." id="og-description">
-    <meta property="og:image" content="https://mapevent.world/assets/og-preview.png" id="og-image">
+    <meta property="og:image" content="https://mapevent.world/og-preview-pro.svg" id="og-image">
     <meta property="og:image:width" content="1200" id="og-image-width">
     <meta property="og:image:height" content="630" id="og-image-height">
     <meta property="og:image:alt" content="MapEvent - Carte mondiale des événements">
@@ -41,7 +45,7 @@
     <meta name="twitter:url" content="https://mapevent.world/" id="twitter-url">
     <meta name="twitter:title" content="MapEvent – Événements, Bookings et Services sur une carte" id="twitter-title">
     <meta name="twitter:description" content="Trouvez des événements, artistes à réserver et services professionnels partout dans le monde. 3 cartes en 1, gratuit." id="twitter-description">
-    <meta name="twitter:image" content="https://mapevent.world/assets/og-preview.png" id="twitter-image">
+    <meta name="twitter:image" content="https://mapevent.world/og-preview-pro.svg" id="twitter-image">
     <meta name="twitter:image:alt" content="MapEvent - Carte mondiale des événements">
 
     <!-- JSON-LD Structured Data -->
@@ -90,12 +94,7 @@
             "price": "0",
             "priceCurrency": "EUR"
           },
-          "description": "Trouvez des événements, artistes à réserver et services professionnels partout dans le monde sur une seule carte interactive.",
-          "aggregateRating": {
-            "@type": "AggregateRating",
-            "ratingValue": "4.8",
-            "ratingCount": "1"
-          }
+          "description": "Trouvez des événements, artistes à réserver et services professionnels partout dans le monde sur une seule carte interactive."
         }
       ]
     }
@@ -114,21 +113,13 @@
     <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
     <link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512.png">
 
-    <!-- Leaflet (cdnjs - CDN rapide et fiable) -->
-    <link
-      rel="stylesheet"
-      href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"
-      crossorigin=""
-    />
-    <script
-      src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"
-      crossorigin=""
-      defer
-    ></script>
-    
-    <!-- Leaflet MarkerCluster (cdnjs) -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.css" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.css" />
+    <!-- Leaflet CSS - preload pour LCP rapide -->
+    <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" crossorigin="">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" crossorigin="">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" crossorigin="" defer fetchpriority="high"></script>
+    <!-- Leaflet MarkerCluster -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.js" defer></script>
     
     <!-- Stripe.js - chargé à la demande pour ne pas ralentir le premier affichage -->
@@ -2513,11 +2504,8 @@
                 padding: 0 8px !important;
             }
             
-            /* Logo compact sur mobile */
-            #logo-main .text {
-                display: none !important;
-            }
-            #logo-main #logo-tagline {
+            /* Logo complètement caché sur mobile (déjà en bas de la map) */
+            #logo-main {
                 display: none !important;
             }
             
@@ -2534,22 +2522,23 @@
                 display: none !important;
             }
             
-            /* Bouton Filtres dans la topbar - Style vert, décalé à gauche */
+            /* Bouton Filtres dans la topbar - Collé à gauche, plus grand */
             #mobile-filter-topbar-btn {
                 display: flex !important;
-                position: absolute !important;
-                left: calc(50% - 1.5cm) !important;
-                transform: translateX(-50%) !important;
-                padding: 8px 20px !important;
+                position: relative !important;
+                left: auto !important;
+                transform: none !important;
+                padding: 10px 28px !important;
                 background: transparent !important;
                 border: 2px solid #22c55e !important;
-                border-radius: 20px !important;
+                border-radius: 24px !important;
                 color: #22c55e !important;
-                font-weight: 600 !important;
-                font-size: 13px !important;
+                font-weight: 700 !important;
+                font-size: 15px !important;
                 cursor: pointer !important;
                 gap: 6px !important;
                 align-items: center !important;
+                margin-left: 0 !important;
             }
             
             #mobile-filter-topbar-btn:active {
@@ -2574,9 +2563,9 @@
                 min-height: 200px !important;
             }
             
-            /* BARRE D'ACTIONS MOBILE - Sous la barre catégories (56px topbar + 46px chips + 8px gap) */
+            /* BARRE D'ACTIONS MOBILE - Sous la topbar (56px topbar + 8px gap) */
             #map-search-container {
-                top: 110px !important;
+                top: 66px !important;
                 left: 8px !important;
                 right: auto !important;
                 width: calc(100% - 130px) !important;
@@ -2588,12 +2577,15 @@
                 font-size: 14px !important;
             }
             
-            /* Bouton Publier - À droite, aligné avec la recherche */
+            /* Bouton Publier - À droite, même hauteur que la recherche */
             #map-publish-btn {
-                top: 110px !important;
+                top: 66px !important;
                 right: 8px !important;
                 padding: 10px 14px !important;
                 font-size: 13px !important;
+                height: 42px !important;
+                display: flex !important;
+                align-items: center !important;
             }
             
             /* Bouton Filtrer - Créer un bouton flottant */
@@ -2650,22 +2642,14 @@
                 margin-bottom: 2px !important;
             }
             
-            /* Chips catégories scrollables - visible sur mobile */
-            .category-chips-bar {
-                display: block !important;
-                position: fixed !important;
-                top: 56px !important;
-                left: 0 !important;
-                right: 0 !important;
-                height: 46px !important;
-                z-index: 75 !important;
-                background: rgba(2,6,23,0.92) !important;
-                backdrop-filter: blur(10px) !important;
-                -webkit-backdrop-filter: blur(10px) !important;
-                border-bottom: 1px solid rgba(148,163,184,0.2) !important;
+            /* Chips catégories - SUPPRIMÉ */
+            .category-chips-bar { display: none !important; }
+            
+            /* Logo bottom repositionné au-dessus de la nav mobile */
+            #map-bottom-logo {
+                bottom: 60px !important;
+                border-top-right-radius: 6px !important;
             }
-            .category-chips-bar::-webkit-scrollbar,
-            #category-chips-inner::-webkit-scrollbar { display: none !important; }
             
             /* Mode découverte - cartes swipe horizontales (au-dessus nav + mini-player) */
             .discovery-carousel {
@@ -2787,15 +2771,23 @@
         .mobile-nav-bar {
             display: none;
         }
+
+        /* Logo bas visible uniquement sur smartphone */
+        #map-bottom-logo {
+            display: none !important;
+        }
+        @media (max-width: 768px) {
+            #map-bottom-logo {
+                display: flex !important;
+            }
+        }
         
         .discovery-carousel {
             display: none !important;
         }
         
-        /* Chips catégories - cachés sur desktop */
-        .category-chips-bar {
-            display: none;
-        }
+        /* Chips catégories - SUPPRIMÉ */
+        .category-chips-bar { display: none; }
         
         /* MINI-PLAYER AUDIO - Fixe en bas, reste visible sur la map (comme Spotify) */
         #audio-mini-player {
@@ -2848,17 +2840,7 @@
                 flex-shrink: 0;
             }
         }
-        /* Barre d'actions fixe en bas des popups (event/booking/service) */
-        .popup-actions-sticky {
-            background: var(--ui-card-bg, #1e293b) !important;
-            -webkit-backdrop-filter: blur(8px);
-            backdrop-filter: blur(8px);
-        }
-        @media (prefers-color-scheme: light) {
-            .popup-actions-sticky {
-                background: var(--ui-card-bg, #ffffff) !important;
-            }
-        }
+        /* Styles popup-actions-sticky gérés inline par type (event/booking/service). */
     </style>
 </head>
 <body style="background:#020617;">
@@ -3000,8 +2982,7 @@
                 </div>
                 <div style="display:flex;flex-direction:column;align-items:center;">
                     <div class="text" style="background:linear-gradient(90deg,#00ffc3,#3b82f6);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;font-weight:800;font-size:18px;">MAP EVENT</div>
-                    <div id="logo-tagline" style="font-size:12px;color:var(--ui-text-muted);line-height:1.2;text-align:center;">Votre plateforme événementielle</div>
-                    <div id="stats-counts-badge" style="font-size:11px;color:var(--ui-text-muted);margin-top:2px;">—</div>
+                    <div id="stats-counts-top" style="margin-top:2px;font-size:10px;color:rgba(148,163,184,0.85);line-height:1;">—</div>
                 </div>
             </div>
             
@@ -3044,13 +3025,18 @@
         </div>
     </div>
 
-    <!-- Chips catégories scrollables (mobile) -->
-    <div id="category-chips-bar" class="category-chips-bar">
-      <div id="category-chips-inner" style="display:flex;gap:8px;padding:8px 12px;overflow-x:auto;scroll-snap-type: inline mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;align-items:center;height:100%;">
-      </div>
-    </div>
-
     <div id="map"></div>
+
+    <!-- Logo + Stats en bas à gauche de la map, même hauteur que la barre Leaflet attribution -->
+    <div id="map-bottom-logo" onclick="if(typeof window.openAboutModal==='function'){window.openAboutModal();}" style="position:fixed;bottom:0;left:0;z-index:401;display:flex;align-items:center;gap:5px;padding:0 8px;height:20px;background:rgba(2,6,23,0.92);border-top-right-radius:4px;cursor:pointer;font-family:system-ui,-apple-system,sans-serif;line-height:20px;">
+      <svg width="12" height="12" viewBox="0 0 42 42" fill="none">
+        <defs><linearGradient id="logoGradBottom" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#00ffc3"/><stop offset="100%" stop-color="#3b82f6"/></linearGradient></defs>
+        <g transform="translate(8,4)"><path d="M13 0C5.82 0 0 5.82 0 13c0 9.75 13 21 13 21s13-11.25 13-21C26 5.82 20.18 0 13 0z" fill="url(#logoGradBottom)"/><circle cx="13" cy="12" r="5.5" fill="white"/><text x="13" y="15.5" text-anchor="middle" font-weight="900" font-size="10" fill="url(#logoGradBottom)">M</text></g>
+      </svg>
+      <span style="font-weight:700;font-size:10px;background:linear-gradient(90deg,#00ffc3,#3b82f6);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;">MapEvent</span>
+      <span style="color:rgba(148,163,184,0.4);font-size:9px;">|</span>
+      <span id="stats-counts-bottom" style="font-size:9px;color:rgba(148,163,184,0.7);">—</span>
+    </div>
 
     <!-- Mode découverte - Cartes horizontales swipe (mobile) -->
     <div id="discovery-carousel" class="discovery-carousel">
@@ -3089,7 +3075,7 @@
         <input
           id="map-search-input"
           type="text"
-          placeholder="Rechercher une ville..."
+          placeholder="Rechercher ville, point, lieu..."
         />
     </div>
 
@@ -3137,7 +3123,7 @@
     (function() {
       try {
         // Liste des clés ESSENTIELLES à garder - tout le reste sera supprimé
-        var KEEP = ['currentUser','accessToken','refreshToken','id_token','stayLoggedIn','theme','language','userLang','lastMode','filtersState','mapCenter','mapZoom','cookiesAccepted','userPosition','pendingPublishData'];
+        var KEEP = ['currentUser','accessToken','refreshToken','id_token','stayLoggedIn','theme','language','userLang','lastMode','filtersState','mapCenter','mapZoom','cookiesAccepted','userPosition','pendingPublishData','customThemeConfig','user_agenda_backup','mapevent_lang'];
         var allKeys = [];
         for (var i = 0; i < localStorage.length; i++) { allKeys.push(localStorage.key(i)); }
         var removed = 0;
@@ -3173,12 +3159,13 @@
       console.log('%c💡 Ou ouvrez: tests/diagnostic/DIAGNOSTIC_USERNAME_CONSOLE.txt et copiez-collez le code', 'color: #00ffc3; font-weight: bold;');
     </script>
     <!-- Logique principale de la carte -->
-    <script src="map_logic.js?v=20260221-fix2" defer></script>
+    <script src="map_logic.js?v=20260326-addressfix2" defer></script>
     <!-- Override du modal Compte : grille de blocs -->
     <script>
     (function(){
       var _patched = false;
-      function go(fn){ if(typeof closePublishModal==='function') closePublishModal(); setTimeout(fn, 300); }
+      function go(fn){ if(typeof closePublishModal==='function') closePublishModal(); setTimeout(fn, 350); }
+      function goKeep(fn){ setTimeout(fn, 50); }
       function safeEsc(s){ return String(s||'').replace(/[<>&"]/g, function(c){ return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]; }); }
 
       console.log('[INIT] _openAccountGrid défini');
@@ -3238,15 +3225,16 @@
         var grid = document.createElement('div');
         grid.style.cssText = 'padding:16px 20px;display:flex;flex-wrap:wrap;gap:10px;';
 
+        var favCount = (u.favorites&&u.favorites.length)||0;
         var items = [
-          ['&#x1F4C5;','Agenda',function(){ go(function(){ if(typeof openAgendaModal==='function') openAgendaModal(); }); }],
+          ['&#x1F4C5;','Agenda',function(){ goKeep(function(){ if(typeof openAgendaModal==='function') openAgendaModal(); }); }],
+          ['&#x2B50;','Favoris' + (favCount>0?' <span style="background:#f59e0b;color:#000;font-size:10px;font-weight:700;padding:1px 6px;border-radius:8px;margin-left:4px;">'+favCount+'</span>':''),function(){ goKeep(function(){ if(typeof openFavoritesModal==='function') openFavoritesModal(); }); }],
           ['&#x1F514;','Alertes',function(){ go(function(){ if(typeof openProximityAlertsView==='function') openProximityAlertsView(); }); }],
-          ['&#x1F464;','Profil',function(){ if(typeof showAccountModalTab==='function') showAccountModalTab('profil'); }],
-          ['&#x270F;&#xFE0F;','Modifier profil',function(){ go(function(){ if(typeof openEditProfileModal==='function') openEditProfileModal(); }); }],
-          ['&#x1F4E2;','Mes annonces',function(){ if(typeof showAccountModalTab==='function') showAccountModalTab('annonces'); }],
-          ['&#x1F514;','Notifications',function(){ if(typeof showAccountModalTab==='function') showAccountModalTab('notifications'); }],
-          ['&#x1F6D2;','Panier',function(){ go(function(){ if(typeof openCartModal==='function') openCartModal(); }); }],
-          ['&#x1F48E;','Abos',function(){ go(function(){ if(typeof openSubscriptionModal==='function') openSubscriptionModal(); }); }]
+          ['&#x1F464;','Profil',function(){ goKeep(function(){ if(typeof openUserProfileView==='function') openUserProfileView(); else if(typeof openAccountWindow==='function') openAccountWindow('profil'); }); }],
+          ['&#x270F;&#xFE0F;','Modifier profil',function(){ goKeep(function(){ if(typeof openEditProfileModal==='function') openEditProfileModal(); }); }],
+          ['&#x1F4E2;','Mes annonces',function(){ goKeep(function(){ if(typeof showMesAnnoncesModal==='function') showMesAnnoncesModal(); }); }],
+          ['&#x2699;&#xFE0F;','Param\u00e8tres',function(){ goKeep(function(){ if(typeof openSettingsModal==='function') openSettingsModal(); }); }],
+          ['&#x1F48E;','Offres',function(){ goKeep(function(){ if(typeof openSubscriptionModal==='function') openSubscriptionModal(); }); }]
         ];
 
         items.forEach(function(it){
@@ -3257,26 +3245,13 @@
           grid.appendChild(b);
         });
 
-        var paramWrap = document.createElement('div');
-        paramWrap.style.cssText = 'width:100%;display:flex;gap:10px;';
-        var paramBtn = document.createElement('button');
-        paramBtn.style.cssText = bS;
-        paramBtn.innerHTML = '<span style="font-size:20px;">&#x2699;&#xFE0F;</span><span>Param\u00e8tres</span>';
-        paramBtn.onclick = function(){ go(function(){ if(typeof openSettingsModal==='function') openSettingsModal(); }); };
-        paramWrap.appendChild(paramBtn);
-        var ecoBtn = document.createElement('button');
-        ecoBtn.style.cssText = bS + 'background:linear-gradient(135deg,rgba(34,197,94,0.2),rgba(16,185,129,0.1));border-color:rgba(34,197,94,0.4);';
-        ecoBtn.innerHTML = '<span style="font-size:20px;">&#x1F30D;</span><span style="color:#22c55e;">Sauver la Terre</span>';
-        ecoBtn.onclick = function(){ go(function(){ if(typeof openEcoMissionModal==='function') openEcoMissionModal(); }); };
-        paramWrap.appendChild(ecoBtn);
-        grid.appendChild(paramWrap);
+        // Paramètres et Sauver la Terre supprimés (Paramètres est dans la grille principale)
         md.appendChild(grid);
 
         var footer = document.createElement('div');
         footer.style.cssText = 'padding:0 20px 16px;border-top:1px solid rgba(148,163,184,0.15);margin-top:4px;padding-top:12px;';
 
         var footItems = [
-          ['&#x1F30D;','Map Friend','#94a3b8',function(){ if(typeof showAccountModalTab==='function') showAccountModalTab('mapfriend'); }],
           ['&#x1F512;','Rester connect\u00e9','#94a3b8',function(){ if(typeof showNotification==='function') showNotification('Vous restez connect\u00e9','success'); }],
           ['&#x1F6AA;','Se d\u00e9connecter','#f59e0b',function(){ go(function(){ if(typeof logout==='function') logout(); else if(typeof startCognitoLogout==='function') startCognitoLogout(); }); }],
           ['&#x1F5D1;&#xFE0F;','Supprimer mon compte','#ef4444',function(){ if(confirm('\u00cates-vous s\u00fbr de vouloir supprimer votre compte ?')){ if(typeof deleteAccount==='function') deleteAccount(); } }]
@@ -3355,7 +3330,7 @@
       // Enregistrement du Service Worker avec mise à jour automatique
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/service-worker.js')
+          navigator.serviceWorker.register('/service-worker.js', { updateViaCache: 'none' })
             .then((registration) => {
               console.log('[PWA] Service Worker enregistré:', registration.scope);
               // Vérifier les mises à jour périodiquement (toutes les 30min)
@@ -3609,18 +3584,131 @@
           if (n >= 1000) return (n/1000).toFixed(1).replace(/\.0$/, '') + 'k';
           return String(n);
         };
+        var renderCounts = function(d) {
+          if (!d) return;
+          var parts = [];
+          if (d.events != null) parts.push(fmt(d.events) + ' events');
+          if (d.bookings != null) parts.push(fmt(d.bookings) + ' bookings');
+          if (d.services != null) parts.push(fmt(d.services) + ' services');
+          var txt = parts.length ? parts.join(' · ') : '—';
+          var bottomEl = document.getElementById('stats-counts-bottom');
+          var topEl = document.getElementById('stats-counts-top');
+          if (bottomEl) bottomEl.textContent = txt;
+          if (topEl) topEl.textContent = txt;
+        };
         var api = (window.API_BASE_URL || 'https://ctp67u5hgni2rbfr3kp4p74kxa0gxycf.lambda-url.eu-west-1.on.aws/api');
-        fetch(api + '/stats/counts', { cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(d) {
-          var el = document.getElementById('stats-counts-badge');
-          if (el && d) {
-            var parts = [];
-            if (d.events != null) parts.push(fmt(d.events) + ' events');
-            if (d.bookings != null) parts.push(fmt(d.bookings) + ' bookings');
-            if (d.services != null) parts.push(fmt(d.services) + ' services');
-            el.textContent = parts.length ? parts.join(' • ') : '—';
+
+        async function countPaginated(endpointPath, pageSize, maxPages) {
+          var size = Math.max(1, pageSize || 50000);
+          var pages = Math.max(1, maxPages || 12);
+          var total = 0;
+          var offset = 0;
+          var lastFingerprint = null;
+
+          for (var i = 0; i < pages; i++) {
+            var url = api + endpointPath + '?limit=' + size + '&offset=' + offset;
+            var resp = await fetch(url, { cache: 'no-store' });
+            if (!resp.ok) break;
+            var payload = await resp.json();
+
+            // Format compact: {k: [...], d: [...]}
+            if (payload && Array.isArray(payload.d)) {
+              var rows = payload.d;
+              var n = rows.length;
+              var fp = n > 0 ? JSON.stringify(rows[0]).slice(0, 180) + '|' + n : 'empty';
+              if (lastFingerprint && fp === lastFingerprint) break; // endpoint sans pagination réelle
+              lastFingerprint = fp;
+              total += n;
+              if (n < size) break;
+              offset += size;
+              // Laisser respirer le thread UI entre 2 pages lourdes
+              await new Promise(function(resolve) { setTimeout(resolve, 0); });
+              continue;
+            }
+
+            // Format liste directe: [...]
+            if (Array.isArray(payload)) {
+              total += payload.length;
+              break;
+            }
+
+            // Format objet enveloppé: {events:[...]} / {bookings:[...]} / {services:[...]}
+            var list = payload && (payload.events || payload.bookings || payload.services || payload.data);
+            if (Array.isArray(list)) {
+              var fp2 = list.length > 0 ? JSON.stringify(list[0]).slice(0, 180) + '|' + list.length : 'empty';
+              if (lastFingerprint && fp2 === lastFingerprint) break; // endpoint sans pagination réelle
+              lastFingerprint = fp2;
+              total += list.length;
+              if (list.length < size) break;
+              offset += size;
+              await new Promise(function(resolve) { setTimeout(resolve, 0); });
+              continue;
+            }
+            break;
           }
-        }).catch(function() {});
+          return total;
+        }
+
+        async function loadExactCounts() {
+          try {
+            // Events en priorité (le plus important pour l'UX)
+            var eventsCount = await countPaginated('/events', 50000, 12);
+            // Endpoints secondaires plus petits pour limiter la charge au chargement.
+            var bookingsCount = await countPaginated('/bookings', 5000, 6);
+            var servicesCount = await countPaginated('/services', 5000, 6);
+            renderCounts({
+              events: eventsCount,
+              bookings: bookingsCount,
+              services: servicesCount
+            });
+          } catch (e) {
+            // Fallback robuste sur endpoint stats si un endpoint échoue temporairement.
+            try {
+              var r = await fetch(api + '/stats/counts', { cache: 'no-store' });
+              if (r.ok) {
+                var d = await r.json();
+                renderCounts(d);
+              }
+            } catch (_) {}
+          }
+        }
+
+        // 1) Affichage immédiat léger (évite blocage UI au démarrage)
+        fetch(api + '/stats/counts', { cache: 'no-store' })
+          .then(function(r) { return r.json(); })
+          .then(function(d) { renderCounts(d); })
+          .catch(function() {});
+
+        // 2) Recalcul exact différé en idle pour ne pas gêner le zoom/pan initial
+        var runExact = function() { loadExactCounts(); };
+        if (typeof window.requestIdleCallback === 'function') {
+          requestIdleCallback(runExact, { timeout: 8000 });
+        } else {
+          setTimeout(runExact, 5000);
+        }
+
+        // 3) Re-sync exact peu fréquente (pas toutes les 2 min)
+        setInterval(function() {
+          if (document.visibilityState === 'visible') loadExactCounts();
+        }, 900000); // 15 min
       })();
+
+      // Ouvrir automatiquement la fenêtre MapEvent (contact/mentions) à l'ouverture.
+      window.addEventListener('load', function() {
+        var attempts = 0;
+        var timer = setInterval(function() {
+          attempts += 1;
+          var modalAlreadyOpen = !!document.getElementById('publish-modal-backdrop');
+          if (!modalAlreadyOpen && typeof window.openAboutModal === 'function') {
+            clearInterval(timer);
+            setTimeout(function() {
+              try { window.openAboutModal(); } catch (e) {}
+            }, 350);
+            return;
+          }
+          if (attempts >= 20) clearInterval(timer);
+        }, 250);
+      });
     </script>
 
     <!-- CTA Banner for organizers arriving via ?event=XXX -->

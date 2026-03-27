@@ -1,0 +1,81 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="630" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#020617"/>
+      <stop offset="1" stop-color="#0B1224"/>
+    </linearGradient>
+    <linearGradient id="brand" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#00FFC3"/>
+      <stop offset="1" stop-color="#3B82F6"/>
+    </linearGradient>
+    <radialGradient id="mapGlow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(640 300) rotate(22) scale(640 320)">
+      <stop stop-color="#1F6FEB" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#1F6FEB" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="softShadow" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#000000" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect x="32" y="32" width="1136" height="566" rx="28" fill="#0D152A" stroke="#1E293B" stroke-width="2"/>
+  <rect x="64" y="112" width="1072" height="454" rx="22" fill="#0A1327"/>
+  <ellipse cx="640" cy="332" rx="520" ry="210" fill="url(#mapGlow)"/>
+
+  <!-- Grid / map lines -->
+  <g stroke="#1F2C47" stroke-width="1">
+    <path d="M120 180H1080"/>
+    <path d="M120 250H1080"/>
+    <path d="M120 320H1080"/>
+    <path d="M120 390H1080"/>
+    <path d="M120 460H1080"/>
+    <path d="M210 140V540"/>
+    <path d="M380 140V540"/>
+    <path d="M550 140V540"/>
+    <path d="M720 140V540"/>
+    <path d="M890 140V540"/>
+  </g>
+
+  <!-- Simplified continents -->
+  <g fill="#16233D" stroke="#253659" stroke-width="1.5">
+    <path d="M220 250L290 210L370 225L410 280L390 335L320 345L250 312Z"/>
+    <path d="M455 215L530 188L598 205L625 255L608 292L538 305L478 272Z"/>
+    <path d="M640 270L730 238L820 254L860 300L840 350L760 370L680 345Z"/>
+    <path d="M870 220L930 210L980 240L972 286L915 295L875 264Z"/>
+    <path d="M785 390L842 375L900 402L890 445L838 465L790 438Z"/>
+  </g>
+
+  <!-- Pins -->
+  <g filter="url(#softShadow)">
+    <g transform="translate(328 278)">
+      <path d="M0 0C0-17.1 13.9-31 31-31C48.1-31 62-17.1 62 0C62 23.6 31 52 31 52C31 52 0 23.6 0 0Z" fill="url(#brand)"/>
+      <circle cx="31" cy="-2" r="11" fill="#FFFFFF"/>
+    </g>
+    <g transform="translate(560 246)">
+      <path d="M0 0C0-17.1 13.9-31 31-31C48.1-31 62-17.1 62 0C62 23.6 31 52 31 52C31 52 0 23.6 0 0Z" fill="url(#brand)"/>
+      <circle cx="31" cy="-2" r="11" fill="#FFFFFF"/>
+    </g>
+    <g transform="translate(760 300)">
+      <path d="M0 0C0-17.1 13.9-31 31-31C48.1-31 62-17.1 62 0C62 23.6 31 52 31 52C31 52 0 23.6 0 0Z" fill="url(#brand)"/>
+      <circle cx="31" cy="-2" r="11" fill="#FFFFFF"/>
+    </g>
+    <g transform="translate(860 420)">
+      <path d="M0 0C0-17.1 13.9-31 31-31C48.1-31 62-17.1 62 0C62 23.6 31 52 31 52C31 52 0 23.6 0 0Z" fill="url(#brand)"/>
+      <circle cx="31" cy="-2" r="11" fill="#FFFFFF"/>
+    </g>
+  </g>
+
+  <!-- Header branding -->
+  <rect x="94" y="60" width="1012" height="78" rx="18" fill="#0B1428" stroke="#1E2E4E"/>
+  <g transform="translate(126 74)">
+    <path d="M0 0C0-13.8 11.2-25 25-25C38.8-25 50-13.8 50 0C50 19 25 42 25 42C25 42 0 19 0 0Z" fill="url(#brand)"/>
+    <circle cx="25" cy="-1" r="8.5" fill="#FFFFFF"/>
+    <text x="25" y="3.5" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" font-weight="700" fill="url(#brand)">M</text>
+  </g>
+  <text x="196" y="92" fill="#E2E8F0" font-family="Arial, sans-serif" font-size="46" font-weight="800">MapEvent</text>
+  <text x="196" y="122" fill="#94A3B8" font-family="Arial, sans-serif" font-size="24" font-weight="500">Carte mondiale des événements " bookings " services</text>
+
+  <!-- Bottom claim -->
+  <rect x="94" y="504" width="1012" height="62" rx="14" fill="#0B1428" stroke="#1E2E4E"/>
+  <text x="120" y="543" fill="#C7D2FE" font-family="Arial, sans-serif" font-size="28" font-weight="700">Découvre tout sur une seule carte interactive</text>
+</svg>

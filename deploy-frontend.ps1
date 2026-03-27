@@ -160,3 +160,30 @@ Write-Host "Deploiement termine!" -ForegroundColor Green
 Write-Host "   Site: https://mapevent.world" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Astuce: Videz le cache de votre navigateur pour voir les changements" -ForegroundColor Yellow
+
+# Verification post-deploiement (anti-regression)
+Write-Host ""
+Write-Host "Verification post-deploiement..." -ForegroundColor Yellow
+try {
+    $ts = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+    $jsUrl = "https://mapevent.world/map_logic.js?v=$ts"
+    $jsResp = Invoke-WebRequest -Uri $jsUrl -UseBasicParsing -TimeoutSec 45 -Headers @{"Cache-Control"="no-cache";"Pragma"="no-cache"}
+    if ($jsResp.StatusCode -ne 200) {
+        throw "map_logic.js indisponible (status $($jsResp.StatusCode))"
+    }
+    $js = [string]$jsResp.Content
+    if ($js -notmatch [regex]::Escape(".setView([20, 0], 2)")) {
+        throw "Vue monde absente dans map_logic.js en production"
+    }
+    if ($js -match [regex]::Escape("[46.8182, 8.2275]")) {
+        throw "Ancien centrage Suisse detecte dans map_logic.js en production"
+    }
+    $apiResp = Invoke-WebRequest -Uri "https://ctp67u5hgni2rbfr3kp4p74kxa0gxycf.lambda-url.eu-west-1.on.aws/api/stats/counts" -UseBasicParsing -TimeoutSec 45
+    if ($apiResp.StatusCode -ne 200) {
+        throw "API stats KO (status $($apiResp.StatusCode))"
+    }
+    Write-Host "[OK] Verification post-deploiement reussie (vue monde + API OK)" -ForegroundColor Green
+} catch {
+    Write-Host "[ERREUR] Verification post-deploiement echouee: $_" -ForegroundColor Red
+    exit 2
+}

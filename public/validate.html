@@ -159,7 +159,10 @@
             <h2 id="result-title" class="result-title"></h2>
             <p id="result-message" class="result-message"></p>
             <div class="buttons">
-                <a href="https://mapevent.world/mapevent.html" class="btn btn-primary">
+                <a id="event-link-btn" href="https://mapevent.world/mapevent.html" class="btn btn-primary" style="display:none;">
+                    ✅ Voir mon annonce
+                </a>
+                <a id="discover-link-btn" href="https://mapevent.world/mapevent.html" class="btn btn-primary">
                     🗺️ Découvrir MapEvent
                 </a>
                 <a href="https://mapevent.world/mapevent.html?register=organizer" class="btn btn-secondary">
@@ -176,6 +179,7 @@
             const urlParams = new URLSearchParams(window.location.search);
             const token = urlParams.get('token');
             const action = urlParams.get('action');
+            const eventIdFromUrl = urlParams.get('event');
             
             const loadingEl = document.getElementById('loading');
             const resultEl = document.getElementById('result');
@@ -197,6 +201,7 @@
                 });
                 
                 const data = await response.json();
+                const eventId = (data && data.event_id) ? String(data.event_id) : (eventIdFromUrl ? String(eventIdFromUrl) : "");
                 
                 if (response.ok && data.success) {
                     if (action === 'validate') {
@@ -210,6 +215,20 @@
                     showResult('success', 'ℹ️', 'Déjà traité', data.message || 'Cet événement a déjà été traité.');
                 } else {
                     showResult('error', '❌', 'Erreur', data.error || 'Une erreur est survenue lors du traitement.');
+                }
+
+                // Proposer un bouton direct vers l'annonce si on a l'ID
+                if (eventId) {
+                    const btn = document.getElementById('event-link-btn');
+                    const discover = document.getElementById('discover-link-btn');
+                    if (btn) {
+                        btn.href = `https://mapevent.world/mapevent.html?event=${encodeURIComponent(eventId)}`;
+                        btn.style.display = 'inline-block';
+                    }
+                    if (discover) {
+                        discover.classList.remove('btn-primary');
+                        discover.classList.add('btn-secondary');
+                    }
                 }
             } catch (error) {
                 console.error('Erreur:', error);

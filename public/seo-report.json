@@ -1,0 +1,20 @@
+{
+  "generated_at_utc": "2026-03-26T16:00:21.476885Z",
+  "domain": "https://mapevent.world",
+  "total_urls": 96984,
+  "sitemap_chunk_size": 40000,
+  "sitemap_chunks": 3,
+  "removed_old_sitemaps": 0,
+  "examples": [
+    "https://mapevent.world/",
+    "https://mapevent.world/21-rue-de-metz-31000-toulouse/expositions-2026/",
+    "https://mapevent.world/21-rue-de-metz-31000-toulouse/expositions-avril-2026/",
+    "https://mapevent.world/21-rue-de-metz-31000-toulouse/expositions-mars-2026/",
+    "https://mapevent.world/ales/ateliers-2026/",
+    "https://mapevent.world/ales/ateliers-février-2026/",
+    "https://mapevent.world/ales/ateliers-mars-2026/",
+    "https://mapevent.world/ales/danse-2026/",
+    "https://mapevent.world/ales/expositions-2026/",
+    "https://mapevent.world/ales/expositions-mars-2026/"
+  ]
+}

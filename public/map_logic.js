@@ -19,31 +19,225 @@ if (document.readyState === 'loading') {
 }
 
 // ===============================
-// PROTECTION LOCALSTORAGE MINIMALE
+// GARDE STORAGE (SANS BLOQUER currentUser)
 // ===============================
-// Bloque SEULEMENT currentUser (cause du quota), garde tout le reste
 (function() {
   'use strict';
   if (window.__storageProtected) return; // Déjà fait dans auth.js
   window.__storageProtected = true;
-  
-  // Supprimer UNIQUEMENT currentUser
-  try { localStorage.removeItem('currentUser'); } catch(e) {}
-  
-  // Surcharger setItem pour bloquer UNIQUEMENT currentUser
-  const originalSetItem = localStorage.setItem.bind(localStorage);
-  localStorage.setItem = function(key, value) {
-    if (key === 'currentUser') return; // Bloqué
-    try {
-      originalSetItem(key, value);
-    } catch(e) {
-      try { localStorage.removeItem('currentUser'); } catch(e2) {}
-      try { originalSetItem(key, value); } catch(e3) {}
-    }
-  };
-  
-  console.log('[STORAGE] Protection currentUser activée');
+  console.log('[STORAGE] Guard actif (persistance currentUser autorisée)');
 })();
+
+// ============================================================
+// LEGACY POPUPS OVERRIDE (BOOKING + SERVICE ONLY)
+// ============================================================
+// Le user veut l'ancien rendu pour booking/service sans toucher event.
+function parsePossibleLinkArray(value) {
+  if (Array.isArray(value)) return value.filter(Boolean);
+  if (typeof value === 'string') {
+    return value
+      .split(/[\n,|;]/)
+      .map(v => v.trim())
+      .filter(Boolean);
+  }
+  return [];
+}
+
+function normalizeMaybeUrl(raw) {
+  const value = String(raw || '').trim();
+  if (!value) return '';
+  // Retirer ponctuation de fin fréquente copiée depuis descriptions
+  return value.replace(/[)\].,;!?]+$/g, '');
+}
+
+function normalizeAudioUrl(raw) {
+  const value = normalizeMaybeUrl(raw).replace(/&amp;/g, '&');
+  // Corrige les URLs cassées du type "https:// audius.co/..."
+  return value.replace(/(https?:\/\/)\s+/gi, '$1');
+}
+
+function isLikelyAudioUrl(url) {
+  const u = String(url || '').toLowerCase();
+  return /api\.audius\.co\/v1\/tracks\/.+\/stream|audius\.co|soundcloud\.com|spotify\.com|youtube\.com|youtu\.be|\.mp3(\?|$)|\.m4a(\?|$)|\.aac(\?|$)|\/stream(\?|$)/.test(u);
+}
+
+function isDirectPlayableAudioUrl(url) {
+  const u = String(url || '').toLowerCase();
+  return /api\.audius\.co\/v1\/tracks\/.+\/stream|creatornode\d*\.audius\.co\/tracks\/cidstream|\.mp3(\?|$)|\.m4a(\?|$)|\.aac(\?|$)|\.ogg(\?|$)|\.wav(\?|$)|\/stream(\?|$)/.test(u);
+}
+
+function extractAudioLinksFromText(text) {
+  const src = String(text || '');
+  if (!src) return [];
+  const urls = src.match(/https?:\/\/\s*[^\s<>"']+/g) || [];
+  return urls
+    .map(normalizeAudioUrl)
+    .filter(isLikelyAudioUrl);
+}
+
+function collectBookingAudioLinks(item) {
+  const base = [
+    ...parsePossibleLinkArray(item?.soundLinks),
+    ...parsePossibleLinkArray(item?.sound_links),
+    ...parsePossibleLinkArray(item?.audioLinks),
+    ...parsePossibleLinkArray(item?.audio_links),
+    ...extractAudioLinksFromText(item?.description)
+  ]
+    .map(normalizeAudioUrl)
+    .filter(Boolean)
+    .filter(isLikelyAudioUrl);
+  const deduped = [...new Set(base)];
+  const direct = deduped.filter(isDirectPlayableAudioUrl);
+  const fallback = deduped.filter(url => !isDirectPlayableAudioUrl(url));
+  // Si on a des streams directs, on les privilégie pour un lecteur fiable.
+  return direct.length > 0 ? direct : fallback;
+}
+
+function buildBookingPopup(b) {
+  if (typeof window.t !== 'function') window.t = function(key) { return key; };
+  if (!window.translations || typeof window.translations !== 'object') {
+    window.translations = window.translations || { fr: {}, en: {}, es: {}, zh: {}, hi: {} };
+  }
+  if (typeof currentUser === 'undefined' || !currentUser) {
+    currentUser = { isLoggedIn: false, favorites: [], agenda: [], participating: [], subscription: 'free' };
+  }
+  if (!Array.isArray(currentUser.favorites)) currentUser.favorites = [];
+  if (!Array.isArray(currentUser.agenda)) currentUser.agenda = [];
+  if (!currentUser.subscription) currentUser.subscription = 'free';
+  if (!currentUser.reviews || typeof currentUser.reviews !== 'object') currentUser.reviews = {};
+  if (typeof paidContacts === 'undefined' || !Array.isArray(paidContacts)) paidContacts = [];
+
+  const imgTag = buildMainImageTag(b, b.name || "");
+  const cats = (b.categories || []).join(" • ");
+  const emoji = getCategoryEmoji(b);
+  const hasPaidContact = true;
+  const levelColors = { "Débutant": "#9ca3af", "Semi-pro": "#3b82f6", "Pro": "#8b5cf6", "Headliner": "#f59e0b", "International": "#ef4444", "Non détecté": "#6b7280" };
+  const levelBadge = b.level ? `<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:600;background:${levelColors[b.level] || '#6b7280'};color:white;">${b.level === "Headliner" ? "🌟" : b.level === "International" ? "🌍" : "🎵"} ${b.level}</span>` : "";
+  const verifiedBadge = b.verified ? `<span class="verified-badge">✓ Vérifié</span>` : "";
+  const allSoundLinksRaw = collectBookingAudioLinks(b);
+  const allSoundLinks = allSoundLinksRaw.filter(isDirectPlayableAudioUrl);
+  const fallbackAudioLinks = allSoundLinksRaw.filter((u) => !isDirectPlayableAudioUrl(u));
+  const soundsSection = allSoundLinks.length > 0 ? `
+    <div style="margin:8px 0;padding:12px;background:linear-gradient(135deg,rgba(139,92,246,0.15),rgba(59,130,246,0.1));border-radius:12px;border:1px solid rgba(139,92,246,0.3);">
+      <div style="font-size:12px;color:#a78bfa;margin-bottom:10px;font-weight:600;">🎵 Écouter directement</div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        ${allSoundLinks.slice(0, 12).map((link, i) => {
+          const safeUrl = (link || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+          const safeTitle = (b.name || '').replace(/"/g, '&quot;');
+          const trackLabel = 'Piste ' + (i + 1) + (link.includes('audius') ? ' • Audius' : link.includes('soundcloud') ? ' • SoundCloud' : link.includes('spotify') ? ' • Spotify' : '');
+          return `<div data-audio-track data-item-title="${safeTitle}" data-track-label="${trackLabel}" style="display:flex;flex-direction:column;gap:6px;padding:10px 12px;background:rgba(0,0,0,0.3);border-radius:10px;">
+            <audio id="booking-audio-${b.id}-${i}" src="${safeUrl}" data-original-src="${safeUrl}" preload="metadata" style="display:none;"></audio>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <button onclick="event.stopPropagation();toggleBookingAudio('${b.id}',${i})" id="btn-booking-${b.id}-${i}" style="width:36px;height:36px;border-radius:50%;border:none;background:linear-gradient(135deg,#a78bfa,#8b5cf6);color:white;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">▶</button>
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:12px;color:#e5e7eb;font-weight:500;">Piste ${i + 1}</div>
+                <div style="font-size:10px;color:var(--ui-text-muted);">${link.includes('audius') ? '🎵 Audius' : link.includes('soundcloud') ? '☁️ SoundCloud' : link.includes('spotify') ? '🟢 Spotify' : link.includes('youtube') ? '▶️ YouTube' : '🎵 Audio'}</div>
+              </div>
+              <button onclick="event.stopPropagation();seekAudioOffset('booking','${b.id}',${i},-15)" style="width:32px;height:32px;border-radius:50%;border:1px solid rgba(167,139,250,0.5);background:transparent;color:#a78bfa;cursor:pointer;font-size:12px;flex-shrink:0;display:flex;align-items:center;justify-content:center;">⏪</button>
+              <button onclick="event.stopPropagation();seekAudioOffset('booking','${b.id}',${i},15)" style="width:32px;height:32px;border-radius:50%;border:1px solid rgba(167,139,250,0.5);background:transparent;color:#a78bfa;cursor:pointer;font-size:12px;flex-shrink:0;display:flex;align-items:center;justify-content:center;">⏩</button>
+              <span id="time-booking-${b.id}-${i}" style="font-size:10px;color:#a78bfa;font-variant-numeric:tabular-nums;min-width:70px;text-align:right;flex-shrink:0;">0:00</span>
+            </div>
+            <div id="seekbar-booking-${b.id}-${i}" onmousedown="event.stopPropagation();startAudioDrag('booking','${b.id}',${i},event)" ontouchstart="event.stopPropagation();event.preventDefault();startAudioDrag('booking','${b.id}',${i},event)" onclick="event.stopPropagation();seekBookingAudio('${b.id}',${i},event)" style="width:100%;height:14px;padding:12px 0;margin:-12px 0;cursor:pointer;position:relative;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;" title="Cliquer pour aller à la position dans le son">
+              <div style="height:14px;background:rgba(255,255,255,0.15);border-radius:7px;overflow:hidden;position:relative;">
+                <div id="progress-booking-${b.id}-${i}" style="width:0%;height:100%;background:linear-gradient(90deg,#a78bfa,#8b5cf6);border-radius:7px;transition:width 0.05s;pointer-events:none;"></div>
+              </div>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+  ` : '';
+  const noSoundInfo = allSoundLinks.length === 0 ? `
+    <div style="margin:8px 0;padding:10px;border-radius:10px;background:rgba(148,163,184,0.14);border:1px solid rgba(148,163,184,0.35);font-size:12px;color:#cbd5e1;">
+      ${fallbackAudioLinks.length > 0
+        ? `🎵 ${window.t("audio_link_unplayable") || "Audio link detected but not playable in embedded player. Open source link."}`
+        : `🎵 ${window.t("no_audio_published") || "No audio preview published for this artist."}`}
+    </div>
+  ` : '';
+  const ratingStars = b.rating ? `<div style="display:flex;align-items:center;gap:4px;margin-bottom:6px;">${'⭐'.repeat(Math.floor(parseFloat(b.rating)))}<span style="font-size:12px;color:var(--ui-text-muted);">${b.rating}/5</span><span style="font-size:11px;color:var(--ui-text-muted);">(${b.likes || 0} avis)</span></div>` : "";
+  const sourceUrl = b.sourceUrl || b.source_url;
+  const sourceLinkBlock = sourceUrl ? `<a href="${escapeHtml(sourceUrl)}" target="_blank" rel="noopener noreferrer" style="display:flex;align-items:center;gap:10px;padding:10px 12px;margin:8px 0;background:linear-gradient(135deg,rgba(245,158,11,0.15),rgba(234,88,12,0.1));border:2px solid rgba(245,158,11,0.5);border-radius:10px;text-decoration:none;transition:all 0.2s;"><span style="font-size:20px;">🔗</span><div style="flex:1;"><div style="font-size:12px;font-weight:700;color:#f59e0b;">${(typeof window.t === 'function' ? window.t("check_source") : "") || "Check source"}</div><div style="font-size:10px;color:#94a3b8;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(sourceUrl.substring(0, 45))}...</div></div><span style="font-size:16px;color:#f59e0b;">→</span></a>` : "";
+  const aiIndicator = "";
+  const actionsRow = `
+    <div class="popup-actions-sticky" style="position:sticky;bottom:0;background:rgba(2,6,23,0.96);z-index:10;padding:12px 0 8px;margin-top:12px;border-top:1px solid rgba(148,163,184,0.35);">
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:0;">
+        <button onclick="onAction('like', 'booking', ${b.id})" class="pill small" style="flex:1;">${currentUser.likes.includes('booking:'+b.id) ? '👍' : '👍'} ${(typeof window.t === 'function' ? window.t("like") : "Like")}</button>
+        <button onclick="onAction('favorite', 'booking', ${b.id})" class="pill small" style="flex:1;">${currentUser.favorites.some(f => f && typeof f === 'object' && f.id === b.id.toString() && f.mode === 'booking') ? '⭐' : '☆'} ${(typeof window.t === 'function' ? window.t("favorite") : "Favorite")}</button>
+        <button onclick="window.sharePopup('booking', ${b.id})" class="pill small" style="flex:1;">📤 ${(typeof window.t === 'function' ? window.t("share") : "Share")}</button>
+        ${currentUser.isLoggedIn ? `<button onclick="inviteFriendsToEvent('booking', ${b.id})" class="pill small" style="flex:1;">➕ ${(typeof window.t === 'function' ? window.t("invite") : "Invite")}</button>` : ''}
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">
+        <button onclick="onAction('agenda', 'booking', ${b.id})" class="pill small" style="flex:1;">${currentUser.agenda.includes('booking:'+b.id) ? '📅 ' + ((typeof window.t === 'function' ? window.t("in_agenda") : null) || "Dans agenda") : '📅 ' + (typeof window.t === 'function' ? window.t("agenda") : "Agenda")}</button>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">
+        <button onclick="onAction('avis', 'booking', ${b.id})" class="pill small" style="flex:1;">⭐ ${(typeof window.t === 'function' ? window.t("review") : "Review")}</button>
+        <button onclick="onAction('discussion', 'booking', ${b.id})" class="pill small" style="flex:1;">💬 ${(typeof window.t === 'function' ? window.t("contact") : "Contact")}</button>
+        <button onclick="onAction('report', 'booking', ${b.id})" class="pill small" style="color:#ef4444;">🚨</button>
+      </div>
+    </div>
+  `;
+  return `<div style="width:100%;max-height:none;overflow:visible;font-family:system-ui,sans-serif;color:var(--ui-text-main);margin:0;padding:0;box-sizing:border-box;">
+    <div style="position:relative;border-radius:16px 16px 0 0;overflow:hidden;margin:0;padding:0;width:100%;left:0;right:0;box-sizing:border-box;height:clamp(220px,32vh,420px);background:linear-gradient(135deg,#3b82f6,#8b5cf6);"><div style="position:relative;width:100%;margin:0;padding:0;box-sizing:border-box;height:clamp(220px,32vh,420px);display:flex;align-items:stretch;">${imgTag}</div></div>
+    <div style="padding:16px 12px 12px;margin:0;width:100%;box-sizing:border-box;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;"><span style="font-size:28px;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.2));">${emoji}</span><span style="font-size:12px;color:var(--ui-text-muted);padding:4px 10px;background:rgba(148,163,184,0.1);border-radius:999px;">${cats}</span>${levelBadge}${verifiedBadge}</div>
+      <h3 style="margin:0 0 10px;font-size:20px;font-weight:800;line-height:1.3;color:var(--ui-text-main);">${escapeHtml(b.name || "")}</h3>
+      ${ratingStars}
+      <div style="font-size:13px;color:#1f2937;background:rgba(255,255,255,0.95);padding:6px 8px;border-radius:8px;margin-bottom:6px;font-weight:500;">📍 ${hasPaidContact ? escapeHtml(b.address || b.city || "") : escapeHtml(maskAddressNumber(b.address || b.city || ""))}</div>
+      ${b.description ? `<div style="font-size:14px;color:#ffffff;margin-bottom:12px;line-height:1.7;padding:12px;background:transparent;border-radius:8px;">${escapeHtml(stripPhoneNumbers(b.description))}</div>` : ""}
+      ${soundsSection}${sourceLinkBlock}${aiIndicator}
+      ${hasPaidContact ? `<div style="margin:8px 0;padding:12px;background:linear-gradient(135deg,rgba(0,255,195,0.15),rgba(34,197,94,0.1));border:1px solid rgba(0,255,195,0.3);border-radius:10px;"><div style="font-size:12px;color:#00ffc3;font-weight:600;margin-bottom:8px;">✅ ${(typeof window.t === 'function' ? window.t("contact") : "Contact")}</div><div style="font-size:13px;color:#e5e7eb;">📧 ${b.email || 'contact@artiste.ch'}</div><div style="font-size:10px;color:var(--ui-text-muted);margin-top:6px;">📅 ${(typeof window.t === 'function' ? window.t("added_to_agenda_permanent") : "Added to your permanent agenda")}</div></div>` : ``}
+      <div class="popup-actions-sticky" style="position:sticky;bottom:0;background:rgba(2,6,23,0.96);margin:12px -12px -12px -12px;padding:12px;z-index:10;border-top:1px solid rgba(148,163,184,0.35);">${actionsRow}</div>
+    </div></div>`;
+}
+
+function buildServicePopup(s) {
+  if (typeof window.t !== 'function') window.t = function(key) { return key; };
+  if (!window.translations || typeof window.translations !== 'object') {
+    window.translations = window.translations || { fr: {}, en: {}, es: {}, zh: {}, hi: {} };
+  }
+  if (typeof currentUser === 'undefined' || !currentUser) currentUser = { isLoggedIn: false, favorites: [], agenda: [], participating: [], subscription: 'free' };
+  if (!currentUser.subscription) currentUser.subscription = 'free';
+  if (!currentUser.reviews || typeof currentUser.reviews !== 'object') currentUser.reviews = {};
+  if (typeof paidContacts === 'undefined' || !Array.isArray(paidContacts)) paidContacts = [];
+  const imgTag = buildMainImageTag(s, s.name || "");
+  const cats = (s.categories || []).join(" • ");
+  const emoji = getCategoryEmoji(s);
+  const hasPaidContact = true;
+  const verifiedBadge = s.verified ? `<span class="verified-badge">✓ Vérifié</span>` : "";
+  const ratingStars = s.rating ? `<div style="display:flex;align-items:center;gap:4px;margin-bottom:6px;">${'⭐'.repeat(Math.floor(parseFloat(s.rating)))}<span style="font-size:12px;color:var(--ui-text-muted);">${s.rating}/5</span><span style="font-size:11px;color:var(--ui-text-muted);">(${s.likes || 0} avis)</span></div>` : "";
+  const aiIndicator = "";
+  const actionsRow = `
+    <div class="popup-actions-sticky" style="position:sticky;bottom:0;background:rgba(2,6,23,0.96);z-index:10;padding:12px 0 8px;margin-top:12px;border-top:1px solid rgba(148,163,184,0.35);">
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:0;">
+        <button onclick="onAction('like', 'service', ${s.id})" class="pill small" style="flex:1;">${currentUser.likes.includes('service:'+s.id) ? '👍' : '👍'} ${(typeof window.t === 'function' ? window.t("like") : "Like")}</button>
+        <button onclick="onAction('favorite', 'service', ${s.id})" class="pill small" style="flex:1;">${currentUser.favorites.some(f => f && typeof f === 'object' && f.id === s.id.toString() && f.mode === 'service') ? '⭐' : '☆'} ${(typeof window.t === 'function' ? window.t("favorite") : "Favorite")}</button>
+        <button onclick="window.sharePopup('service', ${s.id})" class="pill small" style="flex:1;">📤 ${(typeof window.t === 'function' ? window.t("share") : "Share")}</button>
+        ${currentUser.isLoggedIn ? `<button onclick="inviteFriendsToEvent('service', ${s.id})" class="pill small" style="flex:1;">➕ ${(typeof window.t === 'function' ? window.t("invite") : "Invite")}</button>` : ''}
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">
+        <button onclick="onAction('agenda', 'service', ${s.id})" class="pill small" style="flex:1;">${currentUser.agenda.includes('service:'+s.id) ? '📅 ' + ((typeof window.t === 'function' ? window.t("in_agenda") : null) || "Dans agenda") : '📅 ' + (typeof window.t === 'function' ? window.t("agenda") : "Agenda")}</button>
+        <button onclick="onAction('route', 'service', ${s.id})" class="pill small" style="flex:1;">🗺️ ${(typeof window.t === 'function' ? window.t("route") : null) || "Itinéraire"}</button>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">
+        <button onclick="onAction('avis', 'service', ${s.id})" class="pill small" style="flex:1;">⭐ ${(typeof window.t === 'function' ? window.t("review") : "Review")}</button>
+        <button onclick="onAction('discussion', 'service', ${s.id})" class="pill small" style="flex:1;">💬 ${(typeof window.t === 'function' ? window.t("contact") : "Contact")}</button>
+        <button onclick="onAction('report', 'service', ${s.id})" class="pill small" style="color:#ef4444;">🚨</button>
+      </div>
+    </div>
+  `;
+  return `<div style="width:100%;max-height:none;overflow:visible;font-family:system-ui,sans-serif;color:var(--ui-text-main);margin:0;padding:0;box-sizing:border-box;">
+    <div style="position:relative;border-radius:16px 16px 0 0;overflow:hidden;margin:0;padding:0;width:100%;left:0;right:0;box-sizing:border-box;height:clamp(220px,32vh,420px);background:linear-gradient(135deg,#3b82f6,#8b5cf6);"><div style="position:relative;width:100%;margin:0;padding:0;box-sizing:border-box;height:clamp(220px,32vh,420px);display:flex;align-items:stretch;">${imgTag}</div></div>
+    <div style="padding:16px 12px 12px;margin:0;width:100%;box-sizing:border-box;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;"><span style="font-size:28px;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.2));">${emoji}</span><span style="font-size:12px;color:var(--ui-text-muted);padding:4px 10px;background:rgba(148,163,184,0.1);border-radius:999px;">${cats}</span>${verifiedBadge}</div>
+      <h3 style="margin:0 0 10px;font-size:20px;font-weight:800;line-height:1.3;color:var(--ui-text-main);">${escapeHtml(s.name || "")}</h3>
+      ${ratingStars}
+      <div style="font-size:13px;color:#1f2937;background:rgba(255,255,255,0.95);padding:6px 8px;border-radius:8px;margin-bottom:6px;font-weight:500;">📍 ${escapeHtml(s.address || s.city || "")}, Suisse</div>
+      ${s.description ? `<div style="font-size:14px;color:#ffffff;margin-bottom:12px;line-height:1.7;padding:12px;background:transparent;border-radius:8px;">${escapeHtml(stripPhoneNumbers(s.description))}</div>` : ""}
+      ${aiIndicator}
+      ${hasPaidContact ? `<div style="margin:8px 0;padding:12px;background:linear-gradient(135deg,rgba(0,255,195,0.15),rgba(34,197,94,0.1));border:1px solid rgba(0,255,195,0.3);border-radius:10px;"><div style="font-size:12px;color:#00ffc3;font-weight:600;margin-bottom:8px;">✅ ${(typeof window.t === 'function' ? window.t("contact") : "Contact")}</div><div style="font-size:13px;color:#e5e7eb;">📧 ${s.email || 'contact@service.ch'}</div>${s.website ? `<a href="${s.website}" target="_blank" style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:#3b82f6;margin-top:4px;">🌐 ${s.website}</a>` : ''}<div style="font-size:10px;color:var(--ui-text-muted);margin-top:6px;">📅 ${(typeof window.t === 'function' ? window.t("added_to_agenda_permanent") : "Added to your permanent agenda")}</div></div>` : ``}
+      <div class="popup-actions-sticky" style="position:sticky;bottom:0;background:rgba(2,6,23,0.96);margin:12px -12px -12px -12px;padding:12px;z-index:10;border-top:1px solid rgba(148,163,184,0.35);">${actionsRow}</div>
+    </div></div>`;
+}
 
 // ===============================
 // GESTION D'ERREURS GLOBALE - Silencieuse (logs uniquement)
@@ -175,7 +369,7 @@ function updateAuthUI(slimUser) {
   
   console.log('[UPDATE AUTH UI] Mise à jour UI avec slimUser:', { id: slimUser.id, email: slimUser.email, username: slimUser.username });
   
-  // ⚠️⚠️⚠️ CRITIQUE : Préserver toutes les propriétés nécessaires de currentUser
+  // \u26A0️\u26A0️\u26A0️ CRITIQUE : Préserver toutes les propriétés nécessaires de currentUser
   // S'assurer que currentUser a toutes les propriétés nécessaires pour les popups
   if (!currentUser || typeof currentUser !== 'object') {
     // Si currentUser n'existe pas, utiliser getDefaultUser pour l'initialiser
@@ -198,6 +392,7 @@ function updateAuthUI(slimUser) {
   if (!Array.isArray(currentUser.favorites)) {
     currentUser.favorites = [];
   }
+  currentUser.favorites = currentUser.favorites.filter(f => f && typeof f === 'object');
   if (!Array.isArray(currentUser.agenda)) {
     currentUser.agenda = [];
   }
@@ -210,7 +405,7 @@ function updateAuthUI(slimUser) {
   if (!currentUser.subscription) {
     currentUser.subscription = 'free';
   }
-  // ⚠️⚠️⚠️ CRITIQUE : S'assurer que reviews est un objet (pas undefined)
+  // \u26A0️\u26A0️\u26A0️ CRITIQUE : S'assurer que reviews est un objet (pas undefined)
   if (!currentUser.reviews || typeof currentUser.reviews !== 'object') {
     currentUser.reviews = {};
   }
@@ -235,7 +430,7 @@ function updateAuthUI(slimUser) {
     updateAccountBlockLegitimately();
   }
   
-  console.log('[UPDATE AUTH UI] UI mise à jour - bouton "Connexion" → "Compte"');
+  console.log('[UPDATE AUTH UI] UI mise à jour - bouton "Connexion" \u2192 "Compte"');
 }
 
 // Fonction pour récupérer le token d'authentification
@@ -329,38 +524,38 @@ function safeSetItem(key, value) {
     return true;
   } catch (e) {
     if (e.name === 'QuotaExceededError' || e.message.includes('quota')) {
-      console.warn(`⚠️ localStorage plein (quota exceeded) pour ${key}...`);
+      console.warn(`\u26A0️ localStorage plein (quota exceeded) pour ${key}...`);
       
       // PRIORITY HOTFIX: Si c'est currentUser, nettoyer la clé et continuer (ne pas freeze UI)
       if (key === 'currentUser') {
         try {
           // Supprimer l'ancien currentUser pour libérer de l'espace
           localStorage.removeItem('currentUser');
-          console.warn('⚠️ currentUser supprimé pour libérer de l\'espace');
+          console.warn('\u26A0️ currentUser supprimé pour libérer de l\'espace');
           
           // Si value est un objet user, essayer de sauvegarder la version slim
           try {
             const userObj = typeof value === 'string' ? JSON.parse(value) : value;
             const slimUser = saveUserSlim(userObj);
             if (slimUser) {
-              // ⚠️ OPTIMISATION : Exclure photoData avant sauvegarde
+              // \u26A0️ OPTIMISATION : Exclure photoData avant sauvegarde
               const userForStorage = (typeof window.removePhotoDataForStorage === 'function') 
                 ? window.removePhotoDataForStorage(slimUser) 
                 : slimUser;
               const slimJson = JSON.stringify(userForStorage);
               localStorage.setItem('currentUser', slimJson);
-              console.log('✅ Version slim de currentUser sauvegardée (photoData exclu)');
+              console.log('\u2705 Version slim de currentUser sauvegardée (photoData exclu)');
               return true;
             }
           } catch (parseError) {
-            console.warn('⚠️ Impossible de parser/sauvegarder version slim:', parseError);
+            console.warn('\u26A0️ Impossible de parser/sauvegarder version slim:', parseError);
           }
           
           // Continuer le flow même si on ne peut pas sauvegarder
-          console.warn('⚠️ Continuation du flow sans sauvegarder currentUser (quota exceeded)');
+          console.warn('\u26A0️ Continuation du flow sans sauvegarder currentUser (quota exceeded)');
           return false; // Indiquer que la sauvegarde a échoué mais continuer
         } catch (cleanError) {
-          console.error('❌ Erreur lors du nettoyage currentUser:', cleanError);
+          console.error('\u274C Erreur lors du nettoyage currentUser:', cleanError);
           // Continuer quand même
           return false;
         }
@@ -450,9 +645,9 @@ function safeSetItem(key, value) {
               lastSeen: new Date().toISOString()
             };
             value = JSON.stringify(minimalUser);
-            console.log(`✅ currentUser réduit à la version minimale (${value.length} caractères)`);
+            console.log(`\u2705 currentUser réduit à la version minimale (${value.length} caractères)`);
           } catch (parseError) {
-            console.warn('⚠️ Impossible de parser currentUser, utilisation de la valeur originale réduite');
+            console.warn('\u26A0️ Impossible de parser currentUser, utilisation de la valeur originale réduite');
             // Créer un objet minimal même si le parsing échoue
             value = JSON.stringify({
               id: null,
@@ -472,14 +667,14 @@ function safeSetItem(key, value) {
           try {
             localStorage.setItem('cognito_tokens', criticalData.tokens);
           } catch (tokenError) {
-            console.warn('⚠️ Impossible de restaurer les tokens:', tokenError);
+            console.warn('\u26A0️ Impossible de restaurer les tokens:', tokenError);
           }
         }
         
         // ÉTAPE 5: Essayer de sauvegarder la nouvelle valeur
         try {
           localStorage.setItem(key, value);
-          console.log(`✅ ${key} sauvegardé après nettoyage ultra-agressif`);
+          console.log(`\u2705 ${key} sauvegardé après nettoyage ultra-agressif`);
           
           // Restaurer l'ancien currentUser si on vient de sauvegarder autre chose
           if (key !== 'currentUser' && criticalData.existingUser) {
@@ -502,22 +697,22 @@ function safeSetItem(key, value) {
                 postalAddress: existingUserObj.postalAddress || '',
                 provider: existingUserObj.provider || null
               };
-              // ⚠️ OPTIMISATION : Exclure photoData avant sauvegarde
+              // \u26A0️ OPTIMISATION : Exclure photoData avant sauvegarde
               const userForStorage = (typeof window.removePhotoDataForStorage === 'function') 
                 ? window.removePhotoDataForStorage(minimalExistingUser) 
                 : minimalExistingUser;
               localStorage.setItem('currentUser', JSON.stringify(userForStorage));
             } catch (restoreError) {
-              console.warn('⚠️ Impossible de restaurer currentUser:', restoreError);
+              console.warn('\u26A0️ Impossible de restaurer currentUser:', restoreError);
             }
           }
           
           if (typeof showNotification === 'function') {
-            showNotification('✅ Stockage nettoyé. Vos données essentielles sont conservées.', 'success');
+            showNotification('\u2705 Stockage nettoyé. Vos données essentielles sont conservées.', 'success');
           }
           return true;
         } catch (e2) {
-          console.error(`❌ Impossible de sauvegarder ${key} même après nettoyage ultra-agressif:`, e2);
+          console.error(`\u274C Impossible de sauvegarder ${key} même après nettoyage ultra-agressif:`, e2);
           
           // DERNIÈRE TENTATIVE : Vider complètement et ne garder QUE les tokens
           try {
@@ -530,31 +725,31 @@ function safeSetItem(key, value) {
             // Essayer de sauvegarder la version minimale
             if (key === 'currentUser') {
               localStorage.setItem(key, value);
-              console.log(`✅ localStorage vidé complètement, ${key} sauvegardé (version minimale)`);
+              console.log(`\u2705 localStorage vidé complètement, ${key} sauvegardé (version minimale)`);
             } else {
               // Pour les autres clés, essayer quand même
               localStorage.setItem(key, value);
             }
             
             if (typeof showNotification === 'function') {
-              showNotification('⚠️ Stockage local vidé. Vos données sont sauvegardées sur le serveur.', 'warning');
+              showNotification('\u26A0️ Stockage local vidé. Vos données sont sauvegardées sur le serveur.', 'warning');
             }
             return true;
           } catch (e3) {
-            console.error(`❌ ÉCHEC TOTAL pour ${key}:`, e3);
+            console.error(`\u274C ÉCHEC TOTAL pour ${key}:`, e3);
             if (typeof showNotification === 'function') {
-              showNotification('⚠️ Impossible de sauvegarder localement. Vos données sont sur le serveur.', 'warning');
+              showNotification('\u26A0️ Impossible de sauvegarder localement. Vos données sont sur le serveur.', 'warning');
             }
             return false;
           }
         }
       } catch (cleanupError) {
-        console.error(`❌ Erreur lors du nettoyage:`, cleanupError);
+        console.error(`\u274C Erreur lors du nettoyage:`, cleanupError);
         return false;
       }
     } else {
       // Erreur non liée au quota
-      console.error(`❌ Erreur lors de la sauvegarde de ${key}:`, e);
+      console.error(`\u274C Erreur lors de la sauvegarde de ${key}:`, e);
       return false;
     }
   }
@@ -586,7 +781,7 @@ function decodeJwtPayload(token) {
 async function startGoogleLogin() {
   // GUARD: Éviter double-clic et double flow concurrent
   if (window.isGoogleLoginInProgress) {
-    console.warn('⚠️ Connexion Google déjà en cours - double clic ignoré');
+    console.warn('\u26A0️ Connexion Google déjà en cours - double clic ignoré');
     return;
   }
   
@@ -600,7 +795,7 @@ async function startGoogleLogin() {
     authSave("pkce_verifier", verifier);
     authSave("oauth_state", state);
 
-    // ⚠️ COMPORTEMENT PRO : prompt=select_account pour TOUJOURS afficher le choix du compte Google
+    // \u26A0️ COMPORTEMENT PRO : prompt=select_account pour TOUJOURS afficher le choix du compte Google
     // Cela permet à l'utilisateur de choisir quel compte utiliser à chaque connexion
     const authorizeUrl =
       `${window.COGNITO.domain}/oauth2/authorize` +
@@ -618,9 +813,9 @@ async function startGoogleLogin() {
     window.location.assign(authorizeUrl);
     // Note: isGoogleLoginInProgress sera réinitialisé au retour du callback
   } catch (error) {
-    console.error('❌ Erreur startGoogleLogin:', error);
+    console.error('\u274C Erreur startGoogleLogin:', error);
     window.isGoogleLoginInProgress = false;
-    showNotification('❌ Erreur lors de la connexion Google', 'error');
+    showNotification('\u274C Erreur lors de la connexion Google', 'error');
   }
 }
 
@@ -628,12 +823,12 @@ async function startGoogleLogin() {
 async function handleCognitoCallbackIfPresent() {
   // GUARD ROBUSTE: Éviter double traitement du callback
   if (window._oauthCallbackProcessed) {
-    console.warn('⚠️ Callback OAuth DÉJÀ TRAITÉ - Ignoré');
+    console.warn('\u26A0️ Callback OAuth DÉJÀ TRAITÉ - Ignoré');
     return;
   }
   
   if (window.isGoogleLoginInProgress && window.location.search.includes('code=')) {
-    console.warn('⚠️ Callback OAuth EN COURS de traitement - Ignoré');
+    console.warn('\u26A0️ Callback OAuth EN COURS de traitement - Ignoré');
     return;
   }
   
@@ -655,33 +850,33 @@ async function handleCognitoCallbackIfPresent() {
   console.log('📋 Paramètres OAuth:', { code: !!code, state: !!state, error });
 
   if (error) {
-    console.error('❌ Erreur OAuth:', error);
-    showNotification("❌ Erreur login: " + error, "error");
+    console.error('\u274C Erreur OAuth:', error);
+    showNotification("\u274C Erreur login: " + error, "error");
     window._oauthCallbackProcessed = false;
     window.isGoogleLoginInProgress = false;
     return;
   }
   if (!code) {
-    console.log('ℹ️ Pas de code OAuth dans l\'URL - pas un callback');
+    console.log('\u2139️ Pas de code OAuth dans l\'URL - pas un callback');
     window._oauthCallbackProcessed = false;
     window.isGoogleLoginInProgress = false;
     return;
   }
 
-  console.log('✅ Code OAuth détecté - Traitement du callback...');
+  console.log('\u2705 Code OAuth détecté - Traitement du callback...');
 
   const expectedState = authLoad("oauth_state");
   if (!state || state !== expectedState) {
-    console.warn('❌ State OAuth invalide ou manquant (redirection mobile ?). Réessayez.');
-    showNotification("❌ Connexion expirée. Réessayez en cliquant sur Connexion Google.", "error");
+    console.warn('\u274C State OAuth invalide ou manquant (redirection mobile ?). Réessayez.');
+    showNotification("\u274C Connexion expirée. Réessayez en cliquant sur Connexion Google.", "error");
     window._oauthCallbackProcessed = false;
     return;
   }
 
   const verifier = authLoad("pkce_verifier");
   if (!verifier) {
-    console.warn('❌ PKCE verifier manquant (redirection smartphone ?). Réessayez.');
-    showNotification("❌ Connexion expirée. Réessayez en cliquant sur Connexion Google.", "error");
+    console.warn('\u274C PKCE verifier manquant (redirection smartphone ?). Réessayez.');
+    showNotification("\u274C Connexion expirée. Réessayez en cliquant sur Connexion Google.", "error");
     window._oauthCallbackProcessed = false;
     return;
   }
@@ -703,7 +898,7 @@ async function handleCognitoCallbackIfPresent() {
   if (!tokenRes.ok) {
     const txt = await tokenRes.text();
     console.warn("Token error:", txt);
-    showNotification("❌ Impossible d’échanger le code (token).", "error");
+    showNotification("\u274C Impossible d\u2019échanger le code (token).", "error");
     return;
   }
 
@@ -711,7 +906,7 @@ async function handleCognitoCallbackIfPresent() {
   saveSession(tokens);
   authClearTemp();
 
-  // Nettoyer l’URL (enlever ?code=...&state=...)
+  // Nettoyer l\u2019URL (enlever ?code=...&state=...)
   url.searchParams.delete("code");
   url.searchParams.delete("state");
   url.searchParams.delete("session_state");
@@ -823,7 +1018,7 @@ async function handleCognitoCallbackIfPresent() {
           hasRefreshToken: !!syncData.refreshToken
         });
         
-        // ⚠️⚠️⚠️ CRITIQUE FIX 401 : Sauvegarder les tokens MapEvent retournés par le backend
+        // \u26A0️\u26A0️\u26A0️ CRITIQUE FIX 401 : Sauvegarder les tokens MapEvent retournés par le backend
         // Ces tokens JWT sont nécessaires pour tous les appels API authentifiés (/api/user/events, etc.)
         // Sans cette sauvegarde, le frontend utilise les tokens Cognito (invalides pour notre backend)
         if (syncData.accessToken && syncData.refreshToken) {
@@ -832,7 +1027,7 @@ async function handleCognitoCallbackIfPresent() {
             refresh_token: syncData.refreshToken
           };
           saveSession(tokensMapEvent);
-          console.log('[OAUTH] ✅ Tokens MapEvent sauvegardés - Fix erreur 401 pour /api/user/events');
+          console.log('[OAUTH] \u2705 Tokens MapEvent sauvegardés - Fix erreur 401 pour /api/user/events');
           
           // Sauvegarder aussi directement dans localStorage/sessionStorage pour getAuthToken()
           const rememberMe = localStorage.getItem('rememberMe') === 'true';
@@ -843,15 +1038,15 @@ async function handleCognitoCallbackIfPresent() {
             sessionStorage.setItem('accessToken', syncData.accessToken);
             sessionStorage.setItem('refreshToken', syncData.refreshToken);
           }
-          console.log('[OAUTH] ✅ Tokens MapEvent aussi sauvegardés dans accessToken direct');
+          console.log('[OAUTH] \u2705 Tokens MapEvent aussi sauvegardés dans accessToken direct');
         } else {
-          console.warn('[OAUTH] ⚠️ Pas de tokens MapEvent dans la réponse backend - Risque erreur 401');
+          console.warn('[OAUTH] \u26A0️ Pas de tokens MapEvent dans la réponse backend - Risque erreur 401');
         }
         
-        // ⚠️⚠️⚠️ CRITIQUE : Vérifier si c'est une validation Google après formulaire d'inscription
+        // \u26A0️\u26A0️\u26A0️ CRITIQUE : Vérifier si c'est une validation Google après formulaire d'inscription
         const pendingFormData = localStorage.getItem('pendingRegisterDataForGoogle');
         if (pendingFormData && window.isRegisteringWithGoogle) {
-          console.log('[OAUTH] ✅ Validation Google après formulaire détectée - Création du compte avec données du formulaire');
+          console.log('[OAUTH] \u2705 Validation Google après formulaire détectée - Création du compte avec données du formulaire');
           
           // Afficher le modal d'attente avec sablier
           let modal = document.getElementById('authModal');
@@ -888,7 +1083,7 @@ async function handleCognitoCallbackIfPresent() {
           if (modal) {
             modal.innerHTML = `
               <div id="authModal" data-mode="creating" style="padding:40px;max-width:500px;margin:0 auto;text-align:center;position:relative;">
-                <div style="font-size:64px;margin-bottom:20px;animation:spin 2s linear infinite;">⏳</div>
+                <div style="font-size:64px;margin-bottom:20px;animation:spin 2s linear infinite;">\u23F3</div>
                 <h2 style="margin:0 0 8px;font-size:28px;font-weight:800;color:#fff;background:linear-gradient(135deg,#00ffc3,#3b82f6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">Connexion en cours...</h2>
                 <p style="margin:0;font-size:14px;color:var(--ui-text-muted);">Création de votre compte en cours, veuillez patienter</p>
               </div>
@@ -955,7 +1150,7 @@ async function handleCognitoCallbackIfPresent() {
             
             if (completeResponse.ok) {
               const completeData = await completeResponse.json();
-              console.log('[OAUTH] ✅ Compte créé avec succès après validation Google:', completeData);
+              console.log('[OAUTH] \u2705 Compte créé avec succès après validation Google:', completeData);
               
               // Nettoyer les données en attente
               localStorage.removeItem('pendingRegisterDataForGoogle');
@@ -993,7 +1188,7 @@ async function handleCognitoCallbackIfPresent() {
                   updateAuthUI(slimUser);
                 }
                 
-                showNotification('✅ Compte créé avec succès ! Vous êtes maintenant connecté.', 'success');
+                showNotification('\u2705 Compte créé avec succès ! Vous êtes maintenant connecté.', 'success');
                 closeAuthModal();
                 closePublishModal();
               }
@@ -1002,13 +1197,13 @@ async function handleCognitoCallbackIfPresent() {
               return; // Sortir ici, le compte est créé
             } else {
               const errorData = await completeResponse.json().catch(() => ({ error: 'Erreur lors de la création du compte' }));
-              console.error('[OAUTH] ❌ Erreur création compte:', errorData);
-              showNotification(`❌ Erreur: ${errorData.error || 'Erreur lors de la création du compte'}`, 'error');
+              console.error('[OAUTH] \u274C Erreur création compte:', errorData);
+              showNotification(`\u274C Erreur: ${errorData.error || 'Erreur lors de la création du compte'}`, 'error');
               // Continuer avec le flux normal en cas d'erreur
             }
           } catch (error) {
-            console.error('[OAUTH] ❌ Erreur lors de la création du compte après validation Google:', error);
-            showNotification('❌ Erreur lors de la création du compte', 'error');
+            console.error('[OAUTH] \u274C Erreur lors de la création du compte après validation Google:', error);
+            showNotification('\u274C Erreur lors de la création du compte', 'error');
             // Continuer avec le flux normal en cas d'erreur
           }
         }
@@ -1037,11 +1232,11 @@ async function handleCognitoCallbackIfPresent() {
           });
           
           // ========================================
-          // RÈGLE 1: NOUVEAU COMPTE → TOUJOURS FORMULAIRE COMPLET
+          // RÈGLE 1: NOUVEAU COMPTE \u2192 TOUJOURS FORMULAIRE COMPLET
           // ========================================
           if (isNewUser) {
             console.log('[OAUTH] NOUVEAU COMPTE - Affichage formulaire complet (toujours demandé pour nouveau compte)');
-            showNotification('⚠️ Veuillez compléter votre profil pour continuer.', 'info');
+            showNotification('\u26A0️ Veuillez compléter votre profil pour continuer.', 'info');
             // Afficher le formulaire d'inscription complet
             if (typeof showProRegisterForm === 'function') {
               showProRegisterForm();
@@ -1080,11 +1275,11 @@ async function handleCognitoCallbackIfPresent() {
           }
           
           // ========================================
-          // RÈGLE 2: COMPTE EXISTANT → Demander SEULEMENT ce qui manque
+          // RÈGLE 2: COMPTE EXISTANT \u2192 Demander SEULEMENT ce qui manque
           // ========================================
-          // CAS 1: Profil complet → Connexion directe
+          // CAS 1: Profil complet \u2192 Connexion directe
           if (profileComplete === true && missingData.length === 0 && !needsEmailVerification) {
-            console.log('[OAUTH] ➡️ CAS: COMPTE EXISTANT COMPLET (profileComplete=true, missingData=[], needsEmailVerification=false) - CONNEXION DIRECTE');
+            console.log('[OAUTH] \u27A1️ CAS: COMPTE EXISTANT COMPLET (profileComplete=true, missingData=[], needsEmailVerification=false) - CONNEXION DIRECTE');
             console.log('[OAUTH] syncData.user:', {
               id: syncData.user.id,
               email: syncData.user.email,
@@ -1095,7 +1290,7 @@ async function handleCognitoCallbackIfPresent() {
               picture: payload.picture ? payload.picture.substring(0, 50) + '...' : 'null'
             });
             
-            // ⚠️⚠️⚠️ CRITIQUE : Récupérer le username depuis localStorage AVANT de créer slimUser
+            // \u26A0️\u26A0️\u26A0️ CRITIQUE : Récupérer le username depuis localStorage AVANT de créer slimUser
             let savedUsernameFromForm = null;
             let savedPhotoDataFromForm = null;
             try {
@@ -1104,34 +1299,34 @@ async function handleCognitoCallbackIfPresent() {
                 const savedPendingData = JSON.parse(savedFromStorage);
                 savedUsernameFromForm = savedPendingData?.username || null;
                 savedPhotoDataFromForm = savedPendingData?.photoData || null;
-                console.log('[OAUTH] ✅✅✅ Données récupérées depuis localStorage:', {
+                console.log('[OAUTH] \u2705\u2705\u2705 Données récupérées depuis localStorage:', {
                   username: savedUsernameFromForm || 'MANQUANT',
                   hasPhotoData: !!savedPhotoDataFromForm
                 });
               } else {
-                console.log('[OAUTH] ⚠️ Aucune donnée dans localStorage (pendingRegisterDataForGoogle)');
+                console.log('[OAUTH] \u26A0️ Aucune donnée dans localStorage (pendingRegisterDataForGoogle)');
               }
             } catch (e) {
-              console.error('[OAUTH] ❌ Erreur récupération depuis localStorage:', e);
+              console.error('[OAUTH] \u274C Erreur récupération depuis localStorage:', e);
             }
             
-            // ⚠️⚠️⚠️ VALIDATION STRICTE : Utiliser le username du formulaire s'il est valide
+            // \u26A0️\u26A0️\u26A0️ VALIDATION STRICTE : Utiliser le username du formulaire s'il est valide
             let finalUsername = savedUsernameFromForm || syncData.user.username || currentUser.email?.split('@')[0]?.substring(0, 20) || 'Utilisateur';
             if (savedUsernameFromForm && savedUsernameFromForm !== 'null' && savedUsernameFromForm !== '' && !savedUsernameFromForm.includes('@')) {
               finalUsername = savedUsernameFromForm;
-              console.log('[OAUTH] ✅✅✅✅✅ Username du FORMULAIRE utilisé:', finalUsername);
+              console.log('[OAUTH] \u2705\u2705\u2705\u2705\u2705 Username du FORMULAIRE utilisé:', finalUsername);
             } else if (syncData.user.username && syncData.user.username !== 'null' && syncData.user.username !== '' && !syncData.user.username.includes('@')) {
               finalUsername = syncData.user.username;
-              console.log('[OAUTH] ⚠️ Username du backend utilisé (formulaire invalide):', finalUsername);
+              console.log('[OAUTH] \u26A0️ Username du backend utilisé (formulaire invalide):', finalUsername);
             } else {
               finalUsername = currentUser.email?.split('@')[0]?.substring(0, 20) || 'Utilisateur';
-              console.log('[OAUTH] ❌ Aucun username valide, utilisation email part:', finalUsername);
+              console.log('[OAUTH] \u274C Aucun username valide, utilisation email part:', finalUsername);
             }
             
             const slimUser = {
               id: syncData.user.id || currentUser.id,
               email: syncData.user.email || currentUser.email,
-              username: finalUsername, // ⚠️⚠️⚠️ PRIORITÉ ABSOLUE au username du formulaire
+              username: finalUsername, // \u26A0️\u26A0️\u26A0️ PRIORITÉ ABSOLUE au username du formulaire
               firstName: syncData.user.firstName || syncData.user.first_name || currentUser.name?.split(' ')[0] || '',
               lastName: syncData.user.lastName || syncData.user.last_name || currentUser.name?.split(' ').slice(1).join(' ') || '',
               role: syncData.user.role || 'user',
@@ -1151,7 +1346,7 @@ async function handleCognitoCallbackIfPresent() {
               profile_photo_url: slimUser.profile_photo_url ? slimUser.profile_photo_url.substring(0, 50) + '...' : 'null'
             });
             
-            // ⚠️⚠️⚠️ CRITIQUE : Utiliser connectUser comme "Continuer sans vérifier" pour éviter les erreurs de popup
+            // \u26A0️\u26A0️\u26A0️ CRITIQUE : Utiliser connectUser comme "Continuer sans vérifier" pour éviter les erreurs de popup
             // Forcer le username et photoData dans currentUser AVANT connectUser
             if (typeof window !== 'undefined') {
               if (window.currentUser === undefined) {
@@ -1159,15 +1354,15 @@ async function handleCognitoCallbackIfPresent() {
               }
               if (finalUsername && finalUsername !== 'Utilisateur' && !finalUsername.includes('@')) {
                 window.currentUser.username = finalUsername;
-                console.log('[OAUTH] ✅✅✅✅✅ Username FORCÉ dans window.currentUser:', finalUsername);
+                console.log('[OAUTH] \u2705\u2705\u2705\u2705\u2705 Username FORCÉ dans window.currentUser:', finalUsername);
               }
               if (savedPhotoDataFromForm && savedPhotoDataFromForm !== 'null' && savedPhotoDataFromForm !== '') {
                 window.currentUser.photoData = savedPhotoDataFromForm;
-                console.log('[OAUTH] ✅✅✅✅✅ photoData FORCÉ dans window.currentUser');
+                console.log('[OAUTH] \u2705\u2705\u2705\u2705\u2705 photoData FORCÉ dans window.currentUser');
               }
             }
             
-            // ⚠️⚠️⚠️ CRITIQUE : Afficher la fenêtre d'attente EXACTEMENT comme "Continuer sans vérifier"
+            // \u26A0️\u26A0️\u26A0️ CRITIQUE : Afficher la fenêtre d'attente EXACTEMENT comme "Continuer sans vérifier"
             // Chercher le modal dans publish-modal-inner ou authModal (EXACTEMENT comme createAccountWithoutVerification)
             let modal = document.getElementById('authModal');
             if (!modal) {
@@ -1212,17 +1407,17 @@ async function handleCognitoCallbackIfPresent() {
             if (modal) {
               modal.innerHTML = `
                 <div id="authModal" data-mode="connecting" style="padding:40px;max-width:500px;margin:0 auto;text-align:center;position:relative;">
-                  <div style="font-size:64px;margin-bottom:20px;">⏳</div>
+                  <div style="font-size:64px;margin-bottom:20px;">\u23F3</div>
                   <h2 style="margin:0 0 8px;font-size:28px;font-weight:800;color:#fff;background:linear-gradient(135deg,#00ffc3,#3b82f6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">Connexion en cours...</h2>
                   <p style="margin:0;font-size:14px;color:var(--ui-text-muted);">Veuillez patienter</p>
                 </div>
               `;
-              console.log('[OAUTH] ✅✅✅ Fenêtre d\'attente affichée (comme "Continuer sans vérifier")');
+              console.log('[OAUTH] \u2705\u2705\u2705 Fenêtre d\'attente affichée (comme "Continuer sans vérifier")');
             } else {
-              console.error('[OAUTH] ❌ Modal non trouvé et impossible à créer pour afficher la fenêtre d\'attente');
+              console.error('[OAUTH] \u274C Modal non trouvé et impossible à créer pour afficher la fenêtre d\'attente');
             }
             
-            // ⚠️⚠️⚠️ CRITIQUE : Utiliser connectUser au lieu de updateAuthUI directement (comme "Continuer sans vérifier")
+            // \u26A0️\u26A0️\u26A0️ CRITIQUE : Utiliser connectUser au lieu de updateAuthUI directement (comme "Continuer sans vérifier")
             // Récupérer les tokens depuis localStorage
             let accessToken = null;
             let refreshToken = null;
@@ -1234,19 +1429,19 @@ async function handleCognitoCallbackIfPresent() {
                 refreshToken = tokens.refresh_token || tokens.refreshToken;
               }
             } catch (e) {
-              console.error('[OAUTH] ❌ Erreur récupération tokens:', e);
+              console.error('[OAUTH] \u274C Erreur récupération tokens:', e);
             }
             
             if (accessToken && typeof window.connectUser === 'function') {
-              console.log('[OAUTH] ✅✅✅ Utilisation connectUser (comme "Continuer sans vérifier")');
+              console.log('[OAUTH] \u2705\u2705\u2705 Utilisation connectUser (comme "Continuer sans vérifier")');
               const tokens = { access_token: accessToken, refresh_token: refreshToken };
-              // ⚠️⚠️⚠️ CRITIQUE : connectUser ferme déjà les modals automatiquement (comme "Continuer sans vérifier")
+              // \u26A0️\u26A0️\u26A0️ CRITIQUE : connectUser ferme déjà les modals automatiquement (comme "Continuer sans vérifier")
               // Ne pas fermer les modals ici pour éviter les erreurs de popup
               window.connectUser(slimUser, tokens, true); // true = rester connecté par défaut
-              // ⚠️⚠️⚠️ NOTE : connectUser affiche déjà une notification de succès, pas besoin d'en afficher une autre ici
+              // \u26A0️\u26A0️\u26A0️ NOTE : connectUser affiche déjà une notification de succès, pas besoin d'en afficher une autre ici
             } else {
               // Fallback : utiliser updateAuthUI si connectUser n'est pas disponible
-              console.warn('[OAUTH] ⚠️ connectUser non disponible, utilisation updateAuthUI');
+              console.warn('[OAUTH] \u26A0️ connectUser non disponible, utilisation updateAuthUI');
               currentUser = { ...currentUser, ...slimUser, isLoggedIn: true };
               if (finalUsername && finalUsername !== 'Utilisateur' && !finalUsername.includes('@')) {
                 currentUser.username = finalUsername;
@@ -1277,18 +1472,18 @@ async function handleCognitoCallbackIfPresent() {
               }, 500);
               
               const displayName = finalUsername || slimUser.username || slimUser.email?.split('@')[0] || 'Utilisateur';
-              showNotification(`✅ Bienvenue ${displayName} ! Vous êtes connecté.`, 'success');
+              showNotification(`\u2705 Bienvenue ${displayName} ! Vous êtes connecté.`, 'success');
             }
             
             window.isGoogleLoginInProgress = false;
             return;
           }
           
-          // CAS 2: Compte existant avec données manquantes → Demander SEULEMENT ce qui manque
+          // CAS 2: Compte existant avec données manquantes \u2192 Demander SEULEMENT ce qui manque
           if (missingData.length > 0) {
             console.log('[OAUTH] Compte existant - Données manquantes:', missingData);
             
-            // Si seulement la photo manque → Formulaire photo uniquement
+            // Si seulement la photo manque \u2192 Formulaire photo uniquement
             if (missingData.length === 1 && missingData[0] === 'photo') {
               console.log('[OAUTH] Photo manquante uniquement - Affichage formulaire photo');
               showPhotoUploadForm(syncData.user);
@@ -1296,10 +1491,10 @@ async function handleCognitoCallbackIfPresent() {
               return;
             }
             
-            // Si plusieurs données manquent ou autres données → Formulaire adapté
+            // Si plusieurs données manquent ou autres données \u2192 Formulaire adapté
             // Pour l'instant, afficher le formulaire complet pré-rempli
             console.log('[OAUTH] Plusieurs données manquantes - Affichage formulaire complet pré-rempli');
-            showNotification(`⚠️ Veuillez compléter les informations manquantes: ${missingData.join(', ')}`, 'warning');
+            showNotification(`\u26A0️ Veuillez compléter les informations manquantes: ${missingData.join(', ')}`, 'warning');
             if (typeof showProRegisterForm === 'function') {
               showProRegisterForm();
             } else if (typeof window.showProRegisterForm === 'function') {
@@ -1336,7 +1531,7 @@ async function handleCognitoCallbackIfPresent() {
             return;
           }
           
-          // CAS 3: Compte existant, profil complet, besoin confirmation email → Modal confirmation email uniquement
+          // CAS 3: Compte existant, profil complet, besoin confirmation email \u2192 Modal confirmation email uniquement
           if (needsEmailVerification && profileComplete) {
             console.log('[OAUTH] Compte existant - Confirmation email requise - Modal confirmation email uniquement');
             const slimUser = {
@@ -1358,7 +1553,7 @@ async function handleCognitoCallbackIfPresent() {
             updateAuthUI(slimUser);
             
             try {
-              // ⚠️ OPTIMISATION : Exclure photoData avant sauvegarde
+              // \u26A0️ OPTIMISATION : Exclure photoData avant sauvegarde
               const userForStorage = (typeof window.removePhotoDataForStorage === 'function') 
                 ? window.removePhotoDataForStorage(slimUser) 
                 : slimUser;
@@ -1379,7 +1574,7 @@ async function handleCognitoCallbackIfPresent() {
             return;
           }
           
-          // CAS 4: Fallback → Connexion directe quand même
+          // CAS 4: Fallback \u2192 Connexion directe quand même
           console.log('[OAUTH] Fallback - Connexion directe');
           const slimUser = {
             id: syncData.user.id || currentUser.id,
@@ -1409,12 +1604,12 @@ async function handleCognitoCallbackIfPresent() {
           closeAuthModal();
           closePublishModal();
           const displayName = slimUser.username || slimUser.firstName || slimUser.email?.split('@')[0] || 'Utilisateur';
-          showNotification(`✅ Bienvenue ${displayName} !`, 'success');
+          showNotification(`\u2705 Bienvenue ${displayName} !`, 'success');
           window.isGoogleLoginInProgress = false;
           return;
         } else {
           // Fallback si syncData.ok est false ou syncData.user est manquant
-          console.warn('⚠️ Réponse backend invalide, connexion avec données Google uniquement');
+          console.warn('\u26A0️ Réponse backend invalide, connexion avec données Google uniquement');
           
           // Se connecter quand même avec les données Google disponibles
           const slimUser = {
@@ -1442,20 +1637,20 @@ async function handleCognitoCallbackIfPresent() {
             try {
               sessionStorage.setItem('currentUser', slimJson);
             } catch (e2) {
-              console.warn('⚠️ Impossible de sauvegarder user');
+              console.warn('\u26A0️ Impossible de sauvegarder user');
             }
           }
           
           closeAuthModal();
           closePublishModal();
-          showNotification('✅ Connexion Google réussie !', 'success');
+          showNotification('\u2705 Connexion Google réussie !', 'success');
           window.isGoogleLoginInProgress = false;
         }
       } else {
         throw new Error(`Backend sync failed: ${syncResponse.status}`);
       }
     } catch (apiError) {
-      console.warn('⚠️ Erreur lors de l\'appel API backend:', apiError);
+      console.warn('\u26A0️ Erreur lors de l\'appel API backend:', apiError);
       
       // VÉRIFIER SI LE PROFIL EST DÉJÀ COMPLET AVANT D'AFFICHER LE FORMULAIRE
       // Si currentUser.profileComplete === true dans localStorage, ne JAMAIS afficher le formulaire
@@ -1466,7 +1661,7 @@ async function handleCognitoCallbackIfPresent() {
           savedUserObj = JSON.parse(savedUser);
         }
       } catch (e) {
-        console.warn('⚠️ Impossible de parser currentUser depuis localStorage:', e);
+        console.warn('\u26A0️ Impossible de parser currentUser depuis localStorage:', e);
       }
       
       // Vérifier aussi dans currentUser actuel (peut être défini plus haut)
@@ -1474,7 +1669,7 @@ async function handleCognitoCallbackIfPresent() {
                                  (currentUser && currentUser.profileComplete === true);
       
       if (isProfileComplete) {
-        console.log('✅ Profil déjà complet - Connexion directe sans formulaire (fallback)');
+        console.log('\u2705 Profil déjà complet - Connexion directe sans formulaire (fallback)');
         // Restaurer l'utilisateur depuis localStorage ou utiliser currentUser
         if (savedUserObj) {
           currentUser = {
@@ -1493,7 +1688,7 @@ async function handleCognitoCallbackIfPresent() {
           safeSetItem("currentUser", JSON.stringify(slimUser));
         }
         // INTERDICTION : Ne pas modifier le bloc compte - fonctions supprimées
-        showNotification(`✅ Connexion réussie ! Bienvenue ${currentUser.name || currentUser.email}`, "success");
+        showNotification(`\u2705 Connexion réussie ! Bienvenue ${currentUser.name || currentUser.email}`, "success");
         
         // Nettoyer l'URL des paramètres OAuth
         if (window.history && window.history.replaceState) {
@@ -1507,9 +1702,9 @@ async function handleCognitoCallbackIfPresent() {
       
       // FLOW SIMPLIFIÉ : Se connecter quand même avec les données Google disponibles
       // Comme les leaders mondiaux, on se connecte même si le backend échoue
-      console.log('✅ Connexion avec données Google uniquement (backend indisponible)');
+      console.log('\u2705 Connexion avec données Google uniquement (backend indisponible)');
       
-      // ⚠️⚠️⚠️ CRITIQUE : Récupérer le username depuis pendingRegisterDataForGoogle (données du formulaire d'inscription)
+      // \u26A0️\u26A0️\u26A0️ CRITIQUE : Récupérer le username depuis pendingRegisterDataForGoogle (données du formulaire d'inscription)
       let savedUsername = null;
       let savedPhotoData = null;
       let savedPostalAddress = null;
@@ -1519,19 +1714,19 @@ async function handleCognitoCallbackIfPresent() {
           const parsed = JSON.parse(pendingData);
           if (parsed.username && parsed.username !== 'null' && parsed.username !== '' && !parsed.username.includes('@')) {
             savedUsername = parsed.username;
-            console.log('[FALLBACK] ✅ Username récupéré depuis pendingRegisterDataForGoogle:', savedUsername);
+            console.log('[FALLBACK] \u2705 Username récupéré depuis pendingRegisterDataForGoogle:', savedUsername);
           }
           if (parsed.photoData && parsed.photoData !== 'null' && parsed.photoData.length > 100) {
             savedPhotoData = parsed.photoData;
-            console.log('[FALLBACK] ✅ photoData récupéré depuis pendingRegisterDataForGoogle');
+            console.log('[FALLBACK] \u2705 photoData récupéré depuis pendingRegisterDataForGoogle');
           }
           if (parsed.selectedAddress?.label) {
             savedPostalAddress = parsed.selectedAddress.label;
-            console.log('[FALLBACK] ✅ Adresse postale récupérée:', savedPostalAddress);
+            console.log('[FALLBACK] \u2705 Adresse postale récupérée:', savedPostalAddress);
           }
         }
       } catch (e) {
-        console.warn('[FALLBACK] ⚠️ Erreur lecture pendingRegisterDataForGoogle:', e);
+        console.warn('[FALLBACK] \u26A0️ Erreur lecture pendingRegisterDataForGoogle:', e);
       }
       
       // Aussi vérifier localStorage.currentUser (données d'une connexion précédente)
@@ -1542,18 +1737,18 @@ async function handleCognitoCallbackIfPresent() {
             const parsed = JSON.parse(savedCurrentUser);
             if (parsed.username && parsed.username !== 'null' && parsed.username !== '' && !parsed.username.includes('@') && parsed.username !== 'Utilisateur') {
               savedUsername = parsed.username;
-              console.log('[FALLBACK] ✅ Username récupéré depuis localStorage.currentUser:', savedUsername);
+              console.log('[FALLBACK] \u2705 Username récupéré depuis localStorage.currentUser:', savedUsername);
             }
           }
         } catch (e) {
-          console.warn('[FALLBACK] ⚠️ Erreur lecture localStorage.currentUser:', e);
+          console.warn('[FALLBACK] \u26A0️ Erreur lecture localStorage.currentUser:', e);
         }
       }
       
       const slimUser = {
         id: currentUser.id || `user_${Date.now()}`,
         email: currentUser.email,
-        username: savedUsername || null, // ⚠️⚠️⚠️ NE JAMAIS utiliser l'email - getUserDisplayName affichera "Compte" si null
+        username: savedUsername || null, // \u26A0️\u26A0️\u26A0️ NE JAMAIS utiliser l'email - getUserDisplayName affichera "Compte" si null
         firstName: currentUser.name?.split(' ')[0] || '',
         lastName: currentUser.name?.split(' ').slice(1).join(' ') || '',
         role: 'user',
@@ -1579,18 +1774,18 @@ async function handleCognitoCallbackIfPresent() {
         try {
           sessionStorage.setItem('currentUser', slimJson);
         } catch (e2) {
-          console.warn('⚠️ Impossible de sauvegarder user');
+          console.warn('\u26A0️ Impossible de sauvegarder user');
         }
       }
       
       closeAuthModal();
       closePublishModal();
-      showNotification('✅ Connexion Google réussie !', 'success');
+      showNotification('\u2705 Connexion Google réussie !', 'success');
       window.isGoogleLoginInProgress = false;
     }
   } catch (e) {
     console.warn(e);
-    showNotification("✅ Connecté (token reçu).", "success");
+    showNotification("\u2705 Connecté (token reçu).", "success");
   }
 }
 
@@ -1598,11 +1793,11 @@ async function handleCognitoCallbackIfPresent() {
 function displayRegistrationFormAfterGoogleAuth(backendUser) {
   // FONCTION DÉSACTIVÉE : Plus jamais de formulaire après OAuth Google
   // Comme les leaders mondiaux, on se connecte directement
-  console.log('⚠️ displayRegistrationFormAfterGoogleAuth appelé mais DÉSACTIVÉ - Connexion directe Google');
+  console.log('\u26A0️ displayRegistrationFormAfterGoogleAuth appelé mais DÉSACTIVÉ - Connexion directe Google');
   
   // Ne jamais afficher de formulaire après OAuth Google - connexion directe
   if (currentUser && currentUser.isLoggedIn) {
-    console.log('✅ Utilisateur déjà connecté - pas de formulaire nécessaire');
+    console.log('\u2705 Utilisateur déjà connecté - pas de formulaire nécessaire');
     return;
   }
   
@@ -1632,13 +1827,13 @@ function displayRegistrationFormAfterGoogleAuth(backendUser) {
     try {
       sessionStorage.setItem('currentUser', slimJson);
     } catch (e2) {
-      console.warn('⚠️ Impossible de sauvegarder user');
+      console.warn('\u26A0️ Impossible de sauvegarder user');
     }
   }
   
   closeAuthModal();
   closePublishModal();
-  showNotification('✅ Connexion Google réussie !', 'success');
+  showNotification('\u2705 Connexion Google réussie !', 'success');
 }
 
 // 3) Logout (Hosted UI)
@@ -1653,7 +1848,7 @@ function startCognitoLogout() {
 }
 
 // ============================================
-// MAPEVENT – LOGIQUE FRONTEND (VERSION PRO)
+// MAPEVENT \u2013 LOGIQUE FRONTEND (VERSION PRO)
 // Avec :
 //  - MAP + POPUPS + DEMO
 //  - Event List fullscreen
@@ -1663,12 +1858,12 @@ function startCognitoLogout() {
 //
 // STRATÉGIE COMMERCIALE FUTURE (à implémenter côté backend) :
 //  - Events : Envoyer un mail de confirmation à l'organisateur
-//    → Rotation : 1 event par organisateur, puis passer au suivant
-//    → Faire le tour complet avant de revenir vers le même organisateur
-//    → L'organisateur doit publier lui-même ses prochains events
+//    \u2192 Rotation : 1 event par organisateur, puis passer au suivant
+//    \u2192 Faire le tour complet avant de revenir vers le même organisateur
+//    \u2192 L'organisateur doit publier lui-même ses prochains events
 //  - Booking/Service : Publier tous les points automatiquement
-//    → Enlever seulement si un utilisateur paie pour publier son propre point
-//    → Si l'IA détecte un doublon/rapport, enlever le point automatique
+//    \u2192 Enlever seulement si un utilisateur paie pour publier son propre point
+//    \u2192 Si l'IA détecte un doublon/rapport, enlever le point automatique
 //  - Logique IA : Détection de doublons et conflits lors des paiements
 // ============================================
 
@@ -1707,20 +1902,41 @@ let geoCirclesLayer = null;           // Layer pour les cercles agrégés (zoom 
 let loadedEventIds = new Set();       // IDs des events déjà chargés (évite les doublons)
 let viewportFetchTimeout = null;      // Timer debounce pour les fetch viewport
 let lastViewportKey = '';             // Clé du dernier viewport chargé (évite re-fetch inutile)
+let pendingViewportKey = '';          // Clé en cours de chargement
+let viewportAbortController = null;   // Permet d'annuler le fetch viewport précédent
+let viewportRequestSeq = 0;           // Ignore les réponses async obsolètes
+let listRefreshTimeout = null;        // Debounce pour la liste (évite recalcul à chaque fetch)
 const VIEWPORT_ZOOM_THRESHOLD = 10;   // Zoom à partir duquel on charge les events réels
+const CLUSTER_PREMIUM_LEAD_MIN_ZOOM_DEFAULT = 16;
+const CLUSTER_PREMIUM_LEAD_STORAGE_KEY = 'clusterPremiumLeadMinZoom';
+const CLUSTER_PREMIUM_CALIBRATION_MIN_COUNT = 40;
+const CLUSTER_PREMIUM_CALIBRATION_MAX_COUNT = 90;
+let clusterPremiumLeadMinZoom = CLUSTER_PREMIUM_LEAD_MIN_ZOOM_DEFAULT;
 
 let currentMode = "event"; // "event" | "booking" | "service"
 let currentLanguage = "fr";
 
-// Langues supportées – MEILLEURE AU MONDE (90+ langues, couverture maximale)
+// Langues supportées \u2013 MEILLEURE AU MONDE (90+ langues, couverture maximale)
 const SUPPORTED_LANGUAGES = [
-  "fr", "en", "es", "zh", "hi", "de", "it", "pt", "ru", "ar", "ja", "ko", "nl", "tr", "pl", "vi", "id", "th",
-  "uk", "sv", "no", "da", "fi", "el", "he", "ro", "ms", "cs", "hu", "sk", "bg", "hr", "sr", "lt", "lv", "et", "sl",
-  "ta", "bn", "ur", "fa", "mr", "sw", "am", "af", "ca", "pa", "tl", "my", "ne", "is", "sq", "mk", "bs", "gl",
-  "cy", "ka", "hy", "az", "kk", "uz", "ml", "te", "gu", "kn", "si", "eu", "mn", "ga", "lb", "mt",
-  "yo", "ha", "ig", "so", "rw", "mg", "wo", "st", "tn", "xh", "zu", "km", "lo", "sd", "ps", "ky", "tk", "tg",
-  "br", "gd", "fy", "ku", "ht", "jv", "su", "ny", "om", "ti", "dv", "bo", "dz", "or", "as", "kmr", "ckb"
+  "en", "fr", "es", "de", "it", "pt", "ru", "zh", "ar", "hi",
+  "ja", "ko", "nl", "tr", "pl", "id", "th", "uk", "sv", "no"
 ];
+
+function getClusterPremiumLeadMinZoom() {
+  const fallback = CLUSTER_PREMIUM_LEAD_MIN_ZOOM_DEFAULT;
+  const value = Number(clusterPremiumLeadMinZoom);
+  if (!Number.isFinite(value)) return fallback;
+  return Math.max(fallback, Math.min(20, value));
+}
+
+function persistClusterPremiumLeadMinZoom(zoom) {
+  const z = Number(zoom);
+  if (!Number.isFinite(z)) return;
+  clusterPremiumLeadMinZoom = Math.max(CLUSTER_PREMIUM_LEAD_MIN_ZOOM_DEFAULT, Math.min(20, z));
+  try {
+    localStorage.setItem(CLUSTER_PREMIUM_LEAD_STORAGE_KEY, String(clusterPremiumLeadMinZoom));
+  } catch (_) {}
+}
 
 // CRITIQUE: Initialiser window.translations IMMÉDIATEMENT avec un objet vide
 // pour éviter toute erreur TDZ avant que les traductions complètes ne soient chargées
@@ -1752,8 +1968,8 @@ window.t = function(k) {
     if (!w || !w.translations) return k;
     var l = (typeof currentLanguage !== 'undefined' && currentLanguage) ? currentLanguage : 'fr';
     if (w.translations[l] && w.translations[l][k]) return w.translations[l][k];
-    if (w.translations.fr && w.translations.fr[k]) return w.translations.fr[k];
     if (w.translations.en && w.translations.en[k]) return w.translations.en[k];
+    if (w.translations.fr && w.translations.fr[k]) return w.translations.fr[k];
     return k;
   } catch(e) {
     return k;
@@ -1885,7 +2101,7 @@ const translationsDataObject = {
   fr: {
     // UI Topbar
     "filter": "Filtrer", "list": "Liste", "events": "Events", "booking": "Booking", "services": "Services",
-    "agenda": "Agenda", "alerts": "ABOS", "account": "Compte", "cart": "Panier",
+    "agenda": "Agenda", "alerts": "OFFRES", "account": "Compte", "cart": "Panier",
     "search_city": "Rechercher une ville...", "publish": "Publier",
     
     // Popups Events
@@ -1895,7 +2111,7 @@ const translationsDataObject = {
     "leave_review": "Laisser un avis", "contact_ai": "Contact IA", "report": "Signaler",
     "participants": "participants", "registered": "Inscrit", "in_agenda": "Dans agenda",
     "share": "Partager", "route": "Itinéraire", "review": "Avis", "contact": "Contact", "reviews": "avis",
-    "ai_detected": "Publié par MapEvent", "check_source": "vérifier la source",
+    "ai_detected": "Source originale", "check_source": "vérifier la source",
     "booking_link": "Lien de réservation", "rating": "Note",
     
     // Popups Booking
@@ -1917,25 +2133,25 @@ const translationsDataObject = {
     
     // Filtres
     "filter_by_date": "Filtrer par date", "today": "Aujourd'hui", "tomorrow": "Demain",
-    "weekend": "Ce week-end", "week": "Cette semaine", "month": "Ce mois",
+    "weekend": "Ce week-end", "week": "Cette semaine", "month": "30 jours",
     "select_period": "Ou sélectionner une période", "from": "Du", "to": "Au",
     "reset_all": "Réinitialiser tout", "selected_categories": "Catégories sélectionnées",
     "cumulative": "cumulable",
     
     // Formulaire de publication
-    "publish_mode": "Publier – Mode", "main_category": "Catégorie principale", "choose_category": "Choisir catégorie…",
+    "publish_mode": "Publier \u2013 Mode", "main_category": "Catégorie principale", "choose_category": "Choisir catégorie\u2026",
     "start": "Début", "end": "Fin", "title_name": "Titre", "full_address": "Adresse complète",
     "phone": "Téléphone", "email": "Email", "full_description": "Description complète",
     "main_photo": "Photo principale", "ticketing": "Billetterie", "ticket_link": "Lien billetterie",
-    "social_links": "Liens réseaux", "video_links": "Liens vidéos", "sound_links": "Liens sons (SoundCloud, YouTube, Spotify…)",
-    "paste_sound_links": "Coller vos liens sons", "level": "Niveau (Débutant, Pro, Headliner…)",
-    "price_estimate": "Estimation de prix à négocier", "price_example": "ex: 500.– la soirée (à négocier)",
+    "social_links": "Liens réseaux", "video_links": "Liens vidéos", "sound_links": "Liens sons (SoundCloud, YouTube, Spotify\u2026)",
+    "paste_sound_links": "Coller vos liens sons", "level": "Niveau (Débutant, Pro, Headliner\u2026)",
+    "price_estimate": "Estimation de prix à négocier", "price_example": "ex: 500.\u2013 la soirée (à négocier)",
     "price_not_detected": "Si l'IA ne détecte pas de prix ou a un doute : \"Estimation de prix non détectée\".",
     "visibility_choice": "Choix de visibilité (paiement à l'étape suivante) :",
-    "standard_point": "1.– : Point standard sur la map + Event List.",
-    "bronze_boost": "5.– Boost Bronze : Pointeur bronze, priorité dans la liste.",
-    "silver_boost": "10.– Boost Silver : Pointeur argent, forte priorité.",
-    "platinum_boost": "TOP 10 – Boost Platinum : enchères, pointeur platine ultra visible.",
+    "standard_point": "1.\u2013 : Point standard sur la map + Event List.",
+    "bronze_boost": "5.\u2013 Boost Bronze : Pointeur bronze, priorité dans la liste.",
+    "silver_boost": "10.\u2013 Boost Silver : Pointeur argent, forte priorité.",
+    "platinum_boost": "TOP 10 \u2013 Boost Platinum : enchères, pointeur platine ultra visible.",
     "subscription_recommended": "💎 Abonnement recommandé",
     "save_on_events": "Économisez sur vos publications events",
     "unlimited_contacts": "Contacts illimités + réductions",
@@ -1946,7 +2162,10 @@ const translationsDataObject = {
     "close": "Fermer", "save": "Enregistrer", "cancel": "Annuler", "confirm": "Confirmer",
     "loading": "Chargement...", "error": "Erreur", "success": "Succès", "info": "Information",
     "translate": "Traduire", "hide_translation": "Masquer traduction", "translation_error": "Erreur de traduction",
-    "try_again": "Réessayez"
+    "try_again": "Réessayez", "invite": "Inviter", "filter_hint": "Choisissez les catégories à filtrer. Le filtre affiche uniquement les événements correspondants.",
+    "audio_link_unplayable": "Lien audio détecté mais non lisible dans le lecteur intégré. Ouvrir la source.",
+    "no_audio_published": "Aucun extrait audio publié pour cet artiste.",
+    "added_to_agenda_permanent": "Ajouté à votre agenda permanent"
   },
   en: {
     "filter": "Filter", "list": "List", "events": "Events", "booking": "Booking", "services": "Services",
@@ -1974,19 +2193,19 @@ const translationsDataObject = {
     "select_period": "Or select a period", "from": "From", "to": "To",
     "reset_all": "Reset all", "selected_categories": "Selected categories",
     "cumulative": "cumulative",
-    "publish_mode": "Publish – Mode", "main_category": "Main category", "choose_category": "Choose category…",
+    "publish_mode": "Publish \u2013 Mode", "main_category": "Main category", "choose_category": "Choose category\u2026",
     "start": "Start", "end": "End", "title_name": "Title", "full_address": "Full address",
     "phone": "Phone", "email": "Email", "full_description": "Full description",
     "main_photo": "Main photo", "ticketing": "Ticketing", "ticket_link": "Ticket link",
-    "social_links": "Social links", "video_links": "Video links", "sound_links": "Sound links (SoundCloud, YouTube, Spotify…)",
-    "paste_sound_links": "Paste your sound links", "level": "Level (Beginner, Pro, Headliner…)",
-    "price_estimate": "Price estimate to negotiate", "price_example": "e.g.: 500.– per evening (to negotiate)",
+    "social_links": "Social links", "video_links": "Video links", "sound_links": "Sound links (SoundCloud, YouTube, Spotify\u2026)",
+    "paste_sound_links": "Paste your sound links", "level": "Level (Beginner, Pro, Headliner\u2026)",
+    "price_estimate": "Price estimate to negotiate", "price_example": "e.g.: 500.\u2013 per evening (to negotiate)",
     "price_not_detected": "If AI doesn't detect a price or has doubts: \"Price estimate not detected\".",
     "visibility_choice": "Visibility choice (payment at next step):",
-    "standard_point": "1.– : Standard point on map + Event List.",
-    "bronze_boost": "5.– Bronze Boost : Bronze pointer, priority in list.",
-    "silver_boost": "10.– Silver Boost : Silver pointer, high priority.",
-    "platinum_boost": "TOP 10 – Platinum Boost : auctions, ultra-visible platinum pointer.",
+    "standard_point": "1.\u2013 : Standard point on map + Event List.",
+    "bronze_boost": "5.\u2013 Bronze Boost : Bronze pointer, priority in list.",
+    "silver_boost": "10.\u2013 Silver Boost : Silver pointer, high priority.",
+    "platinum_boost": "TOP 10 \u2013 Platinum Boost : auctions, ultra-visible platinum pointer.",
     "subscription_recommended": "💎 Recommended subscription",
     "save_on_events": "Save on your event publications",
     "unlimited_contacts": "Unlimited contacts + discounts",
@@ -1995,7 +2214,10 @@ const translationsDataObject = {
     "close": "Close", "save": "Save", "cancel": "Cancel", "confirm": "Confirm",
     "loading": "Loading...", "error": "Error", "success": "Success", "info": "Information",
     "translate": "Translate", "hide_translation": "Hide translation", "translation_error": "Translation error",
-    "try_again": "Try again"
+    "try_again": "Try again", "invite": "Invite", "filter_hint": "Choose categories to filter. The filter only shows matching events.",
+    "audio_link_unplayable": "Audio link detected but not playable in embedded player. Open source link.",
+    "no_audio_published": "No audio preview published for this artist.",
+    "added_to_agenda_permanent": "Added to your permanent agenda"
   },
   es: {
     "filter": "Filtrar", "list": "Lista", "events": "Eventos", "booking": "Reservas", "services": "Servicios",
@@ -2090,10 +2312,10 @@ const translationsDataObject = {
     "translate": "अनुवाद करें", "hide_translation": "अनुवाद छुपाएं", "translation_error": "अनुवाद त्रुटि",
     "try_again": "पुनः प्रयास करें"
   },
-  de: { "filter": "Filtern", "list": "Liste", "events": "Events", "booking": "Booking", "services": "Dienste", "agenda": "Agenda", "alerts": "Abos", "account": "Konto", "cart": "Warenkorb", "search_city": "Stadt suchen...", "publish": "Veröffentlichen", "event_title": "Event", "date": "Datum", "address": "Adresse", "description": "Beschreibung", "category": "Kategorie", "organizer": "Veranstalter", "price": "Preis", "free": "Kostenlos", "add_to_agenda": "Zu meinem Kalender", "like": "Gefällt mir", "favorite": "Favoriten", "participate": "Teilnehmen", "leave_review": "Bewertung schreiben", "contact_ai": "KI-Kontakt", "report": "Melden", "participants": "Teilnehmer", "registered": "Registriert", "in_agenda": "Im Kalender", "share": "Teilen", "route": "Route", "review": "Bewertung", "contact": "Kontakt", "reviews": "Bewertungen", "ai_detected": "Von KI erkannt", "check_source": "Quelle prüfen", "booking_link": "Buchungslink", "rating": "Bewertung", "booking_title": "Buchung", "artist": "Künstler", "level": "Niveau", "sound_preview": "Hörprobe", "get_contact": "Kontakt", "pay": "Bezahlen", "view_subs": "Abos anzeigen", "add_to_cart": "In den Warenkorb", "verified": "Verifiziert", "website": "Webseite", "email": "E-Mail", "phone": "Telefon", "service_title": "Dienstleistung", "company": "Unternehmen", "contact_info": "Kontakt", "my_agenda": "Mein Kalender", "my_favorites": "Favoriten", "my_subscriptions": "Abos", "agenda_empty": "Kalender leer", "add_from_map": "Events von der Karte hinzufügen!", "remove_from_agenda": "Aus Kalender entfernen", "city_found": "gefunden!", "city_not_found": "nicht gefunden", "searching": "Suche", "language_changed": "Sprache geändert", "removed_from_agenda": "Aus Kalender entfernt", "filter_by_date": "Nach Datum filtern", "today": "Heute", "tomorrow": "Morgen", "weekend": "Dieses Wochenende", "week": "Diese Woche", "month": "Diesen Monat", "select_period": "Zeitraum wählen", "from": "Von", "to": "Bis", "reset_all": "Zurücksetzen", "selected_categories": "Kategorien", "cumulative": "kumulativ", "publish_mode": "Veröffentlichen – Modus", "main_category": "Hauptkategorie", "choose_category": "Kategorie wählen…", "start": "Start", "end": "Ende", "title_name": "Titel", "full_address": "Adresse", "full_description": "Beschreibung", "main_photo": "Hauptfoto", "ticketing": "Ticketing", "ticket_link": "Ticket-Link", "social_links": "Soziale Links", "video_links": "Video-Links", "sound_links": "Sound-Links", "paste_sound_links": "Sound-Links einfügen", "price_estimate": "Preisschätzung", "price_example": "z. B. 500.– pro Abend", "price_not_detected": "Preis nicht erkannt.", "visibility_choice": "Sichtbarkeit (Zahlung im nächsten Schritt):", "standard_point": "1.– : Standard-Punkt", "bronze_boost": "5.– Bronze", "silver_boost": "10.– Silber", "platinum_boost": "TOP 10 – Platin", "subscription_recommended": "💎 Abo empfohlen", "save_on_events": "Sparen bei Events", "unlimited_contacts": "Unbegrenzte Kontakte", "publish_and_pay": "Veröffentlichen und zahlen", "close": "Schließen", "save": "Speichern", "cancel": "Abbrechen", "confirm": "Bestätigen", "loading": "Laden...", "error": "Fehler", "success": "Erfolg", "info": "Info", "translate": "Übersetzen", "hide_translation": "Übersetzung ausblenden", "translation_error": "Übersetzungsfehler", "try_again": "Erneut versuchen" },
-  it: { "filter": "Filtra", "list": "Lista", "events": "Eventi", "booking": "Booking", "services": "Servizi", "agenda": "Agenda", "alerts": "Abos", "account": "Account", "cart": "Carrello", "search_city": "Cerca città...", "publish": "Pubblica", "event_title": "Evento", "date": "Data", "address": "Indirizzo", "description": "Descrizione", "category": "Categoria", "organizer": "Organizzatore", "price": "Prezzo", "free": "Gratis", "add_to_agenda": "Aggiungi al calendario", "like": "Mi piace", "favorite": "Preferiti", "participate": "Partecipa", "leave_review": "Lascia una recensione", "contact_ai": "Contatto IA", "report": "Segnala", "participants": "partecipanti", "registered": "Iscritto", "in_agenda": "In agenda", "share": "Condividi", "route": "Percorso", "review": "Recensione", "contact": "Contatto", "reviews": "recensioni", "ai_detected": "Rilevato da IA", "check_source": "Verifica fonte", "booking_link": "Link prenotazione", "rating": "Valutazione", "booking_title": "Prenotazione", "artist": "Artista", "level": "Livello", "sound_preview": "Anteprima audio", "get_contact": "Contatto", "pay": "Paga", "view_subs": "Abbonamenti", "add_to_cart": "Aggiungi al carrello", "verified": "Verificato", "website": "Sito web", "email": "Email", "phone": "Telefono", "service_title": "Servizio", "company": "Azienda", "contact_info": "Contatti", "my_agenda": "La mia agenda", "my_favorites": "Preferiti", "my_subscriptions": "Abbonamenti", "agenda_empty": "Agenda vuota", "add_from_map": "Aggiungi eventi dalla mappa!", "remove_from_agenda": "Rimuovi da agenda", "city_found": "trovata!", "city_not_found": "non trovata", "searching": "Ricerca", "language_changed": "Lingua cambiata", "removed_from_agenda": "Rimosso da agenda", "filter_by_date": "Filtra per data", "today": "Oggi", "tomorrow": "Domani", "weekend": "Questo weekend", "week": "Questa settimana", "month": "Questo mese", "select_period": "Seleziona periodo", "from": "Da", "to": "A", "reset_all": "Reimposta", "selected_categories": "Categorie", "cumulative": "cumulativo", "publish_mode": "Pubblica – Modo", "main_category": "Categoria principale", "choose_category": "Scegli categoria…", "start": "Inizio", "end": "Fine", "title_name": "Titolo", "full_address": "Indirizzo completo", "full_description": "Descrizione", "main_photo": "Foto principale", "ticketing": "Biglietteria", "ticket_link": "Link biglietti", "social_links": "Link social", "video_links": "Link video", "sound_links": "Link audio", "paste_sound_links": "Incolla link audio", "price_estimate": "Stima prezzo", "price_example": "es. 500.– a serata", "price_not_detected": "Prezzo non rilevato.", "visibility_choice": "Visibilità (pagamento al passo successivo):", "standard_point": "1.– : Punto standard", "bronze_boost": "5.– Bronze", "silver_boost": "10.– Argento", "platinum_boost": "TOP 10 – Platino", "subscription_recommended": "💎 Abbonamento consigliato", "save_on_events": "Risparmia sugli eventi", "unlimited_contacts": "Contatti illimitati", "publish_and_pay": "Pubblica e paga", "close": "Chiudi", "save": "Salva", "cancel": "Annulla", "confirm": "Conferma", "loading": "Caricamento...", "error": "Errore", "success": "Successo", "info": "Info", "translate": "Traduci", "hide_translation": "Nascondi traduzione", "translation_error": "Errore traduzione", "try_again": "Riprova" },
-  pt: { "filter": "Filtrar", "list": "Lista", "events": "Eventos", "booking": "Reservas", "services": "Serviços", "agenda": "Agenda", "alerts": "Alertas", "account": "Conta", "cart": "Carrinho", "search_city": "Pesquisar cidade...", "publish": "Publicar", "event_title": "Evento", "date": "Data", "address": "Morada", "description": "Descrição", "category": "Categoria", "organizer": "Organizador", "price": "Preço", "free": "Grátis", "add_to_agenda": "Adicionar à agenda", "like": "Gosto", "favorite": "Favoritos", "participate": "Participar", "leave_review": "Deixar avaliação", "contact_ai": "Contacto IA", "report": "Reportar", "participants": "participantes", "registered": "Inscrito", "in_agenda": "Na agenda", "share": "Partilhar", "route": "Percurso", "review": "Avaliação", "contact": "Contacto", "reviews": "avaliações", "ai_detected": "Detetado por IA", "check_source": "Verificar fonte", "booking_link": "Link reserva", "rating": "Classificação", "booking_title": "Reserva", "artist": "Artista", "level": "Nível", "sound_preview": "Pré-visualização áudio", "get_contact": "Obter contacto", "pay": "Pagar", "view_subs": "Ver subscrições", "add_to_cart": "Adicionar ao carrinho", "verified": "Verificado", "website": "Site", "email": "Email", "phone": "Telefone", "service_title": "Serviço", "company": "Empresa", "contact_info": "Contacto", "my_agenda": "A minha agenda", "my_favorites": "Favoritos", "my_subscriptions": "Subscrições", "agenda_empty": "Agenda vazia", "add_from_map": "Adicione eventos do mapa!", "remove_from_agenda": "Remover da agenda", "city_found": "encontrada!", "city_not_found": "não encontrada", "searching": "A pesquisar", "language_changed": "Idioma alterado", "removed_from_agenda": "Removido da agenda", "filter_by_date": "Filtrar por data", "today": "Hoje", "tomorrow": "Amanhã", "weekend": "Este fim de semana", "week": "Esta semana", "month": "Este mês", "select_period": "Ou selecionar período", "from": "De", "to": "Até", "reset_all": "Repor", "selected_categories": "Categorias", "cumulative": "acumulável", "publish_mode": "Publicar – Modo", "main_category": "Categoria principal", "choose_category": "Escolher categoria…", "start": "Início", "end": "Fim", "title_name": "Título", "full_address": "Morada completa", "full_description": "Descrição", "main_photo": "Foto principal", "ticketing": "Bilhetes", "ticket_link": "Link bilhetes", "social_links": "Redes sociais", "video_links": "Links vídeo", "sound_links": "Links áudio", "paste_sound_links": "Colar links áudio", "price_estimate": "Estimativa de preço", "price_example": "ex.: 500.– por noite", "price_not_detected": "Preço não detetado.", "visibility_choice": "Visibilidade (pagamento no próximo passo):", "standard_point": "1.– : Ponto standard", "bronze_boost": "5.– Bronze", "silver_boost": "10.– Prata", "platinum_boost": "TOP 10 – Platina", "subscription_recommended": "💎 Subscrição recomendada", "save_on_events": "Poupe em eventos", "unlimited_contacts": "Contactos ilimitados", "publish_and_pay": "Publicar e pagar", "close": "Fechar", "save": "Guardar", "cancel": "Cancelar", "confirm": "Confirmar", "loading": "A carregar...", "error": "Erro", "success": "Sucesso", "info": "Informação", "translate": "Traduzir", "hide_translation": "Ocultar tradução", "translation_error": "Erro de tradução", "try_again": "Tentar novamente" },
-  ru: { "filter": "Фильтр", "list": "Список", "events": "События", "booking": "Бронирование", "services": "Услуги", "agenda": "Календарь", "alerts": "Оповещения", "account": "Аккаунт", "cart": "Корзина", "search_city": "Поиск города...", "publish": "Опубликовать", "event_title": "Событие", "date": "Дата", "address": "Адрес", "description": "Описание", "category": "Категория", "organizer": "Организатор", "price": "Цена", "free": "Бесплатно", "add_to_agenda": "В календарь", "like": "Нравится", "favorite": "Избранное", "participate": "Участвовать", "leave_review": "Оставить отзыв", "contact_ai": "Контакт ИИ", "report": "Пожаловаться", "participants": "участников", "registered": "Зарегистрирован", "in_agenda": "В календаре", "share": "Поделиться", "route": "Маршрут", "review": "Отзыв", "contact": "Контакт", "reviews": "отзывов", "ai_detected": "Определено ИИ", "check_source": "Проверить источник", "booking_link": "Ссылка бронирования", "rating": "Рейтинг", "booking_title": "Бронирование", "artist": "Артист", "level": "Уровень", "sound_preview": "Прослушать", "get_contact": "Контакт", "pay": "Оплатить", "view_subs": "Подписки", "add_to_cart": "В корзину", "verified": "Проверено", "website": "Сайт", "email": "Email", "phone": "Телефон", "service_title": "Услуга", "company": "Компания", "contact_info": "Контакты", "my_agenda": "Мой календарь", "my_favorites": "Избранное", "my_subscriptions": "Подписки", "agenda_empty": "Календарь пуст", "add_from_map": "Добавьте события с карты!", "remove_from_agenda": "Удалить из календаря", "city_found": "найдено!", "city_not_found": "не найдено", "searching": "Поиск", "language_changed": "Язык изменён", "removed_from_agenda": "Удалено из календаря", "filter_by_date": "По дате", "today": "Сегодня", "tomorrow": "Завтра", "weekend": "В эти выходные", "week": "На этой неделе", "month": "В этом месяце", "select_period": "Выберите период", "from": "С", "to": "По", "reset_all": "Сбросить", "selected_categories": "Категории", "cumulative": "суммарно", "publish_mode": "Публикация – Режим", "main_category": "Основная категория", "choose_category": "Выбрать категорию…", "start": "Начало", "end": "Конец", "title_name": "Название", "full_address": "Адрес", "full_description": "Описание", "main_photo": "Фото", "ticketing": "Билеты", "ticket_link": "Ссылка на билеты", "social_links": "Соцсети", "video_links": "Видео", "sound_links": "Аудио", "paste_sound_links": "Вставьте ссылки", "price_estimate": "Ориентир цены", "price_example": "напр. 500.– за вечер", "price_not_detected": "Цена не определена.", "visibility_choice": "Видимость (оплата на следующем шаге):", "standard_point": "1.– : Стандартная точка", "bronze_boost": "5.– Бронза", "silver_boost": "10.– Серебро", "platinum_boost": "TOP 10 – Платина", "subscription_recommended": "💎 Рекомендуем подписку", "save_on_events": "Экономия на событиях", "unlimited_contacts": "Безлимит контактов", "publish_and_pay": "Опубликовать и оплатить", "close": "Закрыть", "save": "Сохранить", "cancel": "Отмена", "confirm": "Подтвердить", "loading": "Загрузка...", "error": "Ошибка", "success": "Успех", "info": "Инфо", "translate": "Перевести", "hide_translation": "Скрыть перевод", "translation_error": "Ошибка перевода", "try_again": "Повторить" }
+  de: { "filter": "Filtern", "list": "Liste", "events": "Events", "booking": "Booking", "services": "Dienste", "agenda": "Agenda", "alerts": "Abos", "account": "Konto", "cart": "Warenkorb", "search_city": "Stadt suchen...", "publish": "Veröffentlichen", "event_title": "Event", "date": "Datum", "address": "Adresse", "description": "Beschreibung", "category": "Kategorie", "organizer": "Veranstalter", "price": "Preis", "free": "Kostenlos", "add_to_agenda": "Zu meinem Kalender", "like": "Gefällt mir", "favorite": "Favoriten", "participate": "Teilnehmen", "leave_review": "Bewertung schreiben", "contact_ai": "KI-Kontakt", "report": "Melden", "participants": "Teilnehmer", "registered": "Registriert", "in_agenda": "Im Kalender", "share": "Teilen", "route": "Route", "review": "Bewertung", "contact": "Kontakt", "reviews": "Bewertungen", "ai_detected": "Von KI erkannt", "check_source": "Quelle prüfen", "booking_link": "Buchungslink", "rating": "Bewertung", "booking_title": "Buchung", "artist": "Künstler", "level": "Niveau", "sound_preview": "Hörprobe", "get_contact": "Kontakt", "pay": "Bezahlen", "view_subs": "Abos anzeigen", "add_to_cart": "In den Warenkorb", "verified": "Verifiziert", "website": "Webseite", "email": "E-Mail", "phone": "Telefon", "service_title": "Dienstleistung", "company": "Unternehmen", "contact_info": "Kontakt", "my_agenda": "Mein Kalender", "my_favorites": "Favoriten", "my_subscriptions": "Abos", "agenda_empty": "Kalender leer", "add_from_map": "Events von der Karte hinzufügen!", "remove_from_agenda": "Aus Kalender entfernen", "city_found": "gefunden!", "city_not_found": "nicht gefunden", "searching": "Suche", "language_changed": "Sprache geändert", "removed_from_agenda": "Aus Kalender entfernt", "filter_by_date": "Nach Datum filtern", "today": "Heute", "tomorrow": "Morgen", "weekend": "Dieses Wochenende", "week": "Diese Woche", "month": "Diesen Monat", "select_period": "Zeitraum wählen", "from": "Von", "to": "Bis", "reset_all": "Zurücksetzen", "selected_categories": "Kategorien", "cumulative": "kumulativ", "publish_mode": "Veröffentlichen \u2013 Modus", "main_category": "Hauptkategorie", "choose_category": "Kategorie wählen\u2026", "start": "Start", "end": "Ende", "title_name": "Titel", "full_address": "Adresse", "full_description": "Beschreibung", "main_photo": "Hauptfoto", "ticketing": "Ticketing", "ticket_link": "Ticket-Link", "social_links": "Soziale Links", "video_links": "Video-Links", "sound_links": "Sound-Links", "paste_sound_links": "Sound-Links einfügen", "price_estimate": "Preisschätzung", "price_example": "z. B. 500.\u2013 pro Abend", "price_not_detected": "Preis nicht erkannt.", "visibility_choice": "Sichtbarkeit (Zahlung im nächsten Schritt):", "standard_point": "1.\u2013 : Standard-Punkt", "bronze_boost": "5.\u2013 Bronze", "silver_boost": "10.\u2013 Silber", "platinum_boost": "TOP 10 \u2013 Platin", "subscription_recommended": "💎 Abo empfohlen", "save_on_events": "Sparen bei Events", "unlimited_contacts": "Unbegrenzte Kontakte", "publish_and_pay": "Veröffentlichen und zahlen", "close": "Schließen", "save": "Speichern", "cancel": "Abbrechen", "confirm": "Bestätigen", "loading": "Laden...", "error": "Fehler", "success": "Erfolg", "info": "Info", "translate": "Übersetzen", "hide_translation": "Übersetzung ausblenden", "translation_error": "Übersetzungsfehler", "try_again": "Erneut versuchen" },
+  it: { "filter": "Filtra", "list": "Lista", "events": "Eventi", "booking": "Booking", "services": "Servizi", "agenda": "Agenda", "alerts": "Abos", "account": "Account", "cart": "Carrello", "search_city": "Cerca città...", "publish": "Pubblica", "event_title": "Evento", "date": "Data", "address": "Indirizzo", "description": "Descrizione", "category": "Categoria", "organizer": "Organizzatore", "price": "Prezzo", "free": "Gratis", "add_to_agenda": "Aggiungi al calendario", "like": "Mi piace", "favorite": "Preferiti", "participate": "Partecipa", "leave_review": "Lascia una recensione", "contact_ai": "Contatto IA", "report": "Segnala", "participants": "partecipanti", "registered": "Iscritto", "in_agenda": "In agenda", "share": "Condividi", "route": "Percorso", "review": "Recensione", "contact": "Contatto", "reviews": "recensioni", "ai_detected": "Rilevato da IA", "check_source": "Verifica fonte", "booking_link": "Link prenotazione", "rating": "Valutazione", "booking_title": "Prenotazione", "artist": "Artista", "level": "Livello", "sound_preview": "Anteprima audio", "get_contact": "Contatto", "pay": "Paga", "view_subs": "Abbonamenti", "add_to_cart": "Aggiungi al carrello", "verified": "Verificato", "website": "Sito web", "email": "Email", "phone": "Telefono", "service_title": "Servizio", "company": "Azienda", "contact_info": "Contatti", "my_agenda": "La mia agenda", "my_favorites": "Preferiti", "my_subscriptions": "Abbonamenti", "agenda_empty": "Agenda vuota", "add_from_map": "Aggiungi eventi dalla mappa!", "remove_from_agenda": "Rimuovi da agenda", "city_found": "trovata!", "city_not_found": "non trovata", "searching": "Ricerca", "language_changed": "Lingua cambiata", "removed_from_agenda": "Rimosso da agenda", "filter_by_date": "Filtra per data", "today": "Oggi", "tomorrow": "Domani", "weekend": "Questo weekend", "week": "Questa settimana", "month": "Questo mese", "select_period": "Seleziona periodo", "from": "Da", "to": "A", "reset_all": "Reimposta", "selected_categories": "Categorie", "cumulative": "cumulativo", "publish_mode": "Pubblica \u2013 Modo", "main_category": "Categoria principale", "choose_category": "Scegli categoria\u2026", "start": "Inizio", "end": "Fine", "title_name": "Titolo", "full_address": "Indirizzo completo", "full_description": "Descrizione", "main_photo": "Foto principale", "ticketing": "Biglietteria", "ticket_link": "Link biglietti", "social_links": "Link social", "video_links": "Link video", "sound_links": "Link audio", "paste_sound_links": "Incolla link audio", "price_estimate": "Stima prezzo", "price_example": "es. 500.\u2013 a serata", "price_not_detected": "Prezzo non rilevato.", "visibility_choice": "Visibilità (pagamento al passo successivo):", "standard_point": "1.\u2013 : Punto standard", "bronze_boost": "5.\u2013 Bronze", "silver_boost": "10.\u2013 Argento", "platinum_boost": "TOP 10 \u2013 Platino", "subscription_recommended": "💎 Abbonamento consigliato", "save_on_events": "Risparmia sugli eventi", "unlimited_contacts": "Contatti illimitati", "publish_and_pay": "Pubblica e paga", "close": "Chiudi", "save": "Salva", "cancel": "Annulla", "confirm": "Conferma", "loading": "Caricamento...", "error": "Errore", "success": "Successo", "info": "Info", "translate": "Traduci", "hide_translation": "Nascondi traduzione", "translation_error": "Errore traduzione", "try_again": "Riprova" },
+  pt: { "filter": "Filtrar", "list": "Lista", "events": "Eventos", "booking": "Reservas", "services": "Serviços", "agenda": "Agenda", "alerts": "Alertas", "account": "Conta", "cart": "Carrinho", "search_city": "Pesquisar cidade...", "publish": "Publicar", "event_title": "Evento", "date": "Data", "address": "Morada", "description": "Descrição", "category": "Categoria", "organizer": "Organizador", "price": "Preço", "free": "Grátis", "add_to_agenda": "Adicionar à agenda", "like": "Gosto", "favorite": "Favoritos", "participate": "Participar", "leave_review": "Deixar avaliação", "contact_ai": "Contacto IA", "report": "Reportar", "participants": "participantes", "registered": "Inscrito", "in_agenda": "Na agenda", "share": "Partilhar", "route": "Percurso", "review": "Avaliação", "contact": "Contacto", "reviews": "avaliações", "ai_detected": "Detetado por IA", "check_source": "Verificar fonte", "booking_link": "Link reserva", "rating": "Classificação", "booking_title": "Reserva", "artist": "Artista", "level": "Nível", "sound_preview": "Pré-visualização áudio", "get_contact": "Obter contacto", "pay": "Pagar", "view_subs": "Ver subscrições", "add_to_cart": "Adicionar ao carrinho", "verified": "Verificado", "website": "Site", "email": "Email", "phone": "Telefone", "service_title": "Serviço", "company": "Empresa", "contact_info": "Contacto", "my_agenda": "A minha agenda", "my_favorites": "Favoritos", "my_subscriptions": "Subscrições", "agenda_empty": "Agenda vazia", "add_from_map": "Adicione eventos do mapa!", "remove_from_agenda": "Remover da agenda", "city_found": "encontrada!", "city_not_found": "não encontrada", "searching": "A pesquisar", "language_changed": "Idioma alterado", "removed_from_agenda": "Removido da agenda", "filter_by_date": "Filtrar por data", "today": "Hoje", "tomorrow": "Amanhã", "weekend": "Este fim de semana", "week": "Esta semana", "month": "Este mês", "select_period": "Ou selecionar período", "from": "De", "to": "Até", "reset_all": "Repor", "selected_categories": "Categorias", "cumulative": "acumulável", "publish_mode": "Publicar \u2013 Modo", "main_category": "Categoria principal", "choose_category": "Escolher categoria\u2026", "start": "Início", "end": "Fim", "title_name": "Título", "full_address": "Morada completa", "full_description": "Descrição", "main_photo": "Foto principal", "ticketing": "Bilhetes", "ticket_link": "Link bilhetes", "social_links": "Redes sociais", "video_links": "Links vídeo", "sound_links": "Links áudio", "paste_sound_links": "Colar links áudio", "price_estimate": "Estimativa de preço", "price_example": "ex.: 500.\u2013 por noite", "price_not_detected": "Preço não detetado.", "visibility_choice": "Visibilidade (pagamento no próximo passo):", "standard_point": "1.\u2013 : Ponto standard", "bronze_boost": "5.\u2013 Bronze", "silver_boost": "10.\u2013 Prata", "platinum_boost": "TOP 10 \u2013 Platina", "subscription_recommended": "💎 Subscrição recomendada", "save_on_events": "Poupe em eventos", "unlimited_contacts": "Contactos ilimitados", "publish_and_pay": "Publicar e pagar", "close": "Fechar", "save": "Guardar", "cancel": "Cancelar", "confirm": "Confirmar", "loading": "A carregar...", "error": "Erro", "success": "Sucesso", "info": "Informação", "translate": "Traduzir", "hide_translation": "Ocultar tradução", "translation_error": "Erro de tradução", "try_again": "Tentar novamente" },
+  ru: { "filter": "Фильтр", "list": "Список", "events": "События", "booking": "Бронирование", "services": "Услуги", "agenda": "Календарь", "alerts": "Оповещения", "account": "Аккаунт", "cart": "Корзина", "search_city": "Поиск города...", "publish": "Опубликовать", "event_title": "Событие", "date": "Дата", "address": "Адрес", "description": "Описание", "category": "Категория", "organizer": "Организатор", "price": "Цена", "free": "Бесплатно", "add_to_agenda": "В календарь", "like": "Нравится", "favorite": "Избранное", "participate": "Участвовать", "leave_review": "Оставить отзыв", "contact_ai": "Контакт ИИ", "report": "Пожаловаться", "participants": "участников", "registered": "Зарегистрирован", "in_agenda": "В календаре", "share": "Поделиться", "route": "Маршрут", "review": "Отзыв", "contact": "Контакт", "reviews": "отзывов", "ai_detected": "Определено ИИ", "check_source": "Проверить источник", "booking_link": "Ссылка бронирования", "rating": "Рейтинг", "booking_title": "Бронирование", "artist": "Артист", "level": "Уровень", "sound_preview": "Прослушать", "get_contact": "Контакт", "pay": "Оплатить", "view_subs": "Подписки", "add_to_cart": "В корзину", "verified": "Проверено", "website": "Сайт", "email": "Email", "phone": "Телефон", "service_title": "Услуга", "company": "Компания", "contact_info": "Контакты", "my_agenda": "Мой календарь", "my_favorites": "Избранное", "my_subscriptions": "Подписки", "agenda_empty": "Календарь пуст", "add_from_map": "Добавьте события с карты!", "remove_from_agenda": "Удалить из календаря", "city_found": "найдено!", "city_not_found": "не найдено", "searching": "Поиск", "language_changed": "Язык изменён", "removed_from_agenda": "Удалено из календаря", "filter_by_date": "По дате", "today": "Сегодня", "tomorrow": "Завтра", "weekend": "В эти выходные", "week": "На этой неделе", "month": "В этом месяце", "select_period": "Выберите период", "from": "С", "to": "По", "reset_all": "Сбросить", "selected_categories": "Категории", "cumulative": "суммарно", "publish_mode": "Публикация \u2013 Режим", "main_category": "Основная категория", "choose_category": "Выбрать категорию\u2026", "start": "Начало", "end": "Конец", "title_name": "Название", "full_address": "Адрес", "full_description": "Описание", "main_photo": "Фото", "ticketing": "Билеты", "ticket_link": "Ссылка на билеты", "social_links": "Соцсети", "video_links": "Видео", "sound_links": "Аудио", "paste_sound_links": "Вставьте ссылки", "price_estimate": "Ориентир цены", "price_example": "напр. 500.\u2013 за вечер", "price_not_detected": "Цена не определена.", "visibility_choice": "Видимость (оплата на следующем шаге):", "standard_point": "1.\u2013 : Стандартная точка", "bronze_boost": "5.\u2013 Бронза", "silver_boost": "10.\u2013 Серебро", "platinum_boost": "TOP 10 \u2013 Платина", "subscription_recommended": "💎 Рекомендуем подписку", "save_on_events": "Экономия на событиях", "unlimited_contacts": "Безлимит контактов", "publish_and_pay": "Опубликовать и оплатить", "close": "Закрыть", "save": "Сохранить", "cancel": "Отмена", "confirm": "Подтвердить", "loading": "Загрузка...", "error": "Ошибка", "success": "Успех", "info": "Инфо", "translate": "Перевести", "hide_translation": "Скрыть перевод", "translation_error": "Ошибка перевода", "try_again": "Повторить" }
 };
 
 // CRITIQUE: Remplir progressivement window.translations au lieu de le réassigner
@@ -2119,6 +2341,98 @@ SUPPORTED_LANGUAGES.forEach(lang => {
   if (window.translations.en && Object.keys(window.translations[lang]).length < 10) {
     window.translations[lang] = Object.assign({}, window.translations.en, window.translations[lang]);
   }
+});
+
+// Patch i18n homogène: messages globaux utilisés par les toasts.
+const NOTIFICATION_TRANSLATION_PATCH = {
+  fr: {
+    "notif_google_login_error": "Erreur lors de la connexion Google",
+    "notif_login_expired_retry_google": "Connexion expirée. Réessayez en cliquant sur Connexion Google.",
+    "notif_token_exchange_failed": "Impossible d'échanger le code (token).",
+    "notif_account_created_connected": "Compte créé avec succès ! Vous êtes maintenant connecté.",
+    "notif_complete_profile_continue": "Veuillez compléter votre profil pour continuer.",
+    "notif_google_login_success": "Connexion Google réussie !",
+    "notif_connected_token_received": "Connecté (token reçu).",
+    "notif_artist_not_visible": "L'artiste n'est plus visible sur la carte. Rapprochez-vous de sa position.",
+    "notif_direct_play_blocked_open_link": "Lecture directe bloquée, ouverture du lien audio.",
+    "notif_audio_error_open_source": "Erreur de lecture audio, ouverture du lien source.",
+    "notif_item_not_found": "Item introuvable",
+    "notif_filters_reset_all_points": "Filtres réinitialisés - Tous les points affichés",
+    "notif_login_required_publish": "Veuillez vous connecter pour publier",
+    "notif_links_pasted": "Liens collés",
+    "notif_clipboard_access_denied": "Accès presse-papiers refusé",
+    "notif_form_reset": "Formulaire réinitialisé",
+    "notif_no_promo_code_to_copy": "Aucun code promo à copier",
+    "notif_promo_code_copied": "Code promo copié",
+    "notif_promo_code_selected_ctrl_c": "Code sélectionné: Ctrl+C",
+    "notif_like_added": "Like ajouté",
+    "notif_like_removed": "Like retiré",
+    "notif_favorite_added": "Ajouté aux favoris",
+    "notif_favorite_removed": "Retiré des favoris",
+    "notif_participation_cancelled": "Participation annulée",
+    "notif_added_to_agenda": "Ajouté à votre agenda.",
+    "notif_removed_from_agenda": "Retiré de l'agenda",
+    "notif_route_opened_google_maps": "Itinéraire ouvert dans Google Maps",
+    "notif_link_copied_clipboard": "Lien copié dans le presse-papier !"
+  },
+  en: {
+    "notif_google_login_error": "Google login failed",
+    "notif_login_expired_retry_google": "Session expired. Retry by clicking Google Login.",
+    "notif_token_exchange_failed": "Unable to exchange code (token).",
+    "notif_account_created_connected": "Account created successfully! You are now signed in.",
+    "notif_complete_profile_continue": "Please complete your profile to continue.",
+    "notif_google_login_success": "Google login successful!",
+    "notif_connected_token_received": "Connected (token received).",
+    "notif_artist_not_visible": "This artist is no longer visible on the map. Move closer to their location.",
+    "notif_direct_play_blocked_open_link": "Direct playback blocked, opening audio link.",
+    "notif_audio_error_open_source": "Audio playback error, opening source link.",
+    "notif_item_not_found": "Item not found",
+    "notif_filters_reset_all_points": "Filters reset - all points visible",
+    "notif_login_required_publish": "Please sign in to publish",
+    "notif_links_pasted": "Links pasted",
+    "notif_clipboard_access_denied": "Clipboard access denied",
+    "notif_form_reset": "Form reset",
+    "notif_no_promo_code_to_copy": "No promo code to copy",
+    "notif_promo_code_copied": "Promo code copied",
+    "notif_promo_code_selected_ctrl_c": "Code selected: Ctrl+C",
+    "notif_like_added": "Like added",
+    "notif_like_removed": "Like removed",
+    "notif_favorite_added": "Added to favorites",
+    "notif_favorite_removed": "Removed from favorites",
+    "notif_participation_cancelled": "Participation canceled",
+    "notif_added_to_agenda": "Added to your agenda.",
+    "notif_removed_from_agenda": "Removed from agenda",
+    "notif_route_opened_google_maps": "Route opened in Google Maps",
+    "notif_link_copied_clipboard": "Link copied to clipboard!"
+  }
+};
+Object.keys(NOTIFICATION_TRANSLATION_PATCH).forEach(lang => {
+  if (!window.translations[lang] || typeof window.translations[lang] !== 'object') {
+    window.translations[lang] = {};
+  }
+  Object.assign(window.translations[lang], NOTIFICATION_TRANSLATION_PATCH[lang]);
+});
+
+// Compléments Top20: au minimum une UI native de base sur les langues clés.
+// Le reste des clés continue d'hériter proprement de EN/FR sans casser la perf.
+const TOP20_LANGUAGE_PATCHES = {
+  ar: { filter: "تصفية", list: "قائمة", search_city: "ابحث عن مدينة...", publish: "نشر", loading: "جارٍ التحميل...", error: "خطأ", success: "نجاح", try_again: "حاول مرة أخرى" },
+  ja: { filter: "絞り込み", list: "一覧", search_city: "都市を検索...", publish: "公開", loading: "読み込み中...", error: "エラー", success: "成功", try_again: "再試行" },
+  ko: { filter: "필터", list: "목록", search_city: "도시 검색...", publish: "게시", loading: "로딩 중...", error: "오류", success: "성공", try_again: "다시 시도" },
+  nl: { filter: "Filter", list: "Lijst", search_city: "Zoek een stad...", publish: "Publiceren", loading: "Laden...", error: "Fout", success: "Geslaagd", try_again: "Opnieuw proberen" },
+  tr: { filter: "Filtrele", list: "Liste", search_city: "Şehir ara...", publish: "Yayınla", loading: "Yükleniyor...", error: "Hata", success: "Başarılı", try_again: "Tekrar dene" },
+  pl: { filter: "Filtruj", list: "Lista", search_city: "Szukaj miasta...", publish: "Publikuj", loading: "Ładowanie...", error: "Błąd", success: "Sukces", try_again: "Spróbuj ponownie" },
+  id: { filter: "Filter", list: "Daftar", search_city: "Cari kota...", publish: "Publikasikan", loading: "Memuat...", error: "Kesalahan", success: "Berhasil", try_again: "Coba lagi" },
+  th: { filter: "กรอง", list: "รายการ", search_city: "ค้นหาเมือง...", publish: "เผยแพร่", loading: "กำลังโหลด...", error: "ข้อผิดพลาด", success: "สำเร็จ", try_again: "ลองอีกครั้ง" },
+  uk: { filter: "Фільтр", list: "Список", search_city: "Пошук міста...", publish: "Опублікувати", loading: "Завантаження...", error: "Помилка", success: "Успіх", try_again: "Спробувати ще раз" },
+  sv: { filter: "Filtrera", list: "Lista", search_city: "Sök stad...", publish: "Publicera", loading: "Laddar...", error: "Fel", success: "Klart", try_again: "Försök igen" },
+  no: { filter: "Filtrer", list: "Liste", search_city: "Søk by...", publish: "Publiser", loading: "Laster...", error: "Feil", success: "Vellykket", try_again: "Prøv igjen" }
+};
+Object.keys(TOP20_LANGUAGE_PATCHES).forEach((lang) => {
+  if (!window.translations[lang] || typeof window.translations[lang] !== "object") {
+    window.translations[lang] = {};
+  }
+  Object.assign(window.translations[lang], TOP20_LANGUAGE_PATCHES[lang]);
 });
 
 // CRITIQUE: window.translations est maintenant rempli directement ci-dessus (ligne 160)
@@ -2198,7 +2512,7 @@ const AVAILABLE_AVATARS = [
   { id: 29, emoji: "🤖", name: "Robot", category: "tech" },
   { id: 30, emoji: "🦸", name: "Super-héros", category: "fantaisie" },
   // Sport & Loisirs
-  { id: 31, emoji: "⚽", name: "Footballeur", category: "sport" },
+  { id: 31, emoji: "\u26BD", name: "Footballeur", category: "sport" },
   { id: 32, emoji: "🏀", name: "Basketteur", category: "sport" },
   { id: 33, emoji: "🎿", name: "Skieur", category: "sport" },
   { id: 34, emoji: "🏄", name: "Surfeur", category: "sport" },
@@ -2206,7 +2520,7 @@ const AVAILABLE_AVATARS = [
   // Nature & Cosmos
   { id: 36, emoji: "🌟", name: "Étoile", category: "cosmos" },
   { id: 37, emoji: "🌙", name: "Lune", category: "cosmos" },
-  { id: 38, emoji: "☀️", name: "Soleil", category: "cosmos" },
+  { id: 38, emoji: "\u2600️", name: "Soleil", category: "cosmos" },
   { id: 39, emoji: "🌈", name: "Arc-en-ciel", category: "nature" },
   { id: 40, emoji: "🔥", name: "Flamme", category: "éléments" },
   // Plus d'avatars pour atteindre 30+
@@ -2220,12 +2534,12 @@ const AVAILABLE_AVATARS = [
   { id: 48, emoji: "🛸", name: "OVNI", category: "cosmos" },
   { id: 49, emoji: "🌍", name: "Terre", category: "nature" },
   { id: 50, emoji: "🌊", name: "Vague", category: "nature" },
-  { id: 51, emoji: "⛰️", name: "Montagne", category: "nature" },
+  { id: 51, emoji: "\u26F0️", name: "Montagne", category: "nature" },
   { id: 52, emoji: "🌲", name: "Arbre", category: "nature" },
   { id: 53, emoji: "🌺", name: "Fleur", category: "nature" },
   { id: 54, emoji: "🍕", name: "Pizza", category: "food" },
   { id: 55, emoji: "🍔", name: "Burger", category: "food" },
-  { id: 56, emoji: "☕", name: "Café", category: "food" },
+  { id: 56, emoji: "\u2615", name: "Café", category: "food" },
   { id: 57, emoji: "🍺", name: "Bière", category: "food" },
   { id: 58, emoji: "🍷", name: "Vin", category: "food" },
   { id: 59, emoji: "🎯", name: "Cible", category: "sport" },
@@ -2236,7 +2550,7 @@ const AVAILABLE_AVATARS = [
   { id: 64, emoji: "🎈", name: "Ballon", category: "divers" },
   { id: 65, emoji: "🎊", name: "Confetti", category: "divers" },
   { id: 66, emoji: "🎉", name: "Fête", category: "divers" },
-  { id: 67, emoji: "✨", name: "Étincelle", category: "divers" },
+  { id: 67, emoji: "\u2728", name: "Étincelle", category: "divers" },
   { id: 68, emoji: "💫", name: "Étoile filante", category: "cosmos" },
   { id: 69, emoji: "🌠", name: "Météore", category: "cosmos" },
   { id: 70, emoji: "🦉", name: "Hibou", category: "animaux" }
@@ -2333,11 +2647,12 @@ function isLoggedIn() {
 let currentUser = getDefaultUser();
 window.currentUser = currentUser;
 
-// ⚠️⚠️⚠️ SYNCHRONISATION CRITIQUE : Fonction pour synchroniser currentUser depuis auth.js
+// \u26A0️\u26A0️\u26A0️ SYNCHRONISATION CRITIQUE : Fonction pour synchroniser currentUser depuis auth.js
 // auth.js met à jour window.currentUser, cette fonction synchronise la variable locale
 function syncCurrentUser(newUser) {
   if (newUser && typeof newUser === 'object') {
     currentUser = { ...currentUser, ...newUser };
+    normalizeCurrentUserCollections();
     window.currentUser = currentUser;
     console.log('[SYNC] currentUser synchronisé depuis auth.js:', { 
       isLoggedIn: currentUser.isLoggedIn, 
@@ -2350,7 +2665,217 @@ window.syncCurrentUser = syncCurrentUser;
 // Synchroniser automatiquement si window.currentUser existe déjà (rechargement page)
 if (window.currentUser && window.currentUser.isLoggedIn) {
   currentUser = { ...currentUser, ...window.currentUser };
+  normalizeCurrentUserCollections();
   console.log('[SYNC] currentUser synchronisé depuis window au chargement');
+}
+
+function normalizeCollectionKey(value, fallbackType = "") {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "string") {
+    const raw = value.trim();
+    if (!raw) return null;
+    if (raw.includes(":")) {
+      const parts = raw.split(":");
+      const type = String(parts[0] || "").trim().toLowerCase();
+      const id = String(parts[1] || "").trim();
+      if (type && id) return `${type}:${id}`;
+      return null;
+    }
+    if (fallbackType) {
+      return `${String(fallbackType).trim().toLowerCase()}:${raw}`;
+    }
+    return null;
+  }
+  if (typeof value === "number") {
+    if (!fallbackType) return null;
+    return `${String(fallbackType).trim().toLowerCase()}:${String(value)}`;
+  }
+  if (typeof value === "object") {
+    const type = String(
+      value.type || value.mode || value.itemType || value.item_type || fallbackType || ""
+    ).trim().toLowerCase();
+    const rawId =
+      value.id ??
+      value.itemId ??
+      value.item_id ??
+      value.eventId ??
+      value.event_id ??
+      value.favoriteId;
+    if (!type || rawId === null || rawId === undefined || rawId === "") return null;
+    return `${type}:${String(rawId).trim()}`;
+  }
+  return null;
+}
+
+function normalizeAgendaKeys(agenda) {
+  const source = Array.isArray(agenda) ? agenda : [];
+  const out = [];
+  const seen = new Set();
+  source.forEach((item) => {
+    const key = normalizeCollectionKey(item);
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    out.push(key);
+  });
+  return out;
+}
+
+function getAgendaBackupStorageKeys(user = currentUser) {
+  const keys = ["user_agenda_backup"];
+  const rawIdentity =
+    user?.id ??
+    user?.userId ??
+    user?.sub ??
+    user?.email ??
+    null;
+  if (rawIdentity !== null && rawIdentity !== undefined && String(rawIdentity).trim() !== "") {
+    const safeIdentity = String(rawIdentity)
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9_-]/g, "_");
+    keys.push(`user_agenda_${safeIdentity}`);
+  }
+  return keys;
+}
+
+function readAgendaFromBackups(user = currentUser) {
+  const keys = getAgendaBackupStorageKeys(user);
+  const merged = [];
+  const seen = new Set();
+  keys.forEach((storageKey) => {
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      const normalized = normalizeAgendaKeys(parsed);
+      normalized.forEach((k) => {
+        if (seen.has(k)) return;
+        seen.add(k);
+        merged.push(k);
+      });
+    } catch (e) {}
+  });
+  return merged;
+}
+
+function persistAgendaBackups(agenda, user = currentUser) {
+  const normalized = normalizeAgendaKeys(agenda);
+  getAgendaBackupStorageKeys(user).forEach((storageKey) => {
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(normalized));
+    } catch (e) {}
+  });
+}
+
+function normalizeLikesKeys(likes) {
+  return normalizeAgendaKeys(likes);
+}
+
+function getLikesBackupStorageKeys(user) {
+  const keys = ["user_likes_backup"];
+  const rawIdentity =
+    user?.id ??
+    user?.userId ??
+    user?.sub ??
+    user?.email ??
+    null;
+  if (rawIdentity !== null && rawIdentity !== undefined && String(rawIdentity).trim() !== "") {
+    const safeIdentity = String(rawIdentity)
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9_-]/g, "_");
+    keys.push(`user_likes_${safeIdentity}`);
+  }
+  return keys;
+}
+
+function readLikesFromBackups(user = currentUser) {
+  const keys = getLikesBackupStorageKeys(user);
+  const merged = [];
+  const seen = new Set();
+  keys.forEach((storageKey) => {
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      const normalized = normalizeLikesKeys(parsed);
+      normalized.forEach((k) => {
+        if (seen.has(k)) return;
+        seen.add(k);
+        merged.push(k);
+      });
+    } catch (e) {}
+  });
+  return merged;
+}
+
+function persistLikesBackups(likes, user = currentUser) {
+  const normalized = normalizeLikesKeys(likes);
+  getLikesBackupStorageKeys(user).forEach((storageKey) => {
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(normalized));
+    } catch (e) {}
+  });
+}
+
+function mergeLikeSources(...sources) {
+  const merged = [];
+  const seen = new Set();
+  sources.forEach((src) => {
+    normalizeLikesKeys(src).forEach((k) => {
+      if (seen.has(k)) return;
+      seen.add(k);
+      merged.push(k);
+    });
+  });
+  return merged;
+}
+
+function normalizeFavoritesCollection(favorites) {
+  const source = Array.isArray(favorites) ? favorites : [];
+  const out = [];
+  const seen = new Set();
+  source.forEach((fav) => {
+    const key = normalizeCollectionKey(fav);
+    if (!key) return;
+    const [mode, id] = key.split(":");
+    const uniq = `${mode}:${id}`;
+    if (seen.has(uniq)) return;
+    seen.add(uniq);
+    const normalized = {
+      id: String(id),
+      mode: mode,
+      type: mode
+    };
+    if (fav && typeof fav === "object") {
+      if (fav.name || fav.title) normalized.name = String(fav.name || fav.title);
+      if (fav.lat !== undefined) normalized.lat = fav.lat;
+      if (fav.lng !== undefined) normalized.lng = fav.lng;
+      if (fav.latitude !== undefined && normalized.lat === undefined) normalized.lat = fav.latitude;
+      if (fav.longitude !== undefined && normalized.lng === undefined) normalized.lng = fav.longitude;
+      if (fav.createdAt) normalized.createdAt = fav.createdAt;
+    }
+    out.push(normalized);
+  });
+  return out;
+}
+
+function normalizeCurrentUserCollections() {
+  if (!currentUser || typeof currentUser !== 'object') {
+    currentUser = getDefaultUser();
+  }
+  currentUser.likes = normalizeLikesKeys(currentUser.likes);
+  const hasStableIdentity = !!(currentUser.id || currentUser.email || currentUser.sub);
+  if (hasStableIdentity) {
+    currentUser.likes = mergeLikeSources(currentUser.likes, readLikesFromBackups(currentUser));
+  }
+  currentUser.favorites = normalizeFavoritesCollection(currentUser.favorites);
+  const localAgenda = normalizeAgendaKeys(currentUser.agenda);
+  currentUser.agenda = hasStableIdentity
+    ? normalizeAgendaKeys([...(localAgenda || []), ...readAgendaFromBackups(currentUser)])
+    : localAgenda;
+  currentUser.participating = normalizeAgendaKeys(currentUser.participating);
+  if (!currentUser.reviews || typeof currentUser.reviews !== 'object') currentUser.reviews = {};
 }
 
 // Contacts payés (permanent, ne disparaît jamais)
@@ -2364,6 +2889,124 @@ let cart = [];
 let _audioDragging = null; // { prefix, itemId, trackIndex }
 // État du mini-player (type Spotify)
 let _currentPlaying = null; // { prefix, itemId, trackIndex, title, subtitle }
+// Chaîne audio "qualité max" (WebAudio): améliore le rendu sans changer la source.
+const _audioFx = {
+  ctx: null,
+  sourceByElement: new WeakMap(),
+  connectedByElement: new WeakMap(),
+  nodes: null,
+  enabled: false
+};
+
+function _buildAudioFxChain(ctx) {
+  const input = ctx.createGain();
+  input.gain.value = 1.04;
+
+  // Nettoyage sub-basses inutiles (moins de boue, plus de clarté).
+  const rumbleCut = ctx.createBiquadFilter();
+  rumbleCut.type = 'highpass';
+  rumbleCut.frequency.value = 32;
+  rumbleCut.Q.value = 0.707;
+
+  const lowShelf = ctx.createBiquadFilter();
+  lowShelf.type = 'lowshelf';
+  lowShelf.frequency.value = 110;
+  lowShelf.gain.value = 2.8;
+
+  const mudCut = ctx.createBiquadFilter();
+  mudCut.type = 'peaking';
+  mudCut.frequency.value = 320;
+  mudCut.Q.value = 1.05;
+  mudCut.gain.value = -1.6;
+
+  const presence = ctx.createBiquadFilter();
+  presence.type = 'peaking';
+  presence.frequency.value = 2600;
+  presence.Q.value = 0.9;
+  presence.gain.value = 1.4;
+
+  const highShelf = ctx.createBiquadFilter();
+  highShelf.type = 'highshelf';
+  highShelf.frequency.value = 11000;
+  highShelf.gain.value = 1.5;
+
+  const compressor = ctx.createDynamicsCompressor();
+  compressor.threshold.value = -26;
+  compressor.knee.value = 18;
+  compressor.ratio.value = 3.0;
+  compressor.attack.value = 0.003;
+  compressor.release.value = 0.18;
+
+  // Limiteur doux pour éviter la saturation après EQ/gain.
+  const limiter = ctx.createDynamicsCompressor();
+  limiter.threshold.value = -1;
+  limiter.knee.value = 0;
+  limiter.ratio.value = 20;
+  limiter.attack.value = 0.001;
+  limiter.release.value = 0.1;
+
+  const output = ctx.createGain();
+  output.gain.value = 1.12;
+
+  input.connect(rumbleCut);
+  rumbleCut.connect(lowShelf);
+  lowShelf.connect(mudCut);
+  mudCut.connect(presence);
+  presence.connect(highShelf);
+  highShelf.connect(compressor);
+  compressor.connect(limiter);
+  limiter.connect(output);
+  output.connect(ctx.destination);
+
+  return { input, rumbleCut, lowShelf, mudCut, presence, highShelf, compressor, limiter, output };
+}
+
+async function enableMaxAudioQualityForElement(audioEl) {
+  if (!_audioFx.enabled || !audioEl) return true;
+  const Ctx = window.AudioContext || window.webkitAudioContext;
+  if (!Ctx) return false;
+  try {
+    if (!_audioFx.ctx) {
+      _audioFx.ctx = new Ctx({ latencyHint: 'playback' });
+      _audioFx.nodes = _buildAudioFxChain(_audioFx.ctx);
+    }
+    if (_audioFx.ctx.state === 'suspended') {
+      await _audioFx.ctx.resume();
+    }
+    if (!_audioFx.sourceByElement.has(audioEl)) {
+      const src = _audioFx.ctx.createMediaElementSource(audioEl);
+      _audioFx.sourceByElement.set(audioEl, src);
+    }
+    if (!_audioFx.connectedByElement.get(audioEl)) {
+      _audioFx.sourceByElement.get(audioEl).connect(_audioFx.nodes.input);
+      _audioFx.connectedByElement.set(audioEl, true);
+    }
+    return true;
+  } catch (err) {
+    // Sources sans CORS autorisé: playback normal sans post-traitement.
+    console.warn('[AUDIO] FX qualité max indisponible pour cette source', err);
+    return false;
+  }
+}
+
+async function ensurePlainAudioPathForElement(audioEl) {
+  if (!audioEl) return;
+  try {
+    audioEl.muted = false;
+    audioEl.volume = 1;
+    const src = _audioFx.sourceByElement.get(audioEl);
+    if (!src || !_audioFx.ctx) return;
+    if (_audioFx.ctx.state === 'suspended') {
+      await _audioFx.ctx.resume();
+    }
+    // Rollback total FX: route direct vers la sortie.
+    try { src.disconnect(); } catch (_) {}
+    src.connect(_audioFx.ctx.destination);
+    _audioFx.connectedByElement.set(audioEl, 'dry');
+  } catch (err) {
+    console.warn('[AUDIO] impossible de forcer le mode plain', err);
+  }
+}
 
 function formatAudioTime(seconds) {
   if (!seconds || isNaN(seconds) || !isFinite(seconds)) return '0:00';
@@ -2425,7 +3068,7 @@ document.addEventListener('touchmove', function(ev) {
 document.addEventListener('touchend', function() { _audioDragging = null; });
 
 function showMiniPlayer(prefix, itemId, trackIndex, title, subtitle) {
-  _currentPlaying = { prefix, itemId, trackIndex, title: title || '—', subtitle: subtitle || 'Piste ' + (trackIndex + 1) };
+  _currentPlaying = { prefix, itemId, trackIndex, title: title || '\u2014', subtitle: subtitle || 'Piste ' + (trackIndex + 1) };
   const el = document.getElementById('audio-mini-player');
   if (!el) return;
   el.classList.add('visible');
@@ -2471,7 +3114,7 @@ function updateMiniPlayerUI() {
   const playBtn = document.getElementById('mini-player-play');
   if (!audio) return;
   if (timeEl) timeEl.textContent = formatAudioTime(audio.currentTime) + ' / ' + formatAudioTime(audio.duration);
-  if (playBtn) playBtn.innerHTML = audio.paused ? '▶' : '⏸';
+  if (playBtn) playBtn.innerHTML = audio.paused ? '\u25B6' : '\u23F8';
 }
 
 function seekAudioOffset(prefix, itemId, trackIndex, deltaSeconds) {
@@ -2492,11 +3135,14 @@ async function toggleAudioGeneric(prefix, itemId, trackIndex) {
   const btn = document.getElementById(`btn-${prefix}-${itemId}-${trackIndex}`);
   const progressBar = document.getElementById(`progress-${prefix}-${itemId}-${trackIndex}`);
   const container = document.querySelector(`[data-audio-track] [id="btn-${prefix}-${itemId}-${trackIndex}"]`)?.closest('[data-audio-track]');
-  const title = container?.getAttribute('data-item-title') || '—';
+  const title = container?.getAttribute('data-item-title') || '\u2014';
   const subtitle = container?.getAttribute('data-track-label') || ('Piste ' + (trackIndex + 1));
   if (!audio) return;
   
   if (audio.paused) {
+    if (!audio.crossOrigin && /^https?:\/\//i.test(String(audio.getAttribute('data-original-src') || audio.src || ''))) {
+      audio.crossOrigin = 'anonymous';
+    }
     // Mode hors-ligne : utiliser le cache si disponible
     const originalUrl = audio.getAttribute('data-original-src') || audio.src;
     if (!navigator.onLine && window.indexedDBService?.getAudioCache) {
@@ -2514,7 +3160,7 @@ async function toggleAudioGeneric(prefix, itemId, trackIndex) {
       if (p !== progressBar) p.style.width = '0%';
     });
     document.querySelectorAll('[id^="btn-booking-"], [id^="btn-event-"]').forEach(b => {
-      if (b !== btn) b.innerHTML = '▶';
+      if (b !== btn) b.innerHTML = '\u25B6';
     });
     // Reset tous les time displays
     document.querySelectorAll('[id^="time-booking-"], [id^="time-event-"]').forEach(t => {
@@ -2522,9 +3168,26 @@ async function toggleAudioGeneric(prefix, itemId, trackIndex) {
       if (!tid.includes(`${prefix}-${itemId}-${trackIndex}`)) t.textContent = '0:00';
     });
     
-    audio.play();
-    if (btn) btn.innerHTML = '⏸';
-    showMiniPlayer(prefix, itemId, trackIndex, title, subtitle);
+    try {
+      await ensurePlainAudioPathForElement(audio);
+      await audio.play();
+      if (btn) btn.innerHTML = '\u23F8';
+      showMiniPlayer(prefix, itemId, trackIndex, title, subtitle);
+    } catch (playError) {
+      console.warn('[AUDIO] Lecture impossible, ouverture du lien source', playError);
+      if (btn) btn.innerHTML = '\u25B6';
+      const fallbackUrl = audio.getAttribute('data-original-src') || audio.src;
+      if (fallbackUrl) {
+        // Certains navigateurs bloquent window.open() après un await.
+        // Fallback sûr: nouvelle fenêtre si autorisée, sinon même onglet.
+        const opened = window.open(fallbackUrl, '_blank', 'noopener');
+        if (!opened) window.location.href = fallbackUrl;
+      }
+      if (typeof showNotification === 'function') {
+        showNotification('Lecture directe bloquée, ouverture du lien audio.', 'warning');
+      }
+      return;
+    }
     // Cache pour mode hors-ligne (après chargement)
     const origUrl = audio.getAttribute('data-original-src') || audio.src;
     if (navigator.onLine && origUrl && window.indexedDBService?.setAudioCache && !origUrl.startsWith('blob:')) {
@@ -2539,8 +3202,20 @@ async function toggleAudioGeneric(prefix, itemId, trackIndex) {
         } catch (_) {}
       };
     }
+    audio.onerror = () => {
+      if (btn) btn.innerHTML = '\u25B6';
+      const fallbackUrl = audio.getAttribute('data-original-src') || audio.src;
+      if (fallbackUrl) {
+        const opened = window.open(fallbackUrl, '_blank', 'noopener');
+        if (!opened) window.location.href = fallbackUrl;
+      }
+      if (typeof showNotification === 'function') {
+        showNotification('Erreur de lecture audio, ouverture du lien source.', 'warning');
+      }
+      hideMiniPlayer();
+    };
     audio.onended = () => {
-      if (btn) btn.innerHTML = '▶';
+      if (btn) btn.innerHTML = '\u25B6';
       if (progressBar) progressBar.style.width = '0%';
       updateAudioTimeDisplay(prefix, itemId, trackIndex);
       hideMiniPlayer();
@@ -2555,7 +3230,7 @@ async function toggleAudioGeneric(prefix, itemId, trackIndex) {
     };
   } else {
     audio.pause();
-    if (btn) btn.innerHTML = '▶';
+    if (btn) btn.innerHTML = '\u25B6';
     hideMiniPlayer();
   }
 }
@@ -2702,22 +3377,22 @@ const ALL_CITIES = [...SWISS_CITIES, ...FRENCH_CITIES];
 const CATEGORY_EMOJIS = {
   // Music Electronic
   "techno": "🎧", "house": "🏠", "trance": "🌀", "drum & bass": "🥁", "dnb": "🥁",
-  "dubstep": "💥", "hardstyle": "⚡", "ambient": "🌙", "electronic": "🔊",
+  "dubstep": "💥", "hardstyle": "\u26A1", "ambient": "🌙", "electronic": "🔊",
   // Music Urban
   "rap": "🎤", "hip-hop": "🎤", "trap": "🔥", "rnb": "💜", "drill": "🔫",
   "afrobeats": "🌍", "dancehall": "🇯🇲", "reggaeton": "💃",
   // Music Other
   "rock": "🎸", "metal": "🤘", "jazz": "🎷", "blues": "🎺", "folk": "🪕",
-  "pop": "⭐", "classique": "🎻", "reggae": "🟢",
+  "pop": "\u2B50", "classique": "🎻", "reggae": "🟢",
   // Culture
   "cinéma": "🎬", "théâtre": "🎭", "exposition": "🖼️", "conférence": "🎓",
   "workshop": "🔧", "danse": "💃",
   // Food
   "brunch": "🥐", "bbq": "🍖", "dégustation": "🍷", "food truck": "🚚",
-  "marché": "🛒", "gastronomie": "👨‍🍳",
+  "marché": "🛒", "gastronomie": "👨\u200D🍳",
   // Sport
   "course": "🏃", "trail": "🏔️", "cyclisme": "🚴", "natation": "🏊",
-  "ski": "⛷️", "fitness": "💪", "yoga": "🧘",
+  "ski": "\u26F7️", "fitness": "💪", "yoga": "🧘",
   // Festivals
   "festival": "🎪", "open air": "🌲", "carnaval": "🎭", "fête": "🎉",
   // Services
@@ -2887,7 +3562,7 @@ const demoEventBase = [
     type: "event",
     title: "Soirée Techno Test",
     description:
-      "Événement de test local pour valider l’affichage avec un descriptif un peu plus long pour tester la hauteur de la fenêtre.",
+      "Événement de test local pour valider l\u2019affichage avec un descriptif un peu plus long pour tester la hauteur de la fenêtre.",
     status: "OK",
     startDate: "2025-12-01T22:00:00",
     endDate: "2025-12-02T06:00:00",
@@ -2924,14 +3599,14 @@ async function handleStripeReturn() {
   console.log('[STRIPE RETURN] 📊 Paramètres URL - payment:', paymentStatus, 'session_id:', sessionId);
   
   if (paymentStatus === 'success' && sessionId) {
-    console.log('[STRIPE RETURN] ✅ Paiement success détecté, vérification...');
+    console.log('[STRIPE RETURN] \u2705 Paiement success détecté, vérification...');
     
-    // ⚠️ PRIORITÉ : Vérifier d'abord si on a des données de publication en attente
+    // \u26A0️ PRIORITÉ : Vérifier d'abord si on a des données de publication en attente
     const pendingData = localStorage.getItem('pendingPublishData');
     console.log('[STRIPE RETURN] 📦 pendingPublishData dans localStorage:', !!pendingData);
     
     if (pendingData) {
-      console.log('[STRIPE RETURN] ✅ Données de publication trouvées - Finalisation directe...');
+      console.log('[STRIPE RETURN] \u2705 Données de publication trouvées - Finalisation directe...');
       try {
         const data = JSON.parse(pendingData);
         console.log('[STRIPE RETURN] 📦 Mode:', data.mode, 'Titre:', data.newItem?.title);
@@ -2942,7 +3617,7 @@ async function handleStripeReturn() {
         window.history.replaceState({}, document.title, window.location.pathname);
         return;
       } catch (e) {
-        console.error('[STRIPE RETURN] ❌ Erreur parsing pendingPublishData:', e);
+        console.error('[STRIPE RETURN] \u274C Erreur parsing pendingPublishData:', e);
       }
     }
     
@@ -2958,7 +3633,7 @@ async function handleStripeReturn() {
       if (data.success) {
         const paymentType = data.paymentType;
         const items = data.items || [];
-        console.log('[STRIPE RETURN] ✅ paymentType:', paymentType, 'items:', items.length);
+        console.log('[STRIPE RETURN] \u2705 paymentType:', paymentType, 'items:', items.length);
         
         if (paymentType === 'contact' || paymentType === 'cart') {
           // Débloquer les contacts
@@ -2973,7 +3648,7 @@ async function handleStripeReturn() {
           });
           
           playPaymentSound();
-          showNotification(`✅ Paiement réussi ! ${items.length} contact(s) débloqué(s).`, "success");
+          showNotification(`\u2705 Paiement réussi ! ${items.length} contact(s) débloqué(s).`, "success");
           
           // Rafraîchir l'affichage
           refreshMarkers();
@@ -2981,16 +3656,28 @@ async function handleStripeReturn() {
           // Charger le nouvel abonnement
           await loadUserSubscription();
           playPaymentSound();
-          showNotification("✅ Abonnement activé !", "success");
+          showNotification("\u2705 Abonnement activé !", "success");
         } else if (paymentType === 'publication') {
-          // Publication d'événement payée
-          await finalizePublishAfterPayment(sessionId);
+          // Publication payee: priorite a la finalisation backend (webhook/verify-session)
+          if (data.publishedEventId) {
+            playPaymentSound();
+            showNotification("✅ Paiement reçu ! Publication confirmée.", "success");
+            try {
+              prefetchEventById(data.publishedEventId);
+              if (typeof loadViewportData === 'function') {
+                setTimeout(() => loadViewportData(), 250);
+              }
+            } catch (_) {}
+          } else {
+            // Fallback legacy (anciennes sessions sans payload backend)
+            await finalizePublishAfterPayment(sessionId);
+          }
         }
         
         // Nettoyer l'URL
         window.history.replaceState({}, document.title, window.location.pathname);
       } else {
-        showNotification("⚠️ Paiement en attente...", "warning");
+        showNotification("\u26A0️ Paiement en attente...", "warning");
       }
     } catch (error) {
       console.error('Erreur vérification paiement:', error);
@@ -3002,23 +3689,23 @@ async function handleStripeReturn() {
           localStorage.removeItem('pendingPublishData');
           window.pendingPublishData = data;
           await finalizePublish();
-          showNotification("✅ Paiement reçu ! Publication effectuée.", "success");
+          showNotification("\u2705 Paiement reçu ! Publication effectuée.", "success");
         } catch (e) {
           console.error('Erreur finalisation publication:', e);
         }
       } else {
-        showNotification("⚠️ Erreur lors de la vérification du paiement", "error");
+        showNotification("\u26A0️ Erreur lors de la vérification du paiement", "error");
       }
     }
   } else if (paymentStatus === 'cancelled' || paymentStatus === 'canceled') {
-    showNotification("❌ Paiement annulé", "info");
+    showNotification("\u274C Paiement annulé", "info");
     // Supprimer les données de publication en attente
     localStorage.removeItem('pendingPublishData');
     // Nettoyer l'URL
     window.history.replaceState({}, document.title, window.location.pathname);
   }
   
-  // ⚠️ Vérifier aussi au chargement s'il y a des données de publication en attente avec succès
+  // \u26A0️ Vérifier aussi au chargement s'il y a des données de publication en attente avec succès
   if (!paymentStatus) {
     const pendingData = localStorage.getItem('pendingPublishData');
     if (pendingData) {
@@ -3041,15 +3728,15 @@ async function finalizePublishAfterPayment(sessionId) {
   console.log('[PUBLISH] 📦 pendingPublishData existe:', !!pendingData);
   
   if (!pendingData) {
-    console.error('[PUBLISH] ❌ DONNÉES PERDUES - pendingPublishData introuvable dans localStorage');
-    console.error('[PUBLISH] ❌ Clés disponibles:', Object.keys(localStorage));
-    showNotification("❌ Données de publication perdues. Le paiement a été effectué mais l'événement n'a pas pu être créé. Contactez le support.", "error");
+    console.error('[PUBLISH] \u274C DONNÉES PERDUES - pendingPublishData introuvable dans localStorage');
+    console.error('[PUBLISH] \u274C Clés disponibles:', Object.keys(localStorage));
+    showNotification("\u274C Données de publication perdues. Le paiement a été effectué mais l'événement n'a pas pu être créé. Contactez le support.", "error");
     return;
   }
   
   try {
     const data = JSON.parse(pendingData);
-    console.log('[PUBLISH] ✅ Données récupérées:', data.mode, data.newItem?.title);
+    console.log('[PUBLISH] \u2705 Données récupérées:', data.mode, data.newItem?.title);
     
     window.pendingPublishData = data;
     await finalizePublish();
@@ -3057,8 +3744,8 @@ async function finalizePublishAfterPayment(sessionId) {
     
     playPaymentSound();
   } catch (error) {
-    console.error('[PUBLISH] ❌ Erreur finalisation:', error);
-    showNotification("❌ Erreur lors de la publication: " + error.message, "error");
+    console.error('[PUBLISH] \u274C Erreur finalisation:', error);
+    showNotification("\u274C Erreur lors de la publication: " + error.message, "error");
   }
 }
 
@@ -3092,12 +3779,90 @@ function handleDeepLink() {
   const eventId = urlParams.get('event');
   const bookingId = urlParams.get('booking');
   const serviceId = urlParams.get('service');
+  const organizerAction = (urlParams.get('organizer_action') || '').toLowerCase();
+  const organizerItemType = (urlParams.get('item_type') || '').toLowerCase();
+  const hasOrganizerAction = !!organizerAction;
+  const registerMode = (urlParams.get('register') || '').toLowerCase();
+  const hasOAuthCallback = !!urlParams.get('code') || !!urlParams.get('state');
   
   // Fonction pour nettoyer l'URL après l'ouverture (mais garder les paramètres pour les métadonnées)
   function cleanUrl() {
     // NE PAS nettoyer l'URL immédiatement - garder les paramètres pour que les métadonnées restent visibles
     // On nettoiera seulement après que la popup soit ouverte et que les métadonnées soient mises à jour
     // Les paramètres restent dans l'URL pour que les scrapers des réseaux sociaux puissent les lire
+  }
+
+  function clearOrganizerActionParams() {
+    try {
+      const u = new URL(window.location.href);
+      u.searchParams.delete('organizer_action');
+      u.searchParams.delete('item_type');
+      history.replaceState({}, '', u.toString());
+    } catch (e) {
+      console.warn('[DEEP LINK] Impossible de nettoyer organizer_action:', e);
+    }
+  }
+
+  // Deep-link création de compte organisateur
+  if (registerMode === 'organizer' && !hasOAuthCallback) {
+    setTimeout(() => {
+      if (!currentUser || !currentUser.isLoggedIn) {
+        if (typeof window.openAuthModal === 'function') {
+          window.openAuthModal('register');
+        } else if (typeof window.showProRegisterForm === 'function') {
+          window.showProRegisterForm();
+        }
+      } else if (typeof openPublishModal === 'function') {
+        openPublishModal();
+      }
+    }, 350);
+  }
+
+  async function runOrganizerAction(type, id) {
+    if (!hasOrganizerAction) return;
+
+    const normalizedType = (organizerItemType || type || 'event').toLowerCase();
+    const numericId = parseInt(id);
+    const token = typeof getAuthToken === 'function' ? getAuthToken() : localStorage.getItem('accessToken');
+    if (!Number.isFinite(numericId)) return;
+
+    // "Modifier" : si non connecté, rediriger vers création de compte organisateur
+    if (organizerAction === 'modify' || organizerAction === 'modifier') {
+      if (!token) {
+        showNotification("Créez un compte organisateur pour modifier cette annonce", "info");
+        setTimeout(() => {
+          window.location.href = `https://mapevent.world/mapevent.html?register=organizer&event=${numericId}`;
+        }, 1200);
+        return;
+      }
+      clearOrganizerActionParams();
+      setTimeout(() => openEditEventModal(normalizedType, numericId), 250);
+      return;
+    }
+
+    // "Valider" = remettre actif (si annulé/reporté) + confirmation organisateur
+    if (organizerAction === 'validate' || organizerAction === 'valider') {
+      clearOrganizerActionParams();
+      if (!token) {
+        showNotification("Connectez-vous pour confirmer cette action", "warning");
+        return;
+      }
+      await updateEventStatus(numericId, 'active', normalizedType);
+      showNotification("✅ Action organisateur enregistrée : annonce validée", "success");
+      return;
+    }
+
+    // "Annuler/Supprimer" = passer en cancelled (retrait affichage principal)
+    if (['cancel', 'annuler', 'delete', 'supprimer', 'remove'].includes(organizerAction)) {
+      clearOrganizerActionParams();
+      if (!token) {
+        showNotification("Connectez-vous pour confirmer cette action", "warning");
+        return;
+      }
+      await updateEventStatus(numericId, 'cancelled', normalizedType);
+      showNotification("✅ Action organisateur enregistrée : annonce retirée", "success");
+      return;
+    }
   }
   
   // Fonction pour ouvrir la popup après que les données soient chargées
@@ -3134,17 +3899,57 @@ function handleDeepLink() {
             refreshMarkers();
             openServicePopupFromDeepLink(item);
           }
+          // Actions directes depuis email organisateur (valider/modifier/annuler)
+          runOrganizerAction(type, id);
         }, 500);
       } else if (attempts >= maxAttempts) {
         clearInterval(checkInterval);
-        console.warn(`⚠️ ${type} ${id} non trouvé après ${maxAttempts} tentatives`);
+        console.warn(`\u26A0️ ${type} ${id} non trouvé après ${maxAttempts} tentatives`);
         showNotification(`L'élément demandé n'a pas été trouvé`, "warning");
       }
     }, 500); // Vérifier toutes les 500ms
   }
+
+  // Charger un event précis depuis l'API (si hors viewport)
+  function prefetchEventById(id) {
+    const numericId = parseInt(id);
+    if (!Number.isFinite(numericId)) return;
+    // Ne pas refetch si déjà présent
+    const existing = eventsData.find(e => e.id === numericId || String(e.id) === String(numericId));
+    if (existing) return;
+
+    fetch(`${window.API_BASE_URL}/events/by-id?id=${encodeURIComponent(numericId)}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(ev => {
+        if (!ev || !ev.id) return;
+        // Injecter au format frontend minimal
+        const normalizedCoords = normalizeLatLng(ev.latitude, ev.longitude, ev.location);
+        if (!normalizedCoords) return;
+        const event = {
+          ...ev,
+          type: 'event',
+          lat: normalizedCoords.lat,
+          lng: normalizedCoords.lng,
+          address: ev.location || '',
+          boost: normalizeBoostTier(ev.boost),
+          likes: ev.likes || 0,
+          favorites: ev.favorites || 0,
+          participations: ev.participations || 0
+        };
+        if (typeof event.lat !== 'number' || typeof event.lng !== 'number' || isNaN(event.lat) || isNaN(event.lng)) return;
+        eventsData.push(event);
+        window.eventsData = eventsData;
+        try {
+          if (typeof loadedEventIds !== 'undefined' && loadedEventIds && loadedEventIds.add) loadedEventIds.add(event.id);
+        } catch (e) {}
+      })
+      .catch(() => {});
+  }
   
   if (eventId) {
     console.log(`🔗 Deep link détecté: event=${eventId}`);
+    // Pré-fetch l'event au cas où il est hors viewport initial
+    prefetchEventById(eventId);
     // Mettre à jour les métadonnées immédiatement si possible
     const event = eventsData.find(e => e.id === parseInt(eventId) || e.id === eventId);
     if (event) {
@@ -3178,15 +3983,16 @@ function handleDeepLink() {
   return false;
 }
 
-function openEventPopupFromDeepLink(event) {
+async function openEventPopupFromDeepLink(event) {
+  const readyEvent = await ensureEventDetailsForPopup(event);
   // Centrer la map sur l'event
-  if (map && event.lat && event.lng) {
-    map.setView([event.lat, event.lng], 14);
+  if (map && readyEvent.lat && readyEvent.lng) {
+    map.setView([readyEvent.lat, readyEvent.lng], 14);
   }
   
   // Ouvrir la popup dans un modal
-  const popupContent = buildEventPopup(event);
-  openPopupModal(popupContent, event);
+  const popupContent = buildEventPopup(readyEvent);
+  openPopupModal(popupContent, readyEvent);
 }
 
 function openBookingPopupFromDeepLink(booking) {
@@ -3213,16 +4019,158 @@ let currentPopupMarker = null;
 // Quand 2+ events partagent les mêmes coordonnées, on affiche des flèches
 // pour naviguer de l'un à l'autre sans fermer la popup
 // ============================================================================
-let sameLocationMap = {};  // clé "lat,lng" → [item1, item2, ...]
+let sameLocationMap = {};  // clé "lat,lng" \u2192 [item1, item2, ...]
 let currentLocationGroup = null; // items au même endroit que l'item actuel
 let currentLocationIndex = 0;    // position dans le groupe
+
+const SAME_LOCATION_DECIMALS = 5;
+const BOOST_PRIORITY_ORDER = { platinum: 1, gold: 2, silver: 3, bronze: 4, "1.-": 5, standard: 5, basic: 5 };
+const BOOST_PAID_VALUE = { platinum: 25, gold: 15, silver: 10, bronze: 5, "1.-": 1, standard: 1, basic: 1 };
+
+function buildSameLocationKey(item) {
+  if (!item || typeof item.lat !== 'number' || typeof item.lng !== 'number') return null;
+  const coordsKey = `${item.lat.toFixed(SAME_LOCATION_DECIMALS)},${item.lng.toFixed(SAME_LOCATION_DECIMALS)}`;
+  const addressKey = normalizeAddressForGrouping(getItemDisplayAddress(item));
+  // Ne jamais grouper des events d'adresses différentes sur la navigation "même lieu".
+  // Si l'adresse est connue, elle fait partie de la clé de groupe.
+  return addressKey ? `${coordsKey}|${addressKey}` : coordsKey;
+}
+
+function getItemDisplayAddress(item) {
+  return (item?.address || item?.location || item?.city || '').toString().trim();
+}
+
+function normalizeAddressForGrouping(address) {
+  if (!address) return '';
+  return address
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .replace(/[.,;:]/g, '')
+    .trim();
+}
+
+function getBoostPriorityValue(item) {
+  const boost = normalizeBoostTier(item?.boost);
+  return BOOST_PRIORITY_ORDER[boost] || 99;
+}
+
+function getBoostPaidValue(item) {
+  const boost = normalizeBoostTier(item?.boost);
+  if (boost === "platinum") {
+    const bid = Number(item?.platinumBid || 0);
+    return Math.max(BOOST_PAID_VALUE.platinum, Number.isFinite(bid) ? bid : 0);
+  }
+  return BOOST_PAID_VALUE[boost] || 0;
+}
+
+function compareItemsByMonetizationPriority(a, b) {
+  const prioA = getBoostPriorityValue(a);
+  const prioB = getBoostPriorityValue(b);
+  if (prioA !== prioB) return prioA - prioB;
+
+  const paidA = getBoostPaidValue(a);
+  const paidB = getBoostPaidValue(b);
+  if (paidA !== paidB) return paidB - paidA;
+
+  if (normalizeBoostTier(a?.boost) === "platinum" && normalizeBoostTier(b?.boost) === "platinum") {
+    const rankA = Number(a?.platinumRank || 99);
+    const rankB = Number(b?.platinumRank || 99);
+    if (rankA !== rankB) return rankA - rankB;
+  }
+
+  return 0;
+}
+
+function getTopPriorityItem(items) {
+  if (!Array.isArray(items) || items.length === 0) return null;
+  const sorted = items.slice().sort(compareItemsByMonetizationPriority);
+  return sorted[0] || null;
+}
+
+function getCanonicalGroupAddress(group) {
+  const counts = new Map();
+  for (const item of group) {
+    const address = getItemDisplayAddress(item);
+    if (!address) continue;
+    const normalized = normalizeAddressForGrouping(address);
+    if (!normalized) continue;
+    if (!counts.has(normalized)) {
+      counts.set(normalized, { count: 0, label: address });
+    }
+    const entry = counts.get(normalized);
+    entry.count += 1;
+    if (address.length > entry.label.length) entry.label = address;
+  }
+  if (!counts.size) return '';
+  let best = null;
+  for (const entry of counts.values()) {
+    if (!best || entry.count > best.count || (entry.count === best.count && entry.label.length > best.label.length)) {
+      best = entry;
+    }
+  }
+  return best?.label || '';
+}
+
+function parseCoordinateValue(value) {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : null;
+  }
+  if (value === null || value === undefined) return null;
+  const raw = String(value).trim();
+  if (!raw) return null;
+  let normalized = raw.replace(/\s+/g, '');
+  if (normalized.includes(',') && normalized.includes('.')) {
+    const lastComma = normalized.lastIndexOf(',');
+    const lastDot = normalized.lastIndexOf('.');
+    if (lastComma > lastDot) {
+      normalized = normalized.replace(/\./g, '').replace(',', '.');
+    } else {
+      normalized = normalized.replace(/,/g, '');
+    }
+  } else if (normalized.includes(',')) {
+    normalized = normalized.replace(',', '.');
+  }
+  const num = Number(normalized);
+  return Number.isFinite(num) ? num : null;
+}
+
+function normalizeLatLng(latRaw, lngRaw, locationText) {
+  let lat = parseCoordinateValue(latRaw);
+  let lng = parseCoordinateValue(lngRaw);
+  if (lat === null || lng === null) return null;
+
+  const latInvalid = Math.abs(lat) > 90;
+  const lngInvalid = Math.abs(lng) > 180;
+  if ((latInvalid && Math.abs(lng) <= 90) || (lngInvalid && Math.abs(lat) <= 180 && Math.abs(lng) <= 90)) {
+    const tmp = lat;
+    lat = lng;
+    lng = tmp;
+  }
+
+  if (Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
+
+  const loc = (locationText || '').toString().toLowerCase();
+  const swissHints = ['suisse', 'switzerland', 'schweiz', 'valais', 'vaud', 'genève', 'geneve', 'lausanne', 'sierre', 'sion', 'montreux', 'fribourg', 'neuchâtel', 'neuchatel', 'zürich', 'zurich', 'bern', 'bâle', 'basel', 'lugano'];
+  const hasSwissHint = swissHints.some(h => loc.includes(h));
+  if (hasSwissHint) {
+    const inCh = lat >= 45.7 && lat <= 48.1 && lng >= 5.8 && lng <= 10.7;
+    const swappedInCh = lng >= 45.7 && lng <= 48.1 && lat >= 5.8 && lat <= 10.7;
+    if (!inCh && swappedInCh) {
+      const tmp = lat;
+      lat = lng;
+      lng = tmp;
+    }
+  }
+
+  return { lat, lng };
+}
 
 function buildSameLocationMap(items) {
   sameLocationMap = {};
   for (const item of items) {
-    if (!item || typeof item.lat !== 'number' || typeof item.lng !== 'number') continue;
-    // Arrondir à 4 décimales (≈ 11m) pour grouper les events vraiment à la même adresse
-    const key = `${item.lat.toFixed(4)},${item.lng.toFixed(4)}`;
+    if (!item) continue;
+    const key = buildSameLocationKey(item);
+    if (!key) continue;
     if (!sameLocationMap[key]) sameLocationMap[key] = [];
     sameLocationMap[key].push(item);
   }
@@ -3231,6 +4179,9 @@ function buildSameLocationMap(items) {
   for (const key in sameLocationMap) {
     if (sameLocationMap[key].length > 1) {
       sameLocationMap[key].sort((a, b) => {
+        const monetizationDiff = compareItemsByMonetizationPriority(a, b);
+        if (monetizationDiff !== 0) return monetizationDiff;
+
         const da = a.date ? new Date(a.date) : new Date('2099-12-31');
         const db = b.date ? new Date(b.date) : new Date('2099-12-31');
         // Les events futurs les plus proches d'abord
@@ -3243,8 +4194,9 @@ function buildSameLocationMap(items) {
 }
 
 function getSameLocationItems(item) {
-  if (!item || typeof item.lat !== 'number') return [item];
-  const key = `${item.lat.toFixed(4)},${item.lng.toFixed(4)}`;
+  if (!item) return [item];
+  const key = buildSameLocationKey(item);
+  if (!key) return [item];
   return sameLocationMap[key] || [item];
 }
 
@@ -3375,10 +4327,14 @@ function openPopupModal(content, item) {
   const dragHandleHtml = isMobile ? '<div class="popup-drag-handle" style="width:40px;height:4px;background:rgba(148,163,184,0.5);border-radius:2px;margin:8px auto 4px;cursor:grab;"></div>' : '';
   const bottomSheetStyle = isMobile ? 'position:fixed;bottom:0;left:0;right:0;width:100%!important;max-width:100%!important;max-height:90vh!important;margin:0!important;border-radius:20px 20px 0 0!important;align-self:flex-end!important;' : '';
   const backdropAlign = isMobile ? 'align-items:flex-end;justify-content:center;padding:0!important;' : 'align-items:center;justify-content:center;';
+  const popupType = (item && item.type) || (typeof currentMode !== "undefined" ? currentMode : "event");
+  const isDarkPopup = popupType === "booking" || popupType === "service";
+  const popupShellBg = isDarkPopup ? "#0f172a" : "#ffffff";
+  const popupShellBorder = isDarkPopup ? "1px solid rgba(148,163,184,0.35)" : "1px solid #e2e8f0";
   const modalHtml = `
-    <div id="popup-modal-content" style="position:relative;width:380px;max-height:85vh;overflow:hidden;background:var(--ui-card-bg);border-radius:16px;border:1px solid var(--ui-card-border);margin:20px;box-shadow:0 20px 60px rgba(0,0,0,0.5);display:flex;flex-direction:column;padding:0;box-sizing:border-box;${bottomSheetStyle}">
+    <div id="popup-modal-content" style="position:relative;width:min(92vw,460px);max-height:85vh;overflow:hidden;background:${popupShellBg};border-radius:16px;border:${popupShellBorder};margin:20px;box-shadow:0 20px 60px rgba(0,0,0,0.5);display:flex;flex-direction:column;padding:0;box-sizing:border-box;${bottomSheetStyle}">
       ${dragHandleHtml}
-      <button onclick="closePopupModal()" style="position:absolute;top:12px;right:12px;width:36px;height:36px;border-radius:50%;border:none;background:rgba(0,0,0,0.6);color:#fff;cursor:pointer;font-size:20px;z-index:1001;display:flex;align-items:center;justify-content:center;transition:all 0.2s;" onmouseover="this.style.background='rgba(239,68,68,0.8)'" onmouseout="this.style.background='rgba(0,0,0,0.6)'">✕</button>
+      <button onclick="closePopupModal()" style="position:absolute;top:12px;right:12px;width:36px;height:36px;border-radius:50%;border:none;background:rgba(0,0,0,0.6);color:#fff;cursor:pointer;font-size:20px;z-index:1001;display:flex;align-items:center;justify-content:center;transition:all 0.2s;" onmouseover="this.style.background='rgba(239,68,68,0.8)'" onmouseout="this.style.background='rgba(0,0,0,0.6)'">\u2715</button>
       <div id="popup-scroll-container" style="flex:1;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;-webkit-overflow-scrolling:touch;width:100%;margin:0;padding:0;box-sizing:border-box;touch-action:pan-y;overscroll-behavior:contain;pointer-events:auto;position:relative;">
         ${content}
       </div>
@@ -3430,7 +4386,7 @@ function openPopupModal(content, item) {
   }
   
   // FORCER LE SCROLL - Ajouter un gestionnaire wheel explicite après un court délai
-  setTimeout(() => {
+  setTimeout(async () => {
     const scrollContainer = document.getElementById('popup-scroll-container');
     const modalContent = document.getElementById('popup-modal-content');
     
@@ -3626,7 +4582,7 @@ function updateAuthButtons() {
     authButtons.style.display = 'flex';
     accountBtn.style.display = 'none';
     
-    // ⚠️⚠️⚠️ CRITIQUE : Réattacher les event listeners au bouton "Connexion" après déconnexion
+    // \u26A0️\u26A0️\u26A0️ CRITIQUE : Réattacher les event listeners au bouton "Connexion" après déconnexion
     // Utiliser plusieurs tentatives avec délais croissants pour s'assurer que auth.js est chargé
     const initLoginButton = (attempt = 1) => {
       const loginBtn = document.getElementById('login-topbar-btn');
@@ -3635,29 +4591,29 @@ function updateAuthButtons() {
         const hasFunctions = typeof window.openLoginModal === 'function' || typeof window.openAuthModal === 'function';
         
         if (!hasFunctions && attempt < 10) {
-          console.log('[AUTH BUTTONS] ⚠️ Fonctions non disponibles (tentative', attempt, '), nouvelle tentative dans', attempt * 100, 'ms');
+          console.log('[AUTH BUTTONS] \u26A0️ Fonctions non disponibles (tentative', attempt, '), nouvelle tentative dans', attempt * 100, 'ms');
           setTimeout(() => initLoginButton(attempt + 1), attempt * 100);
           return;
         }
         
         if (!hasFunctions) {
-          console.error('[AUTH BUTTONS] ❌ Fonctions de connexion non disponibles après 10 tentatives');
+          console.error('[AUTH BUTTONS] \u274C Fonctions de connexion non disponibles après 10 tentatives');
           if (typeof showNotification === 'function') {
-            showNotification('⚠️ Erreur : fonctions de connexion non disponibles. Veuillez rafraîchir la page.', 'error');
+            showNotification('\u26A0️ Erreur : fonctions de connexion non disponibles. Veuillez rafraîchir la page.', 'error');
           }
           return;
         }
         
-        console.log('[AUTH BUTTONS] ✅ Bouton Connexion trouvé, réattachement des listeners (tentative', attempt, ')');
+        console.log('[AUTH BUTTONS] \u2705 Bouton Connexion trouvé, réattachement des listeners (tentative', attempt, ')');
         
-        // ⚠️⚠️⚠️ CRITIQUE : Supprimer l'onclick inline qui peut interférer
+        // \u26A0️\u26A0️\u26A0️ CRITIQUE : Supprimer l'onclick inline qui peut interférer
         loginBtn.removeAttribute('onclick');
         
         // Supprimer tous les anciens listeners en clonant le bouton
         const newLoginBtn = loginBtn.cloneNode(true);
         loginBtn.parentNode.replaceChild(newLoginBtn, loginBtn);
         
-        // ⚠️⚠️⚠️ S'assurer que le bouton est cliquable (pointer-events, cursor, etc.)
+        // \u26A0️\u26A0️\u26A0️ S'assurer que le bouton est cliquable (pointer-events, cursor, etc.)
         newLoginBtn.style.pointerEvents = 'auto';
         newLoginBtn.style.cursor = 'pointer';
         newLoginBtn.style.opacity = '1';
@@ -3667,7 +4623,7 @@ function updateAuthButtons() {
           e.preventDefault();
           e.stopPropagation();
           e.stopImmediatePropagation();
-          console.log('[AUTH BUTTONS] ✅✅✅ Bouton Connexion cliqué - Ouverture modal');
+          console.log('[AUTH BUTTONS] \u2705\u2705\u2705 Bouton Connexion cliqué - Ouverture modal');
           
           // Essayer plusieurs méthodes pour ouvrir le modal de connexion
           if (typeof window.openLoginModal === 'function') {
@@ -3683,15 +4639,15 @@ function updateAuthButtons() {
             console.log('[AUTH BUTTONS] Utilisation openAuthModal');
             openAuthModal('login');
           } else {
-            console.error('[AUTH BUTTONS] ❌ Aucune fonction de connexion disponible');
+            console.error('[AUTH BUTTONS] \u274C Aucune fonction de connexion disponible');
             if (typeof showNotification === 'function') {
-              showNotification('⚠️ Erreur : fonctions de connexion non disponibles. Veuillez rafraîchir la page.', 'error');
+              showNotification('\u26A0️ Erreur : fonctions de connexion non disponibles. Veuillez rafraîchir la page.', 'error');
             }
           }
         }, { capture: true });
         
-        // ⚠️⚠️⚠️ DOUBLE VÉRIFICATION : S'assurer que le bouton est bien visible et cliquable
-        console.log('[AUTH BUTTONS] ✅✅✅ Event listener réattaché au bouton Connexion', {
+        // \u26A0️\u26A0️\u26A0️ DOUBLE VÉRIFICATION : S'assurer que le bouton est bien visible et cliquable
+        console.log('[AUTH BUTTONS] \u2705\u2705\u2705 Event listener réattaché au bouton Connexion', {
           display: window.getComputedStyle(newLoginBtn).display,
           visibility: window.getComputedStyle(newLoginBtn).visibility,
           pointerEvents: window.getComputedStyle(newLoginBtn).pointerEvents,
@@ -3702,10 +4658,10 @@ function updateAuthButtons() {
         });
       } else {
         if (attempt < 10) {
-          console.log('[AUTH BUTTONS] ⚠️ Bouton login-topbar-btn non trouvé (tentative', attempt, '), nouvelle tentative dans', attempt * 100, 'ms');
+          console.log('[AUTH BUTTONS] \u26A0️ Bouton login-topbar-btn non trouvé (tentative', attempt, '), nouvelle tentative dans', attempt * 100, 'ms');
           setTimeout(() => initLoginButton(attempt + 1), attempt * 100);
         } else {
-          console.warn('[AUTH BUTTONS] ⚠️ Bouton login-topbar-btn non trouvé après 10 tentatives');
+          console.warn('[AUTH BUTTONS] \u26A0️ Bouton login-topbar-btn non trouvé après 10 tentatives');
           // Essayer de trouver le bouton dans auth-buttons
           const authButtons = document.getElementById('auth-buttons');
           if (authButtons) {
@@ -3752,7 +4708,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (loader && !loader.classList.contains('hide')) {
       loader.classList.add('hide');
       setTimeout(() => { if (loader.parentNode) loader.parentNode.removeChild(loader); }, 500);
-      console.log('✅ Loader masqué - carte prête');
+      console.log('\u2705 Loader masqué - carte prête');
     }
   };
   
@@ -3767,7 +4723,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // Init immédiat - pas de délai artificiel (le loader couvre la transition)
   requestAnimationFrame(doInit);
   
-  // ⚠️ CRITIQUE: Vérifier le retour Stripe IMMÉDIATEMENT au chargement
+  // \u26A0️ CRITIQUE: Vérifier le retour Stripe IMMÉDIATEMENT au chargement
   const stripeParams = new URLSearchParams(window.location.search);
   const stripePaymentStatus = stripeParams.get('payment');
   const stripeSessionId = stripeParams.get('session_id');
@@ -3778,7 +4734,7 @@ document.addEventListener("DOMContentLoaded", () => {
     setTimeout(() => {
       console.log('[STRIPE RETURN] 🚀 Appel de handleStripeReturn()...');
       handleStripeReturn().catch(err => {
-        console.error('[STRIPE RETURN] ❌ Erreur:', err);
+        console.error('[STRIPE RETURN] \u274C Erreur:', err);
       });
     }, 500);
   }
@@ -3794,7 +4750,7 @@ document.addEventListener("DOMContentLoaded", () => {
     console.log('[INIT] Aucun utilisateur connecté');
   }
   
-  // ⚠️⚠️⚠️ CRITIQUE : S'assurer que le bouton de connexion fonctionne après rechargement
+  // \u26A0️\u26A0️\u26A0️ CRITIQUE : S'assurer que le bouton de connexion fonctionne après rechargement
   // Utiliser plusieurs tentatives avec délais croissants pour s'assurer que auth.js est chargé
   const initLoginButtonOnLoad = (attempt = 1) => {
     const loginBtn = document.getElementById('login-topbar-btn');
@@ -3803,17 +4759,17 @@ document.addEventListener("DOMContentLoaded", () => {
       const hasFunctions = typeof window.openLoginModal === 'function' || typeof window.openAuthModal === 'function';
       
       if (!hasFunctions && attempt < 10) {
-        console.log('[INIT] ⚠️ Fonctions non disponibles (tentative', attempt, '), nouvelle tentative dans', attempt * 100, 'ms');
+        console.log('[INIT] \u26A0️ Fonctions non disponibles (tentative', attempt, '), nouvelle tentative dans', attempt * 100, 'ms');
         setTimeout(() => initLoginButtonOnLoad(attempt + 1), attempt * 100);
         return;
       }
       
       if (!hasFunctions) {
-        console.error('[INIT] ❌ Fonctions de connexion non disponibles après 10 tentatives');
+        console.error('[INIT] \u274C Fonctions de connexion non disponibles après 10 tentatives');
         return;
       }
       
-      console.log('[INIT] ✅ Bouton Connexion trouvé, vérification des fonctions... (tentative', attempt, ')');
+      console.log('[INIT] \u2705 Bouton Connexion trouvé, vérification des fonctions... (tentative', attempt, ')');
       
       // Supprimer l'onclick inline pour éviter les conflits
       loginBtn.removeAttribute('onclick');
@@ -3823,7 +4779,7 @@ document.addEventListener("DOMContentLoaded", () => {
         e.preventDefault();
         e.stopPropagation();
         e.stopImmediatePropagation();
-        console.log('[INIT] ✅✅✅ Bouton Connexion cliqué après rechargement');
+        console.log('[INIT] \u2705\u2705\u2705 Bouton Connexion cliqué après rechargement');
         
         // Essayer plusieurs méthodes pour ouvrir le modal de connexion
         if (typeof window.openLoginModal === 'function') {
@@ -3839,23 +4795,23 @@ document.addEventListener("DOMContentLoaded", () => {
           console.log('[INIT] Utilisation openAuthModal');
           openAuthModal('login');
         } else {
-          console.error('[INIT] ❌ Aucune fonction de connexion disponible');
+          console.error('[INIT] \u274C Aucune fonction de connexion disponible');
           if (typeof showNotification === 'function') {
-            showNotification('⚠️ Erreur : fonctions de connexion non disponibles. Veuillez rafraîchir la page.', 'error');
+            showNotification('\u26A0️ Erreur : fonctions de connexion non disponibles. Veuillez rafraîchir la page.', 'error');
           }
         }
       }, { capture: true });
       
-      console.log('[INIT] ✅✅✅ Event listener réattaché au bouton Connexion après rechargement', {
+      console.log('[INIT] \u2705\u2705\u2705 Event listener réattaché au bouton Connexion après rechargement', {
         hasOpenLoginModal: typeof window.openLoginModal === 'function',
         hasOpenAuthModal: typeof window.openAuthModal === 'function'
       });
     } else {
       if (attempt < 10) {
-        console.log('[INIT] ⚠️ Bouton login-topbar-btn non trouvé (tentative', attempt, '), nouvelle tentative dans', attempt * 100, 'ms');
+        console.log('[INIT] \u26A0️ Bouton login-topbar-btn non trouvé (tentative', attempt, '), nouvelle tentative dans', attempt * 100, 'ms');
         setTimeout(() => initLoginButtonOnLoad(attempt + 1), attempt * 100);
       } else {
-        console.warn('[INIT] ⚠️ Bouton login-topbar-btn non trouvé après 10 tentatives');
+        console.warn('[INIT] \u26A0️ Bouton login-topbar-btn non trouvé après 10 tentatives');
       }
     }
   };
@@ -3866,25 +4822,25 @@ document.addEventListener("DOMContentLoaded", () => {
   // Popup d'accueil gérée par le script PWA dans mapevent.html
   // (message: "Site actif sauf abos et social à venir" + bouton installation mobile)
   
-  // FORCER "ABOS" IMMÉDIATEMENT au chargement (avant tout autre code)
+  // FORCER "OFFRES" IMMÉDIATEMENT au chargement (avant tout autre code)
   const forceABOS = () => {
     const label = document.getElementById("subscription-label");
-    if (label && label.textContent !== "ABOS") {
-      label.textContent = "ABOS";
-      label.innerHTML = "ABOS";
+    if (label && label.textContent !== "OFFRES") {
+      label.textContent = "OFFRES";
+      label.innerHTML = "OFFRES";
     }
   };
   forceABOS();
   
-  // Observer pour maintenir "ABOS" même si quelque chose essaie de le changer
+  // Observer pour maintenir "OFFRES" même si quelque chose essaie de le changer
   const label = document.getElementById("subscription-label");
   if (label) {
     const observer = new MutationObserver((mutations) => {
       mutations.forEach((mutation) => {
         if (mutation.type === 'childList' || mutation.type === 'characterData') {
-          if (label.textContent !== "ABOS" && label.textContent.trim() !== "ABOS") {
-            label.textContent = "ABOS";
-            label.innerHTML = "ABOS";
+          if (label.textContent !== "OFFRES" && label.textContent.trim() !== "OFFRES") {
+            label.textContent = "OFFRES";
+            label.innerHTML = "OFFRES";
           }
         }
       });
@@ -3935,11 +4891,11 @@ document.addEventListener("DOMContentLoaded", () => {
     loadUserDataOnLogin().catch(err => console.warn('[INIT] Chargement données utilisateur:', err));
   }
   
-  // ⚠️⚠️⚠️ FLUX STANDARD : Reconnexion automatique si "rester connecté" est activé
+  // \u26A0️\u26A0️\u26A0️ FLUX STANDARD : Reconnexion automatique si "rester connecté" est activé
   setTimeout(async () => {
     const rememberMe = localStorage.getItem('rememberMe') === 'true';
     if (rememberMe) {
-      console.log('[AUTH] ✅ "Rester connecté" activé - Tentative de reconnexion automatique');
+      console.log('[AUTH] \u2705 "Rester connecté" activé - Tentative de reconnexion automatique');
       
       // Vérifier si on a des tokens valides
       const accessToken = getAuthToken();
@@ -3958,7 +4914,7 @@ document.addEventListener("DOMContentLoaded", () => {
           if (response.ok) {
             const data = await response.json();
             const userData = data.user || data; // Backend retourne { user: {...} }
-            console.log('[AUTH] ✅✅✅ Reconnexion automatique réussie:', userData.email);
+            console.log('[AUTH] \u2705\u2705\u2705 Reconnexion automatique réussie:', userData.email);
             
             // Reconnecter l'utilisateur silencieusement
             const user = {
@@ -3976,22 +4932,22 @@ document.addEventListener("DOMContentLoaded", () => {
             // Connecter silencieusement (pas de notification)
             if (typeof window.connectUser === 'function') {
               window.connectUser(user, tokens, true);
-              console.log('[AUTH] ✅✅✅ Utilisateur reconnecté automatiquement');
+              console.log('[AUTH] \u2705\u2705\u2705 Utilisateur reconnecté automatiquement');
             } else if (typeof connectUser === 'function') {
               connectUser(user, tokens, true);
             }
           } else {
-            console.log('[AUTH] ⚠️ Token invalide - Tokens conservés (règle: jamais supprimer)');
+            console.log('[AUTH] \u26A0️ Token invalide - Tokens conservés (règle: jamais supprimer)');
           }
         } catch (error) {
-          console.error('[AUTH] ❌ Erreur reconnexion automatique:', error);
+          console.error('[AUTH] \u274C Erreur reconnexion automatique:', error);
           // En cas d'erreur, ne pas reconnecter
         }
       } else {
-        console.log('[AUTH] ⚠️ Pas de token disponible - Reconnexion automatique annulée');
+        console.log('[AUTH] \u26A0️ Pas de token disponible - Reconnexion automatique annulée');
       }
     } else {
-      console.log('[AUTH] ℹ️ "Rester connecté" désactivé - Pas de reconnexion automatique');
+      console.log('[AUTH] \u2139️ "Rester connecté" désactivé - Pas de reconnexion automatique');
     }
   }, 500); // Attendre un peu pour que tout soit chargé
   
@@ -4023,7 +4979,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (isGoogleLoginInProgress) {
         console.log('[ACCOUNT CLICK] Guard: Connexion Google en cours - click bloqué');
         if (typeof showNotification === 'function') {
-          showNotification('⏳ Connexion en cours... Veuillez patienter', 'info');
+          showNotification('\u23F3 Connexion en cours... Veuillez patienter', 'info');
         }
         return;
       }
@@ -4122,7 +5078,7 @@ document.addEventListener("DOMContentLoaded", () => {
       return url;
     }
     
-    // 3. Si commence par // → prefixer https:
+    // 3. Si commence par // \u2192 prefixer https:
     if (url.startsWith('//')) {
       return 'https:' + url;
     }
@@ -4146,7 +5102,7 @@ document.addEventListener("DOMContentLoaded", () => {
       return null;
     }
     
-    // 5. Si ne commence pas par http mais contient un domaine → prefixer https://
+    // 5. Si ne commence pas par http mais contient un domaine \u2192 prefixer https://
     // Détecter les patterns de domaine
     const domainPatterns = [
       /\.com\//,
@@ -4197,47 +5153,47 @@ document.addEventListener("DOMContentLoaded", () => {
     // Normaliser photoData AVANT vérification : convertir "null" en null réel
     let photoData = currentUser.photoData;
     
-    // ⚠️⚠️⚠️ CRITIQUE : Normaliser IMMÉDIATEMENT si c'est la chaîne "null"
+    // \u26A0️\u26A0️\u26A0️ CRITIQUE : Normaliser IMMÉDIATEMENT si c'est la chaîne "null"
     if (photoData === 'null' || photoData === 'undefined' || photoData === '') {
       photoData = null;
       // Corriger currentUser.photoData immédiatement pour éviter les problèmes futurs
       currentUser.photoData = null;
-      console.log('[AVATAR UI] ⚠️⚠️⚠️ photoData normalisé de "null" vers null');
+      console.log('[AVATAR UI] \u26A0️\u26A0️\u26A0️ photoData normalisé de "null" vers null');
     }
     
-    // ⚠️⚠️⚠️ CRITIQUE : Vérifier aussi dans pendingRegisterData si photoData n'existe pas dans currentUser
+    // \u26A0️\u26A0️\u26A0️ CRITIQUE : Vérifier aussi dans pendingRegisterData si photoData n'existe pas dans currentUser
     if (!photoData && window.pendingRegisterData?.photoData) {
       const pendingPhoto = window.pendingRegisterData.photoData;
       // Normaliser aussi pendingPhoto
       if (pendingPhoto !== 'null' && pendingPhoto !== 'undefined' && pendingPhoto !== '' && pendingPhoto.length > 100) {
         photoData = pendingPhoto;
-        console.log('[AVATAR UI] ⚠️⚠️⚠️ photoData récupéré depuis pendingRegisterData (longueur:', photoData.length, ')');
+        console.log('[AVATAR UI] \u26A0️\u26A0️\u26A0️ photoData récupéré depuis pendingRegisterData (longueur:', photoData.length, ')');
         // Mettre à jour currentUser immédiatement
         currentUser.photoData = photoData;
       }
     }
     
-    // ⚠️⚠️⚠️ CRITIQUE : Vérifier aussi dans localStorage (pendingRegisterDataForGoogle) - pour Google OAuth
+    // \u26A0️\u26A0️\u26A0️ CRITIQUE : Vérifier aussi dans localStorage (pendingRegisterDataForGoogle) - pour Google OAuth
     // MAIS SEULEMENT si les données correspondent à l'utilisateur connecté (même email)
     if (!photoData) {
       try {
         const savedPendingData = localStorage.getItem('pendingRegisterDataForGoogle');
         if (savedPendingData) {
           const parsedPendingData = JSON.parse(savedPendingData);
-          // ⚠️⚠️⚠️ FIX BUG : Vérifier que les données appartiennent à l'utilisateur connecté
+          // \u26A0️\u26A0️\u26A0️ FIX BUG : Vérifier que les données appartiennent à l'utilisateur connecté
           const pendingEmail = parsedPendingData.email?.toLowerCase?.() || '';
           const currentEmail = currentUser.email?.toLowerCase?.() || '';
           const emailMatches = pendingEmail && currentEmail && pendingEmail === currentEmail;
           
           if (emailMatches && parsedPendingData.photoData && parsedPendingData.photoData !== 'null' && parsedPendingData.photoData !== 'undefined' && parsedPendingData.photoData.length > 100) {
             photoData = parsedPendingData.photoData;
-            console.log('[AVATAR UI] ✅ photoData récupéré depuis pendingRegisterDataForGoogle (même email)');
+            console.log('[AVATAR UI] \u2705 photoData récupéré depuis pendingRegisterDataForGoogle (même email)');
             currentUser.photoData = photoData;
             if (!window.pendingRegisterData) {
               window.pendingRegisterData = parsedPendingData;
             }
           } else if (parsedPendingData.photoData && !emailMatches) {
-            console.log('[AVATAR UI] ⚠️ pendingRegisterDataForGoogle ignoré (email différent)');
+            console.log('[AVATAR UI] \u26A0️ pendingRegisterDataForGoogle ignoré (email différent)');
             localStorage.removeItem('pendingRegisterDataForGoogle');
           }
         }
@@ -4246,25 +5202,25 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
     
-    // ⚠️⚠️⚠️ CRITIQUE : Vérifier aussi dans localStorage (registerFormDraft)
+    // \u26A0️\u26A0️\u26A0️ CRITIQUE : Vérifier aussi dans localStorage (registerFormDraft)
     // MAIS SEULEMENT si le draft correspond à l'utilisateur connecté (même email)
     if (!photoData) {
       try {
         const draft = localStorage.getItem('registerFormDraft');
         if (draft) {
           const parsedDraft = JSON.parse(draft);
-          // ⚠️⚠️⚠️ FIX BUG : Vérifier que le draft appartient à l'utilisateur connecté
+          // \u26A0️\u26A0️\u26A0️ FIX BUG : Vérifier que le draft appartient à l'utilisateur connecté
           const draftEmail = parsedDraft.email?.toLowerCase?.() || '';
           const currentEmail = currentUser.email?.toLowerCase?.() || '';
           const emailMatches = draftEmail && currentEmail && draftEmail === currentEmail;
           
           if (emailMatches && parsedDraft.photoData && parsedDraft.photoData !== 'null' && parsedDraft.photoData !== 'undefined' && parsedDraft.photoData.length > 100) {
             photoData = parsedDraft.photoData;
-            console.log('[AVATAR UI] ✅ photoData récupéré depuis registerFormDraft (même email:', currentEmail, ')');
+            console.log('[AVATAR UI] \u2705 photoData récupéré depuis registerFormDraft (même email:', currentEmail, ')');
             currentUser.photoData = photoData;
           } else if (parsedDraft.photoData && !emailMatches) {
             // Draft d'un autre compte - le supprimer pour éviter les confusions
-            console.log('[AVATAR UI] ⚠️ registerFormDraft ignoré (email différent: draft=', draftEmail, 'current=', currentEmail, ')');
+            console.log('[AVATAR UI] \u26A0️ registerFormDraft ignoré (email différent: draft=', draftEmail, 'current=', currentEmail, ')');
             // Nettoyer le draft obsolète
             localStorage.removeItem('registerFormDraft');
           }
@@ -4274,7 +5230,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
     
-    // ⚠️⚠️⚠️ CRITIQUE : Vérifier aussi dans window.registerData
+    // \u26A0️\u26A0️\u26A0️ CRITIQUE : Vérifier aussi dans window.registerData
     // MAIS SEULEMENT si les données correspondent à l'utilisateur connecté (même email)
     if (!photoData && window.registerData?.photoData) {
       const registerPhoto = window.registerData.photoData;
@@ -4284,10 +5240,10 @@ document.addEventListener("DOMContentLoaded", () => {
       
       if (emailMatches && registerPhoto !== 'null' && registerPhoto !== 'undefined' && registerPhoto !== '' && registerPhoto.length > 100) {
         photoData = registerPhoto;
-        console.log('[AVATAR UI] ✅ photoData récupéré depuis window.registerData (même email)');
+        console.log('[AVATAR UI] \u2705 photoData récupéré depuis window.registerData (même email)');
         currentUser.photoData = photoData;
       } else if (registerPhoto && !emailMatches) {
-        console.log('[AVATAR UI] ⚠️ window.registerData ignoré (email différent)');
+        console.log('[AVATAR UI] \u26A0️ window.registerData ignoré (email différent)');
         // Nettoyer les données obsolètes
         delete window.registerData;
       }
@@ -4302,7 +5258,7 @@ document.addEventListener("DOMContentLoaded", () => {
         photoData.length > 100) { // S'assurer que c'est une vraie photo (base64 ou URL)
       if (photoData.startsWith('data:image') || photoData.startsWith('http')) {
         rawAvatar = photoData;
-        console.log('[AVATAR UI] ✅✅✅ Utilisation photoData (photo uploadée) - PRIORITÉ ABSOLUE');
+        console.log('[AVATAR UI] \u2705\u2705\u2705 Utilisation photoData (photo uploadée) - PRIORITÉ ABSOLUE');
       }
     }
     
@@ -4312,7 +5268,7 @@ document.addEventListener("DOMContentLoaded", () => {
         !currentUser.profile_photo_url.includes('googleusercontent.com') &&
         (currentUser.profile_photo_url.includes('amazonaws.com') || currentUser.profile_photo_url.startsWith('http'))) {
       rawAvatar = currentUser.profile_photo_url;
-      console.log('[AVATAR UI] ✅ Utilisation profile_photo_url (S3)');
+      console.log('[AVATAR UI] \u2705 Utilisation profile_photo_url (S3)');
     }
     
     // 3. profilePhoto (si pas Google)
@@ -4321,7 +5277,7 @@ document.addEventListener("DOMContentLoaded", () => {
         !currentUser.profilePhoto.includes('googleusercontent.com') &&
         (currentUser.profilePhoto.startsWith('http') || currentUser.profilePhoto.startsWith('data:image'))) {
       rawAvatar = currentUser.profilePhoto;
-      console.log('[AVATAR UI] ✅ Utilisation profilePhoto');
+      console.log('[AVATAR UI] \u2705 Utilisation profilePhoto');
     }
     
     // 4. avatarUrl (si pas Google)
@@ -4330,7 +5286,7 @@ document.addEventListener("DOMContentLoaded", () => {
         !currentUser.avatarUrl.includes('googleusercontent.com') &&
         (currentUser.avatarUrl.startsWith('http') || currentUser.avatarUrl.startsWith('data:image'))) {
       rawAvatar = currentUser.avatarUrl;
-      console.log('[AVATAR UI] ✅ Utilisation avatarUrl');
+      console.log('[AVATAR UI] \u2705 Utilisation avatarUrl');
     }
     
     // 5. avatar/Google en dernier recours
@@ -4338,7 +5294,7 @@ document.addEventListener("DOMContentLoaded", () => {
         currentUser.avatar !== 'null' &&
         (currentUser.avatar.startsWith('http') || currentUser.avatar.startsWith('data:image'))) {
       rawAvatar = currentUser.avatar;
-      console.log('[AVATAR UI] ⚠️ Utilisation avatar (Google) - dernière option');
+      console.log('[AVATAR UI] \u26A0️ Utilisation avatar (Google) - dernière option');
     }
     
     // Fallback: profile_photo_url même si Google (mieux que rien)
@@ -4346,7 +5302,7 @@ document.addEventListener("DOMContentLoaded", () => {
         currentUser.profile_photo_url !== 'null' &&
         currentUser.profile_photo_url.startsWith('http')) {
       rawAvatar = currentUser.profile_photo_url;
-      console.log('[AVATAR UI] ⚠️ Utilisation profile_photo_url (Google) - fallback');
+      console.log('[AVATAR UI] \u26A0️ Utilisation profile_photo_url (Google) - fallback');
     }
     
     // Normaliser photoData pour le log
@@ -4566,7 +5522,7 @@ document.addEventListener("DOMContentLoaded", () => {
     name: null
   };
   
-  // ⚠️ Cache des URLs d'avatar qui ont échoué (éviter les retries infinis - NS_BINDING_ABORTED)
+  // \u26A0️ Cache des URLs d'avatar qui ont échoué (éviter les retries infinis - NS_BINDING_ABORTED)
   const failedAvatarUrls = new Set();
   
   // FILET DE SECURITE : S'assurer que le bouton compte est TOUJOURS visible quand l'utilisateur est connecte
@@ -4649,7 +5605,7 @@ document.addEventListener("DOMContentLoaded", () => {
     
     // Mettre à jour l'avatar
     if (validAvatar.startsWith('http') || validAvatar.startsWith('data:image')) {
-      // ⚠️ Vérifier si cette URL a déjà échoué (éviter retries infinis)
+      // \u26A0️ Vérifier si cette URL a déjà échoué (éviter retries infinis)
       // Extraire la base de l'URL (sans les paramètres d'auth qui changent)
       const avatarBaseUrl = validAvatar.split('?')[0];
       if (failedAvatarUrls.has(avatarBaseUrl)) {
@@ -4694,8 +5650,8 @@ document.addEventListener("DOMContentLoaded", () => {
           ensureAccountButtonVisible();
         };
         img.onload = function() {
-          console.log('[AVATAR UI] ✅ Image chargée avec succès (URL complète):', validAvatar);
-          // ⚠️ Si l'image réussit, la retirer du cache des échecs (au cas où)
+          console.log('[AVATAR UI] \u2705 Image chargée avec succès (URL complète):', validAvatar);
+          // \u26A0️ Si l'image réussit, la retirer du cache des échecs (au cas où)
           failedAvatarUrls.delete(avatarBaseUrl);
         };
         accountAvatar.appendChild(img);
@@ -4717,8 +5673,8 @@ document.addEventListener("DOMContentLoaded", () => {
           ensureAccountButtonVisible();
         };
         existingImg.onload = function() {
-          console.log('[AVATAR UI] ✅ Image mise à jour chargée avec succès (URL complète):', validAvatar);
-          // ⚠️ Si l'image réussit, la retirer du cache des échecs
+          console.log('[AVATAR UI] \u2705 Image mise à jour chargée avec succès (URL complète):', validAvatar);
+          // \u26A0️ Si l'image réussit, la retirer du cache des échecs
           failedAvatarUrls.delete(avatarBaseUrl);
         };
       } else {
@@ -4729,7 +5685,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (accountAvatar.textContent && accountAvatar.textContent.trim() !== '') {
           accountAvatar.textContent = '';
         }
-        console.log('[AVATAR UI] ✅ Image déjà présente et correcte');
+        console.log('[AVATAR UI] \u2705 Image déjà présente et correcte');
       }
       } else {
         // C'est un emoji (pas une URL) - NE JAMAIS afficher de texte brut
@@ -4755,19 +5711,19 @@ document.addEventListener("DOMContentLoaded", () => {
     accountName.innerHTML = validName;
   };
   
-  // ✅ Exposer globalement pour que auth.js puisse l'appeler après connexion
+  // \u2705 Exposer globalement pour que auth.js puisse l'appeler après connexion
   window.updateAccountBlockLegitimately = updateAccountBlockLegitimately;
   
   // Protéger immédiatement et périodiquement
   protectAccountBlock();
   updateAccountBlockLegitimately();
   updateAuthButtons(); // Mettre à jour les boutons auth au chargement
-  setTimeout(() => {
+  setTimeout(async () => {
     protectAccountBlock();
     updateAccountBlockLegitimately();
     updateAuthButtons();
   }, 100);
-  setTimeout(() => {
+  setTimeout(async () => {
     protectAccountBlock();
     updateAccountBlockLegitimately();
     updateAuthButtons();
@@ -4827,19 +5783,55 @@ document.addEventListener("DOMContentLoaded", () => {
   console.log('🔍 Vérification callback OAuth Google...');
   const oauthCode = urlParams.get('code');
   const oauthState = urlParams.get('state');
+  const registerParam = (urlParams.get('register') || '').toLowerCase();
+  const forceRegister = (urlParams.get('force_register') || '') === '1';
+  const openPublish = (urlParams.get('open_publish') || '') === '1';
+  const promoCodeFromUrl = (urlParams.get('promo_code') || '').trim();
+
+  if (promoCodeFromUrl) {
+    try { localStorage.setItem('pendingPromoCode', promoCodeFromUrl.toUpperCase()); } catch (e) {}
+  }
+
+  if ((registerParam === 'organizer' || forceRegister) && !oauthCode && !oauthState) {
+    setTimeout(() => {
+      if (!currentUser || !currentUser.isLoggedIn) {
+        if (typeof window.openAuthModal === 'function') {
+          window.openAuthModal('register');
+        } else if (typeof window.showProRegisterForm === 'function') {
+          window.showProRegisterForm();
+        }
+      }
+    }, 250);
+  }
+
+  if (openPublish || (promoCodeFromUrl && (registerParam === 'organizer' || forceRegister))) {
+    let tries = 0;
+    const maxTries = 40; // ~20s
+    const openPublishWhenReady = setInterval(() => {
+      tries += 1;
+      if (currentUser && currentUser.isLoggedIn) {
+        clearInterval(openPublishWhenReady);
+        setTimeout(() => {
+          if (typeof openPublishModal === 'function') openPublishModal();
+        }, 350);
+      } else if (tries >= maxTries) {
+        clearInterval(openPublishWhenReady);
+      }
+    }, 500);
+  }
   
   if (oauthCode && oauthState) {
-    console.log('✅ Callback OAuth détecté dans l\'URL - Traitement...');
+    console.log('\u2705 Callback OAuth détecté dans l\'URL - Traitement...');
     console.log('🔍 Code:', oauthCode.substring(0, 20) + '...');
     console.log('🔍 State:', oauthState);
     
     // Appeler la fonction de gestion du callback
     handleCognitoCallbackIfPresent().catch(error => {
-      console.error('❌ Erreur lors du traitement du callback OAuth:', error);
-      showNotification('❌ Erreur lors de la connexion Google', 'error');
+      console.error('\u274C Erreur lors du traitement du callback OAuth:', error);
+      showNotification('\u274C Erreur lors de la connexion Google', 'error');
     });
   } else {
-    console.log('ℹ️ Pas de callback OAuth dans l\'URL');
+    console.log('\u2139️ Pas de callback OAuth dans l\'URL');
   }
   
   // initMap/initUI déjà appelés en tête pour affichage instantané
@@ -4847,8 +5839,10 @@ document.addEventListener("DOMContentLoaded", () => {
   if (currentUser && currentUser.isLoggedIn) {
     checkProximityAlerts();
     updateProximityAlertsBadge();
-    // Vérifier les alertes toutes les 30 secondes
     setInterval(checkProximityAlerts, 30000);
+    requestNotificationPermission();
+    checkUpcomingFavorites();
+    setInterval(checkUpcomingFavorites, 600000);
   }
 
   // ============================================
@@ -4872,7 +5866,7 @@ document.addEventListener("DOMContentLoaded", () => {
   
   // Si toujours vide, génération d'urgence
   if (eventsData.length === 0) {
-    console.warn(`⚠️ Génération d'urgence immédiate...`);
+    console.warn(`\u26A0️ Génération d'urgence immédiate...`);
     generateEmergencyEvents();
   }
 
@@ -4899,30 +5893,30 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   initLanguage();
   
-  // ⚠️ CRITIQUE: Restaurer la session (user + agenda) si token présent
+  // \u26A0️ CRITIQUE: Restaurer la session (user + agenda) si token présent
   if (typeof getAuthToken === 'function' && getAuthToken()) {
     loadUserDataOnLogin().catch(err => {
-      console.warn('[INIT] ⚠️ Restauration session (non bloquant):', err);
+      console.warn('[INIT] \u26A0️ Restauration session (non bloquant):', err);
     });
   }
   
-  // ⚠️ CHARGEMENT PROGRESSIF: Les events sont chargés via le viewport handler (onViewportChange)
+  // \u26A0️ CHARGEMENT PROGRESSIF: Les events sont chargés via le viewport handler (onViewportChange)
   // PAS de chargement massif de tous les events au démarrage
   // loadEventsFromBackend() n'est plus appelé ici - le viewport handler gère tout
   console.log('[INIT] 🌍 Mode viewport progressif activé - events chargés au zoom');
   
   // Charger les bookings réels depuis la base de données
   loadBookingsFromBackend().then(() => {
-    console.log('[INIT] ✅ Bookings réels chargés depuis la base de données');
+    console.log('[INIT] \u2705 Bookings réels chargés depuis la base de données');
   }).catch(err => {
-    console.warn('[INIT] ⚠️ Erreur chargement bookings backend (non bloquant):', err);
+    console.warn('[INIT] \u26A0️ Erreur chargement bookings backend (non bloquant):', err);
   });
   
   // Charger les services réels depuis la base de données
   loadServicesFromBackend().then(() => {
-    console.log('[INIT] ✅ Services réels chargés depuis la base de données');
+    console.log('[INIT] \u2705 Services réels chargés depuis la base de données');
   }).catch(err => {
-    console.warn('[INIT] ⚠️ Erreur chargement services backend (non bloquant):', err);
+    console.warn('[INIT] \u26A0️ Erreur chargement services backend (non bloquant):', err);
   });
   
   // Gérer le deep linking (ouvrir un event depuis l'URL)
@@ -4935,7 +5929,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // après le callback OAuth. On ne vérifie PAS automatiquement au chargement de la page.
   
   // Mettre à jour l'UI pour refléter le mode event actif IMMÉDIATEMENT
-  setTimeout(() => {
+  setTimeout(async () => {
     document.querySelectorAll(".mode-btn").forEach(btn => {
       const txt = btn.textContent.trim().toLowerCase();
       const key =
@@ -5010,14 +6004,14 @@ function loadCategoryTrees() {
             return r.json();
           })
           .then(j => {
-            console.log(`✅ Chargé: ${path}`);
+            console.log(`\u2705 Chargé: ${path}`);
             setter(j);
             return true;
           })
           .catch(() => null)
       )
     ).catch(() => {
-      console.warn(`⚠️ Impossible de charger ${filename}`);
+      console.warn(`\u26A0️ Impossible de charger ${filename}`);
       return null;
     });
   };
@@ -5074,7 +6068,25 @@ function initMapWithRetry(attempt) {
 }
 
 function initMap() {
-  map = L.map("map", { zoomControl: false }).setView([46.8182, 8.2275], 8);
+  let mapUserInteracted = false;
+  map = L.map("map", {
+    zoomControl: false,
+    zoomSnap: 0.5,
+    zoomDelta: 1,
+    wheelPxPerZoomLevel: 60,
+    preferCanvas: true,
+    zoomAnimationThreshold: 4,
+    markerZoomAnimation: false
+  // Démarrage monde: évite l'effet "carte bloquée Suisse" au premier chargement.
+  // Le viewport loader affiche immédiatement les clusters globaux.
+  }).setView([20, 0], 2);
+  try {
+    const storedClusterLeadZoom = Number(localStorage.getItem(CLUSTER_PREMIUM_LEAD_STORAGE_KEY));
+    if (Number.isFinite(storedClusterLeadZoom)) {
+      // Empêcher une ancienne calibration trop basse de déclencher le visuel premium trop tôt.
+      clusterPremiumLeadMinZoom = Math.max(CLUSTER_PREMIUM_LEAD_MIN_ZOOM_DEFAULT, Math.min(20, storedClusterLeadZoom));
+    }
+  } catch (_) {}
 
   const theme = MAP_THEMES[mapThemeIndex];
   tileLayer = L.tileLayer(theme.url, {
@@ -5083,7 +6095,7 @@ function initMap() {
   });
   tileLayer.addTo(map);
 
-  // ✅ Masquer le loader dès que les premières tuiles sont chargées
+  // \u2705 Masquer le loader dès que les premières tuiles sont chargées
   tileLayer.once('load', function() {
     if (typeof window._hideAppLoader === 'function') window._hideAppLoader();
   });
@@ -5094,34 +6106,31 @@ function initMap() {
     }, 200);
   });
 
-  // ⭐ CLUSTERING PRO - Regroupement intelligent des marqueurs
+  // \u2B50 CLUSTERING PRO - Regroupement intelligent des marqueurs
   // Quand on zoom arrière, les marqueurs proches se regroupent automatiquement
   // Quand on clique sur un cluster à zoom max, les marqueurs s'ouvrent en étoile (spiderfy)
   markersLayer = L.markerClusterGroup({
     animate: false,
     animateAddingMarkers: false,
-    
-    // Distance de regroupement (en pixels) - augmenté pour garder les clusters groupés plus longtemps
-    maxClusterRadius: 100,
-    
-    // Afficher la zone couverte au survol du cluster
+    removeOutsideVisibleBounds: true,
+    // Garder un cluster stable au zoom max seulement pour les points quasi identiques.
+    maxClusterRadius: function(zoom) {
+      // Zoom fort: garder ensemble les points d'une même adresse même avec léger jitter GPS.
+      if (zoom >= 17) return 22;
+      if (zoom >= 15) return 28;
+      if (zoom >= 13) return 40;
+      return 60;
+    },
     showCoverageOnHover: false,
     chunkedLoading: true,
-    chunkInterval: 50,
-    chunkDelay: 100,
-    
-    // Zoom au clic sur le cluster (zoom d'abord, puis spiderfy si même endroit)
+    chunkInterval: 120,
+    chunkDelay: 30,
     zoomToBoundsOnClick: true,
-    
-    // ⭐ SPIDERFY : quand des marqueurs sont empilés au même endroit,
-    // un clic les déploie en cercle/spirale pour pouvoir cliquer sur chacun
     spiderfyOnMaxZoom: true,
-    spiderfyDistanceMultiplier: 1.8, // Écartement plus grand entre les marqueurs dépliés
-    
-    // Ne PAS désactiver le clustering trop tôt - garder actif jusqu'au zoom max
-    // Comme ça les marqueurs au même endroit restent groupés et se "spiderfient" au clic
-    disableClusteringAtZoom: null, // null = ne jamais désactiver, toujours spiderfy
-    
+    spiderfyDistanceMultiplier: 2.0,
+    // Conserver le regroupement au zoom max (18) pour points superposés.
+    disableClusteringAtZoom: 19,
+
     // Personnalisation de l'icône du cluster - dégradé thème UI (accent + bordure)
     iconCreateFunction: function(cluster) {
       const count = cluster.getChildCount();
@@ -5139,31 +6148,163 @@ function initMap() {
       const t = UI_THEMES[typeof uiThemeIndex !== "undefined" ? uiThemeIndex : 0];
       const clusterGrad = t && t.clusterGradient;
       const bgColor = theme.accent;
-      const borderColor = theme.border;
-      const sizePx = size === 'small' ? 32 : size === 'medium' ? 38 : 46;
+      let borderColor = theme.border;
+      let sizePx = size === 'small' ? 32 : size === 'medium' ? 38 : 46;
+      const fontSize = sizePx <= 40 ? 11 : sizePx <= 50 ? 13 : 15;
+
+      // Mode perf global: pour les clusters denses, icône ultra légère (zéro calcul premium).
+      if (count > 25) {
+        const lightBg = bgColor || '#3b82f6';
+        const lightBorder = borderColor || 'rgba(255,255,255,0.55)';
+        return L.divIcon({
+          html: `<div style="width:${sizePx}px;height:${sizePx}px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:${lightBg};border:1.5px solid ${lightBorder};color:#fff;font-weight:700;font-size:${fontSize}px;">${count}</div>`,
+          className: 'custom-cluster-icon',
+          iconSize: L.point(sizePx, sizePx),
+          iconAnchor: L.point(sizePx / 2, sizePx / 2)
+        });
+      }
+      const ua = (typeof navigator !== 'undefined' && navigator.userAgent) ? navigator.userAgent : '';
+      const isFirefox = /firefox/i.test(ua);
+
+      // Mode perf Firefox: icône cluster minimale pour éviter les lags au zoom.
+      if (isFirefox) {
+        const lightBg = bgColor || '#3b82f6';
+        const lightBorder = borderColor || 'rgba(255,255,255,0.55)';
+        return L.divIcon({
+          html: `<div style="width:${sizePx}px;height:${sizePx}px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:${lightBg};border:1.5px solid ${lightBorder};color:#fff;font-weight:700;font-size:${fontSize}px;">${count}</div>`,
+          className: 'custom-cluster-icon',
+          iconSize: L.point(sizePx, sizePx),
+          iconAnchor: L.point(sizePx / 2, sizePx / 2)
+        });
+      }
       // Priorite: gradient custom > gradient theme > fallback
       const customGrad = theme.gradient ? buildMarkerGradient(theme.gradient, 135) : null;
-      const clusterBg = customGrad || clusterGrad || `linear-gradient(135deg,${bgColor} 0%,${borderColor} 100%)`;
-      const borderW = size === 'small' ? 1 : 1.5;
+      let clusterBg = customGrad || clusterGrad || `linear-gradient(135deg,${bgColor} 0%,${borderColor} 100%)`;
+      let borderW = size === 'small' ? 1 : 1.5;
+      let haloHtml = "";
+      let crownHtml = "";
+      let haloPadding = 0;
+
+      // Optimisation perf: éviter l'analyse complète des enfants sur les gros clusters.
+      const clusterZoom = (map && typeof map.getZoom === 'function') ? map.getZoom() : 0;
+      const shouldInspectChildren = count <= 20 || clusterZoom >= 15;
+      const childMarkers = shouldInspectChildren && typeof cluster.getAllChildMarkers === "function"
+        ? cluster.getAllChildMarkers()
+        : [];
+      const childItems = childMarkers
+        .map(m => m?._markerVisualItem || m?._mapEventItem || null)
+        .filter(Boolean);
+      // Règle UX/business:
+      // - cluster mono-adresse: lead premium immédiat.
+      // - cluster multi-adresses: lead premium seulement à partir d'un zoom seuil (auto-calibré).
+      const addressKeys = new Set(
+        childItems
+          .map(it => normalizeAddressForGrouping(getItemDisplayAddress(it)))
+          .filter(Boolean)
+      );
+      const isSingleAddressCluster = addressKeys.size === 1;
+      const topPriorityItem = getTopPriorityItem(childItems);
+      const topBoost = normalizeBoostTier(topPriorityItem?.boost);
+      const isPaidBoost = ["platinum", "gold", "silver", "bronze"].includes(topBoost);
+      const leadMinZoom = getClusterPremiumLeadMinZoom();
+      const isCalibrationCandidate = count >= CLUSTER_PREMIUM_CALIBRATION_MIN_COUNT && count <= CLUSTER_PREMIUM_CALIBRATION_MAX_COUNT;
+
+      // Auto-calibration générale: quand on atteint un cluster dense (ex: ~77) avec event premium,
+      // mémoriser ce zoom comme seuil à partir duquel le cluster multi-adresses doit prendre le lead premium.
+      if (!isSingleAddressCluster && isPaidBoost && isCalibrationCandidate && clusterZoom >= 15) {
+        const currentLeadZoom = getClusterPremiumLeadMinZoom();
+        // Calibration uniquement vers un zoom PLUS rapproché (jamais plus tôt).
+        if (clusterZoom > currentLeadZoom) {
+          persistClusterPremiumLeadMinZoom(clusterZoom);
+        }
+      }
+      const shouldUsePremiumLeadVisual = isPaidBoost && (isSingleAddressCluster || clusterZoom >= leadMinZoom);
+
+      if (shouldUsePremiumLeadVisual) {
+        borderColor = getBoostColor(topBoost);
+        if (topBoost === "platinum") {
+          clusterBg = `linear-gradient(145deg, #121212 0%, #1f1f1f 45%, #2b2b2b 100%)`;
+          // Cluster premium: plus grand + halo/couronne
+          sizePx += size === 'small' ? 12 : size === 'medium' ? 14 : 16;
+          borderW = Math.max(borderW, 2.5);
+          haloPadding = size === 'small' ? 10 : 12;
+          const rank = Number(topPriorityItem?.platinumRank || 10);
+          const haloOpacity = rank <= 2 ? 0.55 : 0.42;
+          const halo2Opacity = rank <= 2 ? 0.30 : 0.22;
+          haloHtml = `
+            <div style="
+              position:absolute;
+              top:50%;
+              left:50%;
+              transform:translate(-50%,-50%);
+              width:${sizePx + haloPadding}px;
+              height:${sizePx + haloPadding}px;
+              border:2px solid rgba(239,68,68,${haloOpacity});
+              border-radius:50%;
+              pointer-events:none;
+            "></div>
+            <div style="
+              position:absolute;
+              top:50%;
+              left:50%;
+              transform:translate(-50%,-50%);
+              width:${sizePx + haloPadding + 8}px;
+              height:${sizePx + haloPadding + 8}px;
+              border:1.5px solid rgba(239,68,68,${halo2Opacity});
+              border-radius:50%;
+              pointer-events:none;
+            "></div>
+          `;
+          crownHtml = `
+            <div style="
+              position:absolute;
+              top:${-(size === 'small' ? 16 : 18)}px;
+              left:50%;
+              transform:translateX(-50%);
+              font-size:${size === 'small' ? 15 : 17}px;
+              filter:drop-shadow(0 2px 4px rgba(0,0,0,0.55));
+              pointer-events:none;
+              z-index:3;
+            ">👑</div>
+          `;
+        } else if (topBoost === "gold") {
+          clusterBg = `linear-gradient(145deg, #2b2200 0%, #3d3000 45%, #5b4500 100%)`;
+          sizePx += size === 'small' ? 8 : 10;
+          borderW = Math.max(borderW, 2);
+        } else if (topBoost === "silver") {
+          clusterBg = `linear-gradient(145deg, #1d1d1d 0%, #2a2a2a 45%, #3a3a3a 100%)`;
+          sizePx += size === 'small' ? 6 : 8;
+          borderW = Math.max(borderW, 1.8);
+        } else if (topBoost === "bronze") {
+          clusterBg = `linear-gradient(145deg, #2c1f16 0%, #3a281d 45%, #4a2f1f 100%)`;
+          sizePx += size === 'small' ? 5 : 7;
+          borderW = Math.max(borderW, 1.7);
+        }
+      }
       
-      const totalSize = sizePx + 4;
+      const totalSize = sizePx + 4 + (haloPadding > 0 ? haloPadding + 8 : 0);
       return L.divIcon({
-        html: `<div style="
-          background: ${clusterBg};
-          border-radius: 50%;
-          width: ${sizePx}px;
-          height: ${sizePx}px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-weight: bold;
-          font-size: ${size === 'small' ? 11 : size === 'medium' ? 13 : 15}px;
-          color: #fff;
-          text-shadow: 0 1px 2px rgba(0,0,0,0.5);
-          box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-          border: ${borderW}px solid ${borderColor};
-          position: relative;
-        "><span style="position:relative;z-index:1;">${count}</span></div>`,
+        html: `<div style="position:relative;width:${totalSize}px;height:${totalSize}px;display:flex;align-items:center;justify-content:center;">
+          ${haloHtml}
+          ${crownHtml}
+          <div style="
+            background: ${clusterBg};
+            border-radius: 50%;
+            width: ${sizePx}px;
+            height: ${sizePx}px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: ${fontSize}px;
+            color: #fff;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            border: ${borderW}px solid ${borderColor};
+            position: relative;
+            z-index:2;
+          "><span style="position:relative;z-index:1;">${count}</span></div>
+        </div>`,
         className: 'custom-cluster-icon',
         iconSize: L.point(totalSize, totalSize),
         // Ancrer le cluster bien plus haut pour dégager les noms de villes
@@ -5171,20 +6312,53 @@ function initMap() {
       });
     }
   });
-  // NE PAS ajouter markersLayer à la carte tout de suite - il sera ajouté quand zoom >= 10
-  // markersLayer.addTo(map) sera fait dans loadViewportData quand on passe en mode events
-  
+  markersLayer.on('clusterclick', function(e) {
+    var childCount = e.layer.getChildCount();
+    if (childCount > 40) {
+      e.layer.zoomToBounds({padding: [20, 20]});
+      return;
+    }
+  });
+
   // 🌍 LAYER CERCLES GÉO - pour les agrégats aux faibles zooms
   geoCirclesLayer = L.layerGroup().addTo(map);
   
   // 🔄 VIEWPORT HANDLER - chargement progressif au déplacement/zoom
   map.on('moveend', onViewportChange);
   map.on('zoomend', onViewportChange);
+  map.on('movestart', () => { mapUserInteracted = true; });
+  map.on('zoomstart', () => { mapUserInteracted = true; });
   
   // Charger les données initiales pour le viewport actuel
   setTimeout(() => loadViewportData(), 500);
+
+  // Sécurité UX: si la carte démarre malgré tout "Suisse-centrée" sans action user
+  // (cache/CDN/ancien état), on force une vue monde et un reload viewport.
+  setTimeout(() => {
+    try {
+      if (!map || mapUserInteracted) return;
+      const params = new URLSearchParams(window.location.search || '');
+      const hasDeepLink = params.has('event') || params.has('booking') || params.has('service');
+      if (hasDeepLink) return;
+      const c = map.getCenter();
+      const z = map.getZoom();
+      const looksSwissCenter = c && c.lat >= 44 && c.lat <= 49 && c.lng >= 4 && c.lng <= 11;
+      if (looksSwissCenter && z >= 6) {
+        map.setView([20, 0], 2, { animate: false });
+        if (typeof loadViewportData === 'function') loadViewportData();
+        console.warn('[MAP GUARD] Vue monde forcée (fallback anti-centrage Suisse involontaire)');
+      }
+    } catch (_) {}
+  }, 2200);
+
+  // Forcer un premier refreshMarkers() après init (loadViewportData à zoom 8 n'appelle pas refreshMarkers)
+  setTimeout(function() {
+    if (currentMode === 'event' && typeof refreshMarkers === 'function' && map && markersLayer) {
+      refreshMarkers();
+    }
+  }, 1500);
   
-  // ⚠️ CRITIQUE ouverture mobile : forcer le rendu dès que possible (évite écran blanc/noir)
+  // \u26A0️ CRITIQUE ouverture mobile : forcer le rendu dès que possible (évite écran blanc/noir)
   function ensureMapVisible() {
     if (!map) return;
     map.invalidateSize();
@@ -5228,9 +6402,29 @@ function initMap() {
 function getCurrentData() {
   let data = [];
   const now = new Date();
+  const currentUserId = (currentUser?.id || currentUser?.cognitoSub || currentUser?.sub || "").toString();
+  const currentUserEmail = (currentUser?.email || "").toString().trim().toLowerCase();
+  const isOwnedByCurrentUser = (item) => {
+    if (!item) return false;
+    const candidateIds = [
+      item.creator_id,
+      item.createdBy,
+      item.userId,
+      item.ownerId
+    ].filter(v => v !== undefined && v !== null).map(v => String(v));
+    if (currentUserId && candidateIds.includes(currentUserId)) return true;
+    const candidateEmails = [
+      item.organizer_email,
+      item.organizerEmail,
+      item.email,
+      item.ownerEmail,
+      item.createdByEmail
+    ].map(v => (v || "").toString().trim().toLowerCase()).filter(Boolean);
+    return !!(currentUserEmail && candidateEmails.includes(currentUserEmail));
+  };
   
   if (currentMode === "event") {
-    // ⚠️ CRITIQUE : Filtrer les événements terminés (date passée) de l'affichage sur la carte
+    // \u26A0️ CRITIQUE : Filtrer les événements terminés (date passée) de l'affichage sur la carte
     // Ils restent dans eventsData pour "Mes annonces" mais ne s'affichent plus sur la carte
     data = eventsData.filter(item => {
       if (!item || item.type !== "event") return false;
@@ -5250,11 +6444,19 @@ function getCurrentData() {
         endDate = new Date(dateStr);
       }
       
-      // Si pas de date ou date invalide, garder l'événement (données incomplètes)
-      if (!endDate || isNaN(endDate.getTime())) return true;
+      // Future-only strict: si date absente/invalide, on n'affiche pas.
+      if (!endDate || isNaN(endDate.getTime())) return false;
       
       // Exclure les événements dont la date de fin est passée
-      return endDate >= now;
+      if (endDate < now) return false;
+
+      // Règle qualité stricte: pas d'event continu > 14 jours sur la carte.
+      if (isEventRangeTooLong(item, 14) && isScrapedEvent(item)) return false;
+
+      // Règle qualité stricte globale: blacklist des faux events.
+      if (!validateEventQuality(item)) return false;
+
+      return true;
     });
   } else if (currentMode === "booking") {
     data = bookingsData.filter(item => item && item.type === "booking");
@@ -5280,6 +6482,7 @@ let lastRefreshTime = 0;
 const REFRESH_COOLDOWN = 1000; // 1 seconde entre chaque refresh
 
 function refreshMarkers() {
+  normalizeCurrentUserCollections();
   // Protection contre les appels multiples trop rapides
   const now = Date.now();
   if (now - lastRefreshTime < REFRESH_COOLDOWN && isRefreshingMarkers) {
@@ -5295,18 +6498,18 @@ function refreshMarkers() {
   lastRefreshTime = now;
   
   if (!markersLayer) {
-    console.warn("⚠️ markersLayer n'est pas initialisé");
+    console.warn("\u26A0️ markersLayer n'est pas initialisé");
     return;
   }
   
   if (!map) {
-    console.warn("⚠️ map n'est pas initialisé");
+    console.warn("\u26A0️ map n'est pas initialisé");
     return;
   }
   
   // S'assurer que window.t() est disponible avant de continuer
   if (typeof window.t !== 'function') {
-    console.warn("⚠️ window.t() n'est pas disponible, attente...");
+    console.warn("\u26A0️ window.t() n'est pas disponible, attente...");
     // Protection contre les boucles infinies - limiter à 10 tentatives
     if (!window._refreshMarkersAttempts) {
       window._refreshMarkersAttempts = 0;
@@ -5318,7 +6521,7 @@ function refreshMarkers() {
         refreshMarkers();
       }, 100);
     } else {
-      console.error("❌ Trop de tentatives pour refreshMarkers(), arrêt");
+      console.error("\u274C Trop de tentatives pour refreshMarkers(), arrêt");
       window._refreshMarkersAttempts = 0;
       isRefreshingMarkers = false;
     }
@@ -5341,7 +6544,7 @@ function refreshMarkers() {
   console.log(`📊 Données pour mode ${currentMode}: ${data.length} items (eventsData: ${eventsData.length}, bookingsData: ${bookingsData.length}, servicesData: ${servicesData.length})`);
   
   if (!data || data.length === 0) {
-    console.warn(`⚠️ Aucune donnée disponible pour le mode ${currentMode}`);
+    console.warn(`\u26A0️ Aucune donnée disponible pour le mode ${currentMode}`);
     console.log(`💡 Tentative de régénération des points...`);
     
     // Forcer la génération de données
@@ -5353,7 +6556,7 @@ function refreshMarkers() {
       console.log(`📊 Après ensureDemoPoints() - Mode: ${currentMode}, ${dataAfter.length} items (eventsData: ${eventsData.length}, bookingsData: ${bookingsData.length}, servicesData: ${servicesData.length})`);
       
       if (dataAfter && dataAfter.length > 0) {
-        console.log(`✅ ${dataAfter.length} points générés après ensureDemoPoints()`);
+        console.log(`\u2705 ${dataAfter.length} points générés après ensureDemoPoints()`);
         // Réessayer avec les nouvelles données (seulement si pas déjà en cours)
         if (!isRefreshingMarkers) {
           isRefreshingMarkers = false; // Réinitialiser le flag avant l'appel récursif
@@ -5361,7 +6564,7 @@ function refreshMarkers() {
           refreshListView();
         }
       } else {
-        console.error(`❌ Toujours aucune donnée après ensureDemoPoints() pour le mode ${currentMode}`);
+        console.error(`\u274C Toujours aucune donnée après ensureDemoPoints() pour le mode ${currentMode}`);
         // Générer au moins quelques points de base en urgence
         if (currentMode === "event" && eventsData.length === 0) {
           console.log(`🚨 Génération d'urgence de points de base...`);
@@ -5386,7 +6589,7 @@ function refreshMarkers() {
   let skipped = 0;
   let errors = 0;
   
-  // ⚡ MOBILE PERF: Créer les marqueurs par lots pour ne pas bloquer le thread
+  // \u26A1 MOBILE PERF: Créer les marqueurs par lots pour ne pas bloquer le thread
   const BATCH_SIZE = window.innerWidth <= 768 ? 150 : 500;
   const validItems = [];
   
@@ -5394,12 +6597,20 @@ function refreshMarkers() {
   for (let i = 0; i < data.length; i++) {
     const item = data[i];
     if (!item || item.type !== currentMode) { skipped++; continue; }
-    if (typeof item.lat !== "number" || typeof item.lng !== "number" || isNaN(item.lat) || isNaN(item.lng)) { skipped++; continue; }
+    const normalizedCoords = normalizeLatLng(item.lat, item.lng, item.address || item.location || item.city);
+    if (!normalizedCoords) { skipped++; continue; }
+    item.lat = normalizedCoords.lat;
+    item.lng = normalizedCoords.lng;
     validItems.push(item);
   }
-  
+
   // Phase 1b: construire la map des items au même emplacement (pour navigation "livre")
   buildSameLocationMap(validItems);
+  const markerVisualItemByLocation = {};
+  for (const key in sameLocationMap) {
+    if (!Object.prototype.hasOwnProperty.call(sameLocationMap, key)) continue;
+    markerVisualItemByLocation[key] = getTopPriorityItem(sameLocationMap[key]) || null;
+  }
   
   // Phase 2: créer les marqueurs par lots
   function processBatch(startIdx) {
@@ -5407,17 +6618,27 @@ function refreshMarkers() {
     for (let i = startIdx; i < endIdx; i++) {
       const item = validItems[i];
     try {
-    const icon = buildMarkerIcon(item);
+    const sameLocationKey = buildSameLocationKey(item);
+    const markerVisualItem = (sameLocationKey && markerVisualItemByLocation[sameLocationKey]) ? markerVisualItemByLocation[sameLocationKey] : item;
+    const icon = buildMarkerIcon(markerVisualItem || item);
     const marker = L.marker([item.lat, item.lng], { icon });
+    marker._mapEventItem = item;
+    marker._markerVisualItem = markerVisualItem || item;
         
-        // ⚡ PERF: NE PAS appeler buildPopupHtml ici - c'est fait dans le handler click
+        // \u26A1 PERF: NE PAS appeler buildPopupHtml ici - c'est fait dans le handler click
         // La popup Leaflet est immédiatement fermée et remplacée par notre modal
         marker.bindPopup('', { maxWidth: 360 });
     
     // Intercepter l'ouverture de la popup Leaflet et la remplacer par notre modal avec scroll
-    marker.on('popupopen', function() {
+    marker.on('popupopen', async function() {
       marker.closePopup();
       currentPopupMarker = marker;
+      if (item.type === "event") {
+        await ensureEventDetailsForPopup(item);
+        if (typeof item.lat === 'number' && typeof item.lng === 'number') {
+          marker.setLatLng([item.lat, item.lng]);
+        }
+      }
       const popupContent = buildPopupHtml(item);
       openPopupModal(popupContent, item);
     });
@@ -5429,7 +6650,7 @@ function refreshMarkers() {
     } catch (err) {
       errors++;
       if (errors === 1) {
-          console.error(`❌ Première erreur marqueur:`, err.message || err);
+          console.error(`\u274C Première erreur marqueur:`, err.message || err);
         }
       }
     }
@@ -5445,7 +6666,7 @@ function refreshMarkers() {
   
   function finalizeBatch() {
   if (errors > 0 || added === 0) {
-    console.log(`✅ ${added} marqueurs affichés (mode: ${currentMode})${skipped > 0 ? `, ${skipped} ignorés` : ''}${errors > 0 ? `, ${errors} erreurs` : ''}`);
+    console.log(`\u2705 ${added} marqueurs affichés (mode: ${currentMode})${skipped > 0 ? `, ${skipped} ignorés` : ''}${errors > 0 ? `, ${errors} erreurs` : ''}`);
   }
   
   if (currentUser && currentUser.isLoggedIn) {
@@ -5453,7 +6674,7 @@ function refreshMarkers() {
   }
   
   cleanExpiredEvents();
-  
+
     // fitBounds seulement au premier chargement (pas quand on rafraîchit les couleurs)
     if (added > 0 && !window._mapInitialFitDone && markersLayer && typeof markersLayer.getBounds === 'function') {
     try {
@@ -5464,7 +6685,7 @@ function refreshMarkers() {
       }
       } catch (e) {}
   }
-  
+
     setTimeout(() => { isRefreshingMarkers = false; }, 100);
   
   refreshDiscoveryCarousel();
@@ -5500,14 +6721,14 @@ function refreshDiscoveryCarousel() {
     if (!it) return "📌";
     const c = (it.categories || [])[0] || "";
     if (c.includes("Musique") || c.includes("Music")) return "🎵";
-    if (c.includes("Sport")) return "⚽";
+    if (c.includes("Sport")) return "\u26BD";
     if (c.includes("Culture")) return "🎭";
     return "📌";
   };
   inner.innerHTML = items.map(item => {
     const type = item.type || currentMode;
     const id = item.id;
-    const title = escapeHtml((item.title || item.name || "—").substring(0, 40));
+    const title = escapeHtml((item.title || item.name || "\u2014").substring(0, 40));
     const sub = item.city || item.address || "";
     const dateStr = item.startDate ? new Date(item.startDate).toLocaleDateString("fr-FR", { day: "numeric", month: "short" }) : "";
     return `
@@ -5538,7 +6759,7 @@ function refreshDiscoveryCarousel() {
 }
 
 // ============================================
-// LOGIQUE IMAGES – AUCUN ÉCRAN NOIR
+// LOGIQUE IMAGES \u2013 AUCUN ÉCRAN NOIR
 // ============================================
 
 // Liste complète des fichiers images disponibles par mode
@@ -5589,7 +6810,7 @@ function findBestImageMatch(categoryName, mode) {
     }
   }
   
-  // 3. Mappings personnalisés catégorie → image
+  // 3. Mappings personnalisés catégorie \u2192 image
   const categoryMappings = {
     // Electronic
     "techno": "techno", "acid techno": "techno", "minimal techno": "techno",
@@ -5804,7 +7025,7 @@ function getCategoryLineageForItem(item) {
   return result;
 }
 
-// Construit la liste complète des chemins d’images possibles pour un item
+// Construit la liste complète des chemins d\u2019images possibles pour un item
 function getImageCandidatesForItem(item) {
   const modeFolder = getModeFolderForItem(item);
   const candidates = [];
@@ -5814,11 +7035,93 @@ function getImageCandidatesForItem(item) {
     return candidates;
   }
 
-  // 🔥 PRIORITÉ N°1 : Photo uploadée par l'utilisateur (image_url depuis S3)
-  // Cette image prend le dessus sur TOUT (catégorie, IA, fallback)
-  const userImage = item.image_url || item.imageUrl;
-  if (userImage && userImage.startsWith('http')) {
-    candidates.push(userImage);
+  // Déterminer si l'item provient d'un scraping (même logique que les marqueurs)
+  const sourceUrl = item.source_url || item.sourceUrl || item.src || item.source || item.url || "";
+  const normalizeImageUrl = (raw) => {
+    if (!raw) return "";
+    let v = String(raw).trim();
+    if (!v) return "";
+    if (v.startsWith("//")) return `https:${v}`;
+    if (v.startsWith("http://") || v.startsWith("https://")) return v;
+    if (v.startsWith("/")) {
+      try {
+        const base = new URL(sourceUrl);
+        return `${base.origin}${v}`;
+      } catch (_) {
+        return "";
+      }
+    }
+    if (/^[a-z0-9.-]+\.[a-z]{2,}\/.+/i.test(v)) return `https://${v}`;
+    return "";
+  };
+  const isScraped = !!sourceUrl && (
+    item.validation_status === 'auto_validated' ||
+    item.validation_status === 'pending' ||
+    item.creator_id === 'system_scraper' ||
+    !item.creator_id
+  );
+
+  const boostTier = normalizeBoostTier(item.boost);
+  const isPremiumPublication = !isScraped && boostTier && boostTier !== "1.-" && boostTier !== "basic";
+
+  const sourceImageRaw =
+    item.source_image_url ||
+    item.sourceImageUrl ||
+    item.original_image_url ||
+    item.image_source_url ||
+    item.photo_url ||
+    item.image ||
+    item.photo ||
+    item.picture ||
+    item.thumbnail ||
+    item.thumbnail_url ||
+    item.cover ||
+    item.cover_url ||
+    item.media_url ||
+    item.illustration ||
+    item.image_url ||
+    item.imageUrl;
+  const sourceImageNormalized = normalizeImageUrl(sourceImageRaw);
+
+  // PRIORITÉ N°1: image uploadée par le publieur (et premium/payant toujours en tête)
+  const userImage =
+    item.image_url ||
+    item.imageUrl ||
+    item.coverImageUrl ||
+    item.heroImageUrl ||
+    item.bannerImageUrl;
+  const userImageNormalized = normalizeImageUrl(userImage);
+  if (!isScraped && userImageNormalized) {
+    candidates.push(userImageNormalized);
+  }
+
+  // Règle scrapé/open data (fallback complémentaire historique):
+  // si droits explicites présents, on garde aussi cette piste en fallback.
+  const rightsRaw = String(
+    item.image_license ||
+    item.photo_license ||
+    item.image_rights ||
+    item.rights ||
+    item.image_permission ||
+    item.photo_permission ||
+    item.image_usage_rights ||
+    ""
+  ).toLowerCase();
+  const hasExplicitAllowedRights = /cc0|cc-by|cc by|creative commons|public domain|licence ouverte|open data|opendata|autoris|allow|granted|permission ok|license ok/.test(rightsRaw);
+  const hasExplicitDeniedRights = /all rights reserved|copyright|forbidden|interdit|non autoris|deny|denied|unknown|incertain|unsure|no\b|false/.test(rightsRaw);
+  const sourceName = String(item.source || item.source_name || "").toLowerCase();
+  const sourceRisk = String(item.sourceRisk || item.source_risk || "").toLowerCase();
+  const trustedOpenDataSource = /open data|opendata|helsinki|montreal|brisbane|openagenda|ods/.test(sourceName);
+  const sourceLikelyAllowed = hasExplicitAllowedRights || (!hasExplicitDeniedRights && trustedOpenDataSource && sourceRisk !== "high");
+
+  // PRIORITÉ N°2: image source Open Data uniquement si usage autorisé/sûr
+  if (isScraped && sourceImageNormalized && sourceLikelyAllowed) {
+    candidates.push(sourceImageNormalized);
+  }
+
+  // Si publication premium avec image, on force son image en tête.
+  if (isPremiumPublication && userImageNormalized) {
+    candidates.unshift(userImageNormalized);
   }
 
   // 0a) BOOKING : imageUrl (cover Audius) ou image par catégorie
@@ -5930,9 +7233,9 @@ function buildMainImageTag(item, altText) {
     <img 
       src="${primary}"
       alt="${altSafe}"
-      style="width:100%;min-height:280px;max-height:400px;object-fit:cover;display:block;margin:0;padding:0;border:none;box-sizing:border-box;background:linear-gradient(135deg,#3b82f6,#8b5cf6);vertical-align:top;"
+      style="width:100%;height:clamp(220px,32vh,420px);object-fit:cover;display:block;margin:0;padding:0;border:none;box-sizing:border-box;background:linear-gradient(135deg,#3b82f6,#8b5cf6);vertical-align:top;"
       data-fallback="${escapeHtml(fallbacks)}"
-      onerror="(function(img){try{if(window.__mapEventImageFallback){window.__mapEventImageFallback(img);}else{img.style.display='block';img.style.background='linear-gradient(135deg,#3b82f6,#8b5cf6)';img.style.width='100%';img.style.minHeight='280px';img.style.maxHeight='400px';img.style.objectFit='cover';img.style.verticalAlign='top';}}catch(e){console.warn('Image fallback error:',e);}})(this)"
+      onerror="(function(img){try{if(window.__mapEventImageFallback){window.__mapEventImageFallback(img);}else{img.style.display='block';img.style.background='linear-gradient(135deg,#3b82f6,#8b5cf6)';img.style.width='100%';img.style.height='clamp(220px,32vh,420px)';img.style.objectFit='cover';img.style.verticalAlign='top';}}catch(e){console.warn('Image fallback error:',e);}})(this)"
       onload="this.style.background='transparent';this.style.display='block';"
       loading="eager"
     >
@@ -5940,17 +7243,36 @@ function buildMainImageTag(item, altText) {
 }
 
 // ============================================
-// ICONES & POPUPS – BOOST & CAT
+// ICONES & POPUPS \u2013 BOOST & CAT
 // ============================================
 function getBoostColor(boost) {
+  const normalized = normalizeBoostTier(boost);
   const colors = {
     bronze: "#cd7f32",
     silver: "#c0c0c0",
     gold: "#ffd700",
     platinum: "#ef4444" // Rouge pour platinum
   };
-  if (!boost || boost === "basic") return "var(--ui-card-border)";
-  return colors[boost] || "#a855f7";
+  if (!normalized || normalized === "basic" || normalized === "1.-") return "var(--ui-card-border)";
+  return colors[normalized] || "#a855f7";
+}
+
+function normalizeBoostTier(boost) {
+  const raw = (boost ?? "").toString().trim().toLowerCase();
+  if (!raw) return "1.-";
+  if (raw === "platinum" || raw === "gold" || raw === "silver" || raw === "bronze") return raw;
+  if (
+    raw === "1.-" ||
+    raw === "1" ||
+    raw === "1.- chf" ||
+    raw === "1 chf" ||
+    raw === "standard" ||
+    raw === "basic" ||
+    raw === "free"
+  ) {
+    return "1.-";
+  }
+  return "1.-";
 }
 
 // ============================================
@@ -6436,11 +7758,11 @@ function getCategoryEmoji(item) {
     return "🎨";
   // Sports spécifiques
   if (combined.includes("ski") || combined.includes("snowboard") || combined.includes("glisse") || combined.includes("patinage"))
-    return "⛷️";
+    return "\u26F7️";
   if (combined.includes("hockey"))
     return "🏒";
   if (combined.includes("football") || combined.includes("foot"))
-    return "⚽";
+    return "\u26BD";
   if (combined.includes("tennis"))
     return "🎾";
   if (combined.includes("basketball") || combined.includes("basket"))
@@ -6512,11 +7834,21 @@ function getCategoryColor(item) {
 }
 
 function buildMarkerIcon(item) {
-  const boost = item.boost || "basic";
-  const platinumRank = item.platinumRank || 10; // Rang dans le Top 10 (1 = Top 1, 10 = Top 10)
+  const boost = normalizeBoostTier(item.boost);
+  const platinumRank = item.platinumRank || 10;
   const isAI = item.isAI || item.aiGenerated || false;
   const emoji = getCategoryEmoji(item);
   const categoryImg = getCategoryImage(item);
+
+  // Badge REPORTÉ sur le marqueur (annulé = exclu de la map côté API)
+  const isPostponed = item.status === 'postponed' || item.status === 'REPORTÉ' || item.status === 'REPORTE';
+  const postponedBadge = isPostponed
+    ? `<div style="position:absolute;top:-6px;right:-6px;background:#f59e0b;color:#000;
+                   font-size:8px;font-weight:700;padding:1px 4px;border-radius:4px;
+                   white-space:nowrap;z-index:10;box-shadow:0 1px 4px rgba(0,0,0,0.4);">
+         REPORTÉ
+       </div>`
+    : '';
   
   // ============================================
   // MARQUEUR ROND ORANGE POUR ÉVÉNEMENTS SCRAPÉS
@@ -6528,21 +7860,25 @@ function buildMarkerIcon(item) {
     item.creator_id === 'system_scraper' ||
     !item.creator_id
   );
+  const hasPremiumBoost = ["platinum", "gold", "silver", "bronze"].includes(boost);
   
-  if (isScraped) {
+  // Priorité visuelle business: un boost premium doit toujours garder son rendu premium,
+  // même si l'event est issu du scraping.
+  if (isScraped && !hasPremiumBoost) {
     const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
     const sizePx = isMobile ? 44 : 40;
     const pinHeight = 12;
     
-    // Couleur orange pour tous les scrapés
-    const scrapedBorder = '#f59e0b';
+    // Orange conservé pour tous les scrapés, avec un dégradé plus premium
+    const scrapedBorder = '#ea580c';
     
     const scrapedHtml = `
       <div class="marker-scraped" style="position:relative;">
+        ${postponedBadge}
         <div style="
-          background:linear-gradient(145deg, #f59e0b, #d97706);
+          background:linear-gradient(145deg, #fdba74 0%, #f59e0b 45%, #ea580c 100%);
           border:2.5px solid ${scrapedBorder};
-          box-shadow:0 3px 10px rgba(245,158,11,0.4);
+          box-shadow:0 4px 14px rgba(245,158,11,0.45);
           width:${sizePx}px;
           height:${sizePx}px;
           border-radius:50%;
@@ -6609,6 +7945,7 @@ function buildMarkerIcon(item) {
     gold: "#ffd700",
     silver: "#b8b8b8",
     bronze: "#cd853f",
+    "1.-": "#1a3fc7",
     basic: borderColor
   };
   
@@ -6681,6 +8018,14 @@ function buildMarkerIcon(item) {
         box-shadow: 0 2px 8px rgba(205,133,63,0.3);
       `;
       sizePx = 41;
+      break;
+    case "1.-":
+      extraStyles = `
+        background: #1a1a1a;
+        border: 3.5px solid #1a3fc7;
+        box-shadow: 0 2px 8px rgba(26,63,199,0.4);
+      `;
+      sizePx = 42;
       break;
       
     default:
@@ -6804,8 +8149,8 @@ function maskAddressNumber(address) {
   if (!address) return "";
   
   // Enlever le numéro au début mais garder la rue complète
-  // Ex: "12 Rue du Centre, Lausanne" → "Rue du Centre, Lausanne"
-  // Ex: "45 Avenue de la Gare, Genève" → "Avenue de la Gare, Genève"
+  // Ex: "12 Rue du Centre, Lausanne" \u2192 "Rue du Centre, Lausanne"
+  // Ex: "45 Avenue de la Gare, Genève" \u2192 "Avenue de la Gare, Genève"
   // Patterns: "12 ", "12,", "12-", "No 12", "N°12", etc.
   let masked = address
     .replace(/^\d+[\s,-]+/, '') // Enlève numéro au début suivi d'un espace/virgule/tiret
@@ -6857,8 +8202,119 @@ function buildPopupHtml(item) {
   }
 }
 
+function isPlaceholderEventDescription(text) {
+  if (!text || typeof text !== "string") return false;
+  const d = text.trim().toLowerCase();
+  if (!d) return false;
+  return (
+    d.includes("historique 80k") ||
+    d.includes("importe depuis l historique 80k") ||
+    d.includes("informations disponibles via la publication originale") ||
+    d.includes("details et horaires disponibles via la publication originale") ||
+    d.includes("détails et horaires disponibles via la publication originale") ||
+    d === "description non disponible" ||
+    d === "description indisponible"
+  );
+}
+
+function cleanEventDescriptionText(text) {
+  if (!text || typeof text !== "string") return "";
+  return text
+    .replace(/https?:\/\/\S+/gi, " ")
+    .replace(/\s+/g, " ")
+    .replace(/[|]{2,}/g, " ")
+    .replace(/[.]{4,}/g, "...")
+    .replace(/\(\s*lieu\s*:\s*[^)]+\)/gi, "")
+    .trim();
+}
+
+function buildEventFallbackSummary(ev) {
+  const title = (ev && (ev.title || ev.name)) ? String(ev.title || ev.name).trim() : "Événement";
+  const cat = (ev && (ev.mainCategory || (Array.isArray(ev.categories) ? ev.categories[0] : "")))
+    ? String(ev.mainCategory || ev.categories[0]).trim()
+    : "";
+  if (cat) {
+    return `${title} - ${cat}. Résumé disponible via la publication originale.`;
+  }
+  return `${title} - Résumé disponible via la publication originale.`;
+}
+
+function hasEventDescription(ev) {
+  const description = ev && typeof ev.description === "string" ? ev.description.trim() : "";
+  return description.length > 0 && !isPlaceholderEventDescription(description);
+}
+
+function normalizeEventDescriptionFields(ev) {
+  if (!ev || hasEventDescription(ev)) return;
+  const fallback = [ev.desc, ev.details, ev.content, ev.summary, ev.text]
+    .find(v => typeof v === "string" && v.trim().length > 0 && !isPlaceholderEventDescription(v));
+  if (fallback) {
+    ev.description = fallback.trim();
+  }
+}
+
+function getEventDescriptionForPopup(ev, evTranslated) {
+  const translatedRaw = evTranslated && typeof evTranslated.description === "string" ? evTranslated.description : "";
+  const sourceRaw = ev && typeof ev.description === "string" ? ev.description : "";
+  const translated = cleanEventDescriptionText(translatedRaw);
+  const raw = cleanEventDescriptionText(sourceRaw);
+
+  if (translated && translated.length >= 24 && !isPlaceholderEventDescription(translated)) return translated;
+  if (raw && raw.length >= 24 && !isPlaceholderEventDescription(raw)) return raw;
+  return buildEventFallbackSummary(ev);
+}
+
+async function fetchEventDetailsById(eventId) {
+  const numericId = parseInt(eventId);
+  if (!Number.isFinite(numericId)) return null;
+  const urls = [
+    `${window.API_BASE_URL}/events/${numericId}`,
+    `${window.API_BASE_URL}/events/by-id?id=${encodeURIComponent(numericId)}`
+  ];
+  for (const url of urls) {
+    try {
+      const response = await fetch(url);
+      if (!response.ok) continue;
+      const payload = await response.json();
+      if (payload && payload.id) return payload;
+    } catch (_) {
+      // Silence: fallback endpoint will be tried automatically.
+    }
+  }
+  return null;
+}
+
+async function ensureEventDetailsForPopup(item) {
+  if (!item || item.type !== "event") return item;
+  normalizeEventDescriptionFields(item);
+  if (hasEventDescription(item)) return item;
+
+  const details = await fetchEventDetailsById(item.id);
+  if (!details) return item;
+
+  const merged = { ...item, ...details, type: "event" };
+  const normalizedCoords = normalizeLatLng(
+    merged.lat ?? merged.latitude,
+    merged.lng ?? merged.longitude,
+    merged.address || merged.location || merged.city
+  );
+  if (normalizedCoords) {
+    merged.lat = normalizedCoords.lat;
+    merged.lng = normalizedCoords.lng;
+  }
+  merged.address = merged.address || merged.location || item.address || "";
+  normalizeEventDescriptionFields(merged);
+
+  Object.assign(item, merged);
+  const idx = eventsData.findIndex(e => e.id === item.id || String(e.id) === String(item.id));
+  if (idx !== -1 && eventsData[idx] !== item) {
+    eventsData[idx] = item;
+  }
+  return item;
+}
+
 function buildStatusOverlay(status) {
-  // ⚠️ Ne pas afficher de badge pour le statut "active" (c'est le statut par défaut)
+  // \u26A0️ Ne pas afficher de badge pour le statut "active" (c'est le statut par défaut)
   // Seulement afficher les statuts importants : annulé, reporté, complet
   if (!status || status === "OK" || status === "active" || status === "upcoming") {
     return "";
@@ -6917,12 +8373,12 @@ function buildEventPopup(ev) {
     }
   });
   
-  // ⚠️⚠️⚠️ CRITIQUE : S'assurer que currentLanguage est défini
+  // \u26A0️\u26A0️\u26A0️ CRITIQUE : S'assurer que currentLanguage est défini
   if (typeof currentLanguage === 'undefined' || !currentLanguage) {
     currentLanguage = 'fr';
   }
   
-  // ⚠️⚠️⚠️ CRITIQUE : S'assurer que currentUser est défini et a les propriétés nécessaires
+  // \u26A0️\u26A0️\u26A0️ CRITIQUE : S'assurer que currentUser est défini et a les propriétés nécessaires
   if (typeof currentUser === 'undefined' || !currentUser) {
     currentUser = {
       isLoggedIn: false,
@@ -6934,9 +8390,13 @@ function buildEventPopup(ev) {
   }
   
   // S'assurer que les propriétés nécessaires existent
+  if (!Array.isArray(currentUser.likes)) {
+    currentUser.likes = [];
+  }
   if (!Array.isArray(currentUser.favorites)) {
     currentUser.favorites = [];
   }
+  currentUser.favorites = currentUser.favorites.filter(f => f && typeof f === 'object');
   if (!Array.isArray(currentUser.agenda)) {
     currentUser.agenda = [];
   }
@@ -6949,11 +8409,11 @@ function buildEventPopup(ev) {
   if (!currentUser.subscription) {
     currentUser.subscription = 'free';
   }
-  // ⚠️⚠️⚠️ CRITIQUE : S'assurer que reviews est un objet (pas undefined)
+  // \u26A0️\u26A0️\u26A0️ CRITIQUE : S'assurer que reviews est un objet (pas undefined)
   if (!currentUser.reviews || typeof currentUser.reviews !== 'object') {
     currentUser.reviews = {};
   }
-  // ⚠️⚠️⚠️ CRITIQUE : S'assurer que reviews est un objet (pas undefined)
+  // \u26A0️\u26A0️\u26A0️ CRITIQUE : S'assurer que reviews est un objet (pas undefined)
   if (!currentUser.reviews || typeof currentUser.reviews !== 'object') {
     currentUser.reviews = {};
   }
@@ -6961,14 +8421,18 @@ function buildEventPopup(ev) {
   // NE PAS redéfinir window.t ici pour éviter les erreurs TDZ
   // Utiliser directement du texte en dur au lieu d'appeler window.t()
   
+  // Garde-fou strict catégorie musique (évite les faux positifs techno/electro).
+  sanitizeEventCategoriesForMusicContext(ev);
+
   // TRADUCTION AUTOMATIQUE du contenu de l'événement
   const evTranslated = getTranslatedItemSync(ev, currentLanguage);
   
   const statusOverlay = buildStatusOverlay(ev.status);
   const borderColor = getBoostColor(ev.boost);
-  const cats = (evTranslated.categories || ev.categories || []).join(" • ");
+  const cats = (ev.categories || evTranslated.categories || []).join(" \u2022 ");
+  const popupAddress = ev.address || ev.location || ev.city || "Adresse non précisée";
   
-  // ⚠️ CRITIQUE : Utiliser l'image de statut si le statut n'est pas "active"
+  // \u26A0️ CRITIQUE : Utiliser l'image de statut si le statut n'est pas "active"
   // Les images de statut remplacent complètement l'image de l'événement
   const statusImages = {
     'cancelled': '/assets/event_overlays/Event canceled.jpeg',
@@ -6990,7 +8454,7 @@ function buildEventPopup(ev) {
       <img 
         src="${statusImage}"
         alt="${escapeHtml(evTranslated.title || ev.title || '')}"
-        style="width:100%;min-height:280px;max-height:400px;object-fit:cover;display:block;margin:0;padding:0;border:none;box-sizing:border-box;background:linear-gradient(135deg,#3b82f6,#8b5cf6);vertical-align:top;"
+        style="width:100%;height:clamp(220px,32vh,420px);object-fit:cover;display:block;margin:0;padding:0;border:none;box-sizing:border-box;background:linear-gradient(135deg,#3b82f6,#8b5cf6);vertical-align:top;"
         onerror="this.src='/assets/event_overlays/eventdefault.jpg';"
         loading="eager"
       >
@@ -7005,7 +8469,7 @@ function buildEventPopup(ev) {
   
   // Calcul du temps restant
   const now = new Date();
-  // ⚠️ Support des deux formats : startDate/endDate (frontend) ou date+time/end_date+end_time (backend)
+  // \u26A0️ Support des deux formats : startDate/endDate (frontend) ou date+time/end_date+end_time (backend)
   let startDate = null;
   let endDate = null;
   
@@ -7045,11 +8509,12 @@ function buildEventPopup(ev) {
   const platinumRank = ev.platinumRank || 10;
   let boostBadge = "";
   
-  if (ev.boost && ev.boost !== "basic") {
+  const popupBoost = normalizeBoostTier(ev.boost);
+  if (popupBoost && popupBoost !== "basic") {
     let badgeStyle = "";
     let badgeText = "";
     
-    if (ev.boost === "platinum") {
+    if (popupBoost === "platinum") {
       // Système Top 10 avec enchères
       if (platinumRank === 1) {
         badgeStyle = "background:linear-gradient(135deg,#ffd700,#ff8c00);color:#1f2937;box-shadow:0 0 25px rgba(255,215,0,0.7);";
@@ -7059,17 +8524,23 @@ function buildEventPopup(ev) {
         badgeText = "🔥 TOP 2";
       } else if (platinumRank === 3) {
         badgeStyle = "background:linear-gradient(135deg,#f97316,#ea580c);color:#fff;box-shadow:0 0 15px rgba(249,115,22,0.5);";
-        badgeText = "⚡ TOP 3";
+        badgeText = "\u26A1 TOP 3";
       } else {
         badgeStyle = "background:linear-gradient(135deg,#ef4444,#b91c1c);color:#fff;box-shadow:0 0 10px rgba(239,68,68,0.4);";
         badgeText = `🏆 TOP ${platinumRank}`;
       }
-    } else if (ev.boost === "gold") {
+    } else if (popupBoost === "gold") {
       badgeStyle = "background:linear-gradient(135deg,rgba(255,215,0,0.9),rgba(218,165,32,0.9));color:#1f2937;";
       badgeText = "🥇 Gold";
-    } else if (ev.boost === "silver") {
+    } else if (popupBoost === "silver") {
       badgeStyle = "background:linear-gradient(135deg,rgba(192,192,192,0.9),rgba(169,169,169,0.9));color:#1f2937;";
       badgeText = "🥈 Silver";
+    } else if (popupBoost === "bronze") {
+      badgeStyle = "background:linear-gradient(135deg,rgba(205,127,50,0.9),rgba(184,115,51,0.9));color:#fff;";
+      badgeText = "🥉 Bronze";
+    } else if (popupBoost === "1.-") {
+      badgeStyle = "background:linear-gradient(135deg,rgba(26,63,199,0.9),rgba(30,58,138,0.9));color:#fff;";
+      badgeText = "💠 1.-";
     } else {
       badgeStyle = "background:linear-gradient(135deg,rgba(205,127,50,0.9),rgba(184,115,51,0.9));color:#fff;";
       badgeText = "🥉 Bronze";
@@ -7085,24 +8556,18 @@ function buildEventPopup(ev) {
   // Badge vérifié amélioré
   const verifiedBadge = ev.verified ? `
     <span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:999px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);color:#fff;font-size:10px;font-weight:600;box-shadow:0 2px 8px rgba(59,130,246,0.4);">
-      ✓ Vérifié
+      \u2713 Vérifié
     </span>
   ` : "";
   
   // Badge de validation organisateur (pour événements scrapés)
   let validationBadge = "";
-  if (ev.validation_status === 'validated') {
+  if (ev.validation_status === 'validated' || ev.validation_status === 'auto_validated') {
     validationBadge = `
       <div style="margin:8px 0;padding:8px 14px;background:linear-gradient(135deg,rgba(34,197,94,0.12),rgba(22,163,74,0.08));border:1px solid rgba(34,197,94,0.4);border-radius:10px;display:flex;align-items:center;gap:8px;">
-        <span style="font-size:16px;">✅</span>
-        <span style="font-size:11px;font-weight:700;color:#22c55e;line-height:1.3;">Informations validées par l'organisateur</span>
+        <span style="font-size:16px;">\u2705</span>
+        <span style="font-size:11px;font-weight:700;color:#22c55e;line-height:1.3;">Validé</span>
       </div>
-    `;
-  } else if (ev.validation_status === 'pending') {
-    validationBadge = `
-      <span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:999px;background:rgba(245,158,11,0.2);border:1px solid rgba(245,158,11,0.5);color:#f59e0b;font-size:10px;font-weight:600;">
-        En attente de validation
-      </span>
     `;
   }
   
@@ -7114,72 +8579,33 @@ function buildEventPopup(ev) {
     </a>
   ` : "";
   
-  // Indicateur publication MapEvent
-  const aiIndicator = ev.isAI ? `
-    <div style="margin-top:8px;padding:8px 12px;background:linear-gradient(135deg,rgba(59,130,246,0.1),rgba(139,92,246,0.1));border:1px solid rgba(59,130,246,0.3);border-radius:10px;font-size:11px;color:#94a3b8;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-      <span style="font-size:14px;">📢</span>
-      <span>Publié par <strong style="color:#60a5fa;">MapEvent</strong> : il peut y avoir des erreurs, merci de <a href="${escapeHtml(evSourceUrl || '#')}" target="_blank" style="color:#60a5fa;text-decoration:underline;font-weight:600;">vérifier la source</a></span>
-    </div>
-  ` : "";
+  // Indicateur publication MapEvent supprimé (jamais affiché dans les popups).
+  const aiIndicator = "";
 
-  // Stats avec icônes animées
+  // Stats + actions (barre fixe en bas, sans doublons discussion/participants)
   const isLiked = currentUser.likes.includes('event:'+ev.id);
-  const isFavorite = currentUser.favorites.some(f => f.id === ev.id.toString() && f.mode === 'event');
   const isParticipating = currentUser.participating.includes('event:'+ev.id);
   const inAgenda = currentUser.agenda.includes('event:'+ev.id);
-  
-  // Trouver les amis qui participent à cet événement
-  const friendsParticipating = getFriendsParticipatingToEvent(ev.id);
-  const friendsSection = friendsParticipating.length > 0 ? `
-    <div style="padding:10px 12px;background:linear-gradient(135deg,rgba(0,255,195,0.1),rgba(59,130,246,0.1));border:1px solid rgba(0,255,195,0.3);border-radius:10px;margin-bottom:10px;">
-      <div style="font-size:11px;font-weight:600;color:#00ffc3;margin-bottom:8px;display:flex;align-items:center;gap:6px;">
-        <span>👥</span> ${friendsParticipating.length} ami${friendsParticipating.length > 1 ? 's' : ''} y ${friendsParticipating.length > 1 ? 'vont' : 'va'} !
-      </div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;">
-        ${friendsParticipating.slice(0, 5).map(f => `
-          <div style="display:flex;align-items:center;gap:4px;padding:4px 8px;background:rgba(0,0,0,0.3);border-radius:999px;">
-            <span style="font-size:14px;">${f.avatar}</span>
-            <span style="font-size:11px;color:#fff;font-weight:500;">${f.name.split('_')[0]}</span>
-          </div>
-        `).join('')}
-        ${friendsParticipating.length > 5 ? `<span style="font-size:11px;color:var(--ui-text-muted);">+${friendsParticipating.length - 5} autres</span>` : ''}
-      </div>
-    </div>
-  ` : (currentUser.isLoggedIn && currentUser.friends?.length > 0 ? `
-    <div style="padding:8px 12px;background:rgba(148,163,184,0.1);border-radius:10px;margin-bottom:10px;font-size:11px;color:var(--ui-text-muted);text-align:center;">
-      👥 Aucun de vos amis ne participe encore. <span style="color:#00ffc3;cursor:pointer;" onclick="onAction('share', 'event', ${ev.id})">Invitez-les !</span>
-    </div>
-  ` : '');
-  
+  const publicationUrl = evSourceUrl || `https://mapevent.world/e/${ev.id}/`;
   const statsRow = `
-    <div style="display:flex;gap:16px;padding:10px 0;border-top:1px solid rgba(148,163,184,0.2);border-bottom:1px solid rgba(148,163,184,0.2);margin:10px 0;">
+    <div style="display:flex;justify-content:space-evenly;align-items:center;padding:10px 8px;background:#ffffff;border:1px solid #e2e8f0;border-radius:10px;margin:0 0 8px 0;">
       <div style="display:flex;align-items:center;gap:6px;cursor:pointer;transition:transform 0.2s;" onclick="onAction('like', 'event', ${ev.id})">
         <span style="font-size:18px;${isLiked ? 'animation:bounce-in 0.3s;' : ''}">${isLiked ? '❤️' : '🤍'}</span>
-        <span style="font-size:13px;font-weight:600;color:${isLiked ? '#ef4444' : 'var(--ui-text-muted)'};">${ev.likes || 0}</span>
+        <span style="font-size:13px;font-weight:600;color:${isLiked ? '#ef4444' : '#0f172a'};">${ev.likes || 0}</span>
       </div>
       <div style="display:flex;align-items:center;gap:6px;">
         <span style="font-size:18px;">💬</span>
-        <span style="font-size:13px;font-weight:600;color:var(--ui-text-muted);">${ev.comments || 0}</span>
+        <span style="font-size:13px;font-weight:600;color:#0f172a;">${ev.comments || 0}</span>
       </div>
       <div style="display:flex;align-items:center;gap:6px;">
         <span style="font-size:18px;">👥</span>
-        <span style="font-size:13px;font-weight:600;color:var(--ui-text-muted);">${ev.participants || 0}</span>
-      </div>
-      <div style="margin-left:auto;display:flex;align-items:center;gap:6px;cursor:pointer;" onclick="onAction('favorite', 'event', ${ev.id})">
-        <span style="font-size:18px;${isFavorite ? 'animation:bounce-in 0.3s;' : ''}">${isFavorite ? '⭐' : '☆'}</span>
+        <span style="font-size:13px;font-weight:600;color:#0f172a;">${ev.participants || 0}</span>
       </div>
     </div>
-    ${friendsSection}
   `;
-
-  // Vérifier les alarmes existantes pour cet événement
-  const eventAlarms = (currentUser.eventAlarms || []).filter(a => a.eventId === ev.id.toString());
-  const hasAlarms = eventAlarms.length > 0;
-  const canAddAlarm = eventAlarms.length < 2 && inAgenda;
-  
-  // Actions avec design moderne (barre fixe en bas au scroll)
   const actionsRow = `
-    <div class="popup-actions-sticky" style="position:sticky;bottom:0;background:var(--ui-card-bg);z-index:10;padding:12px 0 8px;margin-top:12px;border-top:1px solid var(--ui-card-border);">
+    <div style="background:#ffffff;padding:8px 0 8px;margin-top:0;">
+    ${statsRow}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:0;">
       <button onclick="onAction('participate', 'event', ${ev.id})" style="padding:12px;border-radius:12px;border:none;font-weight:700;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.2s;
         ${isParticipating ? 
@@ -7187,173 +8613,72 @@ function buildEventPopup(ev) {
           'background:linear-gradient(135deg,#00ffc3,#10b981);color:#022c22;box-shadow:0 4px 12px rgba(0,255,195,0.4);'}">
         ${isParticipating ? '✅ Inscrit' : '🎟️ Participer'}
       </button>
-      <button onclick="onAction('agenda', 'event', ${ev.id})" style="padding:12px;border-radius:12px;border:1px solid rgba(59,130,246,0.5);background:${inAgenda ? 'rgba(59,130,246,0.2)' : 'transparent'};color:${inAgenda ? '#3b82f6' : 'var(--ui-text-main)'};font-weight:600;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.2s;">
+      <button onclick="onAction('agenda', 'event', ${ev.id})" style="padding:12px;border-radius:12px;border:1px solid #cbd5e1;background:${inAgenda ? 'rgba(59,130,246,0.15)' : '#ffffff'};color:${inAgenda ? '#3b82f6' : '#0f172a'};font-weight:600;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.2s;">
         ${inAgenda ? '📅 Dans agenda' : '📅 Ajouter'}
       </button>
     </div>
-    ${inAgenda && currentUser.isLoggedIn ? `
-      <div style="margin-top:8px;">
-        ${canAddAlarm ? `
-          <button onclick="openAddAlarmModal('event', ${ev.id})" style="width:100%;padding:10px;border-radius:10px;border:1px solid rgba(245,158,11,0.5);background:rgba(245,158,11,0.1);color:#f59e0b;font-weight:600;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:all 0.2s;">
-            ⏰ Ajouter alarme (${eventAlarms.length}/2)
-          </button>
-        ` : hasAlarms ? `
-          <div style="padding:10px;border-radius:10px;border:1px solid rgba(245,158,11,0.3);background:rgba(245,158,11,0.1);color:#f59e0b;font-size:12px;text-align:center;">
-            ⏰ ${eventAlarms.length} alarme${eventAlarms.length > 1 ? 's' : ''} configurée${eventAlarms.length > 1 ? 's' : ''}
-          </div>
-        ` : ''}
-      </div>
-    ` : ''}
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:8px;">
-      ${currentUser.isLoggedIn ? `
-        <button onclick="(function(){try{if(window.openEventDiscussion){window.openEventDiscussion('event',${ev.id});}else if(window.openDiscussionModal){window.openDiscussionModal('event',${ev.id});}else{console.warn('Discussion non disponible');}}catch(e){console.error('Erreur ouverture discussion:',e);}})();" style="padding:10px;border-radius:10px;border:1px solid var(--ui-card-border);background:transparent;color:var(--ui-text-main);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:all 0.2s;" title="Canal de discussion">
-          💬 Discussion
-        </button>
-        <button onclick="window.viewEventAttendees && window.viewEventAttendees('event', ${ev.id})" style="padding:10px;border-radius:10px;border:1px solid var(--ui-card-border);background:transparent;color:var(--ui-text-main);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:all 0.2s;" title="Voir qui participe">
-          👥 Participants
-        </button>
-        <button onclick="inviteFriendsToEvent('event', ${ev.id})" style="padding:10px;border-radius:10px;border:1px solid var(--ui-card-border);background:transparent;color:var(--ui-text-main);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:all 0.2s;" title="Inviter des amis">
-          ➕ Inviter
-        </button>
-      ` : ''}
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-top:8px;">
-      ${currentUser.isLoggedIn ? `
-        <button onclick="onAction('route', 'event', ${ev.id})" style="padding:10px;border-radius:10px;border:1px solid var(--ui-card-border);background:transparent;color:var(--ui-text-main);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:all 0.2s;">
-          🗺️ Y aller
-        </button>
-      ` : `
-        <button onclick="onAction('route', 'event', ${ev.id})" style="padding:10px;border-radius:10px;border:1px solid var(--ui-card-border);background:transparent;color:var(--ui-text-main);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:all 0.2s;">
-          🗺️ Y aller
-        </button>
-      `}
-      <button onclick="window.sharePopup('event', ${ev.id})" style="padding:10px;border-radius:10px;border:1px solid var(--ui-card-border);background:transparent;color:var(--ui-text-main);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:all 0.2s;" title="Partager le lien">
+    <div style="display:grid;grid-template-columns:1fr;gap:8px;margin-top:8px;">
+      <button onclick="window.sharePopup('event', ${ev.id})" style="padding:10px;border-radius:10px;border:1px solid #cbd5e1;background:#f8fafc;color:#0f172a;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:all 0.2s;" title="Partager le lien">
         🔗 Partager
       </button>
-      <button onclick="onAction('avis', 'event', ${ev.id})" style="padding:10px;border-radius:10px;border:1px solid var(--ui-card-border);background:transparent;color:var(--ui-text-main);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:all 0.2s;">
-        ⭐ Avis
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
+      <button onclick="onAction('route', 'event', ${ev.id})" style="padding:10px;border-radius:10px;border:1px solid #cbd5e1;background:#f8fafc;color:#0f172a;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:all 0.2s;">
+        🗺️ Y aller
       </button>
       <button onclick="onAction('report', 'event', ${ev.id})" style="padding:10px;border-radius:10px;border:1px solid rgba(239,68,68,0.3);background:rgba(239,68,68,0.1);color:#ef4444;font-size:12px;cursor:pointer;transition:all 0.2s;" title="Signaler">
-        🚨
+        🚨 Signaler
       </button>
     </div>
+    <a href="${escapeHtml(publicationUrl)}" target="_blank" rel="noopener noreferrer" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:10px;border-radius:10px;border:none;background:linear-gradient(135deg,#22c55e,#16a34a);color:#ffffff;box-shadow:0 4px 12px rgba(34,197,94,0.4);text-decoration:none;font-size:12px;font-weight:800;margin-top:8px;">
+      🔗 Voir la publication
+    </a>
     </div>
   `;
 
-  // Reviews compactes
-  const reviewsSection = (() => {
-    // ⚠️⚠️⚠️ CRITIQUE : S'assurer que currentUser.reviews existe
-    if (!currentUser.reviews || typeof currentUser.reviews !== 'object') {
-      currentUser.reviews = {};
-    }
-    const key = `event:${ev.id}`;
-    const reviews = currentUser.reviews[key] || [];
-    if (reviews.length === 0 && !ev.rating) return '';
-    
-    const ratingStars = ev.rating ? `
-      <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
-        <div style="display:flex;gap:2px;">
-          ${[1,2,3,4,5].map(i => `<span style="font-size:14px;${i <= Math.floor(parseFloat(ev.rating)) ? '' : 'opacity:0.3;'}"}>⭐</span>`).join('')}
-        </div>
-        <span style="font-size:14px;font-weight:700;color:#fbbf24;">${ev.rating}</span>
-        <span style="font-size:11px;color:var(--ui-text-muted);">(${reviews.length} avis)</span>
-      </div>
-    ` : '';
-    
-    const latestReview = reviews.length > 0 ? `
-      <div style="padding:10px;background:rgba(15,23,42,0.5);border-radius:10px;border:1px solid var(--ui-card-border);">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-          <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,${reviews[0].avatarColor || '#00ffc3'},${reviews[0].avatarColor2 || '#3b82f6'});display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;">
-            ${reviews[0].avatar || reviews[0].userName.charAt(0).toUpperCase()}
-          </div>
-          <div style="flex:1;">
-            <div style="font-weight:600;font-size:12px;color:var(--ui-text-main);">${escapeHtml(reviews[0].userName)}</div>
-            ${reviews[0].rating ? `<div style="font-size:10px;color:#fbbf24;">${'⭐'.repeat(reviews[0].rating)}</div>` : ''}
-          </div>
-        </div>
-        <div style="font-size:12px;color:var(--ui-text-main);line-height:1.4;">"${escapeHtml(reviews[0].text.length > 100 ? reviews[0].text.substring(0, 100) + '...' : reviews[0].text)}"</div>
-        ${reviews.length > 1 ? `
-          <button onclick="onAction('avis', 'event', ${ev.id})" style="margin-top:8px;padding:6px 12px;border-radius:8px;border:1px solid var(--ui-card-border);background:transparent;color:var(--ui-text-muted);font-size:11px;cursor:pointer;width:100%;">
-            Voir les ${reviews.length} avis →
-          </button>
-        ` : ''}
-      </div>
-    ` : '';
-    
-    return ratingStars + latestReview;
-  })();
-
   return `
-    <div style="width:100%;max-height:none;overflow:visible;font-family:system-ui,sans-serif;color:var(--ui-text-main);margin:0;padding:0;box-sizing:border-box;">
-      <!-- Image principale avec overlay - ALIGNÉE PARFAITEMENT avec la bordure de la modal -->
-      <div style="position:relative;border-radius:16px 16px 0 0;overflow:hidden;margin:0;padding:0;width:100%;left:0;right:0;box-sizing:border-box;min-height:280px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);">
-        <div style="position:relative;width:100%;margin:0;padding:0;box-sizing:border-box;min-height:280px;display:flex;align-items:stretch;">
+    <div style="width:100%;max-height:none;overflow:visible;font-family:system-ui,sans-serif;color:#0f172a;margin:0;padding:0;box-sizing:border-box;background:#ffffff;border-radius:16px;">
+      <!-- Image principale avec overlay -->
+      <div style="position:relative;border-radius:16px 16px 0 0;overflow:hidden;margin:0;padding:0;width:100%;left:0;right:0;box-sizing:border-box;min-height:170px;background:linear-gradient(135deg,#7c3aed,#2563eb);">
+        <div style="position:relative;width:100%;margin:0;padding:0;box-sizing:border-box;min-height:170px;max-height:190px;display:flex;align-items:stretch;">
           ${imgTag}
           ${statusOverlay}
           ${boostBadge}
-          <!-- Gradient overlay -->
-          <div style="position:absolute;bottom:0;left:0;right:0;height:80px;background:linear-gradient(to top,rgba(15,23,42,0.95),transparent);pointer-events:none;"></div>
-          <!-- Time badge -->
+          <div style="position:absolute;top:6px;left:6px;right:6px;display:flex;justify-content:space-between;align-items:center;gap:8px;">
+            <div style="background:rgba(255,255,255,0.95);padding:4px 10px;border-radius:999px;font-size:11px;font-weight:700;color:#0f172a;text-transform:uppercase;">
+              ${escapeHtml(ev.city || "VILLE")}
+            </div>
+          </div>
+          <div style="position:absolute;bottom:0;left:0;right:0;height:54px;background:linear-gradient(to top,rgba(15,23,42,0.78),transparent);pointer-events:none;"></div>
           ${timeLabel ? `
-            <div style="position:absolute;bottom:12px;left:12px;padding:6px 12px;border-radius:999px;background:${timeLabelColor};color:#fff;font-size:11px;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,0.3);">
-              ${daysUntil === 0 ? '🔥' : daysUntil === 1 ? '⏰' : '📅'} ${timeLabel}
+            <div style="position:absolute;bottom:8px;left:8px;display:inline-flex;align-items:center;max-width:calc(100% - 16px);padding:5px 10px;border-radius:999px;background:rgba(15,23,42,0.88);color:#f8fafc;font-size:11px;font-weight:700;white-space:nowrap;">
+              ${timeLabel}
             </div>
           ` : ''}
         </div>
       </div>
       
-      <!-- Content - ALIGNÉ AVEC L'IMAGE -->
-      <div style="padding:16px 12px 12px;margin:0;width:100%;box-sizing:border-box;">
-        <!-- Category & Verified -->
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
-          <span style="font-size:28px;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.2));">${emoji}</span>
-          <span style="font-size:12px;color:var(--ui-text-muted);padding:4px 10px;background:rgba(148,163,184,0.1);border-radius:999px;">${cats}</span>
+      <div style="padding:10px 12px 12px;margin:0;width:100%;box-sizing:border-box;background:#ffffff;">
+        <div style="font-size:25px;line-height:1.04;font-weight:800;color:#0f172a;font-family:'Playfair Display',Georgia,'Times New Roman',serif;margin-bottom:6px;">
+          ${escapeHtml(evTranslated.title || ev.title || "")}
+        </div>
+        <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#64748b;font-weight:700;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <span>${emoji} ${cats || 'Événement'}</span>
           ${verifiedBadge}
-          ${sourceLink}
         </div>
         
-        <!-- Title -->
-        <h3 style="margin:0 0 10px;font-size:20px;font-weight:800;line-height:1.3;color:var(--ui-text-main);">${escapeHtml(evTranslated.title || ev.title || "")}</h3>
-        
-        <!-- Validation organisateur (bloc visible sous le titre) -->
         ${validationBadge}
         
-        <!-- Date & Location Cards -->
-        <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;">
-          <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:linear-gradient(135deg,rgba(0,255,195,0.1),rgba(16,185,129,0.05));border:1px solid rgba(0,255,195,0.2);border-radius:10px;">
-            <span style="font-size:20px;">📅</span>
-            <div>
-              <div style="font-size:13px;font-weight:600;color:#00ffc3;">${formatEventDateRange(startDate, endDate, !!ev.source_url)}</div>
-              ${ev.source_url ? `<div style="font-size:11px;color:#f59e0b;margin-top:4px;">⚠️ Pour l'heure exacte, voir la publication originale</div>` : ''}
-            </div>
+        <div style="margin-top:8px;margin-bottom:8px;background:#e5e7eb;border:1px solid #d1d5db;border-radius:10px;padding:8px 8px 2mm;overflow:hidden;">
+          <div style="margin-bottom:6px;">
+            <div style="font-size:16px;color:#334155;line-height:1.35;">📅 ${formatEventDateRange(startDate, endDate, !!ev.source_url)}</div>
+            <div style="font-size:14px;color:#334155;line-height:1.35;margin-top:3px;">📍 ${escapeHtml(popupAddress)}</div>
           </div>
-          <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.2);border-radius:10px;">
-            <span style="font-size:20px;">📍</span>
-            <div style="font-size:13px;font-weight:500;color:var(--ui-text-main);flex:1;">${escapeHtml(ev.address || ev.city || ev.location || "")}</div>
+          <div style="font-size:16px;color:#334155;line-height:1.5;padding:0 2px 0 0;margin-bottom:2mm;box-sizing:border-box;overflow-wrap:anywhere;word-break:break-word;">
+            ${escapeHtml(getEventDescriptionForPopup(ev, evTranslated))}
           </div>
-          ${(ev.source_url || ev.sourceUrl) ? `
-            <a href="${escapeHtml(ev.source_url || ev.sourceUrl || '#')}" target="_blank" rel="noopener noreferrer" style="display:flex;align-items:center;gap:10px;padding:12px;background:linear-gradient(135deg,rgba(245,158,11,0.15),rgba(234,88,12,0.1));border:2px solid rgba(245,158,11,0.5);border-radius:10px;text-decoration:none;transition:all 0.2s;" onmouseover="this.style.background='linear-gradient(135deg,rgba(245,158,11,0.25),rgba(234,88,12,0.2))';this.style.transform='scale(1.01)'" onmouseout="this.style.background='linear-gradient(135deg,rgba(245,158,11,0.15),rgba(234,88,12,0.1))';this.style.transform='scale(1)'">
-              <span style="font-size:24px;">🔗</span>
-              <div style="flex:1;">
-                <div style="font-size:13px;font-weight:700;color:#f59e0b;">VOIR LA PUBLICATION ORIGINALE</div>
-                <div style="font-size:11px;color:#94a3b8;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml((ev.source_url || ev.sourceUrl || '').substring(0, 50))}...</div>
-              </div>
-              <span style="font-size:18px;color:#f59e0b;">→</span>
-            </a>
-            <div style="margin-top:8px;padding:8px 12px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.25);border-radius:8px;font-size:11px;color:#f87171;text-align:center;">
-              ⚠️ Publié par MapEvent – peut contenir des erreurs
-            </div>
-          ` : ''}
         </div>
         
-        <!-- Description -->
-        ${ev.description ? `
-          <div style="font-size:14px;color:#ffffff;line-height:1.7;margin-bottom:12px;padding:12px;background:transparent;border-radius:8px;">
-            ${escapeHtml(evTranslated.description || ev.description)}
-          </div>
-        ` : ""}
-        
-        <!-- Audio Player (si liens audio disponibles) -->
         ${(ev.audioLinks && ev.audioLinks.length > 0) || (ev.soundLinks && ev.soundLinks.length > 0) ? (() => {
           const evAudioLinks = [...(ev.soundLinks || []), ...(ev.audioLinks || [])].filter(Boolean);
           const evTitle = (ev.title || ev.name || '').replace(/"/g, '&quot;');
@@ -7363,18 +8688,18 @@ function buildEventPopup(ev) {
             <div style="display:flex;flex-direction:column;gap:8px;">
               ${evAudioLinks.slice(0, 5).map((link, i) => {
                 const safeUrl = (link || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
-                const trackLabel = 'Piste ' + (i + 1) + (link.includes('audius') ? ' • Audius' : link.includes('soundcloud') ? ' • SoundCloud' : link.includes('spotify') ? ' • Spotify' : '');
+                const trackLabel = 'Piste ' + (i + 1) + (link.includes('audius') ? ' \u2014 Audius' : link.includes('soundcloud') ? ' \u2014 SoundCloud' : link.includes('spotify') ? ' \u2014 Spotify' : '');
                 return `
                 <div data-audio-track data-item-title="${evTitle}" data-track-label="${trackLabel}" style="display:flex;flex-direction:column;gap:6px;padding:10px 12px;background:rgba(0,0,0,0.3);border-radius:10px;">
                   <audio id="event-audio-${ev.id}-${i}" src="${safeUrl}" data-original-src="${safeUrl}" preload="metadata" style="display:none;"></audio>
                   <div style="display:flex;align-items:center;gap:10px;">
-                    <button onclick="event.stopPropagation();toggleEventAudio('${ev.id}',${i})" id="btn-event-${ev.id}-${i}" style="width:36px;height:36px;border-radius:50%;border:none;background:linear-gradient(135deg,#a78bfa,#8b5cf6);color:white;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">▶</button>
+                    <button onclick="event.stopPropagation();toggleEventAudio('${ev.id}',${i})" id="btn-event-${ev.id}-${i}" style="width:36px;height:36px;border-radius:50%;border:none;background:linear-gradient(135deg,#a78bfa,#8b5cf6);color:white;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">\u25B6</button>
                     <div style="flex:1;min-width:0;">
                       <div style="font-size:12px;color:#e5e7eb;font-weight:500;">Piste ${i + 1}</div>
-                      <div style="font-size:10px;color:var(--ui-text-muted);">${link.includes('audius') ? '🎵 Audius' : link.includes('soundcloud') ? '☁️ SoundCloud' : link.includes('spotify') ? '🟢 Spotify' : link.includes('youtube') ? '▶️ YouTube' : '🎵 Audio'}</div>
+                      <div style="font-size:10px;color:var(--ui-text-muted);">${link.includes('audius') ? '🎧 Audius' : link.includes('soundcloud') ? '\u2601️ SoundCloud' : link.includes('spotify') ? '🎵 Spotify' : link.includes('youtube') ? '\u25B6️ YouTube' : '🔊 Audio'}</div>
                     </div>
-                    <button onclick="event.stopPropagation();seekAudioOffset('event','${ev.id}',${i},-15)" style="width:32px;height:32px;border-radius:50%;border:1px solid rgba(167,139,250,0.5);background:transparent;color:#a78bfa;cursor:pointer;font-size:12px;flex-shrink:0;display:flex;align-items:center;justify-content:center;">⏪</button>
-                    <button onclick="event.stopPropagation();seekAudioOffset('event','${ev.id}',${i},15)" style="width:32px;height:32px;border-radius:50%;border:1px solid rgba(167,139,250,0.5);background:transparent;color:#a78bfa;cursor:pointer;font-size:12px;flex-shrink:0;display:flex;align-items:center;justify-content:center;">⏩</button>
+                    <button onclick="event.stopPropagation();seekAudioOffset('event','${ev.id}',${i},-15)" style="width:32px;height:32px;border-radius:50%;border:1px solid rgba(167,139,250,0.5);background:transparent;color:#a78bfa;cursor:pointer;font-size:12px;flex-shrink:0;display:flex;align-items:center;justify-content:center;">\u23EA</button>
+                    <button onclick="event.stopPropagation();seekAudioOffset('event','${ev.id}',${i},15)" style="width:32px;height:32px;border-radius:50%;border:1px solid rgba(167,139,250,0.5);background:transparent;color:#a78bfa;cursor:pointer;font-size:12px;flex-shrink:0;display:flex;align-items:center;justify-content:center;">\u23E9</button>
                     <span id="time-event-${ev.id}-${i}" style="font-size:10px;color:#a78bfa;font-variant-numeric:tabular-nums;min-width:70px;text-align:right;flex-shrink:0;">0:00</span>
                   </div>
                   <div id="seekbar-event-${ev.id}-${i}" onmousedown="event.stopPropagation();startAudioDrag('event','${ev.id}',${i},event)" ontouchstart="event.stopPropagation();event.preventDefault();startAudioDrag('event','${ev.id}',${i},event)" onclick="event.stopPropagation();seekEventAudio('${ev.id}',${i},event)" style="width:100%;height:14px;padding:12px 0;margin:-12px 0;cursor:pointer;position:relative;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;" title="Cliquer pour aller à la position dans le son">
@@ -7388,17 +8713,9 @@ function buildEventPopup(ev) {
           </div>`;
         })() : ''}
         
-        <!-- Stats -->
-        ${statsRow}
-        
-        <!-- Reviews -->
-        ${reviewsSection}
-        
-        <!-- AI Indicator -->
         ${aiIndicator}
         
-        <!-- Actions - barre fixe en bas quand scroll -->
-        <div class="popup-actions-sticky" style="position:sticky;bottom:0;background:var(--ui-card-bg);margin:12px -12px -12px -12px;padding:12px 12px 12px 12px;z-index:10;border-top:1px solid rgba(148,163,184,0.2);">
+        <div class="popup-actions-sticky" style="position:sticky;bottom:0;background:#ffffff;margin:0 -12px -12px -12px;padding:8px 12px 12px 12px;z-index:10;border-top:none;">
           ${actionsRow}
         </div>
       </div>
@@ -7416,7 +8733,7 @@ function buildBookingPopup(b) {
     window.translations = window.translations || { fr: {}, en: {}, es: {}, zh: {}, hi: {} };
   }
   
-  // ⚠️⚠️⚠️ CRITIQUE : S'assurer que currentUser est défini et a les propriétés nécessaires
+  // \u26A0️\u26A0️\u26A0️ CRITIQUE : S'assurer que currentUser est défini et a les propriétés nécessaires
   if (typeof currentUser === 'undefined' || !currentUser) {
     currentUser = {
       isLoggedIn: false,
@@ -7428,6 +8745,9 @@ function buildBookingPopup(b) {
   }
   
   // S'assurer que les propriétés nécessaires existent
+  if (!Array.isArray(currentUser.likes)) {
+    currentUser.likes = [];
+  }
   if (!Array.isArray(currentUser.favorites)) {
     currentUser.favorites = [];
   }
@@ -7437,19 +8757,22 @@ function buildBookingPopup(b) {
   if (!currentUser.subscription) {
     currentUser.subscription = 'free';
   }
-  // ⚠️⚠️⚠️ CRITIQUE : S'assurer que reviews est un objet (pas undefined)
+  // \u26A0️\u26A0️\u26A0️ CRITIQUE : S'assurer que reviews est un objet (pas undefined)
   if (!currentUser.reviews || typeof currentUser.reviews !== 'object') {
     currentUser.reviews = {};
   }
   
-  // ⚠️⚠️⚠️ CRITIQUE : S'assurer que paidContacts est défini
+  // \u26A0️\u26A0️\u26A0️ CRITIQUE : S'assurer que paidContacts est défini
   if (typeof paidContacts === 'undefined' || !Array.isArray(paidContacts)) {
     paidContacts = [];
   }
   
   const borderColor = getBoostColor(b.boost);
+  const bookingIdSafe = (b && b.id !== undefined && b.id !== null) ? String(b.id) : "";
+  const isBookingFavorite = currentUser.favorites.some(f => f && typeof f === 'object' && String(f.id || "") === bookingIdSafe && f.mode === 'booking');
+  const isBookingLiked = currentUser.likes.includes('booking:' + b.id);
   const imgTag = buildMainImageTag(b, b.name || "");
-  const cats = (b.categories || []).join(" • ");
+  const cats = (b.categories || []).join(" \u2022 ");
   const emoji = getCategoryEmoji(b);
 
   // Badge niveau
@@ -7468,14 +8791,16 @@ function buildBookingPopup(b) {
   ` : "";
 
   // Badge vérifié
-  const verifiedBadge = b.verified ? `<span class="verified-badge">✓ Vérifié</span>` : "";
+  const verifiedBadge = b.verified ? `<span class="verified-badge">\u2713 Vérifié</span>` : "";
 
   // Liens sons - Player intégré sans accès au site
-  // ⚠️ GRATUIT : Coordonnées toujours affichées (plus de paiement requis)
+  // \u26A0️ GRATUIT : Coordonnées toujours affichées (plus de paiement requis)
   const hasPaidContact = true;
   
   // Fusionner soundLinks (scraping) et audioLinks (publication utilisateur)
-  const allSoundLinks = [...(b.soundLinks || []), ...(b.audioLinks || [])].filter(Boolean);
+  const allSoundLinksRaw = collectBookingAudioLinks(b);
+  const allSoundLinks = allSoundLinksRaw.filter(isDirectPlayableAudioUrl);
+  const fallbackAudioLinks = allSoundLinksRaw.filter((u) => !isDirectPlayableAudioUrl(u));
   
   const soundsSection = allSoundLinks.length > 0 ? `
     <div style="margin:8px 0;padding:12px;background:linear-gradient(135deg,rgba(139,92,246,0.15),rgba(59,130,246,0.1));border-radius:12px;border:1px solid rgba(139,92,246,0.3);">
@@ -7485,18 +8810,18 @@ function buildBookingPopup(b) {
         ${allSoundLinks.slice(0, 12).map((link, i) => {
           const safeUrl = (link || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
           const safeTitle = (b.name || '').replace(/"/g, '&quot;');
-          const trackLabel = 'Piste ' + (i + 1) + (link.includes('audius') ? ' • Audius' : link.includes('soundcloud') ? ' • SoundCloud' : link.includes('spotify') ? ' • Spotify' : '');
+          const trackLabel = 'Piste ' + (i + 1) + (link.includes('audius') ? ' \u2022 Audius' : link.includes('soundcloud') ? ' \u2022 SoundCloud' : link.includes('spotify') ? ' \u2022 Spotify' : '');
           return `
           <div data-audio-track data-item-title="${safeTitle}" data-track-label="${trackLabel}" style="display:flex;flex-direction:column;gap:6px;padding:10px 12px;background:rgba(0,0,0,0.3);border-radius:10px;">
             <audio id="booking-audio-${b.id}-${i}" src="${safeUrl}" data-original-src="${safeUrl}" preload="metadata" style="display:none;"></audio>
             <div style="display:flex;align-items:center;gap:10px;">
-              <button onclick="event.stopPropagation();toggleBookingAudio('${b.id}',${i})" id="btn-booking-${b.id}-${i}" style="width:36px;height:36px;border-radius:50%;border:none;background:linear-gradient(135deg,#a78bfa,#8b5cf6);color:white;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">▶</button>
+              <button onclick="event.stopPropagation();toggleBookingAudio('${b.id}',${i})" id="btn-booking-${b.id}-${i}" style="width:36px;height:36px;border-radius:50%;border:none;background:linear-gradient(135deg,#a78bfa,#8b5cf6);color:white;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">\u25B6</button>
               <div style="flex:1;min-width:0;">
                 <div style="font-size:12px;color:#e5e7eb;font-weight:500;">Piste ${i + 1}</div>
-                <div style="font-size:10px;color:var(--ui-text-muted);">${link.includes('audius') ? '🎵 Audius' : link.includes('soundcloud') ? '☁️ SoundCloud' : link.includes('spotify') ? '🟢 Spotify' : link.includes('youtube') ? '▶️ YouTube' : '🎵 Audio'}</div>
+                <div style="font-size:10px;color:var(--ui-text-muted);">${link.includes('audius') ? '🎵 Audius' : link.includes('soundcloud') ? '\u2601️ SoundCloud' : link.includes('spotify') ? '🟢 Spotify' : link.includes('youtube') ? '\u25B6️ YouTube' : '🎵 Audio'}</div>
               </div>
-              <button onclick="event.stopPropagation();seekAudioOffset('booking','${b.id}',${i},-15)" style="width:32px;height:32px;border-radius:50%;border:1px solid rgba(167,139,250,0.5);background:transparent;color:#a78bfa;cursor:pointer;font-size:12px;flex-shrink:0;display:flex;align-items:center;justify-content:center;">⏪</button>
-              <button onclick="event.stopPropagation();seekAudioOffset('booking','${b.id}',${i},15)" style="width:32px;height:32px;border-radius:50%;border:1px solid rgba(167,139,250,0.5);background:transparent;color:#a78bfa;cursor:pointer;font-size:12px;flex-shrink:0;display:flex;align-items:center;justify-content:center;">⏩</button>
+              <button onclick="event.stopPropagation();seekAudioOffset('booking','${b.id}',${i},-15)" style="width:32px;height:32px;border-radius:50%;border:1px solid rgba(167,139,250,0.5);background:transparent;color:#a78bfa;cursor:pointer;font-size:12px;flex-shrink:0;display:flex;align-items:center;justify-content:center;">\u23EA</button>
+              <button onclick="event.stopPropagation();seekAudioOffset('booking','${b.id}',${i},15)" style="width:32px;height:32px;border-radius:50%;border:1px solid rgba(167,139,250,0.5);background:transparent;color:#a78bfa;cursor:pointer;font-size:12px;flex-shrink:0;display:flex;align-items:center;justify-content:center;">\u23E9</button>
               <span id="time-booking-${b.id}-${i}" style="font-size:10px;color:#a78bfa;font-variant-numeric:tabular-nums;min-width:70px;text-align:right;flex-shrink:0;">0:00</span>
             </div>
             <div id="seekbar-booking-${b.id}-${i}" onmousedown="event.stopPropagation();startAudioDrag('booking','${b.id}',${i},event)" ontouchstart="event.stopPropagation();event.preventDefault();startAudioDrag('booking','${b.id}',${i},event)" onclick="event.stopPropagation();seekBookingAudio('${b.id}',${i},event)"  style="width:100%;height:14px;padding:12px 0;margin:-12px 0;cursor:pointer;position:relative;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;" title="Cliquer pour aller à la position dans le son">
@@ -7509,11 +8834,18 @@ function buildBookingPopup(b) {
       </div>
     </div>
   ` : '';
+  const noSoundInfo = allSoundLinks.length === 0 ? `
+    <div style="margin:8px 0;padding:10px;border-radius:10px;background:rgba(148,163,184,0.14);border:1px solid rgba(148,163,184,0.35);font-size:12px;color:#cbd5e1;">
+      ${fallbackAudioLinks.length > 0
+        ? `🎵 ${window.t("audio_link_unplayable") || "Audio link detected but not playable in embedded player. Open source link."}`
+        : `🎵 ${window.t("no_audio_published") || "No audio preview published for this artist."}`}
+    </div>
+  ` : '';
 
   // Rating
   const ratingStars = b.rating ? `
     <div style="display:flex;align-items:center;gap:4px;margin-bottom:6px;">
-      ${'⭐'.repeat(Math.floor(parseFloat(b.rating)))}
+      ${'\u2B50'.repeat(Math.floor(parseFloat(b.rating)))}
       <span style="font-size:12px;color:var(--ui-text-muted);">${b.rating}/5</span>
       <span style="font-size:11px;color:var(--ui-text-muted);">(${b.likes || 0} avis)</span>
     </div>
@@ -7525,43 +8857,37 @@ function buildBookingPopup(b) {
     <a href="${escapeHtml(sourceUrl)}" target="_blank" rel="noopener noreferrer" style="display:flex;align-items:center;gap:10px;padding:10px 12px;margin:8px 0;background:linear-gradient(135deg,rgba(245,158,11,0.15),rgba(234,88,12,0.1));border:2px solid rgba(245,158,11,0.5);border-radius:10px;text-decoration:none;transition:all 0.2s;" onmouseover="this.style.background='linear-gradient(135deg,rgba(245,158,11,0.25),rgba(234,88,12,0.2))';this.style.transform='scale(1.01)'" onmouseout="this.style.background='linear-gradient(135deg,rgba(245,158,11,0.15),rgba(234,88,12,0.1))';this.style.transform='scale(1)'">
       <span style="font-size:20px;">🔗</span>
       <div style="flex:1;">
-        <div style="font-size:12px;font-weight:700;color:#f59e0b;">VOIR LA PUBLICATION ORIGINALE</div>
+        <div style="font-size:12px;font-weight:700;color:#f59e0b;">${(typeof window.t === 'function' ? window.t("check_source") : "") || "Check source"}</div>
         <div style="font-size:10px;color:#94a3b8;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(sourceUrl.substring(0, 45))}...</div>
       </div>
-      <span style="font-size:16px;color:#f59e0b;">→</span>
+      <span style="font-size:16px;color:#f59e0b;">\u2192</span>
     </a>
   ` : "";
 
-  // Indicateur publication MapEvent
-  const aiIndicator = b.isAI ? `
-    <div style="margin:6px 0;padding:6px 10px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);border-radius:8px;font-size:11px;color:#94a3b8;">
-      📢 Publié par <strong style="color:#60a5fa;">MapEvent</strong> : il peut y avoir des erreurs, merci de <a href="${sourceUrl || '#'}" target="_blank" style="color:#60a5fa;text-decoration:underline;">vérifier la source</a>
-    </div>
-  ` : "";
+  // Indicateur publication MapEvent supprimé (jamais affiché dans les popups).
+  const aiIndicator = "";
 
   const actionsRow = `
-    <div class="popup-actions-sticky" style="position:sticky;bottom:0;background:var(--ui-card-bg);z-index:10;padding:12px 0 8px;margin-top:12px;border-top:1px solid var(--ui-card-border);">
+    <div style="background:rgba(2,6,23,0.92);z-index:10;padding:12px 0 8px;margin-top:12px;border-top:1px solid rgba(148,163,184,0.35);">
     <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:0;">
-      <button onclick="onAction('like', 'booking', ${b.id})" class="pill small" style="flex:1;">
-        ${currentUser.likes.includes('booking:'+b.id) ? '👍' : '👍'} Like
+      <button onclick="onAction('like', 'booking', ${b.id})" class="pill small" style="flex:1;background:${isBookingLiked ? 'rgba(59,130,246,0.22)' : 'rgba(15,23,42,0.9)'};border:1px solid ${isBookingLiked ? 'rgba(59,130,246,0.55)' : 'rgba(148,163,184,0.45)'};color:${isBookingLiked ? '#93c5fd' : '#e2e8f0'};">
+        ${isBookingLiked ? '👍' : '👍🏻'} ${(typeof window.t === 'function' ? window.t("like") : "Like")}
       </button>
-      <button onclick="onAction('favorite', 'booking', ${b.id})" class="pill small" style="flex:1;">
-        ${currentUser.favorites.some(f => f.id === b.id.toString() && f.mode === 'booking') ? '⭐' : '☆'} Favoris
+      <button onclick="onAction('favorite', 'booking', ${b.id})" class="pill small" style="flex:1;background:rgba(15,23,42,0.9);border:1px solid rgba(148,163,184,0.45);color:#e2e8f0;">
+        ${isBookingFavorite ? '\u2B50' : '\u2606'} ${(typeof window.t === 'function' ? window.t("favorite") : "Favorite")}
       </button>
-      <button onclick="window.sharePopup('booking', ${b.id})" class="pill small" style="flex:1;">📤 Partager</button>
+      <button onclick="window.sharePopup('booking', ${b.id})" class="pill small" style="flex:1;background:rgba(15,23,42,0.9);border:1px solid rgba(148,163,184,0.45);color:#e2e8f0;">📤 ${(typeof window.t === 'function' ? window.t("share") : "Share")}</button>
       ${currentUser.isLoggedIn ? `
-        <button onclick="inviteFriendsToEvent('booking', ${b.id})" class="pill small" style="flex:1;">➕ Inviter</button>
       ` : ''}
     </div>
     <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">
-      <button onclick="onAction('agenda', 'booking', ${b.id})" class="pill small" style="flex:1;">
+      <button onclick="onAction('agenda', 'booking', ${b.id})" class="pill small" style="flex:1;background:rgba(15,23,42,0.9);border:1px solid rgba(148,163,184,0.45);color:#e2e8f0;">
         ${currentUser.agenda.includes('booking:'+b.id) ? '📅 ' + ((typeof window.t === 'function' ? window.t("in_agenda") : null) || "Dans agenda") : '📅 ' + (typeof window.t === 'function' ? window.t("agenda") : "Agenda")}
       </button>
     </div>
     <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">
-      <button onclick="onAction('avis', 'booking', ${b.id})" class="pill small" style="flex:1;">⭐ Avis</button>
-      <button onclick="onAction('discussion', 'booking', ${b.id})" class="pill small" style="flex:1;">💬 Contact</button>
-      <button onclick="onAction('report', 'booking', ${b.id})" class="pill small" style="color:#ef4444;">🚨</button>
+      <button onclick="onAction('discussion', 'booking', ${b.id})" class="pill small" style="flex:1;background:rgba(15,23,42,0.9);border:1px solid rgba(148,163,184,0.45);color:#e2e8f0;">💬 ${(typeof window.t === 'function' ? window.t("contact") : "Contact")}</button>
+      <button onclick="onAction('report', 'booking', ${b.id})" class="pill small" style="background:rgba(127,29,29,0.22);border:1px solid rgba(248,113,113,0.45);color:#fecaca;">🚨</button>
     </div>
     </div>
   `;
@@ -7569,8 +8895,8 @@ function buildBookingPopup(b) {
   return `
     <div style="width:100%;max-height:none;overflow:visible;font-family:system-ui,sans-serif;color:var(--ui-text-main);margin:0;padding:0;box-sizing:border-box;">
       <!-- Image principale avec overlay - ALIGNÉE PARFAITEMENT avec la bordure de la modal -->
-      <div style="position:relative;border-radius:16px 16px 0 0;overflow:hidden;margin:0;padding:0;width:100%;left:0;right:0;box-sizing:border-box;min-height:280px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);">
-        <div style="position:relative;width:100%;margin:0;padding:0;box-sizing:border-box;min-height:280px;display:flex;align-items:stretch;">
+      <div style="position:relative;border-radius:16px 16px 0 0;overflow:hidden;margin:0;padding:0;width:100%;left:0;right:0;box-sizing:border-box;height:clamp(220px,32vh,420px);background:linear-gradient(135deg,#3b82f6,#8b5cf6);">
+        <div style="position:relative;width:100%;margin:0;padding:0;box-sizing:border-box;height:clamp(220px,32vh,420px);display:flex;align-items:stretch;">
           ${imgTag}
         </div>
       </div>
@@ -7589,7 +8915,7 @@ function buildBookingPopup(b) {
         <h3 style="margin:0 0 10px;font-size:20px;font-weight:800;line-height:1.3;color:var(--ui-text-main);">${escapeHtml(b.name || "")}</h3>
         ${ratingStars ? `
           <div style="display:flex;align-items:center;gap:4px;margin-bottom:6px;">
-            ${'⭐'.repeat(Math.floor(parseFloat(b.rating)))}
+            ${'\u2B50'.repeat(Math.floor(parseFloat(b.rating)))}
             <span style="font-size:13px;color:#facc15;font-weight:600;">${b.rating}/5</span>
             <span style="font-size:11px;color:var(--ui-text-muted);">(${b.likes || 0} avis)</span>
         </div>
@@ -7599,25 +8925,26 @@ function buildBookingPopup(b) {
         </div>
         ${b.description ? `<div style="font-size:14px;color:#ffffff;margin-bottom:12px;line-height:1.7;padding:12px;background:transparent;border-radius:8px;">${escapeHtml(stripPhoneNumbers(b.description))}</div>` : ""}
         ${soundsSection}
+        ${noSoundInfo}
         ${sourceLinkBlock}
         ${aiIndicator}
         ${hasPaidContact ? `
           <div style="margin:8px 0;padding:12px;background:linear-gradient(135deg,rgba(0,255,195,0.15),rgba(34,197,94,0.1));border:1px solid rgba(0,255,195,0.3);border-radius:10px;">
-            <div style="font-size:12px;color:#00ffc3;font-weight:600;margin-bottom:8px;">✅ Contact</div>
+            <div style="font-size:12px;color:#00ffc3;font-weight:600;margin-bottom:8px;">\u2705 ${(typeof window.t === 'function' ? window.t("contact") : "Contact")}</div>
             <div style="font-size:13px;color:#e5e7eb;">📧 ${b.email || 'contact@artiste.ch'}</div>
-            <div style="font-size:10px;color:var(--ui-text-muted);margin-top:6px;">📅 Ajouté à votre agenda permanent</div>
+            <div style="font-size:10px;color:var(--ui-text-muted);margin-top:6px;">📅 ${(typeof window.t === 'function' ? window.t("added_to_agenda_permanent") : "Added to your permanent agenda")}</div>
         </div>
         ` : `
           <div style="font-size:11px;color:#6b7280;margin:8px 0;padding:8px;background:rgba(107,114,128,0.1);border-radius:8px;">
-            🔒 Coordonnées masquées • Email disponible après paiement
+            🔒 Coordonnées masquées \u2022 Email disponible après paiement
           </div>
         `}
-        <div class="popup-actions-sticky" style="position:sticky;bottom:0;background:var(--ui-card-bg);margin:12px -12px -12px -12px;padding:12px;z-index:10;border-top:1px solid rgba(148,163,184,0.2);">
+        <div class="popup-actions-sticky" style="position:sticky;bottom:0;background:rgba(2,6,23,0.96);margin:12px -12px -12px -12px;padding:12px;z-index:10;border-top:1px solid rgba(148,163,184,0.35);">
           ${actionsRow}
         </div>
         ${!hasPaidContact ? `
           <button onclick="onBuyContact('booking', ${b.id})" style="margin-top:10px;width:100%;padding:12px;border-radius:999px;border:none;cursor:pointer;font-size:14px;font-weight:700;background:var(--btn-main-bg);color:var(--btn-main-text);box-shadow:var(--btn-main-shadow);">
-            💳 Débloquer contact + sons – CHF 1.–
+            💳 Débloquer contact + sons \u2013 CHF 1.\u2013
         </button>
         ` : ''}
       </div>
@@ -7635,7 +8962,7 @@ function buildServicePopup(s) {
     window.translations = window.translations || { fr: {}, en: {}, es: {}, zh: {}, hi: {} };
   }
   
-  // ⚠️⚠️⚠️ CRITIQUE : S'assurer que currentUser est défini et a les propriétés nécessaires
+  // \u26A0️\u26A0️\u26A0️ CRITIQUE : S'assurer que currentUser est défini et a les propriétés nécessaires
   if (typeof currentUser === 'undefined' || !currentUser) {
     currentUser = {
       isLoggedIn: false,
@@ -7647,69 +8974,75 @@ function buildServicePopup(s) {
   }
   
   // S'assurer que les propriétés nécessaires existent
+  if (!Array.isArray(currentUser.likes)) {
+    currentUser.likes = [];
+  }
+  if (!Array.isArray(currentUser.favorites)) {
+    currentUser.favorites = [];
+  }
+  if (!Array.isArray(currentUser.agenda)) {
+    currentUser.agenda = [];
+  }
   if (!currentUser.subscription) {
     currentUser.subscription = 'free';
   }
-  // ⚠️⚠️⚠️ CRITIQUE : S'assurer que reviews est un objet (pas undefined)
+  // \u26A0️\u26A0️\u26A0️ CRITIQUE : S'assurer que reviews est un objet (pas undefined)
   if (!currentUser.reviews || typeof currentUser.reviews !== 'object') {
     currentUser.reviews = {};
   }
   
-  // ⚠️⚠️⚠️ CRITIQUE : S'assurer que paidContacts est défini
+  // \u26A0️\u26A0️\u26A0️ CRITIQUE : S'assurer que paidContacts est défini
   if (typeof paidContacts === 'undefined' || !Array.isArray(paidContacts)) {
     paidContacts = [];
   }
   
   const borderColor = getBoostColor(s.boost);
+  const serviceIdSafe = (s && s.id !== undefined && s.id !== null) ? String(s.id) : "";
+  const isServiceFavorite = currentUser.favorites.some(f => f && typeof f === 'object' && String(f.id || "") === serviceIdSafe && f.mode === 'service');
+  const isServiceLiked = currentUser.likes.includes('service:' + s.id);
   const imgTag = buildMainImageTag(s, s.name || "");
-  const cats = (s.categories || []).join(" • ");
+  const cats = (s.categories || []).join(" \u2022 ");
   const emoji = getCategoryEmoji(s);
-  // ⚠️ GRATUIT : Coordonnées toujours affichées (plus de paiement requis)
+  // \u26A0️ GRATUIT : Coordonnées toujours affichées (plus de paiement requis)
   const hasPaidContact = true;
 
   // Badge vérifié
-  const verifiedBadge = s.verified ? `<span class="verified-badge">✓ Vérifié</span>` : "";
+  const verifiedBadge = s.verified ? `<span class="verified-badge">\u2713 Vérifié</span>` : "";
 
   // Rating
   const ratingStars = s.rating ? `
     <div style="display:flex;align-items:center;gap:4px;margin-bottom:6px;">
-      ${'⭐'.repeat(Math.floor(parseFloat(s.rating)))}
+      ${'\u2B50'.repeat(Math.floor(parseFloat(s.rating)))}
       <span style="font-size:12px;color:var(--ui-text-muted);">${s.rating}/5</span>
       <span style="font-size:11px;color:var(--ui-text-muted);">(${s.likes || 0} avis)</span>
     </div>
   ` : "";
 
-  // Indicateur publication MapEvent
-  const aiIndicator = s.isAI ? `
-    <div style="margin:6px 0;padding:6px 10px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);border-radius:8px;font-size:11px;color:#94a3b8;">
-      📢 Publié par <strong style="color:#60a5fa;">MapEvent</strong> : il peut y avoir des erreurs, merci de <a href="${s.sourceUrl || '#'}" target="_blank" style="color:#60a5fa;text-decoration:underline;">vérifier la source</a>
-    </div>
-  ` : "";
+  // Indicateur publication MapEvent supprimé (jamais affiché dans les popups).
+  const aiIndicator = "";
 
   const actionsRow = `
-    <div class="popup-actions-sticky" style="position:sticky;bottom:0;background:var(--ui-card-bg);z-index:10;padding:12px 0 8px;margin-top:12px;border-top:1px solid var(--ui-card-border);">
+    <div style="background:rgba(2,6,23,0.92);z-index:10;padding:12px 0 8px;margin-top:12px;border-top:1px solid rgba(148,163,184,0.35);">
     <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:0;">
-      <button onclick="onAction('like', 'service', ${s.id})" class="pill small" style="flex:1;">
-        ${currentUser.likes.includes('service:'+s.id) ? '👍' : '👍'} Like
+      <button onclick="onAction('like', 'service', ${s.id})" class="pill small" style="flex:1;background:${isServiceLiked ? 'rgba(59,130,246,0.22)' : 'rgba(15,23,42,0.9)'};border:1px solid ${isServiceLiked ? 'rgba(59,130,246,0.55)' : 'rgba(148,163,184,0.45)'};color:${isServiceLiked ? '#93c5fd' : '#e2e8f0'};">
+        ${isServiceLiked ? '👍' : '👍🏻'} ${(typeof window.t === 'function' ? window.t("like") : "Like")}
       </button>
-      <button onclick="onAction('favorite', 'service', ${s.id})" class="pill small" style="flex:1;">
-        ${currentUser.favorites.some(f => f.id === s.id.toString() && f.mode === 'service') ? '⭐' : '☆'} Favoris
+      <button onclick="onAction('favorite', 'service', ${s.id})" class="pill small" style="flex:1;background:rgba(15,23,42,0.9);border:1px solid rgba(148,163,184,0.45);color:#e2e8f0;">
+        ${isServiceFavorite ? '\u2B50' : '\u2606'} ${(typeof window.t === 'function' ? window.t("favorite") : "Favorite")}
       </button>
-      <button onclick="window.sharePopup('service', ${s.id})" class="pill small" style="flex:1;">📤 Partager</button>
+      <button onclick="window.sharePopup('service', ${s.id})" class="pill small" style="flex:1;background:rgba(15,23,42,0.9);border:1px solid rgba(148,163,184,0.45);color:#e2e8f0;">📤 ${(typeof window.t === 'function' ? window.t("share") : "Share")}</button>
       ${currentUser.isLoggedIn ? `
-        <button onclick="inviteFriendsToEvent('service', ${s.id})" class="pill small" style="flex:1;">➕ Inviter</button>
       ` : ''}
     </div>
     <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">
-      <button onclick="onAction('agenda', 'service', ${s.id})" class="pill small" style="flex:1;">
+      <button onclick="onAction('agenda', 'service', ${s.id})" class="pill small" style="flex:1;background:rgba(15,23,42,0.9);border:1px solid rgba(148,163,184,0.45);color:#e2e8f0;">
         ${currentUser.agenda.includes('service:'+s.id) ? '📅 ' + ((typeof window.t === 'function' ? window.t("in_agenda") : null) || "Dans agenda") : '📅 ' + (typeof window.t === 'function' ? window.t("agenda") : "Agenda")}
       </button>
-      <button onclick="onAction('route', 'service', ${s.id})" class="pill small" style="flex:1;">🗺️ ${(typeof window.t === 'function' ? window.t("route") : null) || "Itinéraire"}</button>
+      <button onclick="onAction('route', 'service', ${s.id})" class="pill small" style="flex:1;background:rgba(15,23,42,0.9);border:1px solid rgba(148,163,184,0.45);color:#e2e8f0;">🗺️ ${(typeof window.t === 'function' ? window.t("route") : null) || "Itinéraire"}</button>
     </div>
     <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">
-      <button onclick="onAction('avis', 'service', ${s.id})" class="pill small" style="flex:1;">⭐ Avis</button>
-      <button onclick="onAction('discussion', 'service', ${s.id})" class="pill small" style="flex:1;">💬 Contact</button>
-      <button onclick="onAction('report', 'service', ${s.id})" class="pill small" style="color:#ef4444;">🚨</button>
+      <button onclick="onAction('discussion', 'service', ${s.id})" class="pill small" style="flex:1;background:rgba(15,23,42,0.9);border:1px solid rgba(148,163,184,0.45);color:#e2e8f0;">💬 ${(typeof window.t === 'function' ? window.t("contact") : "Contact")}</button>
+      <button onclick="onAction('report', 'service', ${s.id})" class="pill small" style="background:rgba(127,29,29,0.22);border:1px solid rgba(248,113,113,0.45);color:#fecaca;">🚨</button>
     </div>
     </div>
   `;
@@ -7717,8 +9050,8 @@ function buildServicePopup(s) {
   return `
     <div style="width:100%;max-height:none;overflow:visible;font-family:system-ui,sans-serif;color:var(--ui-text-main);margin:0;padding:0;box-sizing:border-box;">
       <!-- Image principale avec overlay - ALIGNÉE PARFAITEMENT avec la bordure de la modal -->
-      <div style="position:relative;border-radius:16px 16px 0 0;overflow:hidden;margin:0;padding:0;width:100%;left:0;right:0;box-sizing:border-box;min-height:280px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);">
-        <div style="position:relative;width:100%;margin:0;padding:0;box-sizing:border-box;min-height:280px;display:flex;align-items:stretch;">
+      <div style="position:relative;border-radius:16px 16px 0 0;overflow:hidden;margin:0;padding:0;width:100%;left:0;right:0;box-sizing:border-box;height:clamp(220px,32vh,420px);background:linear-gradient(135deg,#3b82f6,#8b5cf6);">
+        <div style="position:relative;width:100%;margin:0;padding:0;box-sizing:border-box;height:clamp(220px,32vh,420px);display:flex;align-items:stretch;">
           ${imgTag}
         </div>
       </div>
@@ -7736,7 +9069,7 @@ function buildServicePopup(s) {
         <h3 style="margin:0 0 10px;font-size:20px;font-weight:800;line-height:1.3;color:var(--ui-text-main);">${escapeHtml(s.name || "")}</h3>
         ${ratingStars ? `
           <div style="display:flex;align-items:center;gap:4px;margin-bottom:6px;">
-            ${'⭐'.repeat(Math.floor(parseFloat(s.rating)))}
+            ${'\u2B50'.repeat(Math.floor(parseFloat(s.rating)))}
             <span style="font-size:13px;color:#facc15;font-weight:600;">${s.rating}/5</span>
             <span style="font-size:11px;color:var(--ui-text-muted);">(${s.likes || 0} avis)</span>
         </div>
@@ -7748,10 +9081,10 @@ function buildServicePopup(s) {
         ${aiIndicator}
         ${hasPaidContact ? `
           <div style="margin:8px 0;padding:12px;background:linear-gradient(135deg,rgba(0,255,195,0.15),rgba(34,197,94,0.1));border:1px solid rgba(0,255,195,0.3);border-radius:10px;">
-            <div style="font-size:12px;color:#00ffc3;font-weight:600;margin-bottom:8px;">✅ Contact</div>
+            <div style="font-size:12px;color:#00ffc3;font-weight:600;margin-bottom:8px;">\u2705 ${(typeof window.t === 'function' ? window.t("contact") : "Contact")}</div>
             <div style="font-size:13px;color:#e5e7eb;">📧 ${s.email || 'contact@service.ch'}</div>
             ${s.website ? `<a href="${s.website}" target="_blank" style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:#3b82f6;margin-top:4px;">🌐 ${s.website}</a>` : ''}
-            <div style="font-size:10px;color:var(--ui-text-muted);margin-top:6px;">📅 Ajouté à votre agenda permanent</div>
+            <div style="font-size:10px;color:var(--ui-text-muted);margin-top:6px;">📅 ${(typeof window.t === 'function' ? window.t("added_to_agenda_permanent") : "Added to your permanent agenda")}</div>
         </div>
         ` : `
           <div style="font-size:11px;color:#6b7280;margin:8px 0;padding:10px;background:rgba(107,114,128,0.1);border-radius:8px;">
@@ -7759,12 +9092,12 @@ function buildServicePopup(s) {
             <span style="font-size:10px;">Débloquez pour accéder aux coordonnées complètes</span>
           </div>
         `}
-        <div class="popup-actions-sticky" style="position:sticky;bottom:0;background:var(--ui-card-bg);margin:12px -12px -12px -12px;padding:12px;z-index:10;border-top:1px solid rgba(148,163,184,0.2);">
+        <div class="popup-actions-sticky" style="position:sticky;bottom:0;background:rgba(2,6,23,0.96);margin:12px -12px -12px -12px;padding:12px;z-index:10;border-top:1px solid rgba(148,163,184,0.35);">
           ${actionsRow}
         </div>
         ${!hasPaidContact ? `
           <button onclick="onBuyContact('service', ${s.id})" style="margin-top:10px;width:100%;padding:12px;border-radius:999px;border:none;cursor:pointer;font-size:14px;font-weight:700;background:var(--btn-main-bg);color:var(--btn-main-text);box-shadow:var(--btn-main-shadow);">
-            💳 Débloquer contact + site – CHF 1.–
+            💳 Débloquer contact + site \u2013 CHF 1.\u2013
         </button>
         ` : ''}
       </div>
@@ -7797,9 +9130,10 @@ function calculateDistance(lat1, lng1, lat2, lng2) {
 }
 
 // ============================================
-// VUE LISTE (fullscreen) – tri
+// VUE LISTE (fullscreen) \u2013 tri
 // ============================================
 function refreshListView() {
+  normalizeCurrentUserCollections();
   const listView = document.getElementById("list-view");
   if (!listView) return;
 
@@ -7836,7 +9170,7 @@ function refreshListView() {
   
   if (hasValidCity) {
     // ============================================
-    // MODE 1 : VILLE SÉLECTIONNÉE → TRIER PAR DISTANCE + CATÉGORIES + BOOSTS
+    // MODE 1 : VILLE SÉLECTIONNÉE \u2192 TRIER PAR DISTANCE + CATÉGORIES + BOOSTS
     // Ordre de priorité : 1) DISTANCE (priorité absolue), 2) Catégories, 3) Boost, 4) Platinum rank
     // ============================================
     
@@ -7845,7 +9179,7 @@ function refreshListView() {
     console.log(`Coordonnées: lat=${selectedCityForSorting.lat}, lng=${selectedCityForSorting.lng}`);
     console.log(`Total items à trier: ${base.length}`);
     
-    const boostOrder = { platinum: 1, gold: 2, silver: 3, bronze: 4, basic: 5 };
+    const boostOrder = { platinum: 1, gold: 2, silver: 3, bronze: 4, "1.-": 5, standard: 5, basic: 5 };
     
     // ÉTAPE 1 : Calculer la distance pour CHAQUE item
     const cityLat = parseFloat(selectedCityForSorting.lat);
@@ -7855,8 +9189,8 @@ function refreshListView() {
     console.log(`🔍 Type de lat: ${typeof selectedCityForSorting.lat}, Type de lng: ${typeof selectedCityForSorting.lng}`);
     
     if (isNaN(cityLat) || isNaN(cityLng)) {
-      console.error(`❌ Coordonnées ville invalides ! selectedCityForSorting:`, selectedCityForSorting);
-      console.error(`❌ Valeurs brutes: lat="${selectedCityForSorting.lat}", lng="${selectedCityForSorting.lng}"`);
+      console.error(`\u274C Coordonnées ville invalides ! selectedCityForSorting:`, selectedCityForSorting);
+      console.error(`\u274C Valeurs brutes: lat="${selectedCityForSorting.lat}", lng="${selectedCityForSorting.lng}"`);
       data = base.slice(0, 200);
     } else {
       // Calculer la distance pour tous les items
@@ -7909,8 +9243,8 @@ function refreshListView() {
       const itemsWithValidDistance = itemsWithDistance.filter(item => isFinite(item._distance));
       const itemsWithoutDistance = itemsWithDistance.filter(item => !isFinite(item._distance));
       
-      console.log(`✅ ${itemsWithValidDistance.length} items avec distance valide`);
-      console.log(`⚠️ ${itemsWithoutDistance.length} items sans distance`);
+      console.log(`\u2705 ${itemsWithValidDistance.length} items avec distance valide`);
+      console.log(`\u26A0️ ${itemsWithoutDistance.length} items sans distance`);
       
       // Vérifier que les items avec distance valide ont bien des distances différentes
       if (itemsWithValidDistance.length >= 2) {
@@ -7935,9 +9269,9 @@ function refreshListView() {
         console.log(`   Genève: ${geneve._distance.toFixed(2)}km (lat:${geneve.lat}, lng:${geneve.lng})`);
         console.log(`   Ville sélectionnée: ${selectedCityForSorting.name} (lat:${cityLat}, lng:${cityLng})`);
         if (monthey._distance > geneve._distance) {
-          console.error(`   ❌ PROBLÈME: Monthey (${monthey._distance.toFixed(2)}km) est PLUS LOIN que Genève (${geneve._distance.toFixed(2)}km) !`);
+          console.error(`   \u274C PROBLÈME: Monthey (${monthey._distance.toFixed(2)}km) est PLUS LOIN que Genève (${geneve._distance.toFixed(2)}km) !`);
         } else {
-          console.log(`   ✅ CORRECT: Monthey (${monthey._distance.toFixed(2)}km) est plus proche que Genève (${geneve._distance.toFixed(2)}km)`);
+          console.log(`   \u2705 CORRECT: Monthey (${monthey._distance.toFixed(2)}km) est plus proche que Genève (${geneve._distance.toFixed(2)}km)`);
         }
       }
       
@@ -7950,10 +9284,10 @@ function refreshListView() {
         console.log(`   Zurich: ${zurich._distance.toFixed(2)}km (lat:${zurich.lat}, lng:${zurich.lng})`);
         console.log(`   Ville sélectionnée: ${selectedCityForSorting.name} (lat:${cityLat}, lng:${cityLng})`);
         if (sion._distance > zurich._distance) {
-          console.error(`   ❌ PROBLÈME CRITIQUE: Sion (${sion._distance.toFixed(2)}km) est PLUS LOIN que Zurich (${zurich._distance.toFixed(2)}km) !`);
+          console.error(`   \u274C PROBLÈME CRITIQUE: Sion (${sion._distance.toFixed(2)}km) est PLUS LOIN que Zurich (${zurich._distance.toFixed(2)}km) !`);
           console.error(`   Cela ne devrait JAMAIS arriver car Sion est à ~10km de Sierre et Zurich à ~200km !`);
         } else {
-          console.log(`   ✅ CORRECT: Sion (${sion._distance.toFixed(2)}km) est plus proche que Zurich (${zurich._distance.toFixed(2)}km)`);
+          console.log(`   \u2705 CORRECT: Sion (${sion._distance.toFixed(2)}km) est plus proche que Zurich (${zurich._distance.toFixed(2)}km)`);
         }
       }
       
@@ -8022,9 +9356,9 @@ function refreshListView() {
         console.log(`   Monthey: position ${montheyIndex + 1}, distance ${montheyAfter._distance.toFixed(2)}km`);
         console.log(`   Genève: position ${geneveIndex + 1}, distance ${geneveAfter._distance.toFixed(2)}km`);
         if (montheyIndex > geneveIndex && montheyAfter._distance < geneveAfter._distance) {
-          console.error(`   ❌ ERREUR DE TRI: Monthey (${montheyAfter._distance.toFixed(2)}km) est APRÈS Genève (${geneveAfter._distance.toFixed(2)}km) alors qu'il devrait être AVANT !`);
+          console.error(`   \u274C ERREUR DE TRI: Monthey (${montheyAfter._distance.toFixed(2)}km) est APRÈS Genève (${geneveAfter._distance.toFixed(2)}km) alors qu'il devrait être AVANT !`);
         } else if (montheyIndex < geneveIndex) {
-          console.log(`   ✅ CORRECT: Monthey est AVANT Genève dans le tri`);
+          console.log(`   \u2705 CORRECT: Monthey est AVANT Genève dans le tri`);
         }
       }
       
@@ -8038,14 +9372,14 @@ function refreshListView() {
         console.log(`   Sion: position ${sionIndex + 1}, distance ${sionAfter._distance.toFixed(2)}km`);
         console.log(`   Zurich: position ${zurichIndex + 1}, distance ${zurichAfter._distance.toFixed(2)}km`);
         if (sionIndex > zurichIndex && sionAfter._distance < zurichAfter._distance) {
-          console.error(`   ❌ ERREUR CRITIQUE DE TRI: Sion (${sionAfter._distance.toFixed(2)}km) est APRÈS Zurich (${zurichAfter._distance.toFixed(2)}km) alors qu'il devrait être AVANT !`);
+          console.error(`   \u274C ERREUR CRITIQUE DE TRI: Sion (${sionAfter._distance.toFixed(2)}km) est APRÈS Zurich (${zurichAfter._distance.toFixed(2)}km) alors qu'il devrait être AVANT !`);
           console.error(`   Le tri ne fonctionne PAS correctement !`);
         } else if (sionIndex < zurichIndex) {
-          console.log(`   ✅ CORRECT: Sion est AVANT Zurich dans le tri`);
+          console.log(`   \u2705 CORRECT: Sion est AVANT Zurich dans le tri`);
         }
       }
       
-      console.log(`✅ Tri terminé - ${sortedItems.length} items triés`);
+      console.log(`\u2705 Tri terminé - ${sortedItems.length} items triés`);
       
       // VÉRIFICATION : S'assurer que le tri par distance est correct dans itemsWithValidDistance
       if (itemsWithValidDistance.length >= 2) {
@@ -8055,14 +9389,14 @@ function refreshListView() {
           const next = itemsWithValidDistance[i + 1];
           if (current._distance > next._distance) {
             triCorrect = false;
-            console.error(`❌ ERREUR DE TRI: Item ${i} (${current._distance.toFixed(2)}km) est APRÈS item ${i+1} (${next._distance.toFixed(2)}km) !`);
+            console.error(`\u274C ERREUR DE TRI: Item ${i} (${current._distance.toFixed(2)}km) est APRÈS item ${i+1} (${next._distance.toFixed(2)}km) !`);
             console.error(`   Item ${i}: ${current.city || current.title} - ${current._distance.toFixed(2)}km`);
             console.error(`   Item ${i+1}: ${next.city || next.title} - ${next._distance.toFixed(2)}km`);
             break;
           }
         }
         if (triCorrect) {
-          console.log(`✅ VÉRIFICATION: Le tri par distance est CORRECT - tous les items sont triés par distance croissante`);
+          console.log(`\u2705 VÉRIFICATION: Le tri par distance est CORRECT - tous les items sont triés par distance croissante`);
         }
       }
       
@@ -8098,14 +9432,14 @@ function refreshListView() {
           const distNext = next._distance !== undefined && isFinite(next._distance) ? next._distance : Infinity;
           if (distCurrent > distNext) {
             triCorrect = false;
-            console.error(`   ❌ ERREUR: Item ${i} (${distCurrent.toFixed(2)}km) est APRÈS item ${i+1} (${distNext.toFixed(2)}km) !`);
+            console.error(`   \u274C ERREUR: Item ${i} (${distCurrent.toFixed(2)}km) est APRÈS item ${i+1} (${distNext.toFixed(2)}km) !`);
             break;
           }
         }
         if (triCorrect) {
-          console.log(`   ✅ data est correctement trié par distance (PRIORITÉ ABSOLUE)`);
+          console.log(`   \u2705 data est correctement trié par distance (PRIORITÉ ABSOLUE)`);
         } else {
-          console.error(`   ❌ ERREUR CRITIQUE: Le tri ne fonctionne PAS !`);
+          console.error(`   \u274C ERREUR CRITIQUE: Le tri ne fonctionne PAS !`);
         }
       }
       
@@ -8119,9 +9453,9 @@ function refreshListView() {
         console.log(`   Monthey dans data: position ${montheyPosInData}, distance ${montheyInData._distance.toFixed(2)}km`);
         console.log(`   Genève dans data: position ${genevePosInData}, distance ${geneveInData._distance.toFixed(2)}km`);
         if (montheyPosInData > genevePosInData && montheyInData._distance < geneveInData._distance) {
-          console.error(`   ❌ ERREUR CRITIQUE: Monthey est APRÈS Genève dans data alors qu'il devrait être AVANT !`);
+          console.error(`   \u274C ERREUR CRITIQUE: Monthey est APRÈS Genève dans data alors qu'il devrait être AVANT !`);
         } else {
-          console.log(`   ✅ data est correctement trié`);
+          console.log(`   \u2705 data est correctement trié`);
         }
       }
       
@@ -8137,7 +9471,7 @@ function refreshListView() {
         console.log(`   Sion dans data: position ${sionPosInData}, distance ${sionDist.toFixed(2)}km`);
         console.log(`   Zurich dans data: position ${zurichPosInData}, distance ${zurichDist.toFixed(2)}km`);
         if (sionPosInData > zurichPosInData && sionDist < zurichDist) {
-          console.error(`   ❌ ERREUR CRITIQUE: Sion est APRÈS Zurich dans data alors qu'il devrait être AVANT !`);
+          console.error(`   \u274C ERREUR CRITIQUE: Sion est APRÈS Zurich dans data alors qu'il devrait être AVANT !`);
           console.error(`   Le problème est dans la variable data utilisée pour l'affichage !`);
           console.error(`   FORCER LE TRI MANUEL IMMÉDIATEMENT`);
           // FORCER le tri manuel
@@ -8146,9 +9480,9 @@ function refreshListView() {
             const distB = b._distance !== undefined && isFinite(b._distance) ? b._distance : Infinity;
             return distA - distB;
           });
-          console.log(`   ✅ Tri manuel appliqué - ${data.length} items triés`);
+          console.log(`   \u2705 Tri manuel appliqué - ${data.length} items triés`);
         } else if (sionPosInData < zurichPosInData) {
-          console.log(`   ✅ CORRECT: Sion est AVANT Zurich dans data`);
+          console.log(`   \u2705 CORRECT: Sion est AVANT Zurich dans data`);
         }
       }
       
@@ -8167,19 +9501,19 @@ function refreshListView() {
             const nextDist = next._distance !== undefined && isFinite(next._distance) ? next._distance : Infinity;
             if (dist > nextDist) {
               triCorrect = false;
-              console.error(`   ❌ ERREUR: Item ${i} (${dist.toFixed(2)}km) est APRÈS item ${i+1} (${nextDist.toFixed(2)}km) !`);
+              console.error(`   \u274C ERREUR: Item ${i} (${dist.toFixed(2)}km) est APRÈS item ${i+1} (${nextDist.toFixed(2)}km) !`);
             }
           }
         }
         
         if (!triCorrect) {
-          console.error(`   ❌ LE TRI EST INCORRECT - FORCER LE TRI MANUEL AVANT AFFICHAGE`);
+          console.error(`   \u274C LE TRI EST INCORRECT - FORCER LE TRI MANUEL AVANT AFFICHAGE`);
           data.sort((a, b) => {
             const distA = a._distance !== undefined && isFinite(a._distance) ? a._distance : Infinity;
             const distB = b._distance !== undefined && isFinite(b._distance) ? b._distance : Infinity;
             return distA - distB;
           });
-          console.log(`   ✅ Tri manuel appliqué AVANT AFFICHAGE - ${data.length} items triés`);
+          console.log(`   \u2705 Tri manuel appliqué AVANT AFFICHAGE - ${data.length} items triés`);
           
           // Réafficher les 5 premiers après le tri
           console.log(`\n🔍 APRÈS TRI MANUEL - 5 PREMIERS:`);
@@ -8189,16 +9523,16 @@ function refreshListView() {
             console.log(`   ${i + 1}. ${item.city || item.title || item.name || 'N/A'} - ${dist !== Infinity ? dist.toFixed(2) + 'km' : 'Infinity'}`);
           }
         } else {
-          console.log(`   ✅ Le tri est CORRECT - tous les items sont triés par distance croissante`);
+          console.log(`   \u2705 Le tri est CORRECT - tous les items sont triés par distance croissante`);
         }
       }
     
       // Logs détaillés
-      console.log(`✅ ${itemsWithValidDistance.length} items avec distance calculée`);
-      console.log(`⚠️ ${itemsWithDistance.length - itemsWithValidDistance.length} items sans distance`);
+      console.log(`\u2705 ${itemsWithValidDistance.length} items avec distance calculée`);
+      console.log(`\u26A0️ ${itemsWithDistance.length - itemsWithValidDistance.length} items sans distance`);
       
       if (itemsWithValidDistance.length > 0) {
-        console.log(`\n📋 TOP 20 (tri: DISTANCE → CATÉGORIES → BOOSTS) :`);
+        console.log(`\n📋 TOP 20 (tri: DISTANCE \u2192 CATÉGORIES \u2192 BOOSTS) :`);
         data.slice(0, 20).forEach((item, index) => {
           const cityName = (item.city || 'N/A').padEnd(20);
           const distance = isFinite(item._distance) ? item._distance.toFixed(2).padStart(8) : 'N/A'.padStart(8);
@@ -8215,18 +9549,18 @@ function refreshListView() {
           console.log(`\n🔍 VÉRIFICATION SPÉCIFIQUE:`);
           if (sion) {
             const sionPos = itemsWithDistance.indexOf(sion) + 1;
-            console.log(`   ✅ SION: ${sion._distance.toFixed(2)}km (position ${sionPos})`);
+            console.log(`   \u2705 SION: ${sion._distance.toFixed(2)}km (position ${sionPos})`);
           }
           if (zurich) {
             const zurichPos = itemsWithDistance.indexOf(zurich) + 1;
-            console.log(`   ✅ ZURICH: ${zurich._distance.toFixed(2)}km (position ${zurichPos})`);
+            console.log(`   \u2705 ZURICH: ${zurich._distance.toFixed(2)}km (position ${zurichPos})`);
           }
           
           if (sion && zurich) {
             if (sion._distance < zurich._distance) {
-              console.log(`   ✅ TRI CORRECT: Sion (${sion._distance.toFixed(2)}km) est AVANT Zurich (${zurich._distance.toFixed(2)}km)`);
+              console.log(`   \u2705 TRI CORRECT: Sion (${sion._distance.toFixed(2)}km) est AVANT Zurich (${zurich._distance.toFixed(2)}km)`);
             } else {
-              console.error(`   ❌ ERREUR: Sion (${sion._distance.toFixed(2)}km) est APRÈS Zurich (${zurich._distance.toFixed(2)}km) !`);
+              console.error(`   \u274C ERREUR: Sion (${sion._distance.toFixed(2)}km) est APRÈS Zurich (${zurich._distance.toFixed(2)}km) !`);
             }
           }
         }
@@ -8243,10 +9577,10 @@ function refreshListView() {
     }
   } else {
     // ============================================
-    // MODE 2 : AUCUNE VILLE SÉLECTIONNÉE → TRIER PAR BOOST ET CATÉGORIES
+    // MODE 2 : AUCUNE VILLE SÉLECTIONNÉE \u2192 TRIER PAR BOOST ET CATÉGORIES
     // ============================================
     
-    const boostOrder = { platinum: 1, gold: 2, silver: 3, bronze: 4, basic: 5 };
+    const boostOrder = { platinum: 1, gold: 2, silver: 3, bronze: 4, "1.-": 5, standard: 5, basic: 5 };
     
     data = base
       .slice()
@@ -8290,10 +9624,10 @@ function refreshListView() {
     <div class="list-header" style="display:flex;flex-direction:column;gap:12px;padding:16px;background:var(--ui-card-bg);border-bottom:1px solid var(--ui-card-border);">
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
         <div style="flex:1;">
-          <div style="font-size:16px;font-weight:700;margin-bottom:4px;">📋 Résultats (${data.length}/${Math.min(base.length, 200)}${base.length > 200 ? ' (limite: 200 max)' : ''}) – ${currentMode.toUpperCase()}</div>
+          <div style="font-size:16px;font-weight:700;margin-bottom:4px;">📋 Résultats (${data.length}/${Math.min(base.length, 200)}${base.length > 200 ? ' (limite: 200 max)' : ''}) \u2013 ${currentMode.toUpperCase()}</div>
           <div style="font-size:12px;color:var(--ui-text-muted);">Cliquer sur un élément pour ouvrir la popup complète.${base.length > 200 ? ' Affichage limité à 200 résultats maximum.' : ''}</div>
         </div>
-        <button onclick="toggleListView()" style="padding:8px 12px;border-radius:8px;background:rgba(239,68,68,0.2);border:1px solid rgba(239,68,68,0.4);color:#ef4444;font-size:12px;cursor:pointer;">✕ Fermer</button>
+        <button onclick="toggleListView()" style="padding:8px 12px;border-radius:8px;background:rgba(239,68,68,0.2);border:1px solid rgba(239,68,68,0.4);color:#ef4444;font-size:12px;cursor:pointer;">\u2715 Fermer</button>
       </div>
       
       <!-- Barre de recherche ville/région -->
@@ -8312,7 +9646,7 @@ function refreshListView() {
             ${currentSearchValue ? `
               <button onclick="clearCitySearch()" 
                       style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--ui-text-muted);font-size:18px;cursor:pointer;padding:4px;"
-                      title="Effacer">✕</button>
+                      title="Effacer">\u2715</button>
             ` : ''}
           </div>
         </div>
@@ -8329,7 +9663,7 @@ function refreshListView() {
               ${selectedCityForSorting.countryCode ? getFlagEmoji(selectedCityForSorting.countryCode) : ''}
             </div>
           </div>
-          <button onclick="clearCitySearch()" style="padding:6px 12px;background:rgba(239,68,68,0.2);border:1px solid rgba(239,68,68,0.4);border-radius:6px;color:#ef4444;font-size:12px;font-weight:600;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='rgba(239,68,68,0.3)'" onmouseout="this.style.background='rgba(239,68,68,0.2)'">✕ Réinitialiser</button>
+          <button onclick="clearCitySearch()" style="padding:6px 12px;background:rgba(239,68,68,0.2);border:1px solid rgba(239,68,68,0.4);border-radius:6px;color:#ef4444;font-size:12px;font-weight:600;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='rgba(239,68,68,0.3)'" onmouseout="this.style.background='rgba(239,68,68,0.2)'">\u2715 Réinitialiser</button>
         </div>
       ` : ''}
     </div>
@@ -8379,16 +9713,16 @@ function refreshListView() {
               const distNext = next._distance !== undefined && isFinite(next._distance) ? next._distance : Infinity;
               if (distCurrent > distNext) {
                 triCorrect = false;
-                console.error(`\n❌ ERREUR CRITIQUE: Item ${i} (${distCurrent.toFixed(2)}km) est APRÈS item ${i+1} (${distNext.toFixed(2)}km) !`);
+                console.error(`\n\u274C ERREUR CRITIQUE: Item ${i} (${distCurrent.toFixed(2)}km) est APRÈS item ${i+1} (${distNext.toFixed(2)}km) !`);
                 console.error(`   Item ${i}: ${current.city || current.title || current.name}`);
                 console.error(`   Item ${i+1}: ${next.city || next.title || next.name}`);
               }
             }
             if (triCorrect) {
-              console.log(`\n✅ TRI CORRECT - Les items sont triés par distance croissante`);
+              console.log(`\n\u2705 TRI CORRECT - Les items sont triés par distance croissante`);
               console.log(`========================================\n\n\n`);
             } else {
-              console.error(`\n❌ ERREUR CRITIQUE: Le tri ne fonctionne PAS !`);
+              console.error(`\n\u274C ERREUR CRITIQUE: Le tri ne fonctionne PAS !`);
               console.error(`========================================\n\n\n`);
             }
             
@@ -8438,17 +9772,20 @@ function buildEventCard(ev, distance = null) {
   const imgTag = buildMainImageTag(ev, ev.title || "");
   const borderColor = getBoostColor(ev.boost);
   const emoji = getCategoryEmoji(ev);
-  const isLiked = currentUser.likes.includes(`event:${ev.id}`);
+  const likes = Array.isArray(currentUser?.likes) ? currentUser.likes : [];
+  const isLiked = likes.includes(`event:${ev.id}`);
   
   // Badge boost
-  const boostBadge = ev.boost && ev.boost !== "basic" ? `
+  const cardBoost = normalizeBoostTier(ev.boost);
+  const boostBadge = cardBoost && cardBoost !== "basic" ? `
     <div style="position:absolute;top:8px;right:8px;padding:4px 8px;border-radius:999px;font-size:10px;font-weight:700;z-index:6;
-      ${ev.boost === 'platinum' ? 'background:linear-gradient(135deg,#e5e4e2,#fff);color:#1f2937;' : ''}
-      ${ev.boost === 'gold' ? 'background:linear-gradient(135deg,#ffd700,#ffed4a);color:#1f2937;' : ''}
-      ${ev.boost === 'silver' ? 'background:linear-gradient(135deg,#c0c0c0,#e5e5e5);color:#1f2937;' : ''}
-      ${ev.boost === 'bronze' ? 'background:linear-gradient(135deg,#cd7f32,#daa06d);color:#fff;' : ''}
+      ${cardBoost === 'platinum' ? 'background:linear-gradient(135deg,#e5e4e2,#fff);color:#1f2937;' : ''}
+      ${cardBoost === 'gold' ? 'background:linear-gradient(135deg,#ffd700,#ffed4a);color:#1f2937;' : ''}
+      ${cardBoost === 'silver' ? 'background:linear-gradient(135deg,#c0c0c0,#e5e5e5);color:#1f2937;' : ''}
+      ${cardBoost === 'bronze' ? 'background:linear-gradient(135deg,#cd7f32,#daa06d);color:#fff;' : ''}
+      ${cardBoost === '1.-' ? 'background:linear-gradient(135deg,#1a3fc7,#1e3a8a);color:#fff;' : ''}
     ">
-      ${ev.boost === 'platinum' ? '👑 TOP' : ev.boost === 'gold' ? '🥇' : ev.boost === 'silver' ? '🥈' : '🥉'}
+      ${cardBoost === 'platinum' ? '👑 TOP' : cardBoost === 'gold' ? '🥇' : cardBoost === 'silver' ? '🥈' : cardBoost === 'bronze' ? '🥉' : '💠 1.-'}
     </div>
   ` : '';
   
@@ -8475,15 +9812,15 @@ function buildEventCard(ev, distance = null) {
         ${distanceBadge}
         ${boostBadge}
         <button onclick="event.stopPropagation();onAction('like','event',${ev.id})" style="position:absolute;top:8px;${distanceBadge ? 'left:50px;' : 'left:8px;'}width:32px;height:32px;border-radius:50%;border:none;background:rgba(0,0,0,0.5);color:${isLiked ? '#ef4444' : '#fff'};cursor:pointer;font-size:16px;z-index:7;">
-          ${isLiked ? '❤️' : '🤍'}
+          ${isLiked ? '\u2764️' : '🤍'}
         </button>
         ${ev.status && ev.status !== 'OK' ? `<div style="position:absolute;bottom:0;left:0;right:0;padding:6px;background:${ev.status === 'COMPLET' ? 'rgba(234,179,8,0.9)' : 'rgba(239,68,68,0.9)'};color:#fff;font-size:11px;font-weight:700;text-align:center;">${ev.status}</div>` : ''}
       </div>
       <div style="padding:12px;">
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
           <span style="font-size:18px;">${emoji}</span>
-          <span style="font-size:11px;color:var(--ui-text-muted);">${(ev.categories || []).join(" • ")}</span>
-          ${ev.verified ? '<span style="font-size:10px;color:#3b82f6;">✓</span>' : ''}
+          <span style="font-size:11px;color:var(--ui-text-muted);">${(ev.categories || []).join(" \u2022 ")}</span>
+          ${ev.verified ? '<span style="font-size:10px;color:#3b82f6;">\u2713</span>' : ''}
         </div>
         <div style="font-size:15px;font-weight:700;margin-bottom:4px;line-height:1.3;">${escapeHtml(ev.title || "")}</div>
         <div style="font-size:12px;color:#00ffc3;margin-bottom:4px;">
@@ -8493,7 +9830,7 @@ function buildEventCard(ev, distance = null) {
           📍 ${escapeHtml(ev.city || "")}
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--ui-text-muted);">
-          <span>❤️ ${ev.likes || 0} • 👥 ${ev.participants || 0}</span>
+          <span>\u2764️ ${ev.likes || 0} \u2022 👥 ${ev.participants || 0}</span>
           ${ev.isAI ? '<span style="color:#facc15;">🤖 IA</span>' : ''}
         </div>
       </div>
@@ -8505,7 +9842,8 @@ function buildBookingCard(b, distance = null) {
   const imgTag = buildMainImageTag(b, b.name || "");
   const borderColor = getBoostColor(b.boost);
   const emoji = getCategoryEmoji(b);
-  const isLiked = currentUser.likes.includes(`booking:${b.id}`);
+  const likes = Array.isArray(currentUser?.likes) ? currentUser.likes : [];
+  const isLiked = likes.includes(`booking:${b.id}`);
   
   // Badge distance (afficher seulement si distance valide)
   const distanceBadge = (distance !== null && distance !== undefined && isFinite(distance) && distance !== Infinity) ? `
@@ -8529,23 +9867,23 @@ function buildBookingCard(b, distance = null) {
         ${imgTag}
         ${distanceBadge}
         <button onclick="event.stopPropagation();onAction('like','booking',${b.id})" style="position:absolute;top:8px;${distanceBadge ? 'left:50px;' : 'left:8px;'}width:32px;height:32px;border-radius:50%;border:none;background:rgba(0,0,0,0.5);color:${isLiked ? '#ef4444' : '#fff'};cursor:pointer;font-size:16px;z-index:7;">
-          ${isLiked ? '❤️' : '🤍'}
+          ${isLiked ? '\u2764️' : '🤍'}
         </button>
         ${b.level && b.level !== 'Non détecté' ? `<div style="position:absolute;bottom:8px;right:8px;padding:4px 10px;border-radius:999px;font-size:10px;font-weight:600;background:rgba(139,92,246,0.9);color:#fff;">${b.level}</div>` : ''}
       </div>
       <div style="padding:12px;">
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
           <span style="font-size:18px;">${emoji}</span>
-          <span style="font-size:11px;color:var(--ui-text-muted);">${(b.categories || []).join(" • ")}</span>
-          ${b.verified ? '<span style="font-size:10px;color:#3b82f6;">✓</span>' : ''}
+          <span style="font-size:11px;color:var(--ui-text-muted);">${(b.categories || []).join(" \u2022 ")}</span>
+          ${b.verified ? '<span style="font-size:10px;color:#3b82f6;">\u2713</span>' : ''}
         </div>
         <div style="font-size:15px;font-weight:700;margin-bottom:4px;">${escapeHtml(b.name || "")}</div>
         <div style="font-size:11px;color:var(--ui-text-muted);margin-bottom:4px;">
           📍 ${escapeHtml(b.city || "")}
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;">
-          <span style="color:var(--ui-text-muted);">⭐ ${b.rating || '—'}/5</span>
-          ${(b.soundLinks && b.soundLinks.length > 0) || (b.audioLinks && b.audioLinks.length > 0) ? '<span style="color:#a78bfa;">🎵 Audio</span>' : '<span style="color:#ef4444;">⚠️ Pas d\'audio</span>'}
+          <span style="color:var(--ui-text-muted);">\u2B50 ${b.rating || '\u2014'}/5</span>
+          ${(b.soundLinks && b.soundLinks.length > 0) || (b.audioLinks && b.audioLinks.length > 0) ? '<span style="color:#a78bfa;">🎵 Audio</span>' : '<span style="color:#ef4444;">\u26A0️ Pas d\'audio</span>'}
         </div>
       </div>
     </div>
@@ -8556,7 +9894,8 @@ function buildServiceCard(s, distance = null) {
   const imgTag = buildMainImageTag(s, s.name || "");
   const borderColor = getBoostColor(s.boost);
   const emoji = getCategoryEmoji(s);
-  const isLiked = currentUser.likes.includes(`service:${s.id}`);
+  const likes = Array.isArray(currentUser?.likes) ? currentUser.likes : [];
+  const isLiked = likes.includes(`service:${s.id}`);
   
   // Badge distance (afficher seulement si distance valide)
   const distanceBadge = (distance !== null && distance !== undefined && isFinite(distance) && distance !== Infinity) ? `
@@ -8580,33 +9919,36 @@ function buildServiceCard(s, distance = null) {
         ${imgTag}
         ${distanceBadge}
         <button onclick="event.stopPropagation();onAction('like','service',${s.id})" style="position:absolute;top:8px;${distanceBadge ? 'left:50px;' : 'left:8px;'}width:32px;height:32px;border-radius:50%;border:none;background:rgba(0,0,0,0.5);color:${isLiked ? '#ef4444' : '#fff'};cursor:pointer;font-size:16px;z-index:7;">
-          ${isLiked ? '❤️' : '🤍'}
+          ${isLiked ? '\u2764️' : '🤍'}
         </button>
       </div>
       <div style="padding:12px;">
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
           <span style="font-size:18px;">${emoji}</span>
-          <span style="font-size:11px;color:var(--ui-text-muted);">${(s.categories || []).join(" • ")}</span>
-          ${s.verified ? '<span style="font-size:10px;color:#3b82f6;">✓</span>' : ''}
+          <span style="font-size:11px;color:var(--ui-text-muted);">${(s.categories || []).join(" \u2022 ")}</span>
+          ${s.verified ? '<span style="font-size:10px;color:#3b82f6;">\u2713</span>' : ''}
         </div>
         <div style="font-size:15px;font-weight:700;margin-bottom:4px;">${escapeHtml(s.name || "")}</div>
         <div style="font-size:11px;color:var(--ui-text-muted);margin-bottom:4px;">
           📍 ${escapeHtml(s.city || "")}, Suisse
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;">
-          <span style="color:var(--ui-text-muted);">⭐ ${s.rating || '—'}/5</span>
-          <span style="color:var(--ui-text-muted);">❤️ ${s.likes || 0}</span>
+          <span style="color:var(--ui-text-muted);">\u2B50 ${s.rating || '\u2014'}/5</span>
+          <span style="color:var(--ui-text-muted);">\u2764️ ${s.likes || 0}</span>
         </div>
       </div>
     </div>
   `;
 }
 
-function openPopupFromList(type, id) {
+async function openPopupFromList(type, id) {
   const item = getItemById(type, id);
   if (!item) {
-    showNotification("⚠️ Item introuvable", "error");
+    showNotification("\u26A0️ Item introuvable", "error");
     return;
+  }
+  if (type === "event") {
+    await ensureEventDetailsForPopup(item);
   }
   
   // Préserver l'audio en cours - ne couper le son que quand on clique sur un autre play
@@ -8638,9 +9980,12 @@ function openPopupFromList(type, id) {
   // Afficher dans une modal avec overlay - EN MODE LISTE, même taille que sur la map (380px exactement)
   // La popup doit être exactement la même que sur la map, avec toutes les actions
   // IMPORTANT: La bordure doit s'aligner PARFAITEMENT avec l'image - PAS DE PADDING, PAS DE MARGIN
+  const listPopupDark = (type === "booking" || type === "service");
+  const listPopupBg = listPopupDark ? "#0f172a" : "#ffffff";
+  const listPopupBorder = listPopupDark ? "1px solid rgba(148,163,184,0.35)" : "1px solid #e2e8f0";
   const modalHtml = `
-    <div style="position:relative;width:380px;max-height:85vh;overflow:hidden;background:var(--ui-card-bg);border-radius:16px;border:1px solid var(--ui-card-border);margin:20px;box-shadow:0 20px 60px rgba(0,0,0,0.5);display:flex;flex-direction:column;padding:0;box-sizing:border-box;">
-      <button onclick="closePopupModal()" style="position:absolute;top:12px;right:12px;width:36px;height:36px;border-radius:50%;border:none;background:rgba(0,0,0,0.6);color:#fff;cursor:pointer;font-size:20px;z-index:1001;display:flex;align-items:center;justify-content:center;transition:all 0.2s;" onmouseover="this.style.background='rgba(239,68,68,0.8)'" onmouseout="this.style.background='rgba(0,0,0,0.6)'">✕</button>
+    <div style="position:relative;width:380px;max-height:85vh;overflow:hidden;background:${listPopupBg};border-radius:16px;border:${listPopupBorder};margin:20px;box-shadow:0 20px 60px rgba(0,0,0,0.5);display:flex;flex-direction:column;padding:0;box-sizing:border-box;">
+      <button onclick="closePopupModal()" style="position:absolute;top:12px;right:12px;width:36px;height:36px;border-radius:50%;border:none;background:rgba(0,0,0,0.6);color:#fff;cursor:pointer;font-size:20px;z-index:1001;display:flex;align-items:center;justify-content:center;transition:all 0.2s;" onmouseover="this.style.background='rgba(239,68,68,0.8)'" onmouseout="this.style.background='rgba(0,0,0,0.6)'">\u2715</button>
       <div style="flex:1;overflow-y:auto;scrollbar-width:none;width:100%;margin:0;padding:0;box-sizing:border-box;">
         ${popupHtml}
       </div>
@@ -8694,17 +10039,8 @@ function closePopupModal() {
     }
   }
   
-  // Recentrer la map sur le marqueur qu'on venait de consulter
-  if (currentPopupMarker && map) {
-    try {
-      const latlng = currentPopupMarker.getLatLng();
-      // Zoomer assez proche pour voir le point immédiatement
-      map.setView(latlng, Math.max(map.getZoom(), 16), { animate: true, duration: 0.3 });
-    } catch(e) {
-      console.warn('Erreur recentrage map:', e);
-    }
-    currentPopupMarker = null;
-  }
+  // Réinitialiser le marqueur courant sans déplacer la carte
+  currentPopupMarker = null;
   
   // Réactiver COMPLÈTEMENT les événements Leaflet
   if (map) {
@@ -8910,8 +10246,8 @@ function selectCityFromSearch(index) {
   
   // Vérifier que la ville a bien des coordonnées
   if (!city.lat || !city.lng || isNaN(city.lat) || isNaN(city.lng)) {
-    console.error(`❌ ERREUR: La ville "${city.name}" n'a pas de coordonnées valides!`, city);
-    showNotification(`❌ Erreur: Coordonnées manquantes pour ${city.name}`, 'error');
+    console.error(`\u274C ERREUR: La ville "${city.name}" n'a pas de coordonnées valides!`, city);
+    showNotification(`\u274C Erreur: Coordonnées manquantes pour ${city.name}`, 'error');
     return;
   }
   
@@ -8928,8 +10264,8 @@ function selectCityFromSearch(index) {
   
   // Vérifier que les coordonnées sont valides après conversion
   if (isNaN(selectedCityForSorting.lat) || isNaN(selectedCityForSorting.lng)) {
-    console.error(`❌ ERREUR: Coordonnées invalides après conversion!`, selectedCityForSorting);
-    showNotification(`❌ Erreur: Coordonnées invalides pour ${city.name}`, 'error');
+    console.error(`\u274C ERREUR: Coordonnées invalides après conversion!`, selectedCityForSorting);
+    showNotification(`\u274C Erreur: Coordonnées invalides pour ${city.name}`, 'error');
     return;
   }
   
@@ -8944,11 +10280,11 @@ function selectCityFromSearch(index) {
   const input = document.getElementById("city-search-input");
   if (input) input.value = fullName;
   
-  console.log(`✅ Ville sélectionnée pour tri: ${city.name}`);
+  console.log(`\u2705 Ville sélectionnée pour tri: ${city.name}`);
   console.log(`   Coordonnées: lat=${selectedCityForSorting.lat}, lng=${selectedCityForSorting.lng}`);
   console.log(`   Objet complet:`, selectedCityForSorting);
   
-  console.log(`✅ Ville sélectionnée pour tri: ${city.name}`);
+  console.log(`\u2705 Ville sélectionnée pour tri: ${city.name}`);
   console.log(`   Coordonnées: lat=${selectedCityForSorting.lat}, lng=${selectedCityForSorting.lng}`);
   console.log(`   Objet complet:`, selectedCityForSorting);
   console.log(`   listViewOpen: ${listViewOpen}`);
@@ -8959,7 +10295,7 @@ function selectCityFromSearch(index) {
     console.log(`🔄 Rafraîchissement de la liste avec tri par distance...`);
     refreshListView();
   } else {
-    console.log(`ℹ️ Liste non ouverte, le tri sera appliqué à l'ouverture`);
+    console.log(`\u2139️ Liste non ouverte, le tri sera appliqué à l'ouverture`);
   }
   
   // Rafraîchir aussi les marqueurs sur la map
@@ -9033,7 +10369,7 @@ window.hideCitySuggestions = hideCitySuggestions;
 window.clearCitySearch = clearCitySearch;
 
 // ============================================
-// FILTRE EXPLORATEUR "LEADER ONE" – MULTI-COLONNES + DATES
+// FILTRE EXPLORATEUR "LEADER ONE" \u2013 MULTI-COLONNES + DATES
 // ============================================
 let explorerOpen = false;
 let explorerPath = [];
@@ -9077,7 +10413,7 @@ function loadExplorerTree() {
       return r.json();
     })
     .then(json => {
-      console.log(`✅ Arbre chargé avec succès :`, Object.keys(json));
+      console.log(`\u2705 Arbre chargé avec succès :`, Object.keys(json));
       // Normaliser la structure selon le mode
       if (json.Events) {
         // events_tree.json : { "Events": { "Music": {...}, ... } }
@@ -9098,12 +10434,12 @@ function loadExplorerTree() {
       renderCategoryChips();
     })
     .catch(err => {
-      console.error("❌ Erreur chargement arbre :", err);
+      console.error("\u274C Erreur chargement arbre :", err);
       console.error("   Fichier tenté :", file);
       const panel = document.getElementById("left-panel");
       panel.innerHTML = `
         <div style='padding:20px;font-size:13px;color:#f87171;text-align:center;'>
-          <div style='font-size:48px;margin-bottom:12px;'>⚠️</div>
+          <div style='font-size:48px;margin-bottom:12px;'>\u26A0️</div>
           <div style='font-weight:600;margin-bottom:8px;'>Impossible de charger les catégories</div>
           <div style='font-size:11px;color:var(--ui-text-muted);margin-bottom:12px;'>
             Fichier : ${file}<br>
@@ -9157,42 +10493,42 @@ function renderExplorer() {
   const dateControls =
     currentMode === "event"
       ? `
-      <div style="margin-bottom:10px;font-size:11px;color:var(--ui-text-muted);">
-        📅 Filtrer par date (cumulable) :
+      <div style="margin-bottom:10px;font-size:${window.innerWidth <= 768 ? '13px' : '11px'};color:var(--ui-text-muted);">
+        📅 ${window.t("filter_by_date")} :
       </div>
-      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;">
-        <label class="date-checkbox-label ${selectedDates.includes('today') ? 'active' : ''}">
-          <input type="checkbox" ${selectedDates.includes('today') ? 'checked' : ''} onchange="toggleDateFilter('today')">
-          Aujourd'hui
+      <div style="display:flex;flex-wrap:wrap;gap:${window.innerWidth <= 768 ? '8px' : '6px'};margin-bottom:12px;">
+        <label class="date-checkbox-label ${selectedDates.includes('today') ? 'active' : ''}" style="${window.innerWidth <= 768 ? 'padding:10px 14px;font-size:14px;min-height:44px;' : ''}">
+          <input type="checkbox" ${selectedDates.includes('today') ? 'checked' : ''} onchange="toggleDateFilter('today')" style="${window.innerWidth <= 768 ? 'width:20px;height:20px;' : ''}">
+          ${window.t("today")}
         </label>
-        <label class="date-checkbox-label ${selectedDates.includes('tomorrow') ? 'active' : ''}">
-          <input type="checkbox" ${selectedDates.includes('tomorrow') ? 'checked' : ''} onchange="toggleDateFilter('tomorrow')">
-          Demain
+        <label class="date-checkbox-label ${selectedDates.includes('tomorrow') ? 'active' : ''}" style="${window.innerWidth <= 768 ? 'padding:10px 14px;font-size:14px;min-height:44px;' : ''}">
+          <input type="checkbox" ${selectedDates.includes('tomorrow') ? 'checked' : ''} onchange="toggleDateFilter('tomorrow')" style="${window.innerWidth <= 768 ? 'width:20px;height:20px;' : ''}">
+          ${window.t("tomorrow")}
         </label>
-        <label class="date-checkbox-label ${selectedDates.includes('weekend') ? 'active' : ''}">
-          <input type="checkbox" ${selectedDates.includes('weekend') ? 'checked' : ''} onchange="toggleDateFilter('weekend')">
-          Ce week-end
+        <label class="date-checkbox-label ${selectedDates.includes('weekend') ? 'active' : ''}" style="${window.innerWidth <= 768 ? 'padding:10px 14px;font-size:14px;min-height:44px;' : ''}">
+          <input type="checkbox" ${selectedDates.includes('weekend') ? 'checked' : ''} onchange="toggleDateFilter('weekend')" style="${window.innerWidth <= 768 ? 'width:20px;height:20px;' : ''}">
+          ${window.t("weekend")}
         </label>
-        <label class="date-checkbox-label ${selectedDates.includes('week') ? 'active' : ''}">
-          <input type="checkbox" ${selectedDates.includes('week') ? 'checked' : ''} onchange="toggleDateFilter('week')">
-          Cette semaine
+        <label class="date-checkbox-label ${selectedDates.includes('week') ? 'active' : ''}" style="${window.innerWidth <= 768 ? 'padding:10px 14px;font-size:14px;min-height:44px;' : ''}">
+          <input type="checkbox" ${selectedDates.includes('week') ? 'checked' : ''} onchange="toggleDateFilter('week')" style="${window.innerWidth <= 768 ? 'width:20px;height:20px;' : ''}">
+          ${window.t("week")}
         </label>
-        <label class="date-checkbox-label ${selectedDates.includes('month') ? 'active' : ''}">
-          <input type="checkbox" ${selectedDates.includes('month') ? 'checked' : ''} onchange="toggleDateFilter('month')">
-          Ce mois
+        <label class="date-checkbox-label ${selectedDates.includes('month') ? 'active' : ''}" style="${window.innerWidth <= 768 ? 'padding:10px 14px;font-size:14px;min-height:44px;' : ''}">
+          <input type="checkbox" ${selectedDates.includes('month') ? 'checked' : ''} onchange="toggleDateFilter('month')" style="${window.innerWidth <= 768 ? 'width:20px;height:20px;' : ''}">
+          ${window.t("month")}
         </label>
       </div>
       
       <div style="margin-bottom:12px;padding:10px;background:rgba(0,255,195,0.03);border-radius:10px;">
-        <div style="font-size:11px;color:var(--ui-text-muted);margin-bottom:8px;">📆 Ou sélectionner une période :</div>
+        <div style="font-size:11px;color:var(--ui-text-muted);margin-bottom:8px;">📆 ${window.t("select_period")} :</div>
         <div style="display:flex;gap:10px;align-items:center;">
           <div style="flex:1;">
-            <label style="font-size:10px;color:var(--ui-text-muted);">Du</label>
+            <label style="font-size:10px;color:var(--ui-text-muted);">${window.t("from")}</label>
             <input type="date" id="date-range-start" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--ui-card-border);background:rgba(15,23,42,0.9);color:var(--ui-text-main);font-size:12px;cursor:pointer;">
           </div>
-          <div style="color:var(--ui-text-muted);font-size:16px;">→</div>
+          <div style="color:var(--ui-text-muted);font-size:16px;">\u2192</div>
           <div style="flex:1;">
-            <label style="font-size:10px;color:var(--ui-text-muted);">Au</label>
+            <label style="font-size:10px;color:var(--ui-text-muted);">${window.t("to")}</label>
             <input type="date" id="date-range-end" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--ui-card-border);background:rgba(15,23,42,0.9);color:var(--ui-text-main);font-size:12px;cursor:pointer;">
           </div>
         </div>
@@ -9201,30 +10537,31 @@ function renderExplorer() {
     `
       : "";
 
+  const isMobFilter = window.innerWidth <= 768;
   panel.innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-      <div style="font-size:15px;font-weight:700;">Filtrer – ${currentMode}</div>
-      <button onclick="closeLeftPanel()" style="background:none;border:none;color:var(--ui-text-muted);font-size:20px;cursor:pointer;padding:4px 8px;border-radius:6px;transition:all 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.1)';this.style.color='#fff'" onmouseout="this.style.background='none';this.style.color='var(--ui-text-muted)'">✕</button>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:${isMobFilter ? '8px' : '6px'};">
+      <div style="font-size:${isMobFilter ? '18px' : '15px'};font-weight:700;">${window.t("filter")} \u2013 ${currentMode === 'event' ? window.t("events") : (currentMode === 'booking' ? window.t("booking") : window.t("services"))}</div>
+      <button onclick="closeLeftPanel()" style="background:none;border:none;color:var(--ui-text-muted);font-size:${isMobFilter ? '26px' : '20px'};cursor:pointer;padding:${isMobFilter ? '8px 12px' : '4px 8px'};border-radius:6px;transition:all 0.15s;min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center;" onmouseover="this.style.background='rgba(255,255,255,0.1)';this.style.color='#fff'" onmouseout="this.style.background='none';this.style.color='var(--ui-text-muted)'">\u2715</button>
     </div>
-    <div style="font-size:12px;color:var(--ui-text-muted);margin-bottom:10px;">Choisissez les catégories à filtrer. Le filtre affiche uniquement les events correspondant à ces catégories.</div>
+    <div style="font-size:${isMobFilter ? '13px' : '12px'};color:var(--ui-text-muted);margin-bottom:10px;">${window.t("filter_hint")}</div>
 
     ${dateControls}
 
-    <div id="explorer-selected" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;"></div>
+    <div id="explorer-selected" style="display:flex;flex-wrap:wrap;gap:${isMobFilter ? '8px' : '6px'};margin-bottom:10px;"></div>
 
     <div id="explorer-columns"
       style="
         display:flex;
-        gap:12px;
+        gap:${isMobFilter ? '8px' : '12px'};
         overflow-x:auto;
         padding-bottom:6px;
         margin-bottom:8px;
-        max-height:300px;
+        max-height:${isMobFilter ? 'calc(100vh - 380px)' : '300px'};
       ">
     </div>
 
-    <button onclick="resetExplorerFilter()" class="pill small" style="margin-top:6px;">
-      🔄 Réinitialiser tout
+    <button onclick="resetExplorerFilter()" class="pill small" style="margin-top:6px;${isMobFilter ? 'font-size:14px;padding:12px 20px;width:100%;' : ''}">
+      🔄 ${window.t("reset_all")}
     </button>
   `;
 
@@ -9243,13 +10580,18 @@ function closeLeftPanel() {
   if (panel) panel.style.display = "none";
 }
 
-// Toggle un filtre de date (cumulable)
+// Toggle un filtre de date (sélection unique)
 function toggleDateFilter(dateType) {
   if (selectedDates.includes(dateType)) {
     selectedDates = selectedDates.filter(d => d !== dateType);
-        } else {
-    selectedDates.push(dateType);
+  } else {
+    // Un seul preset rapide actif à la fois (demain / semaine / week-end / 30 jours)
+    selectedDates = [dateType];
   }
+  // Les presets rapides doivent être exclusifs avec la plage personnalisée
+  dateRangeStart = null;
+  dateRangeEnd = null;
+  timeFilter = null;
   // Rafraîchir l'affichage des checkboxes
   renderExplorer();
   applyExplorerFilter();
@@ -9270,6 +10612,8 @@ function setupDateRangePicker() {
   updateDateRangeDisplay();
   
   startInput.addEventListener("change", () => {
+    // Une plage personnalisée remplace les presets rapides
+    if (selectedDates.length > 0) selectedDates = [];
     dateRangeStart = startInput.value || null;
     // Si pas de date de fin, mettre la même que le début
     if (dateRangeStart && !dateRangeEnd) {
@@ -9287,6 +10631,8 @@ function setupDateRangePicker() {
       });
   
   endInput.addEventListener("change", () => {
+    // Une plage personnalisée remplace les presets rapides
+    if (selectedDates.length > 0) selectedDates = [];
     dateRangeEnd = endInput.value || null;
     // Si pas de date de début, mettre la même que la fin
     if (dateRangeEnd && !dateRangeStart) {
@@ -9318,7 +10664,7 @@ function updateDateRangeDisplay() {
     if (dateRangeStart === dateRangeEnd) {
       display.textContent = `📍 ${formatDate(start)} (1 jour)`;
     } else {
-      display.textContent = `📍 ${formatDate(start)} → ${formatDate(end)} (${days} jours)`;
+      display.textContent = `📍 ${formatDate(start)} \u2192 ${formatDate(end)} (${days} jours)`;
     }
   } else {
     display.textContent = "";
@@ -9405,26 +10751,25 @@ function findNode(obj, name) {
 function buildColumn(colBox, node, level) {
   const isMob = window.innerWidth <= 768;
   const div = document.createElement("div");
-  div.style.minWidth = "200px";
-  div.style.maxWidth = "200px";
+  div.style.minWidth = isMob ? "100%" : "200px";
+  div.style.maxWidth = isMob ? "100%" : "200px";
   div.style.background = "rgba(2,6,23,0.85)";
   div.style.border = "1px solid rgba(0,255,195,0.25)";
-  div.style.borderRadius = "10px";
-  div.style.padding = "8px";
+  div.style.borderRadius = isMob ? "8px" : "10px";
+  div.style.padding = isMob ? "3px" : "8px";
   div.style.color = "var(--ui-text-main)";
-  div.style.fontSize = isMob ? "14px" : "13px";
-  div.style.maxHeight = "280px";
+  div.style.fontSize = isMob ? "16px" : "13px";
+  div.style.maxHeight = isMob ? "none" : "280px";
   div.style.overflowY = "auto";
 
   let html = "";
 
   if (Array.isArray(node)) {
-    // Feuilles (catégories finales)
     node.forEach(item => {
       const safe = escapeHtml(item);
       const isChecked = selectedCategories.includes(item);
       html += `
-        <label style="display:flex;align-items:center;gap:8px;padding:${isMob ? '7px' : '6px'};cursor:pointer;border-radius:6px;transition:background 0.15s;"
+        <label style="display:flex;align-items:center;gap:${isMob ? '10' : '8'}px;padding:${isMob ? '10px 6px' : '6px'};cursor:pointer;border-radius:6px;transition:background 0.15s;min-height:${isMob ? '44px' : 'auto'};"
              onmouseover="this.style.background='rgba(0,255,195,0.12)'"
                onmouseout="this.style.background='transparent'"
                onclick="event.stopPropagation()">
@@ -9432,20 +10777,19 @@ function buildColumn(colBox, node, level) {
                  ${isChecked ? 'checked' : ''} 
                  onchange="toggleCategory('${safe}', event); event.stopPropagation();"
                  onclick="event.stopPropagation()"
-                 style="width:${isMob ? '18' : '16'}px;height:${isMob ? '18' : '16'}px;accent-color:#00ffc3;cursor:pointer;">
-          <span style="flex:1;font-size:${isMob ? '14' : '12'}px;">${safe}</span>
+                 style="width:${isMob ? '22' : '16'}px;height:${isMob ? '22' : '16'}px;accent-color:#00ffc3;cursor:pointer;flex-shrink:0;">
+          <span style="flex:1;font-size:${isMob ? '15' : '12'}px;">${safe}</span>
         </label>
       `;
     });
   } else {
-    // Dossiers (catégories avec sous-catégories)
     for (const key in node) {
       const safeKey = escapeHtml(key);
       const isChecked = selectedCategories.includes(key);
       const hasChildren = node[key] && (Array.isArray(node[key]) ? node[key].length > 0 : Object.keys(node[key]).length > 0);
       
       html += `
-        <div style="display:flex;align-items:center;gap:6px;padding:${isMob ? '7px' : '6px'};border-radius:6px;transition:background 0.15s;"
+        <div style="display:flex;align-items:center;gap:${isMob ? '10' : '6'}px;padding:${isMob ? '10px 6px' : '6px'};border-radius:6px;transition:background 0.15s;min-height:${isMob ? '44px' : 'auto'};"
              onmouseover="this.style.background='rgba(0,255,195,0.12)'"
              onmouseout="this.style.background='transparent'"
              onclick="event.stopPropagation()">
@@ -9453,11 +10797,11 @@ function buildColumn(colBox, node, level) {
                  ${isChecked ? 'checked' : ''} 
                  onchange="toggleCategory('${safeKey}', event); event.stopPropagation();"
                  onclick="event.stopPropagation()"
-                 style="width:${isMob ? '18' : '16'}px;height:${isMob ? '18' : '16'}px;accent-color:#00ffc3;cursor:pointer;">
+                 style="width:${isMob ? '22' : '16'}px;height:${isMob ? '22' : '16'}px;accent-color:#00ffc3;cursor:pointer;flex-shrink:0;">
           <div style="flex:1;display:flex;align-items:center;justify-content:space-between;cursor:pointer;"
              onclick="openNextLevel('${safeKey}', ${level})">
-            <span style="font-size:${isMob ? '14' : '12'}px;font-weight:500;">📁 ${safeKey}</span>
-            ${hasChildren ? '<span style="color:#00ffc3;font-size:14px;">›</span>' : ''}
+            <span style="font-size:${isMob ? '15' : '12'}px;font-weight:500;">📁 ${safeKey}</span>
+            ${hasChildren ? '<span style="color:#00ffc3;font-size:' + (isMob ? '18' : '14') + 'px;">\u203A</span>' : ''}
           </div>
         </div>
       `;
@@ -9474,7 +10818,7 @@ function renderCategoryChips() {
   if (!container) return;
   const topCats = explorerTree ? Object.keys(explorerTree) : [];
   if (topCats.length === 0) return;
-  const emoji = (c) => c.includes("Musique") || c.includes("Music") ? "🎵" : c.includes("Sport") ? "⚽" : c.includes("Culture") ? "🎭" : c.includes("DJ") ? "🎧" : c.includes("Live") ? "🎤" : "📌";
+  const emoji = (c) => c.includes("Musique") || c.includes("Music") ? "🎵" : c.includes("Sport") ? "\u26BD" : c.includes("Culture") ? "🎭" : c.includes("DJ") ? "🎧" : c.includes("Live") ? "🎤" : "📌";
   container.innerHTML = topCats.map(cat => {
     const isActive = selectedCategories.includes(cat);
     return `<button type="button" class="category-chip" data-cat="${cat.replace(/"/g, '&quot;')}" onclick="event.stopPropagation();toggleCategory('${cat.replace(/'/g, "\\'")}', event);renderCategoryChips();if(navigator.vibrate)navigator.vibrate(10);" style="flex-shrink:0;padding:6px 14px;border-radius:999px;border:1.5px solid ${isActive ? '#22c55e' : 'rgba(148,163,184,0.25)'};background:${isActive ? 'rgba(34,197,94,0.2)' : 'rgba(255,255,255,0.06)'};color:${isActive ? '#22c55e' : '#cbd5e1'};font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;scroll-snap-align:start;transition:all .2s;">${emoji(cat)} ${cat}</button>`;
@@ -9486,13 +10830,13 @@ window.renderCategoryChips = renderCategoryChips;
 function toggleCategory(cat, event) {
   console.log('[CATEGORY] toggleCategory appelé avec:', cat);
   
-  // ⚠️⚠️⚠️ EMPÊCHER la propagation pour ne pas fermer le modal
+  // \u26A0️\u26A0️\u26A0️ EMPÊCHER la propagation pour ne pas fermer le modal
   if (event) {
     event.stopPropagation();
     event.stopImmediatePropagation();
   }
   
-  // ⚠️⚠️⚠️ Si le modal Publier est ouvert, remplir le champ catégorie au lieu de filtrer
+  // \u26A0️\u26A0️\u26A0️ Si le modal Publier est ouvert, remplir le champ catégorie au lieu de filtrer
   const publishModal = document.getElementById("publish-modal-backdrop");
   const categoryInput = document.getElementById("pub-main-category");
   
@@ -9538,7 +10882,7 @@ function openNextLevel(key, level) {
   renderExplorer();
   
   // Scroll automatique vers la droite pour suivre la navigation
-  setTimeout(() => {
+  setTimeout(async () => {
     const colBox = document.getElementById("explorer-columns");
     if (colBox) {
       colBox.scrollTo({
@@ -9550,13 +10894,13 @@ function openNextLevel(key, level) {
 }
 
 function selectLeafCategory(cat, event) {
-  // ⚠️⚠️⚠️ EMPÊCHER la propagation pour ne pas fermer le modal
+  // \u26A0️\u26A0️\u26A0️ EMPÊCHER la propagation pour ne pas fermer le modal
   if (event) {
     event.stopPropagation();
     event.stopImmediatePropagation();
   }
   
-  // ⚠️⚠️⚠️ Si le modal Publier est ouvert, remplir le champ catégorie au lieu de filtrer
+  // \u26A0️\u26A0️\u26A0️ Si le modal Publier est ouvert, remplir le champ catégorie au lieu de filtrer
   const publishModal = document.getElementById("publish-modal-backdrop");
   const categoryInput = document.getElementById("pub-main-category");
   
@@ -9585,56 +10929,121 @@ function setTimeFilter(mode) {
   applyExplorerFilter();
 }
 
-// Alias scrapers → termes arbre (variations de nom, langues, formats utilisés par les scrapers)
+// Alias scrapers \u2192 termes arbre (variations de nom, langues, formats utilisés par les scrapers)
 const SCRAPER_ALIASES = {
-  // Music
-  "musique": "music", "electro": "electronic", "electro / dj": "electronic",
-  "music > electro": "electronic", "musique > electro": "electronic", "musique > electronic": "electronic",
-  "concert": "music", "spectacle musical": "music",
-  "rock / pop": "rock", "jazz / blues": "jazz", "classique / baroque": "classique", "punk": "punk rock",
-  "hip hop": "hip-hop", "afrobeats": "afro / afrobeats",
-  "rave": "electronic", "open air": "festival musique", "soirée": "electronic",
+  // === Rétro-compatibilité ancien arbre → nouveau ===
+  "music":                    "musique",
+  "electronic":               "électro",
+  "electro":                  "électro",
+  "electro / dj":             "électro",
+  "genres musicaux":          "musique",
+  "festivals & grandes fêtes":"festivals",
+  "loisirs & animation":      "loisirs & jeux",
+  "business & communauté":    "business & pro",
+  "business & networking":    "business & pro",
+  "jeux & soirées":           "soirées & jeux",
+  "défilés & fêtes":          "marchés & fêtes",
+  "conférences & rencontres": "conférences & débats",
+  "cinéma & projections":     "cinéma",
+  "littérature & conte":      "littérature",
+  "visites & patrimoine":     "patrimoine & visites",
+  "danse classique / ballet": "danse",
+  "afro / afrobeats":         "afro / caraïbes",
+  "rap":                      "rap / hip-hop",
+  "hip-hop":                  "rap / hip-hop",
+  "hip hop":                  "rap / hip-hop",
+  "jazz / soul / funk":       "jazz / blues / soul",
+  "reggae / ska / world":     "reggae / world",
+  "folk / acoustic":          "folk / acoustic",
+  "rock / metal":             "rock / metal",
+  "pop / variété":            "pop / variété",
+  "rock / pop":               "rock / metal",
+  "jazz / blues":             "jazz / blues / soul",
+  "classique / baroque":      "classique",
+  "arts vivants":             "arts vivants",
+  // Aliases textuels courants
+  "concert":                  "musique",
+  "spectacle musical":        "musique",
+  "punk":                     "rock",
+  "afrobeats":                "afro / caraïbes",
+  "rave":                     "électro",
+  "open air":                 "festivals",
+  "soirée":                   "loisirs & jeux",
   // Culture
-  "art et culture": "culture", "art": "culture", "arts": "culture",
-  "exposition": "expositions", "expo": "expositions",
-  "conférence": "conférences & rencontres", "conférences": "conférences & rencontres",
-  "visite": "visites & patrimoine", "patrimoine": "visites & patrimoine",
-  "histoire": "visites & patrimoine", "visite guidée": "visites & patrimoine", "musée": "visites & patrimoine",
-  "littérature": "littérature & conte", "conte": "littérature & conte", "lecture": "littérature & conte",
-  "cinéma": "cinéma & projections", "cinema": "cinéma & projections", "film": "cinéma & projections",
-  // Ateliers (ex-Workshops)
-  "atelier": "ateliers", "workshop": "ateliers", "workshops": "ateliers", "stage": "ateliers",
-  "culture > workshops": "culture > ateliers",
+  "art et culture":           "culture",
+  "art":                      "culture",
+  "arts":                     "culture",
+  "exposition":               "expositions",
+  "expo":                     "expositions",
+  "conférence":               "conférences & débats",
+  "conférences":              "conférences & débats",
+  "visite":                   "patrimoine & visites",
+  "patrimoine":               "patrimoine & visites",
+  "histoire":                 "patrimoine & visites",
+  "visite guidée":            "patrimoine & visites",
+  "musée":                    "patrimoine & visites",
+  "littérature":              "littérature",
+  "conte":                    "littérature",
+  "lecture":                  "littérature",
+  "cinéma":                   "cinéma",
+  "cinema":                   "cinéma",
+  "film":                     "cinéma",
+  "atelier":                  "ateliers",
+  "workshop":                 "ateliers",
+  "workshops":                "ateliers",
+  "stage":                    "ateliers",
   // Arts vivants
-  "spectacle": "théâtre", "théatre": "théâtre", "theatre": "théâtre", "spectacles": "théâtre",
-  "humour": "humour", "improvisation": "théâtre", "stand-up": "humour",
-  "danse": "danse", "ballet": "danse classique / ballet",
+  "spectacle":                "théâtre",
+  "théatre":                  "théâtre",
+  "theatre":                  "théâtre",
+  "spectacles":               "théâtre",
+  "improvisation":            "théâtre",
+  "stand-up":                 "humour",
+  "ballet":                   "danse",
   // Food
-  "dégustation": "dégustations", "gastronomie": "dégustations",
-  "vin": "dégustation vin", "bière": "dégustation bière",
-  "food and drinks": "food & drinks", "food": "food & drinks",
+  "dégustation":              "dégustations",
+  "gastronomie":              "dégustations",
+  "vin":                      "dégustations",
+  "bière":                    "dégustations",
+  "food and drinks":          "food & drinks",
+  "food":                     "food & drinks",
   // Festivals
-  "festival": "festivals & grandes fêtes", "foire": "festivals & grandes fêtes", "salon": "festivals & grandes fêtes",
+  "festival":                 "festivals",
+  "foire":                    "festivals",
+  "salon":                    "festivals",
   // Loisirs
-  "loisirs": "loisirs & animation", "animation": "loisirs & animation",
-  "brocante": "défilés & fêtes", "marché": "défilés & fêtes", "carnaval": "défilés & fêtes",
-  "fête": "défilés & fêtes", "fêtes": "défilés & fêtes",
+  "loisirs":                  "loisirs & jeux",
+  "animation":                "loisirs & jeux",
+  "brocante":                 "marchés & fêtes",
+  "marché":                   "marchés & fêtes",
+  "carnaval":                 "marchés & fêtes",
+  "fête":                     "marchés & fêtes",
+  "fêtes":                    "marchés & fêtes",
   // Nature
-  "nature": "nature & plein air", "plein air": "nature & plein air", "balade": "nature & plein air",
-  "randonnée": "nature & plein air",
+  "nature":                   "nature & plein air",
+  "plein air":                "nature & plein air",
+  "balade":                   "nature & plein air",
+  "randonnée":                "nature & plein air",
   // Famille
-  "famille": "famille & enfants", "enfants": "famille & enfants", "enfant": "famille & enfants",
+  "famille":                  "famille & enfants",
+  "enfants":                  "famille & enfants",
+  "enfant":                   "famille & enfants",
   // Bien-être
-  "yoga": "bien-être", "méditation": "bien-être", "sophrologie": "bien-être",
-  "yoga & bien-être": "bien-être", "wellness": "bien-être",
+  "yoga":                     "bien-être",
+  "méditation":               "bien-être",
+  "sophrologie":              "bien-être",
+  "yoga & bien-être":         "bien-être",
+  "wellness":                 "bien-être",
   // Business
-  "networking": "business & communauté", "business": "business & communauté",
-  "business & networking": "business & communauté",
-  // Événement générique
-  "événement": "culture", "divers": "culture"
+  "networking":               "business & pro",
+  "business":                 "business & pro",
+  "hackathon":                "business & pro",
+  // Générique
+  "événement":                "culture",
+  "divers":                   "culture"
 };
 
-// Construit le mapping complet depuis l'arbre : chaque terme → [lui-même, parent, grand-parent, ...]
+// Construit le mapping complet depuis l'arbre : chaque terme \u2192 [lui-même, parent, grand-parent, ...]
 let categoryMappingCache = {};
 function buildCategoryMappingFromTree(tree, parentPath = []) {
   if (!tree) return;
@@ -9669,6 +11078,9 @@ function buildCategoryMappingFromTree(tree, parentPath = []) {
 // Retourne les parties de catégories effectives pour le matching filtre
 // Utilise l'arbre (hiérarchie) + alias scrapers pour TOUTES les catégories
 function getEffectiveCategoryParts(item) {
+  if (item && item.type === "event") {
+    sanitizeEventCategoriesForMusicContext(item);
+  }
   const itemCats = (item.categories || []).map(c => c.toLowerCase());
   const itemMainCat = (item.mainCategory || "").toLowerCase();
   const parts = new Set();
@@ -9695,12 +11107,242 @@ function getEffectiveCategoryParts(item) {
     }
   });
   toAdd.forEach(x => parts.add(x));
+
+  // Dernier garde-fou: si l'item event est identifié non-musical, on retire
+  // toute empreinte électronique pour empêcher le filtre techno/electro.
+  if (item && item.type === "event" && item.__strictMusicBlocked === true) {
+    const blockedTerms = [
+      "electro", "electronic", "techno", "acid techno", "minimal techno",
+      "hard techno", "industrial techno", "melodic techno", "detroit techno",
+      "house", "deep house", "tech house", "progressive house", "afro house",
+      "trance", "drum & bass", "dnb", "hardstyle", "hardcore", "gabber"
+    ];
+    blockedTerms.forEach(term => parts.delete(term));
+  }
+
   return parts;
 }
 
 let applyExplorerFilterRaf = 0;
 let _allEventsLoaded = false;
 let _allEventsLoading = false;
+const EVENT_QUALITY_BLACKLIST = new Map();
+
+function isEventRangeTooLong(item, maxDays = 14) {
+  if (!item) return false;
+  const { start, end } = getEventDateRange(item);
+  if (!start || !end) return false;
+  const days = Math.floor((end - start) / (1000 * 60 * 60 * 24)) + 1;
+  return days > maxDays;
+}
+
+function isScrapedEvent(item) {
+  if (!item) return false;
+  const creator = String(item.creator_id || item.createdBy || item.userId || "").trim().toLowerCase();
+  return creator === "system_scraper";
+}
+
+function getEventBlacklistKey(item) {
+  if (!item) return "unknown";
+  return String(item.id || item.external_id || `${item.title || item.name || "untitled"}|${item.date || item.startDate || ""}`).trim();
+}
+
+function blacklistEvent(item, reason) {
+  const key = getEventBlacklistKey(item);
+  EVENT_QUALITY_BLACKLIST.set(key, reason);
+  item.__blacklisted = true;
+  item.__blacklistReason = reason;
+  return true;
+}
+
+function validateEventQuality(item) {
+  if (!item || item.type !== "event") return true;
+  if (item.__eventQualityChecked) return !item.__blacklisted;
+
+  item.__eventQualityChecked = true;
+  item.__blacklisted = false;
+  item.__blacklistReason = "";
+
+  const text = `${item.title || ""} ${item.name || ""} ${item.description || ""} ${item.location || ""} ${item.address || ""}`.toLowerCase();
+  const cats = Array.isArray(item.categories) ? item.categories.map(c => String(c || "").toLowerCase()) : [];
+
+  const hasEventSignal = /\b(concert|festival|soir[eé]e|spectacle|projection|th[ée][âa]tre|conf[ée]rence|conference|atelier|march[ée]|brocante|tournoi|rencontre|visite guid[ée]e|masterclass|show|live)\b/.test(text);
+  const hasMusicSignal = /\b(dj|techno|electro|electronic|house|trance|dnb|drum\s*&?\s*bass|set|lineup|line-up)\b/.test(text);
+  const hasVenueOnlySignal = /\b(parc d['’]attraction|centre de vacances|camping|h[ôo]tel|resort|h[ée]bergement|base de loisirs|parc de loisirs)\b/.test(text);
+
+  const onlyGenericCategories = cats.length === 0 || cats.every(c =>
+    c === "événement" ||
+    c === "event" ||
+    c === "culture" ||
+    c === "loisirs & animation" ||
+    c === "loisirs" ||
+    c === "autres"
+  );
+
+  const { start } = getEventDateRange(item);
+  if (!start || isNaN(start.getTime())) {
+    return blacklistEvent(item, "date_absente_ou_invalide");
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const daysAhead = Math.floor((start - today) / (1000 * 60 * 60 * 24));
+  if (daysAhead > 365) {
+    return blacklistEvent(item, "date_trop_lointaine");
+  }
+
+  if (isEventRangeTooLong(item, 14) && isScrapedEvent(item)) {
+    return blacklistEvent(item, "plage_superieure_14_jours");
+  }
+
+  if (hasVenueOnlySignal && !hasEventSignal && !hasMusicSignal) {
+    return blacklistEvent(item, "lieu_permanent_sans_signal_event");
+  }
+
+  if (onlyGenericCategories && !hasEventSignal && !hasMusicSignal) {
+    return blacklistEvent(item, "categories_generiques_sans_preuve_event");
+  }
+
+  return true;
+}
+
+function sanitizeEventCategoriesForMusicContext(item) {
+  if (!item || !Array.isArray(item.categories)) return item;
+
+  let categories = item.categories
+    .map(c => (c == null ? "" : String(c).trim()))
+    .filter(Boolean);
+  if (categories.length === 0) return item;
+
+  const text = `${item.title || ""} ${item.name || ""} ${item.description || ""} ${item.location || ""} ${item.address || ""}`.toLowerCase();
+  const score = (re) => (text.match(re) || []).length;
+
+  const domainScores = {
+    music: score(/\b(dj|concert|live|lineup|line-up|soir[eé]e|festival|rave|track|producer|mix|techno|house|trance|electro|electronic|dnb|drum\s*&?\s*bass|hardstyle|hardcore|gabber|metal|rock|jazz|rap|hip-?hop|pop|reggae|beethoven|mozart|bach|chopin|liszt|debussy|ravel|recital|r[ée]cital|pianiste|piano|violon|violoncelle|symphoni|philharmoni|orchestre|opera|op[ée]ra|sonate|concerto)\b/g),
+    culture: score(/\b(exposition|expo|vernissage|mus[ée]e|galerie|conf[ée]rence|conference|d[ée]bat|projection|th[ée][âa]tre|lecture|patrimoine|cin[ée]ma|litt[ée]rature|conte|atelier)\b/g),
+    sport: score(/\b(sport|match|tournoi|course|running|trail|randonn[ée]e|cyclisme|football|basket|tennis|rugby|natation|ski|snowboard)\b/g),
+    food: score(/\b(brunch|bbq|food|drink|d[ée]gustation|vin|bi[èe]re|cocktail|gastronomie|restaurant|food truck)\b/g),
+    business: score(/\b(networking|s[ée]minaire|masterclass|meetup|startup|business|professional|professionnel)\b/g),
+    family: score(/\b(enfant|kids|famille|marionnettes|go[ûu]ter)\b/g),
+    nature: score(/\b(nature|plein air|outdoor|botanique|faune|balade)\b/g),
+    wellness: score(/\b(yoga|m[ée]ditation|sophrologie|spa|sauna|bien-[êe]tre|wellness)\b/g)
+  };
+
+  const domainFromCategory = (cat) => {
+    const c = String(cat || "").toLowerCase();
+    if (c.includes("music") || c.includes("musique")) return "music";
+    if (c.includes("classique") || c.includes("opéra") || c.includes("opera") || c.includes("orchestre") || c.includes("symphon")) return "music";
+    if (c.includes("culture") || c.includes("arts vivants")) return "culture";
+    if (c.includes("sport")) return "sport";
+    if (c.includes("food") || c.includes("drink") || c.includes("dégust")) return "food";
+    if (c.includes("business")) return "business";
+    if (c.includes("famille") || c.includes("enfants")) return "family";
+    if (c.includes("nature")) return "nature";
+    if (c.includes("bien-être") || c.includes("bien-etre")) return "wellness";
+    if (
+      c.includes("techno") || c.includes("electro") || c.includes("electronic") ||
+      c.includes("house") || c.includes("trance") || c.includes("drum & bass") ||
+      c.includes("dnb") || c.includes("hardstyle") || c.includes("hardcore") || c.includes("gabber")
+    ) return "music";
+    if (
+      c.includes("exposition") || c.includes("conférence") || c.includes("conference") ||
+      c.includes("cinéma") || c.includes("cinema") || c.includes("théâtre") || c.includes("theatre")
+    ) return "culture";
+    return "unknown";
+  };
+  const hasMusicSignal =
+    /\b(dj|concert|live|set|soir[eé]e|festival|rave|lineup|line-up|afterparty|dancefloor|sound\s*system|club|musique|music|track|producer|mix)\b/.test(text) ||
+    /\b(techno|house|trance|drum\s*&?\s*bass|dnb|electro|electronic|hardstyle|hardcore|gabber)\b/.test(text);
+  const hasCoreMusicSignal =
+    /\b(dj|concert|live\s*set|lineup|line-up|afterparty|dancefloor|sound\s*system|club|soir[eé]e\s*(techno|trance|house)?|festival\s*(de\s*)?(musique|music)|rave)\b/.test(text);
+  const hasTechSignal =
+    /\b(ia|intelligence artificielle|ai|technologie|technology|num[eé]rique|digital|startup|innovation|data|cyber|robot|machine|machine learning)\b/.test(text);
+  const hasCultureSignal =
+    /\b(exposition|expo|vernissage|mus[ée]e|galerie|conf[ée]rence|conférence|d[ée]bat|projection|th[ée][âa]tre|lecture|patrimoine|cin[ée]ma)\b/.test(text);
+  const hasTradeFairSignal =
+    /\b(salon|salons|foire|fairs?|trade\s*show|exposant|exposants|pavillon|industrie|industriel|industrielle|fournisseur|fournisseurs|fabricant|fabricants|ing[ée]nieur|ing[ée]nieurs|b2b|traitement\s+des\s+plastiques|plastique|plastics?)\b/.test(text);
+  const hasClassicalSignal =
+    /\b(beethoven|mozart|bach|chopin|liszt|debussy|ravel|recital|r[ée]cital|pianiste|piano|violon|violoncelle|symphoni|philharmoni|orchestre|opera|op[ée]ra|sonate|concerto)\b/.test(text);
+
+  if (hasClassicalSignal) {
+    domainScores.music += 4;
+  }
+
+  const isElectronicCategory = (cat) => {
+    const c = cat.toLowerCase();
+    return (
+      c.includes("techno") ||
+      c.includes("electro") ||
+      c.includes("electronic") ||
+      c.includes("house") ||
+      c.includes("trance") ||
+      c.includes("drum & bass") ||
+      c.includes("dnb") ||
+      c.includes("hardstyle") ||
+      c.includes("hardcore") ||
+      c.includes("gabber")
+    );
+  };
+
+  const hasElectronicCat = categories.some(isElectronicCategory);
+  const hasCultureCategory = categories.some((cat) => {
+    const c = cat.toLowerCase();
+    return c.includes("culture") || c.includes("exposition") || c.includes("conférence") || c.includes("conference");
+  });
+  // Garde-fou renforcé: évite les faux positifs "tech/IA/salon pro" dans les catégories musique électronique.
+  if (
+    hasElectronicCat &&
+    (hasTechSignal || hasCultureSignal || hasCultureCategory || hasTradeFairSignal) &&
+    !(hasCoreMusicSignal || (!hasTradeFairSignal && hasMusicSignal))
+  ) {
+    const cleaned = categories.filter(c => !isElectronicCategory(c));
+    if (cleaned.length === 0) {
+      cleaned.push(hasTradeFairSignal ? "Business & Pro > Salon professionnel" : "Culture > Conférences & Rencontres");
+    }
+    item.categories = cleaned;
+    if (
+      typeof item.mainCategory === "string" &&
+      isElectronicCategory(item.mainCategory)
+    ) {
+      item.mainCategory = "Culture > Conférences & Rencontres";
+    }
+    item.__strictMusicBlocked = true;
+  } else {
+    item.__strictMusicBlocked = false;
+  }
+
+  // Règle explicite: si le texte indique clairement "musique classique",
+  // injecter une catégorie musique dédiée même si la source est trop générique ("Events", "Culture").
+  const hasMusicCategory = categories.some(cat => domainFromCategory(cat) === "music");
+  if (hasClassicalSignal && !hasMusicCategory) {
+    const withoutGeneric = categories.filter(c => !/^\s*events?\s*$/i.test(c));
+    const nextCategories = ["Musique > Classique", ...withoutGeneric];
+    item.categories = Array.from(new Set(nextCategories));
+    categories = item.categories.slice();
+    item.mainCategory = "Musique > Classique";
+  }
+
+  // Tri strict global: garder uniquement les catégories cohérentes avec le domaine dominant.
+  const sortedScores = Object.entries(domainScores).sort((a, b) => b[1] - a[1]);
+  const [dominantDomain, dominantScore] = sortedScores[0] || ["", 0];
+  const secondScore = (sortedScores[1] && sortedScores[1][1]) || 0;
+  const hasClearDominance = dominantScore >= 2 && dominantScore >= secondScore + 1;
+
+  if (hasClearDominance) {
+    const kept = categories.filter(cat => {
+      const d = domainFromCategory(cat);
+      return d === "unknown" ? false : d === dominantDomain;
+    });
+    if (kept.length > 0) {
+      item.categories = kept;
+      if (typeof item.mainCategory === "string" && domainFromCategory(item.mainCategory) !== dominantDomain) {
+        item.mainCategory = kept[0];
+      }
+    }
+  }
+
+  return item;
+}
 
 // Charger TOUS les events pour que le filtre fonctionne à n'importe quel zoom
 async function loadAllEventsForFilter() {
@@ -9709,10 +11351,65 @@ async function loadAllEventsForFilter() {
   console.log('[FILTER] Chargement de TOUS les events pour le filtre...');
   
   try {
-    const r = await fetch(`${window.API_BASE_URL}/events/viewport?zoom=10&south=-90&north=90&west=-180&east=180`);
-    if (!r.ok) { _allEventsLoading = false; return; }
-    const data = await r.json();
-    if (data.type !== 'events' || !data.k || !data.d) { _allEventsLoading = false; return; }
+    // Source principale: endpoint global /events (toujours détaillé, sans clusters).
+    // Pagination forcée pour contourner les réponses plafonnées à 50k.
+    let data = null;
+    try {
+      const pageSize = 50000;
+      let offset = 0;
+      let allRows = [];
+      let globalKeys = null;
+      for (let page = 0; page < 20; page++) {
+        const globalResp = await fetch(`${window.API_BASE_URL}/events?limit=${pageSize}&offset=${offset}`);
+        if (!globalResp.ok) break;
+        const globalData = await globalResp.json();
+        if (!globalData || !globalData.k || !globalData.d) break;
+        if (!globalKeys) globalKeys = globalData.k;
+        if (globalData.d.length === 0) break;
+        allRows = allRows.concat(globalData.d);
+        if (globalData.d.length < pageSize) break;
+        offset += pageSize;
+      }
+      if (globalKeys && allRows.length > 0) {
+        data = { k: globalKeys, d: allRows };
+        console.log(`[FILTER] Dataset global events obtenu via /events paginé (${allRows.length} lignes)`);
+      } else {
+        const singleResp = await fetch(`${window.API_BASE_URL}/events`);
+        if (singleResp.ok) {
+          const singleData = await singleResp.json();
+          if (singleData && singleData.k && singleData.d) {
+            data = singleData;
+            console.log('[FILTER] Dataset global events obtenu via /events (single)');
+          }
+        }
+      }
+    } catch (globalErr) {
+      console.warn('[FILTER] /events indisponible, fallback viewport:', globalErr);
+    }
+
+    // Fallback: endpoint viewport avec zooms détaillés.
+    if (!data) {
+      const zoomCandidates = [12, 14, 16];
+      for (const z of zoomCandidates) {
+        const r = await fetch(`${window.API_BASE_URL}/events/viewport?zoom=${z}&south=-90&north=90&west=-180&east=180`);
+        if (!r.ok) continue;
+        const candidate = await r.json();
+        if (candidate && candidate.type === 'events' && candidate.k && candidate.d) {
+          data = candidate;
+          console.log(`[FILTER] Dataset global events obtenu avec zoom=${z}`);
+          break;
+        }
+        if (candidate && candidate.type === 'clusters') {
+          console.log(`[FILTER] Réponse clusters avec zoom=${z}, retry zoom supérieur...`);
+        }
+      }
+    }
+
+    if (!data || !data.k || !data.d) {
+      console.warn('[FILTER] Impossible de charger le dataset global events (réponse non détaillée).');
+      _allEventsLoading = false;
+      return;
+    }
     
     const keys = data.k;
     let newCount = 0;
@@ -9724,14 +11421,19 @@ async function loadAllEventsForFilter() {
       if (loadedEventIds.has(obj.id)) return;
       loadedEventIds.add(obj.id);
       
+      const normalizedCoords = normalizeLatLng(obj.latitude, obj.longitude, obj.location);
+      if (!normalizedCoords) return;
       const event = {
         ...obj, type: 'event',
-        lat: obj.latitude, lng: obj.longitude,
+        lat: normalizedCoords.lat, lng: normalizedCoords.lng,
         startDate: obj.date ? new Date(obj.date + (obj.time ? 'T' + obj.time : '')) : null,
         endDate: obj.end_date ? new Date(obj.end_date) : null,
-        address: obj.location || '', boost: '1.-', likes: 0, favorites: 0, participations: 0
+        address: obj.location || '', boost: normalizeBoostTier(obj.boost), likes: 0, favorites: 0, participations: 0
       };
+      sanitizeEventCategoriesForMusicContext(event);
       if (typeof event.lat !== 'number' || typeof event.lng !== 'number' || isNaN(event.lat) || isNaN(event.lng)) return;
+      if (isEventRangeTooLong(event, 14) && isScrapedEvent(event)) return;
+      if (!validateEventQuality(event)) return;
       eventsData.push(event);
       newCount++;
     });
@@ -9748,50 +11450,106 @@ async function loadAllEventsForFilter() {
 }
 
 const FILTER_ALIASES = {
-  // Music
-  "electronic": ["electro"], "electro": ["electronic"], "music": ["musique"], "musique": ["music", "concert"],
-  "concert": ["musique", "music"],
-  // Culture
-  "théâtre": ["spectacle", "théatre", "theatre", "spectacles"], "spectacle": ["théâtre", "theatre", "spectacles"],
-  "theatre": ["théâtre", "spectacle"],
-  "expositions": ["exposition", "expo", "galerie", "vernissage"], "exposition": ["expositions"],
-  "culture": ["conférence", "conférences & rencontres", "arts vivants", "exposition", "expositions", "cinéma", "littérature", "atelier", "ateliers"],
-  "conférences & rencontres": ["conférence", "conférences", "débat", "séminaire"], "conférence": ["conférences & rencontres"],
-  "cinéma & projections": ["cinéma", "cinema", "film", "projection"], "cinéma": ["cinéma & projections"],
-  "littérature & conte": ["littérature", "conte", "lecture"], "littérature": ["littérature & conte"],
-  "visites & patrimoine": ["visite", "patrimoine", "musée", "histoire"], "visite": ["visites & patrimoine"],
-  "humour": ["stand-up", "one-man show", "sketch", "improvisation comique"],
-  // Ateliers (ex-Workshops)
-  "ateliers": ["atelier", "workshops", "workshop", "stage"], "atelier": ["ateliers", "workshops"],
-  "workshops": ["ateliers", "atelier"],
-  // Sport
-  "terrestre": ["sport terrestre", "sport"], "sport terrestre": ["terrestre"],
-  "aquatique": ["sport aquatique"], "sport aquatique": ["aquatique"],
-  "glisse": ["ski", "snowboard", "patinage", "hockey", "luge"],
-  // Food
-  "food & drinks": ["dégustation", "dégustations", "restauration", "gastronomie", "food"],
-  "dégustations": ["dégustation", "gastronomie"], "gastronomie": ["dégustations", "food & drinks"],
-  // Loisirs
-  "défilés & fêtes": ["fête", "fêtes", "brocante", "marché", "carnaval", "défilé"],
-  "fête": ["défilés & fêtes"], "marché": ["défilés & fêtes", "brocante"],
-  "brocante": ["marché & brocante", "défilés & fêtes", "marché"],
-  // Festivals
-  "festivals & grandes fêtes": ["festival", "festivals", "foire", "salon"],
-  "festival": ["festivals & grandes fêtes"], "foire": ["festivals & grandes fêtes"],
-  // Famille
-  "famille & enfants": ["famille", "enfants", "enfant"],
-  "famille": ["famille & enfants"], "enfants": ["famille & enfants"],
-  // Nature
-  "nature & plein air": ["nature", "plein air", "randonnée", "balade"],
-  "nature": ["nature & plein air"],
-  // Bien-être
-  "bien-être": ["yoga", "méditation", "sophrologie", "spa", "yoga & bien-être"],
-  "yoga": ["bien-être", "yoga & bien-être"], "yoga & bien-être": ["bien-être", "yoga"],
-  // Business
-  "business & communauté": ["business", "networking", "business & networking"],
-  "business & networking": ["business & communauté"],
-  // Événement générique → tout
-  "événement": []
+  // === Musique ===
+  "musique":               ["music", "concert", "spectacle musical"],
+  "music":                 ["musique", "concert"],
+  "concert":               ["musique", "music"],
+  "électro":               ["electro", "electronic", "techno", "house", "trance",
+                             "drum & bass", "bass music", "hard music", "disco / nu-disco", "ambient / chill"],
+  "electro":               ["électro", "electronic"],
+  "electronic":            ["électro", "electro"],
+  "techno":                ["acid techno", "minimal techno", "hard techno", "industrial techno",
+                             "melodic techno", "detroit techno", "dub techno"],
+  "house":                 ["deep house", "tech house", "progressive house", "afro house", "electro house"],
+  "trance":                ["psytrance", "goa", "dark psy", "uplifting trance", "vocal trance"],
+  "drum & bass":           ["neurofunk", "liquid dnb", "jump up", "jungle"],
+  "urbain":                ["rap / hip-hop", "rnb / soul", "afro / caraïbes", "grime / uk"],
+  "rap / hip-hop":         ["rap", "hip-hop", "hip hop", "trap", "drill", "phonk"],
+  "rap":                   ["rap / hip-hop", "hip-hop"],
+  "hip-hop":               ["rap / hip-hop", "rap"],
+  "rnb / soul":            ["rnb", "r&b", "neo soul", "soul"],
+  "afro / caraïbes":       ["afrobeats", "afrobeat", "dancehall", "reggaeton", "kompa"],
+  "rock / metal":          ["rock", "metal", "punk", "grunge"],
+  "rock":                  ["hard rock", "indie rock", "alternative rock", "punk rock", "classic rock"],
+  "metal":                 ["heavy metal", "thrash metal", "black metal", "death metal", "metalcore"],
+  "jazz / blues / soul":   ["jazz", "blues", "soul", "funk", "swing", "fusion", "smooth jazz"],
+  "jazz":                  ["jazz / blues / soul", "blues", "smooth jazz"],
+  "reggae / world":        ["reggae", "dub", "ska", "afrobeat", "balkan", "latin", "cumbia"],
+  "pop / variété":         ["pop", "indie pop", "k-pop", "j-pop", "chanson française", "variété"],
+  "folk / acoustic":       ["folk", "country", "bluegrass", "acoustic live", "celtic / irish"],
+  "classique":             ["opéra", "orchestre", "symphonie", "baroque", "romantique",
+                             "quatuor / trio", "brass band", "choeur / ensemble vocal"],
+  // === Arts Vivants ===
+  "arts vivants":          ["théâtre", "danse", "cirque & cabaret", "performance"],
+  "théâtre":               ["spectacle", "théatre", "theatre", "comédie musicale", "improvisation"],
+  "spectacle":             ["théâtre", "theatre"],
+  "theatre":               ["théâtre", "spectacle"],
+  "danse":                 ["ballet", "contemporaine", "hip-hop / urbaine", "latine", "flamenco"],
+  "cirque & cabaret":      ["cirque", "cabaret", "burlesque", "magie", "acrobatie"],
+  "humour":                ["stand-up", "one-man show", "sketch", "improvisation comique"],
+  // === Culture ===
+  "culture":               ["expositions", "cinéma", "conférences & débats", "humour",
+                             "littérature", "ateliers", "patrimoine & visites"],
+  "expositions":           ["exposition", "expo", "galerie", "vernissage"],
+  "exposition":            ["expositions"],
+  "cinéma":                ["cinéma & projections", "film", "projection", "documentaire"],
+  "cinéma & projections":  ["cinéma"],
+  "conférences & débats":  ["conférence", "débat", "séminaire", "table ronde",
+                             "conférences & rencontres"],
+  "conférences & rencontres": ["conférences & débats", "conférence"],
+  "conférence":            ["conférences & débats", "conférences & rencontres"],
+  "littérature":           ["littérature & conte", "conte", "lecture", "slam / poésie"],
+  "littérature & conte":   ["littérature"],
+  "ateliers":              ["atelier", "workshop", "workshops", "stage"],
+  "atelier":               ["ateliers", "workshops"],
+  "workshops":             ["ateliers", "atelier"],
+  "patrimoine & visites":  ["visites & patrimoine", "visite", "patrimoine", "musée", "histoire"],
+  "visites & patrimoine":  ["patrimoine & visites"],
+  "visite":                ["patrimoine & visites", "visites & patrimoine"],
+  // === Festivals ===
+  "festivals":             ["festivals & grandes fêtes", "festival", "open air", "block party",
+                             "street parade", "nuit blanche", "carnaval"],
+  "festival":              ["festivals", "festivals & grandes fêtes"],
+  "festivals & grandes fêtes": ["festivals", "festival"],
+  // === Food & Drinks ===
+  "food & drinks":         ["dégustations", "événements culinaires", "dégustation", "gastronomie"],
+  "dégustations":          ["dégustation", "gastronomie", "vin"],
+  "gastronomie":           ["dégustations", "food & drinks"],
+  // === Sport ===
+  "sport":                 ["sports collectifs", "sports individuels", "endurance",
+                             "glisse", "sports aériens", "sports mécaniques"],
+  "sports collectifs":     ["football", "rugby", "basket", "volleyball", "handball", "hockey"],
+  "endurance":             ["course à pied", "trail", "triathlon", "crossfit", "fitness / bootcamp"],
+  "glisse":                ["ski", "snowboard", "surf", "skate", "patinage", "longboard", "luge"],
+  "sports aériens":        ["parapente", "montgolfière", "wing suit", "drone racing"],
+  "sports mécaniques":     ["karting", "rallye", "moto", "drift"],
+  // === Loisirs & Jeux ===
+  "loisirs & jeux":        ["loisirs & animation", "soirées & jeux", "marchés & fêtes", "gaming & esport"],
+  "loisirs & animation":   ["loisirs & jeux"],
+  "soirées & jeux":        ["jeux & soirées", "karaoke", "blind test", "quiz", "escape game"],
+  "jeux & soirées":        ["soirées & jeux"],
+  "marchés & fêtes":       ["défilés & fêtes", "brocante", "marché", "fête de village"],
+  "défilés & fêtes":       ["marchés & fêtes"],
+  "fête":                  ["marchés & fêtes", "défilés & fêtes"],
+  "marché":                ["marchés & fêtes", "brocante"],
+  "brocante":              ["marchés & fêtes", "défilés & fêtes"],
+  // === Famille ===
+  "famille & enfants":     ["famille", "enfants", "enfant"],
+  "famille":               ["famille & enfants"],
+  "enfants":               ["famille & enfants"],
+  // === Nature ===
+  "nature & plein air":    ["nature", "plein air", "randonnée", "balade"],
+  "nature":                ["nature & plein air"],
+  // === Bien-être ===
+  "bien-être":             ["yoga", "méditation", "sophrologie", "spa / sauna", "bain sonore", "breathwork"],
+  "yoga":                  ["bien-être"],
+  // === Business ===
+  "business & pro":        ["business & communauté", "business", "networking", "hackathon", "meetup"],
+  "business & communauté": ["business & pro"],
+  "business & networking": ["business & pro", "business & communauté"],
+  "networking":            ["business & pro"],
+  // Générique
+  "événement":             []
 };
 
 function applyExplorerFilter() {
@@ -9807,8 +11565,9 @@ function applyExplorerFilter() {
   }
 
   const lowerCats = selectedCategories.map(c => c.toLowerCase());
+  const hasDateFilter = !!timeFilter || !!dateRangeStart || !!dateRangeEnd || selectedDates.length > 0;
 
-  if (lowerCats.length === 0 && !timeFilter && !dateRangeStart && !dateRangeEnd && selectedDates.length === 0) {
+  if (lowerCats.length === 0 && !hasDateFilter) {
     filteredData = null;
     isRefreshingMarkers = false;
     refreshMarkers();
@@ -9816,8 +11575,9 @@ function applyExplorerFilter() {
     return;
   }
 
-  // Si un filtre catégorie est actif, charger TOUS les events (pour voir de loin)
-  if (lowerCats.length > 0 && !_allEventsLoaded) {
+  // Si un filtre catégorie OU date est actif, charger TOUS les events
+  // (sinon base parfois vide en zoom agrégé)
+  if ((lowerCats.length > 0 || hasDateFilter) && !_allEventsLoaded) {
     loadAllEventsForFilter().then(() => {
       _applyFilterCore(lowerCats);
     });
@@ -9832,27 +11592,55 @@ function applyExplorerFilter() {
 function _applyFilterCore(lowerCats) {
   const base = getCurrentData();
   console.log(`[FILTER] ${lowerCats.length} catégories, base: ${base.length} items`);
+  const currentUserId = (currentUser?.id || currentUser?.cognitoSub || currentUser?.sub || "").toString();
+  const currentUserEmail = (currentUser?.email || "").toString().trim().toLowerCase();
+  const isOwnedByCurrentUser = (item) => {
+    if (!item) return false;
+    const candidateIds = [item.creator_id, item.createdBy, item.userId, item.ownerId]
+      .filter(v => v !== undefined && v !== null)
+      .map(v => String(v));
+    if (currentUserId && candidateIds.includes(currentUserId)) return true;
+    const candidateEmails = [item.organizer_email, item.organizerEmail, item.email, item.ownerEmail, item.createdByEmail]
+      .map(v => (v || "").toString().trim().toLowerCase())
+      .filter(Boolean);
+    return !!(currentUserEmail && candidateEmails.includes(currentUserEmail));
+  };
 
   let allowedCategories = new Set();
   
-  if (lowerCats.length > 0 && explorerTree) {
+  if (lowerCats.length > 0) {
     lowerCats.forEach(selectedCat => {
       allowedCategories.add(selectedCat);
-      const descendants = findCategoryDescendants(selectedCat, explorerTree);
-      descendants.forEach(d => allowedCategories.add(d));
-      (FILTER_ALIASES[selectedCat] || []).forEach(a => {
-        allowedCategories.add(a);
-        const aliasDesc = findCategoryDescendants(a, explorerTree);
-        aliasDesc.forEach(d => allowedCategories.add(d));
-      });
+      // Toujours inclure les alias, même si l'arbre n'est pas dispo.
+      (FILTER_ALIASES[selectedCat] || []).forEach(a => allowedCategories.add(a));
+      // Inclure les descendants uniquement quand l'arbre est chargé.
+      if (explorerTree) {
+        const descendants = findCategoryDescendants(selectedCat, explorerTree);
+        descendants.forEach(d => allowedCategories.add(d));
+        (FILTER_ALIASES[selectedCat] || []).forEach(a => {
+          const aliasDesc = findCategoryDescendants(a, explorerTree);
+          aliasDesc.forEach(d => allowedCategories.add(d));
+        });
+      }
     });
   }
 
   filteredData = base.filter(item => {
+    if (item.type === "event" && isEventRangeTooLong(item, 14) && isScrapedEvent(item)) {
+      return false;
+    }
+    if (item.type === "event" && !validateEventQuality(item)) {
+      return false;
+    }
     let catOk = true;
     if (lowerCats.length > 0) {
       const itemCatParts = getEffectiveCategoryParts(item);
-      catOk = Array.from(itemCatParts).some(cat => allowedCategories.has(cat));
+      // Fallback de sécurité: si allowedCategories est vide, on retombe sur lowerCats bruts.
+      if (allowedCategories.size === 0) {
+        catOk = Array.from(itemCatParts).some(cat => lowerCats.includes(cat));
+      } else {
+        catOk = Array.from(itemCatParts).some(cat => allowedCategories.has(cat));
+      }
     }
     let dateOk = true;
     if (item.type === "event") {
@@ -9869,7 +11657,7 @@ function _applyFilterCore(lowerCats) {
 }
 
 // Trouve la catégorie cible + tous ses descendants dans l'arbre (hiérarchie stricte)
-// Electronic → techno, house, trance, acid techno, etc. | Techno → acid techno, detroit techno, etc. | Reggae → reggae seul
+// Electronic \u2192 techno, house, trance, acid techno, etc. | Techno \u2192 acid techno, detroit techno, etc. | Reggae \u2192 reggae seul
 function findCategoryDescendants(targetCat, tree) {
   const results = new Set();
   
@@ -9912,50 +11700,52 @@ function findCategoryDescendants(targetCat, tree) {
 }
 
 function eventMatchesTimeFilter(ev) {
-  // Si aucun filtre de date actif, tout passe
-  if (selectedDates.length === 0 && !dateRangeStart && !dateRangeEnd) return true;
-  if (!ev.startDate) return true;
-
-  const evStart = new Date(ev.startDate);
-  if (isNaN(evStart.getTime())) return true;
-
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  // Filtre par plage de dates personnalisée
+  const { start: evStart, end: evEnd } = getEventDateRange(ev);
+  if (!evStart || !evEnd) {
+    // Si un filtre date est actif, un event sans date valide ne doit jamais passer.
+    if (selectedDates.length > 0 || dateRangeStart || dateRangeEnd) return false;
+    return true;
+  }
+
+  // Règle globale: ne jamais afficher un event terminé.
+  if (evEnd < today) return false;
+
+  // Si aucun filtre de date actif, l'event (non passé) passe.
+  if (selectedDates.length === 0 && !dateRangeStart && !dateRangeEnd) return true;
+
+  // Filtre plage personnalisée, avec borne basse clampée à "aujourd'hui".
   if (dateRangeStart || dateRangeEnd) {
-    const evDate = new Date(ev.startDate);
-    evDate.setHours(0, 0, 0, 0);
-    
-    if (dateRangeStart && dateRangeEnd) {
-      const rangeStart = new Date(dateRangeStart + "T00:00:00");
-      const rangeEnd = new Date(dateRangeEnd + "T23:59:59");
-      if (evDate >= rangeStart && evDate <= rangeEnd) return true;
-    } else if (dateRangeStart) {
-      const rangeStart = new Date(dateRangeStart + "T00:00:00");
-      if (evDate >= rangeStart) return true;
-    } else if (dateRangeEnd) {
-      const rangeEnd = new Date(dateRangeEnd + "T23:59:59");
-      if (evDate <= rangeEnd) return true;
-    }
-    // Si seulement plage active et pas de match, retourner false
+    const requestedStart = dateRangeStart ? new Date(dateRangeStart + "T00:00:00") : null;
+    const requestedEnd = dateRangeEnd ? new Date(dateRangeEnd + "T23:59:59") : null;
+    const rangeStart = requestedStart && requestedStart > today ? requestedStart : today;
+    const rangeEnd = requestedEnd || new Date("9999-12-31T23:59:59");
+
+    if (intervalsOverlap(evStart, evEnd, rangeStart, rangeEnd)) return true;
+
+    // Si seulement la plage est active et pas de match.
     if (selectedDates.length === 0) return false;
   }
 
-  // Vérifier les filtres de dates cumulés (OR entre eux)
+  // Vérifier les filtres rapides cumulés (OR), toujours sans passé.
   if (selectedDates.length > 0) {
-    return selectedDates.some(filter => matchesDateFilter(evStart, filter, today));
+    return selectedDates.some(filter => matchesDateFilter(evStart, evEnd, filter, today));
   }
 
   return true;
 }
 
 // Vérifie si une date correspond à un filtre spécifique
-function matchesDateFilter(evStart, filter, today) {
+function matchesDateFilter(evStart, evEnd, filter, today) {
+  let windowStart = null;
+  let windowEnd = null;
+
   if (filter === "today") {
-    const tomorrow = new Date(today);
-    tomorrow.setDate(today.getDate() + 1);
-    return evStart >= today && evStart < tomorrow;
+    windowStart = new Date(today);
+    windowEnd = new Date(today);
+    windowEnd.setDate(today.getDate() + 1);
   }
 
   if (filter === "tomorrow") {
@@ -9963,37 +11753,68 @@ function matchesDateFilter(evStart, filter, today) {
     tomorrow.setDate(today.getDate() + 1);
     const after = new Date(tomorrow);
     after.setDate(tomorrow.getDate() + 1);
-    return evStart >= tomorrow && evStart < after;
+    windowStart = tomorrow;
+    windowEnd = after;
   }
 
   if (filter === "weekend") {
     const wd = today.getDay();
-    const sat = new Date(today);
-    sat.setDate(today.getDate() + ((6 - wd + 7) % 7));
-    sat.setHours(0, 0, 0, 0);
-    const mon = new Date(sat);
-    mon.setDate(sat.getDate() + 2);
+    // Week-end demandé: vendredi + samedi + dimanche
+    const fri = new Date(today);
+    // Toujours le prochain vendredi (ou aujourd'hui si on est vendredi).
+    const daysToFriday = (5 - wd + 7) % 7;
+    fri.setDate(today.getDate() + daysToFriday);
+    fri.setHours(0, 0, 0, 0);
+    const mon = new Date(fri);
+    mon.setDate(fri.getDate() + 3); // lundi 00:00
     mon.setHours(0, 0, 0, 0);
-    return evStart >= sat && evStart < mon;
+    windowStart = fri;
+    windowEnd = mon;
   }
 
   if (filter === "week") {
-    const js = today.getDay() || 7;
-    const monday = new Date(today);
-    monday.setDate(today.getDate() - (js - 1));
-    monday.setHours(0, 0, 0, 0);
-    const nextMonday = new Date(monday);
-    nextMonday.setDate(monday.getDate() + 7);
-    return evStart >= monday && evStart < nextMonday;
+    // "Cette semaine" = à partir de maintenant jusqu'à lundi prochain (pas les jours passés de la semaine).
+    const js = today.getDay() || 7; // 1..7
+    const nextMonday = new Date(today);
+    nextMonday.setDate(today.getDate() + (8 - js));
+    nextMonday.setHours(0, 0, 0, 0);
+    windowStart = new Date(today);
+    windowEnd = nextMonday;
   }
 
   if (filter === "month") {
-    const m0 = new Date(today.getFullYear(), today.getMonth(), 1);
-    const m1 = new Date(today.getFullYear(), today.getMonth() + 1, 1);
-    return evStart >= m0 && evStart < m1;
+    // "30 jours" = de maintenant à J+30.
+    const m0 = new Date(today);
+    const m1 = new Date(today);
+    m1.setDate(today.getDate() + 30);
+    windowStart = m0;
+    windowEnd = m1;
   }
 
-  return false;
+  if (!windowStart || !windowEnd) return false;
+  return intervalsOverlap(evStart, evEnd, windowStart, windowEnd);
+}
+
+function getEventDateRange(ev) {
+  const startRaw = ev?.startDate || (ev?.date ? new Date(ev.date + (ev.time ? "T" + ev.time : "T00:00:00")) : null);
+  const endRaw =
+    ev?.endDate ||
+    (ev?.end_date ? new Date(ev.end_date + (ev.end_time ? "T" + ev.end_time : "T23:59:59")) : null) ||
+    startRaw;
+
+  const start = startRaw instanceof Date ? new Date(startRaw) : new Date(startRaw);
+  const end = endRaw instanceof Date ? new Date(endRaw) : new Date(endRaw);
+  if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+    return { start: null, end: null };
+  }
+
+  start.setHours(0, 0, 0, 0);
+  end.setHours(23, 59, 59, 999);
+  return { start, end };
+}
+
+function intervalsOverlap(aStart, aEnd, bStart, bEnd) {
+  return aStart <= bEnd && aEnd >= bStart;
 }
 
 // ============================================
@@ -10004,6 +11825,317 @@ function matchesDateFilter(evStart, filter, today) {
 let autocompleteTimeout = null;
 let currentSuggestions = [];
 let selectedSuggestionIndex = -1;
+let autocompleteRequestId = 0;
+
+function normalizeSearchText(value) {
+  return (value || "")
+    .toString()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+}
+
+function isPoiOrAddressQuery(query) {
+  const q = normalizeSearchText(query);
+  if (!q) return false;
+  if (/\d/.test(q)) return true;
+  const poiKeywords = [
+    "musee", "musée", "museum", "gare", "station", "hotel", "hôtel",
+    "restaurant", "cafe", "café", "cinema", "cinéma", "theatre", "théâtre",
+    "bibliotheque", "bibliothèque", "hopital", "hôpital", "eglise", "église",
+    "pharmacie", "banque", "airport", "aeroport", "aéroport", "rue", "avenue",
+    "boulevard", "place", "quai", "route", "chemin"
+  ];
+  return poiKeywords.some(k => q.includes(normalizeSearchText(k)));
+}
+
+function buildLocalSearchSuggestions(query, limit = 6) {
+  const q = normalizeSearchText(query);
+  if (!q || q.length < 2) return [];
+
+  const queryTokens = q.split(/\s+/).filter(Boolean);
+  const queryHasNumber = /\d/.test(q);
+  const queryNumber = (q.match(/\b\d+[a-z]?\b/i) || [null])[0];
+  const datasets = [
+    { type: "event", items: Array.isArray(eventsData) ? eventsData : [] },
+    { type: "booking", items: Array.isArray(bookingsData) ? bookingsData : [] },
+    { type: "service", items: Array.isArray(servicesData) ? servicesData : [] }
+  ];
+  const matches = [];
+  const seen = new Set();
+
+  for (const dataset of datasets) {
+    for (const item of dataset.items) {
+      if (!item) continue;
+      const itemId = String(item.id || "");
+      if (!itemId) continue;
+      const dedupeKey = `${dataset.type}:${itemId}`;
+      if (seen.has(dedupeKey)) continue;
+
+      const titleRaw = (item.title || item.name || "").toString().trim();
+      const addressRaw = (item.address || item.location || "").toString().trim();
+      const cityRaw = (item.city || "").toString().trim();
+      const title = normalizeSearchText(titleRaw);
+      const address = normalizeSearchText(addressRaw);
+      const city = normalizeSearchText(cityRaw);
+      if (!title && !address && !city) continue;
+
+      let score = 0;
+
+      if (title === q) score += 280;
+      else if (title.startsWith(q)) score += 220;
+      else if (title.includes(q)) score += 170;
+
+      if (address === q) score += 260;
+      else if (address.startsWith(q)) score += 220;
+      else if (address.includes(q)) score += 170;
+
+      if (city === q) score += 120;
+      else if (city.startsWith(q)) score += 90;
+      else if (city.includes(q)) score += 60;
+
+      let tokenHits = 0;
+      for (const token of queryTokens) {
+        if (!token) continue;
+        if ((title && title.includes(token)) || (address && address.includes(token)) || (city && city.includes(token))) {
+          tokenHits += 1;
+        }
+      }
+      score += tokenHits * 22;
+
+      if (queryHasNumber) {
+        if (queryNumber && address.includes(queryNumber)) score += 190;
+        if (queryNumber && title.includes(queryNumber)) score += 80;
+        if (/\d/.test(addressRaw)) score += 55;
+      }
+
+      const lat = parseFloat(item.lat);
+      const lng = parseFloat(item.lng);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+      if (score < 120) continue;
+
+      seen.add(dedupeKey);
+
+      const localLabel = dataset.type === "event"
+        ? "Événement"
+        : (dataset.type === "booking" ? "Réservation" : "Service");
+      const displayName = [titleRaw || itemId, addressRaw || cityRaw].filter(Boolean).join(", ");
+
+      matches.push({
+        lat: String(lat),
+        lon: String(lng),
+        display_name: displayName || titleRaw || addressRaw || cityRaw || itemId,
+        class: dataset.type === "event" ? "amenity" : "building",
+        type: dataset.type,
+        importance: Math.min(1, score / 350),
+        address: {
+          city: cityRaw || null,
+          country: null
+        },
+        _score: score,
+        _local: {
+          type: dataset.type,
+          id: item.id,
+          label: localLabel,
+          title: titleRaw || cityRaw || "Résultat local"
+        }
+      });
+    }
+  }
+
+  return matches
+    .sort((a, b) => (b._score - a._score) || ((b.importance || 0) - (a.importance || 0)))
+    .slice(0, limit);
+}
+
+function getSuggestionPriority(suggestion, query) {
+  const cls = (suggestion?.class || "").toLowerCase();
+  const type = (suggestion?.type || "").toLowerCase();
+  const display = normalizeSearchText(suggestion?.display_name || "");
+  const q = normalizeSearchText(query);
+  const poiQuery = isPoiOrAddressQuery(query);
+  const queryHasNumber = /\d/.test(q);
+  const hasHouseNumber = Boolean(suggestion?.address?.house_number) || /\b\d+[a-z]?\b/i.test(suggestion?.display_name || "");
+
+  const isPlace = cls === "place" || [
+    "city", "town", "village", "hamlet", "municipality", "administrative", "suburb"
+  ].includes(type);
+  const isAddress = cls === "highway" || type === "house" || type === "road" || /\d/.test(suggestion?.display_name || "");
+  const isLocalSuggestion = Boolean(suggestion?._local);
+  const isPoi = ["amenity", "tourism", "leisure", "building", "historic", "shop", "office", "railway"].includes(cls);
+
+  let score = 0;
+  if (display === q) score += 80;
+  else if (display.startsWith(q)) score += 45;
+  else if (display.includes(q)) score += 25;
+
+  if (isLocalSuggestion) score += 140;
+  if (queryHasNumber && hasHouseNumber) score += 110;
+  if (queryHasNumber && isPlace) score -= 45;
+
+  if (poiQuery) {
+    if (isPoi) score += 40;
+    if (isAddress) score += 30;
+    if (isPlace) score += 5;
+  } else {
+    if (isPlace) score += 35;
+    if (isPoi) score += 15;
+    if (isAddress) score += 10;
+  }
+
+  const importance = Number(suggestion?.importance || 0);
+  score += Math.max(0, Math.min(20, importance * 20));
+  return score;
+}
+
+function getSuggestionZoom(suggestion) {
+  if (suggestion?._local?.type === "event") return 17;
+  if (suggestion?._local?.type === "booking" || suggestion?._local?.type === "service") return 16;
+  const cls = (suggestion?.class || "").toLowerCase();
+  const type = (suggestion?.type || "").toLowerCase();
+  if (cls === "place" && ["city", "town"].includes(type)) return 11;
+  if (cls === "place" && ["village", "suburb", "hamlet"].includes(type)) return 13;
+  if (cls === "highway" || type === "house" || type === "road") return 17;
+  if (["amenity", "tourism", "building", "historic", "railway", "shop", "leisure"].includes(cls)) return 16;
+  return 14;
+}
+
+function getZoomForQueryAndSuggestion(query, suggestion) {
+  const q = normalizeSearchText(query);
+  const hasNumberInQuery = /\d/.test(q);
+  const hasNumberInSuggestion = Boolean(suggestion?.address?.house_number)
+    || /\b\d+[a-z]?\b/i.test(suggestion?.display_name || "");
+  const baseZoom = getSuggestionZoom(suggestion);
+  if (hasNumberInQuery && hasNumberInSuggestion) return Math.max(baseZoom, 19);
+  if (hasNumberInQuery) return Math.max(baseZoom, 17);
+  return baseZoom;
+}
+
+function focusMapOnSearchResult(lat, lng, zoom) {
+  if (!map || !Number.isFinite(lat) || !Number.isFinite(lng)) return;
+  const mapMaxZoomRaw = typeof map.getMaxZoom === "function" ? map.getMaxZoom() : 20;
+  const mapMaxZoom = Number.isFinite(mapMaxZoomRaw) ? mapMaxZoomRaw : 20;
+  const allowedMaxZoom = Math.min(20, mapMaxZoom);
+  const targetZoom = Math.max(10, Math.min(allowedMaxZoom, Number(zoom) || 14));
+  if (typeof map.flyTo === "function") {
+    map.flyTo([lat, lng], targetZoom, {
+      animate: true,
+      duration: 0.5,
+      easeLinearity: 0.25
+    });
+    return;
+  }
+  map.setView([lat, lng], targetZoom, { animate: true });
+}
+
+function countItemsInCurrentBounds() {
+  if (!map || typeof map.getBounds !== "function") return 0;
+  const bounds = map.getBounds();
+  if (!bounds) return 0;
+  const allItems = [...(eventsData || []), ...(bookingsData || []), ...(servicesData || [])];
+  let count = 0;
+  for (const item of allItems) {
+    if (!item) continue;
+    const lat = parseFloat(item.lat);
+    const lng = parseFloat(item.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+    if (bounds.contains([lat, lng])) count += 1;
+  }
+  return count;
+}
+
+async function ensureAddressSearchKeepsNearbyEventsVisible(lat, lng) {
+  if (!map || !Number.isFinite(lat) || !Number.isFinite(lng)) return;
+  // Laisse la carte finir son déplacement/chargement viewport
+  await new Promise(resolve => setTimeout(resolve, 260));
+
+  const visibleNow = countItemsInCurrentBounds();
+  if (visibleNow > 0) return;
+
+  // Si rien de visible, on élargit progressivement tout en restant centré sur l'adresse demandée.
+  const currentZoom = typeof map.getZoom === "function" ? map.getZoom() : 16;
+  const fallbackZooms = [18, 17, 16, 15].filter(z => z < currentZoom);
+  for (const z of fallbackZooms) {
+    map.setView([lat, lng], z, { animate: true });
+    await new Promise(resolve => setTimeout(resolve, 220));
+    if (countItemsInCurrentBounds() > 0) return;
+  }
+}
+
+async function ensureGlobalEventsLoadedForSearch() {
+  if (_allEventsLoaded) return true;
+  try {
+    await loadAllEventsForFilter();
+  } catch (err) {
+    console.warn("Chargement global events pour recherche:", err);
+  }
+  if (_allEventsLoaded) return true;
+
+  let waited = 0;
+  while (_allEventsLoading && waited < 8000) {
+    await new Promise(resolve => setTimeout(resolve, 160));
+    waited += 160;
+  }
+  return _allEventsLoaded;
+}
+
+async function fetchSuggestionsRobust(query, limit = 8) {
+  const encoded = encodeURIComponent(query);
+  const endpoints = [
+    `https://nominatim.openstreetmap.org/search?q=${encoded}&format=jsonv2&limit=${limit}&dedupe=1&addressdetails=1&accept-language=${currentLanguage || "fr"}`,
+    `https://nominatim.openstreetmap.org/search?q=${encoded}&format=json&limit=${limit}&addressdetails=1`
+  ];
+
+  let lastError = null;
+  for (const url of endpoints) {
+    try {
+      // Pas de headers custom ici: certains navigateurs/proxys cassent la requête.
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json();
+      if (Array.isArray(data) && data.length > 0) return data;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  // Fallback Photon (POI souvent meilleurs)
+  try {
+    const photonUrl = `https://photon.komoot.io/api/?q=${encoded}&limit=${limit}&lang=${currentLanguage || "fr"}`;
+    const r = await fetch(photonUrl);
+    if (r.ok) {
+      const photon = await r.json();
+      const features = Array.isArray(photon?.features) ? photon.features : [];
+      const mapped = features.map(f => {
+        const props = f.properties || {};
+        const coords = Array.isArray(f.geometry?.coordinates) ? f.geometry.coordinates : [null, null];
+        const lon = coords[0];
+        const lat = coords[1];
+        const city = props.city || props.county || props.state || "";
+        const country = props.country || "";
+        const display = [props.name, city, country].filter(Boolean).join(", ");
+        return {
+          lat: String(lat),
+          lon: String(lon),
+          display_name: display || props.name || query,
+          class: props.osm_key || "place",
+          type: props.osm_value || props.type || "place",
+          importance: 0.5,
+          address: {
+            city,
+            country
+          }
+        };
+      }).filter(x => x.lat && x.lon);
+      if (mapped.length > 0) return mapped;
+    }
+  } catch (error) {
+    lastError = error;
+  }
+
+  throw lastError || new Error("Aucune source de géocodage disponible");
+}
 
 // Fonction pour créer le dropdown d'autocomplétion
 function createAutocompleteDropdown() {
@@ -10044,23 +12176,47 @@ async function searchCitySuggestions(query) {
   }
   
   try {
-    const encodedQuery = encodeURIComponent(query);
-    const response = await fetch(
-      `https://nominatim.openstreetmap.org/search?q=${encodedQuery}&format=json&limit=8&addressdetails=1&accept-language=${currentLanguage}`,
-      {
-        headers: {
-          'User-Agent': 'MapEventAI/1.0'
-        }
+    const requestId = ++autocompleteRequestId;
+    const queryTrimmed = query.trim();
+    const isAddressLikeQuery = isPoiOrAddressQuery(queryTrimmed);
+    let localMatches = buildLocalSearchSuggestions(query, 5);
+    // Pour les adresses (rue + numéro), ne pas bloquer l'autocomplete avec le chargement global events.
+    // On privilégie une réponse géocodeur immédiate.
+    if (!isAddressLikeQuery && localMatches.length === 0 && queryTrimmed.length >= 3) {
+      const loaded = await ensureGlobalEventsLoadedForSearch();
+      if (loaded) {
+        localMatches = buildLocalSearchSuggestions(query, 8);
       }
-    );
-    
-    if (!response.ok) throw new Error("Erreur API");
-    
-    const data = await response.json();
-    currentSuggestions = data;
-    displaySuggestions(data);
+    }
+    const data = await fetchSuggestionsRobust(query, isAddressLikeQuery ? 14 : 12);
+    if (requestId !== autocompleteRequestId) return;
+    const remoteRanked = (Array.isArray(data) ? data : [])
+      .map(s => ({ ...s, _score: getSuggestionPriority(s, query) }))
+      .sort((a, b) => (b._score - a._score) || ((b.importance || 0) - (a.importance || 0)))
+      .slice(0, 8);
+    const merged = [];
+    const dedupe = new Set();
+    [...localMatches, ...remoteRanked].forEach(s => {
+      if (!s) return;
+      const key = `${normalizeSearchText(s.display_name || "")}|${s.lat}|${s.lon}|${s._local?.type || ""}|${s._local?.id || ""}`;
+      if (dedupe.has(key)) return;
+      dedupe.add(key);
+      merged.push(s);
+    });
+    const ranked = merged
+      .map(s => ({ ...s, _score: Number.isFinite(s._score) ? s._score : getSuggestionPriority(s, query) }))
+      .sort((a, b) => (b._score - a._score) || ((b.importance || 0) - (a.importance || 0)))
+      .slice(0, 8);
+    currentSuggestions = ranked;
+    displaySuggestions(ranked);
   } catch (error) {
     console.error("Erreur autocomplétion:", error);
+    const localFallback = buildLocalSearchSuggestions(query, 8);
+    if (localFallback.length > 0) {
+      currentSuggestions = localFallback;
+      displaySuggestions(localFallback);
+      return;
+    }
     const dropdown = document.getElementById("city-autocomplete-dropdown");
     if (dropdown) dropdown.style.display = "none";
   }
@@ -10077,7 +12233,24 @@ function displaySuggestions(suggestions) {
   }
   
   dropdown.innerHTML = suggestions.map((suggestion, index) => {
-    const displayName = suggestion.display_name.split(',').slice(0, 3).join(','); // Limiter à 3 parties
+    const displayName = suggestion.display_name.split(',').slice(0, 3).join(',');
+    const cls = (suggestion.class || "").toLowerCase();
+    const type = (suggestion.type || "").toLowerCase();
+    const icon = suggestion?._local?.type === "event"
+      ? "🎫"
+      : (suggestion?._local?.type === "booking"
+        ? "🏨"
+        : (suggestion?._local?.type === "service"
+          ? "🛠️"
+          : (cls === "place")
+      ? "🏙️"
+      : (["amenity", "tourism", "building", "historic", "leisure", "shop"].includes(cls) ? "📍" : "🛣️")));
+    const subtitle = [
+      suggestion?._local?.label || null,
+      type ? type : null,
+      suggestion.address?.city || suggestion.address?.town || suggestion.address?.village || null,
+      suggestion.address?.country || null
+    ].filter(Boolean).join(" • ");
     return `
       <div 
         class="suggestion-item" 
@@ -10095,10 +12268,10 @@ function displaySuggestions(suggestions) {
         onmouseleave="this.style.background='${index === selectedSuggestionIndex ? 'rgba(0,255,195,0.15)' : 'transparent'}'"
       >
         <div style="font-size: 14px; color: #fff; font-weight: 500; margin-bottom: 4px;">
-          ${escapeHtml(displayName)}
+          ${icon} ${escapeHtml(displayName)}
         </div>
         <div style="font-size: 11px; color: var(--ui-text-muted);">
-          ${suggestion.address?.country || ''} ${suggestion.address?.state ? '• ' + suggestion.address.state : ''}
+          ${escapeHtml(subtitle)}
         </div>
       </div>
     `;
@@ -10114,7 +12287,7 @@ function selectSuggestion(index) {
   
   const suggestion = currentSuggestions[index];
   const searchInput = document.getElementById("map-search-input");
-  const displayName = suggestion.display_name.split(',')[0];
+  const displayName = suggestion.display_name.split(',').slice(0, 2).join(',');
   
   if (searchInput) {
     searchInput.value = displayName;
@@ -10127,7 +12300,17 @@ function selectSuggestion(index) {
   const lat = parseFloat(suggestion.lat);
   const lng = parseFloat(suggestion.lon);
   if (!isNaN(lat) && !isNaN(lng)) {
-    map.setView([lat, lng], 12);
+    const inputQuery = searchInput ? searchInput.value : "";
+    const finalZoom = getZoomForQueryAndSuggestion(inputQuery, suggestion);
+    focusMapOnSearchResult(lat, lng, finalZoom);
+    if (/\d/.test(normalizeSearchText(inputQuery))) {
+      ensureAddressSearchKeepsNearbyEventsVisible(lat, lng).catch(() => {});
+    }
+    if (suggestion?._local?.type && suggestion?._local?.id !== undefined && suggestion?._local?.id !== null) {
+      openPopupFromList(suggestion._local.type, suggestion._local.id).catch(err => {
+        console.warn("openPopupFromList suggestion locale:", err);
+      });
+    }
     showNotification(`📍 ${displayName} ${window.t("city_found")}`, "success");
   } else {
     onSearchCity(displayName);
@@ -10185,9 +12368,13 @@ function initUI() {
           }
         }
       } else if (e.key === "Enter") {
-        if (isVisible && selectedSuggestionIndex >= 0) {
+        if (isVisible) {
           e.preventDefault();
-          selectSuggestion(selectedSuggestionIndex);
+          if (selectedSuggestionIndex >= 0) {
+            selectSuggestion(selectedSuggestionIndex);
+          } else {
+            onSearchCity(search.value);
+          }
         } else {
           onSearchCity(search.value);
         }
@@ -10210,7 +12397,7 @@ function initUI() {
 function switchMode(mode) {
   if (!["event", "booking", "service"].includes(mode)) return;
   
-  console.log(`🔄 Changement de mode : ${currentMode} → ${mode}`);
+  console.log(`🔄 Changement de mode : ${currentMode} \u2192 ${mode}`);
   
   // FERMER LE FILTRE SI OUVERT (l'utilisateur devra le rouvrir)
   const panel = document.getElementById("left-panel");
@@ -10284,8 +12471,100 @@ function toggleListView() {
 async function onSearchCity(query) {
   if (!query) return;
   const queryLower = query.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+  const isAddressQuery = isPoiOrAddressQuery(query);
   
   showNotification(`${window.t("searching")} "${query}"...`, "info");
+
+  // 0. Pour les requêtes d'adresse (rue + n°), priorité ABSOLUE au géocodeur
+  // afin d'éviter les matches "n'importe où" sur des événements locaux partiels.
+  if (isAddressQuery) {
+    try {
+      const data = await fetchSuggestionsRobust(query, 8);
+      if (Array.isArray(data) && data.length > 0) {
+        const sorted = data
+          .map(s => ({ ...s, _score: getSuggestionPriority(s, query) }))
+          .sort((a, b) => (b._score - a._score) || ((b.importance || 0) - (a.importance || 0)));
+        const withHouseNumber = sorted.find(s =>
+          Boolean(s?.address?.house_number) || /\b\d+[a-z]?\b/i.test(s?.display_name || "")
+        );
+        const best = withHouseNumber || sorted[0];
+        const lat = parseFloat(best?.lat);
+        const lng = parseFloat(best?.lon);
+        if (Number.isFinite(lat) && Number.isFinite(lng)) {
+          focusMapOnSearchResult(lat, lng, getZoomForQueryAndSuggestion(query, best));
+          if (/\d/.test(normalizeSearchText(query))) {
+            ensureAddressSearchKeepsNearbyEventsVisible(lat, lng).catch(() => {});
+          }
+          const label = (best.display_name || query).split(',')[0];
+          showNotification(`📍 ${label} ${window.t("city_found")}`, "success");
+          return;
+        }
+      }
+    } catch (geoErr) {
+      console.warn("Recherche adresse géocodeur:", geoErr);
+    }
+  }
+
+  // 0. Priorité absolue aux résultats locaux précis (titre event + adresse, notamment numéro de rue)
+  let localCandidates = buildLocalSearchSuggestions(query, 5);
+  if (localCandidates.length === 0 && query.trim().length >= 3) {
+    const loaded = await ensureGlobalEventsLoadedForSearch();
+    if (loaded) {
+      localCandidates = buildLocalSearchSuggestions(query, 12);
+    }
+  }
+  if (localCandidates.length > 0) {
+    const bestLocal = localCandidates[0];
+    const lat = parseFloat(bestLocal.lat);
+    const lng = parseFloat(bestLocal.lon);
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      focusMapOnSearchResult(lat, lng, getZoomForQueryAndSuggestion(query, bestLocal));
+      if (/\d/.test(normalizeSearchText(query))) {
+        ensureAddressSearchKeepsNearbyEventsVisible(lat, lng).catch(() => {});
+      }
+      if (bestLocal?._local?.type && bestLocal?._local?.id !== undefined && bestLocal?._local?.id !== null) {
+        try {
+          await openPopupFromList(bestLocal._local.type, bestLocal._local.id);
+        } catch (popupErr) {
+          console.warn("openPopupFromList recherche locale:", popupErr);
+        }
+      }
+      const localTitle = bestLocal?._local?.title || bestLocal.display_name.split(",")[0];
+      showNotification(`📍 ${localTitle} ${window.t("city_found")}`, "success");
+      return;
+    }
+  }
+
+  // 0.b Fallback direct (sans scoring) sur tout le dataset chargé:
+  // évite les cas où un event exact existe mais n'atteint pas le score de suggestion.
+  const bruteMatch = [...eventsData, ...bookingsData, ...servicesData].find(it => {
+    const title = normalizeSearchText(it?.title || it?.name || "");
+    const address = normalizeSearchText(it?.address || it?.location || "");
+    const city = normalizeSearchText(it?.city || "");
+    return (
+      title.includes(queryLower) ||
+      address.includes(queryLower) ||
+      city.includes(queryLower)
+    );
+  });
+  if (bruteMatch && Number.isFinite(parseFloat(bruteMatch.lat)) && Number.isFinite(parseFloat(bruteMatch.lng))) {
+    const guessedSuggestion = {
+      display_name: `${bruteMatch.title || bruteMatch.name || ""}, ${bruteMatch.address || bruteMatch.location || bruteMatch.city || ""}`,
+      address: {},
+      class: "amenity",
+      type: bruteMatch.type || "event"
+    };
+    focusMapOnSearchResult(parseFloat(bruteMatch.lat), parseFloat(bruteMatch.lng), getZoomForQueryAndSuggestion(query, guessedSuggestion));
+    if (bruteMatch.type && bruteMatch.id !== undefined && bruteMatch.id !== null) {
+      try {
+        await openPopupFromList(bruteMatch.type, bruteMatch.id);
+      } catch (popupErr) {
+        console.warn("openPopupFromList fallback direct:", popupErr);
+      }
+    }
+    showNotification(`📍 ${bruteMatch.title || bruteMatch.name || bruteMatch.city || window.t("city_found")}`, "success");
+    return;
+  }
   
   // 1. Chercher dans TOUTES les villes locales (Suisse + France) - match exact d'abord
   const allLocalCities = [...SWISS_CITIES, ...FRENCH_CITIES];
@@ -10326,37 +12605,35 @@ async function onSearchCity(query) {
   });
   
   if (found) {
-    map.setView([found.lat, found.lng], 12);
+    focusMapOnSearchResult(found.lat, found.lng, 12);
     showNotification(`📍 ${found.city} ${window.t("city_found")}`, "success");
     return;
   }
   
   // 3. Recherche mondiale via Nominatim
   try {
-    const encodedQuery = encodeURIComponent(query);
-    const response = await fetch(
-      `https://nominatim.openstreetmap.org/search?q=${encodedQuery}&format=json&limit=1&addressdetails=1`,
-      { headers: { 'User-Agent': 'MapEventAI/1.0' } }
-    );
-    
-    if (!response.ok) throw new Error("Erreur API");
-    
-    const data = await response.json();
+    const data = await fetchSuggestionsRobust(query, 6);
     
     if (data && data.length > 0) {
-      const result = data[0];
+      const ranked = data
+        .map(s => ({ ...s, _score: getSuggestionPriority(s, query) }))
+        .sort((a, b) => (b._score - a._score) || ((b.importance || 0) - (a.importance || 0)));
+      const result = ranked[0];
       const lat = parseFloat(result.lat);
       const lng = parseFloat(result.lon);
       const displayName = result.display_name.split(',')[0];
       
-      map.setView([lat, lng], 12);
+      focusMapOnSearchResult(lat, lng, getZoomForQueryAndSuggestion(query, result));
+      if (/\d/.test(normalizeSearchText(query))) {
+        ensureAddressSearchKeepsNearbyEventsVisible(lat, lng).catch(() => {});
+      }
       showNotification(`📍 ${displayName} ${window.t("city_found")}`, "success");
     } else {
-      showNotification(`⚠️ ${window.t("city_not_found")} "${query}". ${window.t("try_again")}`, "warning");
+      showNotification(`\u26A0️ ${window.t("city_not_found")} "${query}". ${window.t("try_again")}`, "warning");
     }
   } catch (error) {
     console.error("Erreur recherche ville:", error);
-    showNotification(`⚠️ ${window.t("error")} ${window.t("try_again")}`, "error");
+    showNotification(`\u26A0️ ${window.t("error")} ${window.t("try_again")}`, "error");
   }
 }
 
@@ -10389,12 +12666,12 @@ function buildPublishFormHtml() {
         <div style="flex:1;">
           <label id="pub-start-label" style="font-size:12px;font-weight:600;color:#e2e8f0;">${window.t("start")} <span id="pub-start-star" style="color:#ff4444;">*</span></label>
           <input type="datetime-local" id="pub-start" required onchange="validateEventDates()" style="width:100%;padding:8px;border-radius:8px;border:2px solid #334155;background:#0f172a;color:#fff;color-scheme:dark;">
-          <div id="pub-start-error" style="display:none;font-size:10px;color:#ff4444;margin-top:2px;">⚠️ Date/heure invalide</div>
+          <div id="pub-start-error" style="display:none;font-size:10px;color:#ff4444;margin-top:2px;">\u26A0️ Date/heure invalide</div>
         </div>
         <div style="flex:1;">
           <label id="pub-end-label" style="font-size:12px;font-weight:600;color:#e2e8f0;">${window.t("end")} <span id="pub-end-star" style="color:#ff4444;">*</span></label>
           <input type="datetime-local" id="pub-end" required onchange="validateEventDates()" style="width:100%;padding:8px;border-radius:8px;border:2px solid #334155;background:#0f172a;color:#fff;color-scheme:dark;">
-          <div id="pub-end-error" style="display:none;font-size:10px;color:#ff4444;margin-top:2px;">⚠️ Date/heure invalide</div>
+          <div id="pub-end-error" style="display:none;font-size:10px;color:#ff4444;margin-top:2px;">\u26A0️ Date/heure invalide</div>
         </div>
       </div>
       
@@ -10497,7 +12774,7 @@ function buildPublishFormHtml() {
       <div style="display:flex;flex-direction:column;gap:6px;">
         <label style="display:flex;align-items:center;gap:8px;padding:6px;border-radius:6px;cursor:pointer;transition:background 0.2s;" onmouseover="this.style.background='rgba(0,255,195,0.05)'" onmouseout="this.style.background='transparent'">
           <input type="radio" name="pub-boost" value="standard" checked onchange="updateTotalPrice()" style="accent-color:#00ffc3;">
-          <span><b>Standard</b> - Point basique (inclus)</span>
+          <span><b>Basic</b> - Point standard: +1.- CHF</span>
         </label>
         <label style="display:flex;align-items:center;gap:8px;padding:6px;border-radius:6px;cursor:pointer;transition:background 0.2s;" onmouseover="this.style.background='rgba(205,127,50,0.1)'" onmouseout="this.style.background='transparent'">
           <input type="radio" name="pub-boost" value="bronze" onchange="updateTotalPrice()" style="accent-color:#cd7f32;">
@@ -10505,11 +12782,15 @@ function buildPublishFormHtml() {
         </label>
         <label style="display:flex;align-items:center;gap:8px;padding:6px;border-radius:6px;cursor:pointer;transition:background 0.2s;" onmouseover="this.style.background='rgba(192,192,192,0.1)'" onmouseout="this.style.background='transparent'">
           <input type="radio" name="pub-boost" value="silver" onchange="updateTotalPrice()" style="accent-color:#c0c0c0;">
-          <span><b style="color:#c0c0c0;">🥈 Silver</b> - +10.- CHF (bonne visibilité)</span>
+          <span><b style="color:#c0c0c0;">🥈 Argent</b> - +10.- CHF (bonne visibilité)</span>
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;padding:6px;border-radius:6px;cursor:pointer;transition:background 0.2s;" onmouseover="this.style.background='rgba(234,179,8,0.12)'" onmouseout="this.style.background='transparent'">
+          <input type="radio" name="pub-boost" value="gold" onchange="updateTotalPrice()" style="accent-color:#eab308;">
+          <span><b style="color:#eab308;">🥇 Or</b> - +15.- CHF (bordure or)</span>
         </label>
         <label style="display:flex;align-items:center;gap:8px;padding:6px;border-radius:6px;cursor:pointer;transition:background 0.2s;" onmouseover="this.style.background='rgba(139,92,246,0.1)'" onmouseout="this.style.background='transparent'">
           <input type="radio" name="pub-boost" value="platinum" onchange="updateTotalPrice(); openPlatinumAuctionModal()" style="accent-color:#8b5cf6;">
-          <span><b style="color:#8b5cf6;">💎 Platinum (Top 10)</b> - Enchères (voir prix actuels)</span>
+          <span><b style="color:#8b5cf6;">💎 Platine (Top 10)</b> - Enchères (voir prix actuels)</span>
         </label>
       </div>
     </div>
@@ -10529,7 +12810,7 @@ function buildPublishFormHtml() {
     
     <!-- PLACEHOLDER ENCHÈRE PLATINUM -->
     <div id="pub-platinum-bid-info" style="display:none;margin-top:8px;padding:10px;background:rgba(139,92,246,0.1);border:1px solid rgba(139,92,246,0.3);border-radius:8px;">
-      <div style="font-size:11px;color:#a78bfa;font-weight:600;">💎 Votre enchère Platinum</div>
+      <div style="font-size:11px;color:#a78bfa;font-weight:600;">💎 Votre enchère Platine</div>
       <div style="font-size:14px;color:#fff;font-weight:700;" id="pub-platinum-bid-amount">-</div>
     </div>
   `;
@@ -10541,7 +12822,7 @@ function buildPublishFormHtml() {
         <h2 style="margin:0;font-size:16px;">${window.t("publish_mode")} ${modeLabel}</h2>
         <div style="display:flex;gap:8px;align-items:center;">
           <button type="button" onclick="resetPublishForm()" style="padding:4px 10px;border-radius:6px;border:1px solid #475569;background:transparent;color:#94a3b8;font-size:11px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='rgba(255,100,100,0.1)';this.style.borderColor='#ff4444';this.style.color='#ff4444'" onmouseout="this.style.background='transparent';this.style.borderColor='#475569';this.style.color='#94a3b8'" title="Effacer toutes les données">🔄 Réinitialiser</button>
-          <button type="button" onclick="closePublishModal(event)" style="background:none;border:none;color:var(--ui-text-muted);font-size:24px;cursor:pointer;padding:4px 8px;border-radius:6px;transition:all 0.15s;line-height:1;width:32px;height:32px;display:flex;align-items:center;justify-content:center;" onmouseover="this.style.background='rgba(255,255,255,0.1)';this.style.color='#fff'" onmouseout="this.style.background='none';this.style.color='var(--ui-text-muted)'" title="Fermer (données conservées)">✕</button>
+          <button type="button" onclick="closePublishModal(event)" style="background:none;border:none;color:var(--ui-text-muted);font-size:24px;cursor:pointer;padding:4px 8px;border-radius:6px;transition:all 0.15s;line-height:1;width:32px;height:32px;display:flex;align-items:center;justify-content:center;" onmouseover="this.style.background='rgba(255,255,255,0.1)';this.style.color='#fff'" onmouseout="this.style.background='none';this.style.color='var(--ui-text-muted)'" title="Fermer (données conservées)">\u2715</button>
         </div>
       </div>
 
@@ -10618,13 +12899,13 @@ function buildPublishFormHtml() {
 
       <div style="margin-bottom:10px;">
         <label style="font-size:12px;font-weight:600;">${window.t("social_links")}</label>
-        <textarea id="pub-social" rows="2" placeholder="Facebook, Instagram…"
+        <textarea id="pub-social" rows="2" placeholder="Facebook, Instagram\u2026"
                   style="width:100%;padding:6px;border-radius:8px;border:1px solid var(--ui-card-border);background:rgba(15,23,42,0.9);color:#fff;"></textarea>
       </div>
 
       <div style="margin-bottom:10px;">
         <label style="font-size:12px;font-weight:600;">${window.t("video_links")}</label>
-        <textarea id="pub-videos" rows="2" placeholder="YouTube, Vimeo…"
+        <textarea id="pub-videos" rows="2" placeholder="YouTube, Vimeo\u2026"
                   style="width:100%;padding:6px;border-radius:8px;border:1px solid var(--ui-card-border);background:transparent;color:var(--ui-text-main);"></textarea>
       </div>
 
@@ -10632,20 +12913,15 @@ function buildPublishFormHtml() {
       ${bookingLevel}
       ${paymentBlock}
       
-      <div style="margin-top:16px;padding:12px;background:linear-gradient(135deg,rgba(139,92,246,0.15),rgba(59,130,246,0.1));border:2px solid rgba(139,92,246,0.4);border-radius:12px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-          <div>
-            <div style="font-weight:700;font-size:14px;color:#a78bfa;margin-bottom:4px;">💎 ${window.t("subscription_recommended")}</div>
-            <div style="font-size:11px;color:var(--ui-text-muted);">
-              ${currentMode === 'event' ? window.t("save_on_events") : window.t("unlimited_contacts")}
-            </div>
-          </div>
-          <button type="button" onclick="openSubscriptionModal()" style="padding:8px 16px;border-radius:999px;border:2px solid #a78bfa;background:rgba(139,92,246,0.2);color:#a78bfa;font-weight:600;cursor:pointer;font-size:12px;">
-            ${window.t("view_subs")}
-          </button>
+      <div style="margin-top:16px;padding:12px;background:linear-gradient(135deg,rgba(205,127,50,0.14),rgba(59,130,246,0.08));border:2px solid rgba(205,127,50,0.45);border-radius:12px;">
+        <div style="font-weight:700;font-size:14px;color:#fbbf24;margin-bottom:6px;">🎟️ Code promo publication</div>
+        <div style="font-size:11px;color:var(--ui-text-muted);line-height:1.5;margin-bottom:10px;">
+          Entrez votre code promo reçu par email. Si le code est valide, publication <strong style="color:#00ffc3;">entièrement gratuite</strong> (boost <strong style="color:#cd7f32;">Bronze</strong>) pour un total de <strong style="color:#00ffc3;">0.-</strong> : rien ne sera facturé (vérification sécurité uniquement).
         </div>
-        <div style="font-size:10px;color:var(--ui-text-muted);text-align:center;margin-top:6px;">
-          ${currentMode === 'event' ? 'Events Explorer: 5.–/mois • Events Alertes Pro: 10.–/mois' : 'Booking/Service Pro: 10.–/mois • Ultra: 18.–/mois'}
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input id="pub-promo-code" oninput="updateTotalPrice()" placeholder="Ex: CH-AB12CD34" style="flex:1;padding:8px 10px;border-radius:8px;border:2px solid #475569;background:#0f172a;color:#f8fafc;font-size:13px;text-transform:uppercase;">
+          <button type="button" onclick="copyPromoCodeFromPublish()" style="padding:7px 10px;border-radius:8px;border:1px solid #334155;background:rgba(59,130,246,0.18);color:#bfdbfe;font-size:11px;font-weight:700;cursor:pointer;">📋 Copier</button>
+          <span style="padding:7px 10px;border-radius:8px;background:rgba(205,127,50,0.2);border:1px solid rgba(205,127,50,0.55);font-size:11px;color:#fbbf24;font-weight:700;">🥉 Bronze</span>
         </div>
       </div>
 
@@ -10671,21 +12947,21 @@ function openPublishModal() {
   console.log('[PUBLISH] 🔍 openPublishModal appelé - currentUser:', currentUser);
   console.log('[PUBLISH] 🔍 isLoggedIn:', currentUser?.isLoggedIn);
   
-  // ⚠️⚠️⚠️ VÉRIFIER SI L'UTILISATEUR EST CONNECTÉ
+  // \u26A0️\u26A0️\u26A0️ VÉRIFIER SI L'UTILISATEUR EST CONNECTÉ
   if (!currentUser || !currentUser.isLoggedIn) {
-    console.log('[PUBLISH] ❌ Utilisateur non connecté - Ouverture modal connexion');
+    console.log('[PUBLISH] \u274C Utilisateur non connecté - Ouverture modal connexion');
     // Afficher le modal de connexion avec callback pour ouvrir le formulaire après
     if (typeof window.openAuthModal === 'function') {
       window.openAuthModal('login');
     } else if (typeof openAuthModal === 'function') {
       openAuthModal('login');
     } else {
-      showNotification('❌ Veuillez vous connecter pour publier', 'error');
+      showNotification('\u274C Veuillez vous connecter pour publier', 'error');
     }
     return;
   }
   
-  console.log('[PUBLISH] ✅ Utilisateur connecté - Ouverture formulaire publication');
+  console.log('[PUBLISH] \u2705 Utilisateur connecté - Ouverture formulaire publication');
   
   try {
     const backdrop = document.getElementById("publish-modal-backdrop");
@@ -10693,7 +12969,7 @@ function openPublishModal() {
     console.log('[PUBLISH] 🔍 backdrop:', !!backdrop, 'inner:', !!inner);
     
     if (!backdrop || !inner) {
-      console.error('[PUBLISH] ❌ Éléments DOM non trouvés:', { backdrop: !!backdrop, inner: !!inner });
+      console.error('[PUBLISH] \u274C Éléments DOM non trouvés:', { backdrop: !!backdrop, inner: !!inner });
       return;
     }
     
@@ -10704,7 +12980,7 @@ function openPublishModal() {
     inner.innerHTML = formHtml;
     console.log('[PUBLISH] 🔍 innerHTML assigné');
     
-    // ⚠️⚠️⚠️ FORCER l'affichage avec !important pour écraser les styles de closeAuthModal
+    // \u26A0️\u26A0️\u26A0️ FORCER l'affichage avec !important pour écraser les styles de closeAuthModal
     backdrop.setAttribute('style', 'display: flex !important; visibility: visible !important; opacity: 1 !important; z-index: 100 !important; position: fixed !important; inset: 0 !important; background: rgba(0,0,0,0.3) !important; align-items: flex-start !important; justify-content: flex-end !important;');
     
     // Forcer aussi les styles du modal et inner
@@ -10721,9 +12997,9 @@ function openPublishModal() {
     inner.style.opacity = '1';
     inner.style.height = 'auto';
     
-    console.log('[PUBLISH] ✅ Modal affiché avec display:flex (forcé avec !important)');
+    console.log('[PUBLISH] \u2705 Modal affiché avec display:flex (forcé avec !important)');
   } catch (error) {
-    console.error('[PUBLISH] ❌ ERREUR:', error);
+    console.error('[PUBLISH] \u274C ERREUR:', error);
   }
   
   // Ouvrir automatiquement le filtre pour aider à choisir la catégorie
@@ -10732,11 +13008,11 @@ function openPublishModal() {
     const panel = document.getElementById("left-panel");
     if (panel) {
       panel.style.display = "block";
-      // ⚠️⚠️⚠️ IMPORTANT: Donner un z-index plus élevé au panneau pour qu'il soit au-dessus du backdrop
+      // \u26A0️\u26A0️\u26A0️ IMPORTANT: Donner un z-index plus élevé au panneau pour qu'il soit au-dessus du backdrop
       panel.style.zIndex = "150";
       panel.style.position = "relative";
       loadExplorerTree();
-      console.log('[PUBLISH] ✅ Filtre ouvert pour aide catégorie (z-index: 150)');
+      console.log('[PUBLISH] \u2705 Filtre ouvert pour aide catégorie (z-index: 150)');
     }
   } else {
     // Même si le filtre est déjà ouvert, s'assurer qu'il a le bon z-index
@@ -10754,19 +13030,37 @@ function openPublishModal() {
       initMultipleImagesHandler();
     }, 100);
   }
+  setTimeout(() => {
+    initAddressInputHandlers();
+    startPublishAddressWatcher();
+  }, 120);
   
-  // ⚠️⚠️⚠️ NOUVEAU : Configurer le champ catégorie avec autocomplétion
+  // \u26A0️\u26A0️\u26A0️ NOUVEAU : Configurer le champ catégorie avec autocomplétion
   setTimeout(() => {
     setupCategoryInputWithFilter();
   }, 200);
   
-  // ⚠️⚠️⚠️ RESTAURER les données du formulaire si elles existent
+  // \u26A0️\u26A0️\u26A0️ RESTAURER les données du formulaire si elles existent
   setTimeout(() => {
     restorePublishFormData();
   }, 300);
+
+  setTimeout(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const code = (params.get("promo_code") || localStorage.getItem('pendingPromoCode') || "").trim().toUpperCase();
+      const promoInput = document.getElementById("pub-promo-code");
+      if (promoInput && code) {
+        promoInput.value = code;
+        updateTotalPrice();
+      }
+    } catch (err) {
+      console.warn("[PUBLISH] Promo code URL non applique:", err);
+    }
+  }, 350);
 }
 
-// ⚠️⚠️⚠️ NOUVEAU : Fonction pour ouvrir le filtre depuis le bouton Publier
+// \u26A0️\u26A0️\u26A0️ NOUVEAU : Fonction pour ouvrir le filtre depuis le bouton Publier
 function openFilterForPublish() {
   if (!explorerOpen) {
     explorerOpen = true;
@@ -10778,7 +13072,7 @@ function openFilterForPublish() {
   }
 }
 
-// ⚠️⚠️⚠️ NOUVEAU : Configuration du champ catégorie avec autocomplétion et recherche
+// \u26A0️\u26A0️\u26A0️ NOUVEAU : Configuration du champ catégorie avec autocomplétion et recherche
 function setupCategoryInputWithFilter() {
   const categoryInput = document.getElementById("pub-main-category");
   const suggestionsDiv = document.getElementById("pub-category-suggestions");
@@ -10872,7 +13166,7 @@ function setupCategoryInputWithFilter() {
   if (categoryInput) categoryInput.focus();
 }
 
-// ⚠️⚠️⚠️ NOUVEAU : Sélectionner une catégorie depuis les suggestions (1ère ou 2ème)
+// \u26A0️\u26A0️\u26A0️ NOUVEAU : Sélectionner une catégorie depuis les suggestions (1ère ou 2ème)
 function selectCategoryForPublish(category) {
   const cat1 = document.getElementById("pub-main-category");
   const cat2 = document.getElementById("pub-main-category-2");
@@ -10992,7 +13286,7 @@ function updateRepeatPreview() {
   }
 }
 
-// ⚠️⚠️⚠️ VALIDATION DES DATES - Refuser les dates passées
+// \u26A0️\u26A0️\u26A0️ VALIDATION DES DATES - Refuser les dates passées
 function validateEventDates() {
   const startInput = document.getElementById("pub-start");
   const endInput = document.getElementById("pub-end");
@@ -11033,7 +13327,7 @@ function validateEventDates() {
       endInput.style.borderColor = "#ff4444";
       endInput.style.background = "rgba(255,68,68,0.1)";
       if (endError) {
-        endError.textContent = "⚠️ Date invalide (passée)";
+        endError.textContent = "\u26A0️ Date invalide (passée)";
         endError.style.display = "block";
       }
       if (endStar) endStar.style.color = "#ff4444";
@@ -11043,7 +13337,7 @@ function validateEventDates() {
       endInput.style.borderColor = "#ff4444";
       endInput.style.background = "rgba(255,68,68,0.1)";
       if (endError) {
-        endError.textContent = "⚠️ Fin avant début";
+        endError.textContent = "\u26A0️ Fin avant début";
         endError.style.display = "block";
       }
       if (endStar) endStar.style.color = "#ff4444";
@@ -11060,7 +13354,7 @@ function validateEventDates() {
   return isValid;
 }
 
-// ⚠️⚠️⚠️ CALCUL DU PRIX DE RÉPÉTITION
+// \u26A0️\u26A0️\u26A0️ CALCUL DU PRIX DE RÉPÉTITION
 function updateRepeatPricing() {
   const frequency = document.getElementById("pub-repeat-frequency")?.value || "weekly";
   const priceBadge = document.getElementById("pub-repeat-price-badge");
@@ -11089,7 +13383,7 @@ function updateRepeatPricing() {
   updateTotalPrice();
 }
 
-// ⚠️⚠️⚠️ CALCUL DU PRIX TOTAL
+// \u26A0️\u26A0️\u26A0️ CALCUL DU PRIX TOTAL
 // Variable globale pour stocker le montant de l'enchère Platinum
 let currentPlatinumBid = 0;
 
@@ -11097,6 +13391,7 @@ function updateTotalPrice() {
   const basePrice = 1;
   let totalPrice = basePrice;
   let details = ["Base: 1.-"];
+  const promoCode = (document.getElementById("pub-promo-code")?.value || "").trim().toUpperCase();
   
   // Prix de répétition
   const repeatEnabled = document.getElementById("pub-repeat-enabled")?.checked;
@@ -11113,7 +13408,7 @@ function updateTotalPrice() {
     if (boostRadio.value === 'platinum' && currentPlatinumBid > 0) {
       // Platinum avec enchère
       totalPrice += currentPlatinumBid;
-      details.push(`Enchère Platinum: +${currentPlatinumBid}.-`);
+      details.push(`Enchère Platine: +${currentPlatinumBid}.-`);
       
       // Afficher l'info de l'enchère
       const bidInfo = document.getElementById("pub-platinum-bid-info");
@@ -11121,8 +13416,8 @@ function updateTotalPrice() {
       if (bidInfo) bidInfo.style.display = "block";
       if (bidAmount) bidAmount.textContent = `${currentPlatinumBid}.- CHF`;
     } else {
-      // Boost standard (Bronze, Silver)
-      const boostPrices = { standard: 0, bronze: 5, silver: 10 };
+      // Boost standard (Bronze, Argent)
+      const boostPrices = { standard: 0, bronze: 5, silver: 10, gold: 15 };
       const boostPrice = boostPrices[boostRadio.value] || 0;
       if (boostPrice > 0) {
         totalPrice += boostPrice;
@@ -11134,6 +13429,14 @@ function updateTotalPrice() {
       if (bidInfo) bidInfo.style.display = "none";
     }
   }
+
+  // Code promo: publication offerte, aucun paiement
+  if (promoCode) {
+    totalPrice = 0;
+    details = ["Base: 1.-", "Code promo: -100%", "Publication offerte (Bronze)"];
+    const bidInfo = document.getElementById("pub-platinum-bid-info");
+    if (bidInfo) bidInfo.style.display = "none";
+  }
   
   // Afficher le prix total
   const totalDisplay = document.getElementById("pub-total-price");
@@ -11143,14 +13446,14 @@ function updateTotalPrice() {
     totalDisplay.textContent = `${totalPrice}.- CHF`;
   }
   if (detailsDisplay) {
-    detailsDisplay.textContent = details.join(" • ");
+    detailsDisplay.textContent = details.join(" \u2022 ");
   }
   
   // Stocker le prix total pour le paiement
   window.currentPublishPrice = totalPrice;
 }
 
-// ⚠️⚠️⚠️ MODAL ENCHÈRES PLATINUM (TOP 10)
+// \u26A0️\u26A0️\u26A0️ MODAL ENCHÈRES PLATINUM (TOP 10)
 function openPlatinumAuctionModal() {
   // Fermer d'abord le modal de publication temporairement
   const publishBackdrop = document.getElementById("publish-modal-backdrop");
@@ -11162,7 +13465,7 @@ function openPlatinumAuctionModal() {
         <div style="padding:20px;">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
             <h2 style="margin:0;font-size:18px;color:#a78bfa;">💎 Enchères Platinum - Top 10</h2>
-            <button onclick="closePlatinumAuctionModal()" style="background:none;border:none;color:#94a3b8;font-size:20px;cursor:pointer;">✕</button>
+            <button onclick="closePlatinumAuctionModal()" style="background:none;border:none;color:#94a3b8;font-size:20px;cursor:pointer;">\u2715</button>
           </div>
           
           <p style="font-size:12px;color:#94a3b8;margin-bottom:16px;">
@@ -11190,7 +13493,7 @@ function openPlatinumAuctionModal() {
             </div>
             
             <button onclick="confirmPlatinumBid()" style="width:100%;margin-top:12px;padding:10px;border-radius:8px;border:none;background:linear-gradient(135deg,#8b5cf6,#6d28d9);color:#fff;font-weight:700;cursor:pointer;font-size:13px;transition:transform 0.2s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
-              ✅ Confirmer l'enchère
+              \u2705 Confirmer l'enchère
             </button>
           </div>
           
@@ -11241,7 +13544,7 @@ function confirmPlatinumBid() {
   const bid = parseInt(bidInput?.value) || 25;
   
   if (bid < 25) {
-    showNotification("⚠️ L'enchère minimum est de 25.- CHF", "warning");
+    showNotification("\u26A0️ L'enchère minimum est de 25.- CHF", "warning");
     return;
   }
   
@@ -11267,12 +13570,12 @@ function updateRepeatPreview() {
   updateRepeatPricing();
 }
 
-// ⚠️⚠️⚠️ SAUVEGARDE ET RESTAURATION DES DONNÉES DU FORMULAIRE
+// \u26A0️\u26A0️\u26A0️ SAUVEGARDE ET RESTAURATION DES DONNÉES DU FORMULAIRE
 function savePublishFormData() {
   try {
     const titleEl = document.getElementById("pub-title");
     if (!titleEl) {
-      console.log('[FORM] ⏭️ Formulaire absent du DOM, sauvegarde ignorée');
+      console.log('[FORM] \u23ED️ Formulaire absent du DOM, sauvegarde ignorée');
       return;
     }
 
@@ -11282,7 +13585,7 @@ function savePublishFormData() {
     const description = document.getElementById("pub-description")?.value || "";
 
     if (!title && !mainCategory && !address && !description) {
-      console.log('[FORM] ⏭️ Formulaire vide, sauvegarde ignorée');
+      console.log('[FORM] \u23ED️ Formulaire vide, sauvegarde ignorée');
       return;
     }
 
@@ -11312,13 +13615,14 @@ function savePublishFormData() {
       socialLinks: document.getElementById("pub-social-links")?.value || "",
       website: document.getElementById("pub-website")?.value || "",
       tags: document.getElementById("pub-tags")?.value || "",
+      promoCode: document.getElementById("pub-promo-code")?.value || "",
       boost: document.querySelector('input[name="pub-boost"]:checked')?.value || "standard",
       platinumBid: currentPlatinumBid || 0,
       timestamp: Date.now()
     };
     
     localStorage.setItem("publishFormData", JSON.stringify(formData));
-    console.log('[FORM] ✅ Données du formulaire sauvegardées:', title || mainCategory || address);
+    console.log('[FORM] \u2705 Données du formulaire sauvegardées:', title || mainCategory || address);
   } catch (error) {
     console.error('[FORM] Erreur sauvegarde:', error);
   }
@@ -11331,10 +13635,10 @@ async function pasteAudioLinks() {
     if (ta) {
       ta.value = ta.value ? ta.value.trim() + "\n" + text.trim() : text.trim();
       updateAudioPreview();
-      if (typeof showNotification === 'function') showNotification('✅ Liens collés', 'success');
+      if (typeof showNotification === 'function') showNotification('\u2705 Liens collés', 'success');
     }
   } catch (e) {
-    if (typeof showNotification === 'function') showNotification('❌ Accès presse-papiers refusé', 'error');
+    if (typeof showNotification === 'function') showNotification('\u274C Accès presse-papiers refusé', 'error');
   }
 }
 
@@ -11357,8 +13661,8 @@ function updateAudioPreview() {
         return `
         <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:rgba(0,0,0,0.3);border-radius:8px;">
           <audio id="preview-audio-${i}" src="${safe}" preload="none" style="display:none;"></audio>
-          <button type="button" onclick="event.stopPropagation();var a=document.getElementById('preview-audio-${i}');a.paused?a.play():a.pause();this.innerHTML=a.paused?'▶':'⏸';" style="width:28px;height:28px;border-radius:50%;border:none;background:#a78bfa;color:white;cursor:pointer;font-size:10px;display:flex;align-items:center;justify-content:center;">▶</button>
-          <span style="font-size:11px;color:var(--ui-text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Piste ${i + 1} • ${url.includes('audius') ? 'Audius' : url.includes('soundcloud') ? 'SoundCloud' : url.includes('spotify') ? 'Spotify' : 'Audio'}</span>
+          <button type="button" onclick="event.stopPropagation();var a=document.getElementById('preview-audio-${i}');a.paused?a.play():a.pause();this.innerHTML=a.paused?'\u25B6':'\u23F8';" style="width:28px;height:28px;border-radius:50%;border:none;background:#a78bfa;color:white;cursor:pointer;font-size:10px;display:flex;align-items:center;justify-content:center;">\u25B6</button>
+          <span style="font-size:11px;color:var(--ui-text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Piste ${i + 1} \u2022 ${url.includes('audius') ? 'Audius' : url.includes('soundcloud') ? 'SoundCloud' : url.includes('spotify') ? 'Spotify' : 'Audio'}</span>
         </div>`;
       }).join('')}
     </div>
@@ -11414,6 +13718,7 @@ function restorePublishFormData() {
       setVal("pub-social-links", formData.socialLinks);
       setVal("pub-website", formData.website);
       setVal("pub-tags", formData.tags);
+      setVal("pub-promo-code", formData.promoCode || "");
       
       // Checkbox répétition
       const repeatCheckbox = document.getElementById("pub-repeat-enabled");
@@ -11454,7 +13759,7 @@ function restorePublishFormData() {
       }
       
       updateTotalPrice();
-      console.log('[FORM] ✅ Données du formulaire restaurées');
+      console.log('[FORM] \u2705 Données du formulaire restaurées');
     }, 100);
     
   } catch (error) {
@@ -11463,7 +13768,7 @@ function restorePublishFormData() {
 }
 
 function resetPublishForm() {
-  if (!confirm("⚠️ Voulez-vous vraiment effacer toutes les données du formulaire ?")) {
+  if (!confirm("\u26A0️ Voulez-vous vraiment effacer toutes les données du formulaire ?")) {
     return;
   }
   
@@ -11476,7 +13781,7 @@ function resetPublishForm() {
     "pub-title", "pub-main-category", "pub-main-category-2", "pub-address", "pub-address-lat", "pub-address-lng",
     "pub-email", "pub-description", "pub-start", "pub-end", "pub-repeat-frequency",
     "pub-repeat-until", "pub-capacity", "pub-price", "pub-event-type", "pub-ticket-link",
-    "pub-audio-links", "pub-social-links", "pub-website", "pub-tags"
+    "pub-audio-links", "pub-social-links", "pub-website", "pub-tags", "pub-promo-code"
   ];
   
   fields.forEach(id => {
@@ -11520,10 +13825,157 @@ function resetPublishForm() {
   console.log('[FORM] 🔄 Formulaire réinitialisé');
 }
 
-// ⚠️⚠️⚠️ VALIDATION ET RECHERCHE D'ADRESSE MONDIALE
+async function copyPromoCodeFromPublish() {
+  const input = document.getElementById("pub-promo-code");
+  const code = (input?.value || "").trim();
+  if (!code) {
+    showNotification("⚠️ Aucun code promo à copier", "warning");
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(code);
+    showNotification("✅ Code promo copié", "success");
+  } catch (e) {
+    if (input) {
+      input.focus();
+      input.select();
+    }
+    showNotification("ℹ️ Code sélectionné: Ctrl+C", "info");
+  }
+}
+
+// \u26A0️\u26A0️\u26A0️ VALIDATION ET RECHERCHE D'ADRESSE MONDIALE
 let addressSearchTimeout = null;
+let publishAddressWatcherInterval = null;
+let publishAddressLastValue = "";
+let publishSelectedAddressLabel = "";
+
+function isPreciseAddressCandidate(result) {
+  if (!result) return false;
+  const addr = result.address || {};
+  const hasStreetNumber = !!(addr.house_number || /\d+/.test(String(result.display_name || "")));
+  const hasStreetName = !!(addr.road || addr.pedestrian || addr.footway || addr.cycleway || addr.path);
+  const hasVenue =
+    !!(addr.amenity || addr.tourism || addr.leisure || addr.shop || addr.building || addr.office || addr.attraction);
+  const coarseType = new Set(["city", "town", "village", "administrative", "county", "state", "country"]);
+  const type = String(result.type || "").toLowerCase();
+  if (coarseType.has(type) && !hasVenue && !hasStreetName && !hasStreetNumber) return false;
+  return hasStreetNumber || hasStreetName || hasVenue;
+}
+
+async function fetchAddressCandidates(query, limit = 5) {
+  const encoded = encodeURIComponent(query);
+  const endpoints = [
+    `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encoded}&limit=${limit}&addressdetails=1&dedupe=1`,
+    `https://nominatim.openstreetmap.org/search?format=json&q=${encoded}&limit=${limit}&addressdetails=1`
+  ];
+  for (const url of endpoints) {
+    try {
+      // IMPORTANT: pas de headers custom ici (sinon certains navigateurs/proxys cassent la requête).
+      const response = await fetch(url);
+      if (!response.ok) continue;
+      const results = await response.json();
+      if (Array.isArray(results)) return results;
+    } catch (_) {}
+  }
+  // Fallback secondaire: Photon (OpenStreetMap) si Nominatim est rate-limit.
+  try {
+    const photonResp = await fetch(`https://photon.komoot.io/api/?q=${encoded}&limit=${Math.max(3, limit)}`);
+    if (photonResp.ok) {
+      const photon = await photonResp.json();
+      const feats = Array.isArray(photon?.features) ? photon.features : [];
+      const mapped = feats
+        .map(f => {
+          const p = f?.properties || {};
+          const c = Array.isArray(f?.geometry?.coordinates) ? f.geometry.coordinates : [];
+          if (c.length < 2) return null;
+          const lon = Number(c[0]);
+          const lat = Number(c[1]);
+          if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+          const name = [p.name, p.street, p.housenumber, p.postcode, p.city, p.country].filter(Boolean).join(", ");
+          return {
+            display_name: name || String(p.name || query),
+            lat: String(lat),
+            lon: String(lon),
+            type: p.osm_value || p.type || "place",
+            address: {
+              house_number: p.housenumber || "",
+              road: p.street || "",
+              city: p.city || p.county || p.state || "",
+              country: p.country || ""
+            }
+          };
+        })
+        .filter(Boolean);
+      if (mapped.length > 0) return mapped;
+    }
+  } catch (_) {}
+  return [];
+}
+
+function initAddressInputHandlers() {
+  const input = document.getElementById("pub-address");
+  if (!input || input.dataset.addressHandlersBound === "1") return;
+  input.dataset.addressHandlersBound = "1";
+  input.addEventListener("input", debounceAddressSearch);
+  input.addEventListener("keyup", debounceAddressSearch);
+  input.addEventListener("change", debounceAddressSearch);
+  input.addEventListener("blur", () => { validateAddress(); });
+  input.addEventListener("focus", () => {
+    if (input.value && input.value.trim().length >= 3) debounceAddressSearch();
+  });
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      validateAddress();
+    }
+  });
+}
+
+function stopPublishAddressWatcher() {
+  if (publishAddressWatcherInterval) {
+    clearInterval(publishAddressWatcherInterval);
+    publishAddressWatcherInterval = null;
+  }
+}
+
+function startPublishAddressWatcher() {
+  stopPublishAddressWatcher();
+  const input = document.getElementById("pub-address");
+  if (!input) return;
+  publishAddressLastValue = (input.value || "").trim();
+  publishAddressWatcherInterval = setInterval(() => {
+    const backdrop = document.getElementById("publish-modal-backdrop");
+    const field = document.getElementById("pub-address");
+    if (!field || !backdrop || backdrop.style.display === "none") {
+      stopPublishAddressWatcher();
+      return;
+    }
+    const val = (field.value || "").trim();
+    if (val !== publishAddressLastValue) {
+      publishAddressLastValue = val;
+      if (val.length >= 3) {
+        searchAddress();
+      }
+    }
+  }, 260);
+}
 
 function debounceAddressSearch() {
+  const input = document.getElementById("pub-address");
+  const latInput = document.getElementById("pub-address-lat");
+  const lngInput = document.getElementById("pub-address-lng");
+  const statusDiv = document.getElementById("pub-address-status");
+  const current = (input?.value || "").trim();
+  if (current && publishSelectedAddressLabel && current !== publishSelectedAddressLabel) {
+    publishSelectedAddressLabel = "";
+    if (latInput) latInput.value = "";
+    if (lngInput) lngInput.value = "";
+    if (statusDiv) {
+      statusDiv.innerHTML = '<span style="color:#ff4444;">⚠️ Adresse non valide. Sélectionne une adresse précise dans la liste.</span>';
+      statusDiv.style.display = "block";
+    }
+  }
   clearTimeout(addressSearchTimeout);
   addressSearchTimeout = setTimeout(() => {
     searchAddress();
@@ -11533,6 +13985,7 @@ function debounceAddressSearch() {
 async function searchAddress() {
   const input = document.getElementById("pub-address");
   const suggestionsDiv = document.getElementById("pub-address-suggestions");
+  const statusDiv = document.getElementById("pub-address-status");
   
   if (!input || !suggestionsDiv) return;
   
@@ -11541,26 +13994,22 @@ async function searchAddress() {
     suggestionsDiv.style.display = "none";
     return;
   }
+  if (statusDiv) {
+    statusDiv.innerHTML = '<span style="color:#94a3b8;">🔎 Recherche d\'adresse...</span>';
+    statusDiv.style.display = "block";
+  }
   
   try {
-    // Utiliser Nominatim (OpenStreetMap) pour la recherche mondiale
-    const response = await fetch(
-      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1`,
-      {
-        headers: {
-          'Accept-Language': 'fr',
-          'User-Agent': 'MapEvent/1.0'
-        }
-      }
-    );
-    
-    if (!response.ok) return;
-    
-    const results = await response.json();
+    const rawResults = await fetchAddressCandidates(query, 8);
+    const results = rawResults.filter(isPreciseAddressCandidate).slice(0, 8);
     
     if (results.length === 0) {
-      suggestionsDiv.innerHTML = '<div style="padding:8px;color:var(--ui-text-muted);font-size:11px;">Aucune adresse trouvée</div>';
+      suggestionsDiv.innerHTML = '<div style="padding:8px;color:#ff4444;font-size:11px;">⚠️ Adresse non valide (trop vague ou introuvable)</div>';
       suggestionsDiv.style.display = "block";
+      if (statusDiv) {
+        statusDiv.innerHTML = '<span style="color:#ff4444;">⚠️ Adresse non valide. Ajoute rue + numéro puis choisis une suggestion.</span>';
+        statusDiv.style.display = "block";
+      }
       return;
     }
     
@@ -11587,9 +14036,14 @@ async function searchAddress() {
     });
     
     suggestionsDiv.style.display = "block";
+    suggestionsDiv.style.zIndex = "3000";
     
   } catch (error) {
     console.log('[ADDRESS] Erreur recherche:', error);
+    if (statusDiv) {
+      statusDiv.innerHTML = '<span style="color:#ff4444;">⚠️ Service adresse temporairement indisponible</span>';
+      statusDiv.style.display = "block";
+    }
   }
 }
 
@@ -11606,9 +14060,10 @@ function selectAddress(displayName, lat, lng) {
   
   if (input) {
     input.value = displayName;
-    console.log('[ADDRESS] ✅ Adresse écrite dans input:', input.value);
+    publishSelectedAddressLabel = displayName;
+    console.log('[ADDRESS] \u2705 Adresse écrite dans input:', input.value);
   } else {
-    console.error('[ADDRESS] ❌ Element pub-address introuvable!');
+    console.error('[ADDRESS] \u274C Element pub-address introuvable!');
   }
   
   if (latInput) latInput.value = lat;
@@ -11617,7 +14072,7 @@ function selectAddress(displayName, lat, lng) {
   
   // Afficher le statut de validation
   if (statusDiv) {
-    statusDiv.innerHTML = '<span style="color:#00ffc3;">✅ Adresse validée - Coordonnées: ' + lat.toFixed(4) + ', ' + lng.toFixed(4) + '</span>';
+    statusDiv.innerHTML = '<span style="color:#00ffc3;">\u2705 Adresse validée - Coordonnées: ' + lat.toFixed(4) + ', ' + lng.toFixed(4) + '</span>';
     statusDiv.style.display = "block";
   }
   
@@ -11627,7 +14082,7 @@ function selectAddress(displayName, lat, lng) {
     input.style.background = "rgba(0,255,195,0.05)";
   }
   
-  console.log('[ADDRESS] ✅ Adresse sélectionnée:', displayName, 'Coords:', lat, lng);
+  console.log('[ADDRESS] \u2705 Adresse sélectionnée:', displayName, 'Coords:', lat, lng);
 }
 
 async function validateAddress() {
@@ -11644,48 +14099,26 @@ async function validateAddress() {
   if (!input || !input.value.trim()) return false;
   
   const addressValue = input.value.trim();
+  const sameAsSelected = publishSelectedAddressLabel && addressValue === publishSelectedAddressLabel;
   
-  // Vérifier qu'il y a un numéro de rue (obligatoire)
-  const hasStreetNumber = /\d+/.test(addressValue);
-  if (!hasStreetNumber) {
-    if (statusDiv) {
-      statusDiv.innerHTML = '<span style="color:#ff4444;">⚠️ Numéro de rue obligatoire (ex: 15 Rue de la Paix)</span>';
-      statusDiv.style.display = "block";
-    }
-    input.style.borderColor = "#ff4444";
-    input.style.background = "rgba(255,68,68,0.1)";
-    if (starSpan) starSpan.style.color = "#ff4444";
-    return false;
-  }
-  
-  // Si déjà validée (coordonnées présentes), c'est bon
-  if (latInput?.value && lngInput?.value) {
+  // Si déjà validée et inchangée (coordonnées présentes), c'est bon
+  if (sameAsSelected && latInput?.value && lngInput?.value) {
     return true;
   }
   
   // Sinon, essayer de géocoder l'adresse
   try {
-    const response = await fetch(
-      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(input.value)}&limit=1`,
-      {
-        headers: {
-          'Accept-Language': 'fr',
-          'User-Agent': 'MapEvent/1.0'
-        }
-      }
-    );
+    const results = await fetchAddressCandidates(input.value, 6);
+    const preciseResult = results.find(isPreciseAddressCandidate);
     
-    if (!response.ok) throw new Error('Erreur réseau');
-    
-    const results = await response.json();
-    
-    if (results.length > 0) {
-      const r = results[0];
+    if (preciseResult) {
+      const r = preciseResult;
       if (latInput) latInput.value = r.lat;
       if (lngInput) lngInput.value = r.lon;
+      publishSelectedAddressLabel = r.display_name || addressValue;
       
       if (statusDiv) {
-        statusDiv.innerHTML = '<span style="color:#00ffc3;">✅ Adresse validée automatiquement</span>';
+        statusDiv.innerHTML = '<span style="color:#00ffc3;">\u2705 Adresse validée automatiquement</span>';
         statusDiv.style.display = "block";
       }
       
@@ -11695,15 +14128,18 @@ async function validateAddress() {
       
       return true;
     } else {
-      // Adresse non trouvée
+      // Adresse non valide
       if (statusDiv) {
-        statusDiv.innerHTML = '<span style="color:#ff4444;">⚠️ Adresse non reconnue - Le pointeur ne pourra pas être placé correctement</span>';
+        statusDiv.innerHTML = '<span style="color:#ff4444;">⚠️ Adresse non valide. Choisis une adresse précise dans la liste.</span>';
         statusDiv.style.display = "block";
       }
       
       input.style.borderColor = "#ff4444";
       input.style.background = "rgba(255,68,68,0.1)";
       if (starSpan) starSpan.style.color = "#ff4444";
+      if (latInput) latInput.value = "";
+      if (lngInput) lngInput.value = "";
+      publishSelectedAddressLabel = "";
       
       return false;
     }
@@ -11810,7 +14246,7 @@ window.showModalWithContent = showModalWithContent;
 function closePublishModal(e) {
   console.log('🚪 closePublishModal called', e?.type || 'direct call', e?.target?.id || 'no target');
   
-  // ⚠️⚠️⚠️ PROTECTION COORDONNÉES : Vérifier si le clic est dans la zone du panneau gauche
+  // \u26A0️\u26A0️\u26A0️ PROTECTION COORDONNÉES : Vérifier si le clic est dans la zone du panneau gauche
   if (e && e.clientX !== undefined) {
     const leftPanel = document.getElementById("left-panel");
     if (leftPanel && leftPanel.offsetParent !== null) {
@@ -11827,7 +14263,7 @@ function closePublishModal(e) {
     }
   }
   
-  // ⚠️⚠️⚠️ PROTECTION FILTRE : Ne jamais fermer si le clic vient du left-panel (filtre de catégories)
+  // \u26A0️\u26A0️\u26A0️ PROTECTION FILTRE : Ne jamais fermer si le clic vient du left-panel (filtre de catégories)
   if (e && e.target) {
     const isInLeftPanel = e.target.closest('#left-panel') || 
                          e.target.closest('.explorer-col') ||
@@ -11840,7 +14276,7 @@ function closePublishModal(e) {
       return;
     }
     
-    // ⚠️⚠️⚠️ PROTECTION FORMULAIRE PUBLICATION : Ne jamais fermer si clic sur éléments du formulaire
+    // \u26A0️\u26A0️\u26A0️ PROTECTION FORMULAIRE PUBLICATION : Ne jamais fermer si clic sur éléments du formulaire
     const isPublishFormElement = e.target.closest('#publish-modal') ||
                                   e.target.closest('#publish-modal-inner') ||
                                   e.target.closest('#pub-category-suggestions') ||
@@ -11853,7 +14289,7 @@ function closePublishModal(e) {
                                   e.target.tagName === 'LABEL';
     
     // Mais permettre la fermeture si c'est le vrai bouton croix
-    const isCloseButton = (e.target.textContent?.trim() === '✕' || e.target.textContent?.trim() === '×') &&
+    const isCloseButton = (e.target.textContent?.trim() === '\u2715' || e.target.textContent?.trim() === '×') &&
                           (e.target.tagName === 'BUTTON' || e.target.tagName === 'SPAN') &&
                           !e.target.id?.startsWith('pub-');
     
@@ -11863,15 +14299,15 @@ function closePublishModal(e) {
     }
   }
   
-  // ⚠️⚠️⚠️ Si c'est un clic sur le VRAI bouton de fermeture (croix), fermer directement
+  // \u26A0️\u26A0️\u26A0️ Si c'est un clic sur le VRAI bouton de fermeture (croix), fermer directement
   if (e && e.target) {
-    const isActualCloseButton = (e.target.textContent?.trim() === '✕' || e.target.textContent?.trim() === '×') &&
+    const isActualCloseButton = (e.target.textContent?.trim() === '\u2715' || e.target.textContent?.trim() === '×') &&
                                  (e.target.tagName === 'BUTTON' || e.target.tagName === 'SPAN') &&
                                  !e.target.id?.startsWith('pub-');
     
     if (isActualCloseButton) {
       e.stopPropagation();
-      // ⚠️ SAUVEGARDER les données avant de fermer
+      // \u26A0️ SAUVEGARDER les données avant de fermer
       savePublishFormData();
       const backdrop = document.getElementById("publish-modal-backdrop");
       if (backdrop) {
@@ -11901,7 +14337,7 @@ function closePublishModal(e) {
       return;
     }
     
-    // ⚠️⚠️⚠️ IMPORTANT : Ne PAS fermer si on clique sur des éléments du formulaire
+    // \u26A0️\u26A0️\u26A0️ IMPORTANT : Ne PAS fermer si on clique sur des éléments du formulaire
     if (e && e.target) {
       const target = e.target;
       
@@ -11920,7 +14356,7 @@ function closePublishModal(e) {
         return;
       }
       
-      // ⚠️⚠️⚠️ IMPORTANT : Ignorer TOUS les éléments du formulaire d'inscription
+      // \u26A0️\u26A0️\u26A0️ IMPORTANT : Ignorer TOUS les éléments du formulaire d'inscription
       // Vérifier si on clique sur n'importe quel élément du formulaire
       const isFormElement = target.closest('.pro-register-container') ||
                            target.closest('.pro-register-form') ||
@@ -12036,13 +14472,13 @@ function closePublishModal(e) {
     backdrop.style.display = "none";
     console.log('🚪 Modal closed - backdrop display set to none (données sauvegardées)');
     
-    // ⚠️⚠️⚠️ Réinitialiser le z-index du panneau gauche
+    // \u26A0️\u26A0️\u26A0️ Réinitialiser le z-index du panneau gauche
     const leftPanel = document.getElementById("left-panel");
     if (leftPanel) {
       leftPanel.style.zIndex = "";
     }
     
-    // ⚠️ Nettoyer le mode édition si on ferme le modal
+    // \u26A0️ Nettoyer le mode édition si on ferme le modal
     if (window.editingItem) {
       window.editingItem = null;
       console.log('🚪 Mode édition annulé');
@@ -12055,25 +14491,25 @@ async function onSubmitPublishForm(e) {
   
   // Vérifier que l'utilisateur est connecté
   if (!currentUser || !currentUser.isLoggedIn) {
-    showNotification("⚠️ Vous devez être connecté pour publier", "warning");
+    showNotification("\u26A0️ Vous devez être connecté pour publier", "warning");
     openLoginModal();
     return false;
   }
   
-  // ⚠️ MODE ÉDITION - Modification d'une annonce existante
+  // \u26A0️ MODE ÉDITION - Modification d'une annonce existante
   if (window.editingItem) {
     return await handleEditSubmit(e);
   }
   
-  // ⚠️⚠️⚠️ VALIDATION DES DATES (pour les events)
+  // \u26A0️\u26A0️\u26A0️ VALIDATION DES DATES (pour les events)
   if (currentMode === "event") {
     if (!validateEventDates()) {
-      showNotification("⚠️ Les dates de l'événement sont invalides (date passée ou fin avant début)", "error");
+      showNotification("\u26A0️ Les dates de l'événement sont invalides (date passée ou fin avant début)", "error");
       return false;
     }
   }
   
-  // ⚠️⚠️⚠️ VALIDATION DE L'ADRESSE
+  // \u26A0️\u26A0️\u26A0️ VALIDATION DE L'ADRESSE
   const addressLat = document.getElementById("pub-address-lat")?.value;
   const addressLng = document.getElementById("pub-address-lng")?.value;
   
@@ -12081,7 +14517,7 @@ async function onSubmitPublishForm(e) {
     // Essayer de valider l'adresse une dernière fois
     const addressValid = await validateAddress();
     if (!addressValid) {
-      showNotification("⚠️ L'adresse n'est pas valide. Veuillez sélectionner une adresse dans les suggestions.", "error");
+      showNotification("\u26A0️ L'adresse n'est pas valide. Veuillez sélectionner une adresse dans les suggestions.", "error");
       return false;
     }
   }
@@ -12098,6 +14534,7 @@ async function onSubmitPublishForm(e) {
   const socialLinks = document.getElementById("pub-social")?.value.trim();
   const videoLinks = document.getElementById("pub-videos")?.value.trim();
   const audioEventLinks = document.getElementById("pub-audio-links")?.value.trim(); // Liens sons pour events
+  const promoCode = (document.getElementById("pub-promo-code")?.value || "").trim().toUpperCase();
   
   // Pour les events : dates
   const startDate = document.getElementById("pub-start")?.value;
@@ -12155,9 +14592,9 @@ async function onSubmitPublishForm(e) {
         reader.onerror = reject;
         reader.readAsDataURL(mainImageFile);
       });
-      console.log('[PUBLISH] ✅ Image convertie en base64:', mainImageBase64?.substring(0, 50) + '...');
+      console.log('[PUBLISH] \u2705 Image convertie en base64:', mainImageBase64?.substring(0, 50) + '...');
     } catch (imgError) {
-      console.warn('[PUBLISH] ⚠️ Erreur conversion image:', imgError);
+      console.warn('[PUBLISH] \u26A0️ Erreur conversion image:', imgError);
     }
   }
   
@@ -12168,16 +14605,19 @@ async function onSubmitPublishForm(e) {
   
   // Boost sélectionné
   const boostRadio = document.querySelector('input[name="pub-boost"]:checked');
-  const boost = boostRadio?.value || 'basic';
+  let boost = boostRadio?.value || 'standard';
+  if (promoCode) {
+    boost = "bronze";
+  }
   
   // Validation
   if (!title || !mainCategory || !address || !email || !description) {
-    showNotification("⚠️ Veuillez remplir tous les champs obligatoires (*)", "warning");
+    showNotification("\u26A0️ Veuillez remplir tous les champs obligatoires (*)", "warning");
     return false;
   }
   
   if (currentMode === "event" && (!startDate || !endDate)) {
-    showNotification("⚠️ Veuillez indiquer les dates de l'événement", "warning");
+    showNotification("\u26A0️ Veuillez indiquer les dates de l'événement", "warning");
     return false;
   }
   
@@ -12190,7 +14630,7 @@ async function onSubmitPublishForm(e) {
     lat = parseFloat(preValidatedLat);
     lng = parseFloat(preValidatedLng);
     city = address.split(',')[0];
-    showNotification("✅ Adresse validée", "success");
+    showNotification("\u2705 Adresse validée", "success");
   } else {
     // Géocoder l'adresse
     showNotification("🔍 Recherche de l'adresse...", "info");
@@ -12206,12 +14646,12 @@ async function onSubmitPublishForm(e) {
         lng = parseFloat(geoData[0].lon);
         city = geoData[0].display_name.split(',')[0];
       } else {
-        showNotification("⚠️ Adresse introuvable. Vérifiez et réessayez.", "warning");
+        showNotification("\u26A0️ Adresse introuvable. Vérifiez et réessayez.", "warning");
         return false;
       }
     } catch (error) {
       console.error('Erreur géocodage:', error);
-      showNotification("❌ Erreur de géocodage. Réessayez.", "error");
+      showNotification("\u274C Erreur de géocodage. Réessayez.", "error");
       return false;
     }
   }
@@ -12250,6 +14690,7 @@ async function onSubmitPublishForm(e) {
     createdAt: now,
     type: currentMode
   };
+  if (promoCode) newItem.promoCode = promoCode;
   
   if (currentMode === "event") {
     newItem.startDate = startDate;
@@ -12313,25 +14754,36 @@ async function onSubmitPublishForm(e) {
   }
   
   // Calculer le prix final
-  const finalPrice = window.currentPublishPrice || 1;
+  const hasPromoCode = !!promoCode;
+  const finalPrice = hasPromoCode ? 0 : (window.currentPublishPrice || 1);
   
   // Stocker les données pour après le paiement
+  const persistedPublisherId = currentUser?.id || currentUser?.email || `guest_${Date.now()}`;
   window.pendingPublishData = {
     newItem: newItem,
     mode: currentMode,
     lat: lat,
     lng: lng,
     boost: boost,
-    price: finalPrice
+    price: finalPrice,
+    publisherUserId: persistedPublisherId,
+    publisherEmail: currentUser?.email || email || ""
   };
   
+  // Si code promo valide: publier directement sans paiement
+  if (finalPrice <= 0) {
+    showNotification("✅ Code promo appliqué: publication gratuite. Aucune facturation.", "success");
+    await finalizePublish();
+    return false;
+  }
+
   // Ouvrir le modal de paiement Stripe
   openStripePaymentModal(finalPrice, boost);
   
   return false;
 }
 
-// ⚠️ GESTION DE LA MODIFICATION D'UNE ANNONCE EXISTANTE
+// \u26A0️ GESTION DE LA MODIFICATION D'UNE ANNONCE EXISTANTE
 async function handleEditSubmit(e) {
   e.preventDefault();
   
@@ -12355,7 +14807,7 @@ async function handleEditSubmit(e) {
   const endDate = document.getElementById("pub-end")?.value;
   
   if (!title || !address) {
-    showNotification("⚠️ Veuillez remplir les champs obligatoires", "warning");
+    showNotification("\u26A0️ Veuillez remplir les champs obligatoires", "warning");
     return false;
   }
   
@@ -12380,7 +14832,7 @@ async function handleEditSubmit(e) {
   }
   
   // Afficher un loader
-  showNotification("⏳ Enregistrement des modifications...", "info");
+  showNotification("\u23F3 Enregistrement des modifications...", "info");
   
   try {
     const token = typeof getAuthToken === 'function' ? getAuthToken() : localStorage.getItem('accessToken');
@@ -12408,29 +14860,30 @@ async function handleEditSubmit(e) {
       closePublishModal();
       refreshMarkers();
       
-      showNotification("✅ Modifications enregistrées !", "success");
+      showNotification("\u2705 Modifications enregistrées !", "success");
       
       // Revenir à Mes Annonces après un court délai
       setTimeout(() => showMesAnnoncesModal(), 500);
     } else {
       const err = await response.json();
-      showNotification("❌ Erreur: " + (err.error || "Impossible de modifier"), "error");
+      showNotification("\u274C Erreur: " + (err.error || "Impossible de modifier"), "error");
     }
   } catch (error) {
     console.error('Erreur modification:', error);
-    showNotification("❌ Erreur de connexion", "error");
+    showNotification("\u274C Erreur de connexion", "error");
   }
   
   return false;
 }
 
-// ⚠️⚠️⚠️ MODAL PAIEMENT STRIPE (MODE RÉEL)
+// \u26A0️\u26A0️\u26A0️ MODAL PAIEMENT STRIPE (MODE RÉEL)
 function openStripePaymentModal(amount, boost) {
   const boostLabels = {
     standard: 'Standard',
     bronze: '🥉 Bronze',
-    silver: '🥈 Silver',
-    platinum: '💎 Platinum'
+    silver: '🥈 Argent',
+    gold: '🥇 Or',
+    platinum: '💎 Platine'
   };
   
   const paymentHtml = `
@@ -12456,7 +14909,7 @@ function openStripePaymentModal(amount, boost) {
             ${boost !== 'standard' ? `
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
               <span style="color:#e2e8f0;font-size:13px;">Boost ${boostLabels[boost] || boost}</span>
-              <span style="color:#a78bfa;font-weight:600;">+${boost === 'platinum' ? currentPlatinumBid : (boost === 'bronze' ? 5 : boost === 'silver' ? 10 : 0)}.- CHF</span>
+              <span style="color:#a78bfa;font-weight:600;">+${boost === 'platinum' ? currentPlatinumBid : (boost === 'gold' ? 15 : boost === 'bronze' ? 5 : boost === 'silver' ? 10 : 0)}.- CHF</span>
             </div>
             ` : ''}
             ${document.getElementById("pub-repeat-enabled")?.checked ? `
@@ -12491,7 +14944,7 @@ function openStripePaymentModal(amount, boost) {
           
           <div style="text-align:center;margin-top:12px;">
             <img src="https://stripe.com/img/v3/home/social.png" alt="Stripe" style="height:20px;opacity:0.6;">
-            <div style="font-size:9px;color:#64748b;margin-top:4px;">Paiement 100% sécurisé • Données chiffrées</div>
+            <div style="font-size:9px;color:#64748b;margin-top:4px;">Paiement 100% sécurisé \u2022 Données chiffrées</div>
           </div>
         </div>
       </div>
@@ -12519,18 +14972,18 @@ async function initStripeCardElement() {
       <div style="text-align:center;">
         <div style="color:#00ffc3;font-size:13px;font-weight:600;margin-bottom:8px;">💳 Paiement sécurisé Stripe</div>
         <div style="color:#94a3b8;font-size:11px;">Vous serez redirigé vers la page de paiement Stripe</div>
-        <div style="color:#e2e8f0;font-size:10px;margin-top:6px;">Carte bancaire • TWINT • Apple Pay • Google Pay</div>
+        <div style="color:#e2e8f0;font-size:10px;margin-top:6px;">Carte bancaire \u2022 TWINT \u2022 Apple Pay \u2022 Google Pay</div>
       </div>
     `;
   }
 }
 
-// ⚠️⚠️⚠️ VRAI PAIEMENT STRIPE CHECKOUT
+// \u26A0️\u26A0️\u26A0️ VRAI PAIEMENT STRIPE CHECKOUT
 async function processStripePayment(amount) {
   const submitBtn = document.getElementById("stripe-submit-btn");
   if (submitBtn) {
     submitBtn.disabled = true;
-    submitBtn.innerHTML = '⏳ Redirection vers Stripe...';
+    submitBtn.innerHTML = '\u23F3 Redirection vers Stripe...';
   }
   
   try {
@@ -12544,8 +14997,18 @@ async function processStripePayment(amount) {
     
     console.log('[STRIPE] Création session Checkout pour', amount, 'CHF, userId:', userId);
     
+    // Payload publication persistant côté serveur (anti-perte si le navigateur perd localStorage)
+    const publicationPayload = (data && data.newItem) ? {
+      ...data.newItem,
+      userId: data.publisherUserId || currentUser?.id || currentUser?.email || null,
+      creator_id: data.publisherUserId || currentUser?.id || currentUser?.email || null,
+      email: data.publisherEmail || currentUser?.email || data.newItem?.email || "",
+      paymentStatus: 'paid',
+      paymentAmount: data.price
+    } : null;
+
     // Appeler le backend pour créer une session Stripe Checkout
-    // ⚠️ Champs requis par le backend: userId, paymentType, amount
+    // \u26A0️ Champs requis par le backend: userId, paymentType, amount
     const response = await fetch(`${window.API_BASE_URL}/payments/create-checkout-session`, {
       method: 'POST',
       headers: {
@@ -12558,6 +15021,7 @@ async function processStripePayment(amount) {
         amount: amount * 100, // Convertir en centimes pour Stripe
         currency: 'chf',
         email: currentUser?.email || data.newItem?.email || '',
+        publicationPayload: publicationPayload,
         product_name: `Publication ${data.mode}: ${data.newItem?.title || 'Événement'}`,
         description: `Boost: ${data.boost}${data.newItem?.repeat?.enabled ? ' + Répétition' : ''}`,
         metadata: {
@@ -12607,7 +15071,7 @@ async function processStripePayment(amount) {
     
   } catch (error) {
     console.error('[STRIPE] Erreur:', error);
-    showNotification(`❌ Erreur: ${error.message}`, "error");
+    showNotification(`\u274C Erreur: ${error.message}`, "error");
     
     if (submitBtn) {
       submitBtn.disabled = false;
@@ -12619,14 +15083,14 @@ async function processStripePayment(amount) {
 // Finaliser la publication après paiement
 async function finalizePublish() {
   if (window._publishFinalized) {
-    console.log('[PUBLISH] ⏭️ Publication déjà finalisée, ignoré');
+    console.log('[PUBLISH] \u23ED️ Publication déjà finalisée, ignoré');
     return;
   }
 
   const data = window.pendingPublishData;
   if (!data) {
-    console.error('[PUBLISH] ❌ Données de publication perdues - pendingPublishData est null');
-    showNotification("❌ Erreur: Données de publication perdues. Veuillez réessayer.", "error");
+    console.error('[PUBLISH] \u274C Données de publication perdues - pendingPublishData est null');
+    showNotification("\u274C Erreur: Données de publication perdues. Veuillez réessayer.", "error");
     return;
   }
   
@@ -12641,14 +15105,28 @@ async function finalizePublish() {
     if (token) headers['Authorization'] = 'Bearer ' + token;
     
     // Préparer les données avec les bons noms de champs pour le backend
+    const startRaw = data?.newItem?.startDate || data?.newItem?.date || '';
+    const endRaw = data?.newItem?.endDate || data?.newItem?.end_date || '';
+    const startDatePart = (typeof startRaw === 'string' && startRaw.includes('T')) ? startRaw.split('T')[0] : (startRaw || null);
+    const startTimePart = (typeof startRaw === 'string' && startRaw.includes('T')) ? startRaw.split('T')[1] : (data?.newItem?.time || null);
+    const endDatePart = (typeof endRaw === 'string' && endRaw.includes('T')) ? endRaw.split('T')[0] : (endRaw || null);
+    const endTimePart = (typeof endRaw === 'string' && endRaw.includes('T')) ? endRaw.split('T')[1] : (data?.newItem?.end_time || null);
+
+    const persistedPublisherId = data?.publisherUserId || currentUser?.id || currentUser?.email || null;
     const backendData = {
       ...data.newItem,
       // Mapper les champs frontend -> backend
       location: data.newItem.address || data.newItem.location,
       latitude: data.newItem.lat || data.newItem.latitude,
       longitude: data.newItem.lng || data.newItem.longitude,
-      userId: currentUser?.id,
-      creator_id: currentUser?.id,
+      date: startDatePart,
+      time: startTimePart,
+      end_date: endDatePart || startDatePart,
+      end_time: endTimePart || startTimePart,
+      status: data?.newItem?.status || 'active',
+      userId: persistedPublisherId,
+      creator_id: persistedPublisherId,
+      email: data?.publisherEmail || data?.newItem?.email || "",
       paymentStatus: 'paid',
       paymentAmount: data.price
     };
@@ -12671,29 +15149,29 @@ async function finalizePublish() {
       try {
         const result = JSON.parse(responseText);
         if (result.id) {
-          console.log('[PUBLISH] ✅ ID backend reçu:', result.id);
+          console.log('[PUBLISH] \u2705 ID backend reçu:', result.id);
           data.newItem.id = result.id; // Utiliser l'ID du backend !
         }
         if (result.creator_id) {
-          console.log('[PUBLISH] ✅ creator_id confirmé:', result.creator_id);
+          console.log('[PUBLISH] \u2705 creator_id confirmé:', result.creator_id);
         }
         // Récupérer l'URL de l'image uploadée vers S3
         if (result.image_url) {
           data.newItem.image_url = result.image_url;
           data.newItem.imageUrl = result.image_url;
-          console.log('[PUBLISH] ✅ Image URL S3 reçue:', result.image_url.substring(0, 80) + '...');
+          console.log('[PUBLISH] \u2705 Image URL S3 reçue:', result.image_url.substring(0, 80) + '...');
         }
       } catch (e) {
         console.warn('[PUBLISH] Impossible de parser la réponse:', e);
       }
-      console.log('[PUBLISH] ✅ Événement créé avec succès dans le backend');
+      console.log('[PUBLISH] \u2705 Événement créé avec succès dans le backend');
     } else {
-      console.error('[PUBLISH] ❌ Erreur backend:', response.status, responseText);
-      showNotification(`❌ Erreur serveur (${response.status}): ${responseText}`, "error");
+      console.error('[PUBLISH] \u274C Erreur backend:', response.status, responseText);
+      showNotification(`\u274C Erreur serveur (${response.status}): ${responseText}`, "error");
     }
   } catch (error) {
-    console.error('[PUBLISH] ❌ Erreur réseau:', error);
-    showNotification("❌ Erreur réseau lors de la publication. Vérifiez votre connexion.", "error");
+    console.error('[PUBLISH] \u274C Erreur réseau:', error);
+    showNotification("\u274C Erreur réseau lors de la publication. Vérifiez votre connexion.", "error");
   }
   
   // Ajouter aux données locales SEULEMENT si backend OK
@@ -12715,13 +15193,25 @@ async function finalizePublish() {
     refreshMarkers();
     refreshListView();
     
-    // Centrer la carte sur le nouveau point
-    if (map && data.lat && data.lng) {
-      map.setView([data.lat, data.lng], 14);
+    // Centrer la carte sur le nouveau point puis forcer un reload viewport.
+    const nLat = Number(data?.newItem?.lat ?? data?.newItem?.latitude);
+    const nLng = Number(data?.newItem?.lng ?? data?.newItem?.longitude);
+    if (map && Number.isFinite(nLat) && Number.isFinite(nLng)) {
+      map.setView([nLat, nLng], Math.max(map.getZoom(), 14), { animate: true });
+      try {
+        lastViewportKey = '';
+      } catch (_) {}
+      if (typeof loadViewportData === 'function') {
+        setTimeout(() => loadViewportData(), 250);
+      }
     }
     
-    // Message de succès
-    showNotification(`✅ Paiement reçu ! ${data.mode === 'event' ? 'Événement' : data.mode === 'booking' ? 'Booking' : 'Service'} publié avec succès !`, "success");
+    // Message de succès (payant ou promo gratuit)
+    if ((data.price || 0) <= 0) {
+      showNotification(`✅ Publication gratuite effectuée ! ${data.mode === 'event' ? 'Événement' : data.mode === 'booking' ? 'Booking' : 'Service'} publié avec succès.`, "success");
+    } else {
+      showNotification(`\u2705 Paiement reçu ! ${data.mode === 'event' ? 'Événement' : data.mode === 'booking' ? 'Booking' : 'Service'} publié avec succès !`, "success");
+    }
   }
   
   window.pendingPublishData = null;
@@ -13207,7 +15697,7 @@ function applyMapTheme(i) {
 }
 
 // ============================================
-// DÉMO AUTOMATIQUE – 400 ÉVÉNEMENTS VARIÉS
+// DÉMO AUTOMATIQUE \u2013 400 ÉVÉNEMENTS VARIÉS
 // ============================================
 
 const EVENT_TITLES = {
@@ -13258,7 +15748,7 @@ function generateRandomDate(daysFromNow, hoursVariation = 0) {
 function extractDeepestCategories(tree, result = [], visited = new WeakSet(), depth = 0) {
   // Protection contre récursion infinie
   if (depth > 50) {
-    console.warn('⚠️ extractDeepestCategories: profondeur maximale atteinte');
+    console.warn('\u26A0️ extractDeepestCategories: profondeur maximale atteinte');
     return result;
   }
   
@@ -13369,9 +15859,6 @@ function onAction(action, type, id) {
     case "route":
       openRoute(type, id);
       break;
-    case "avis":
-      openReviewModal(type, id);
-      break;
     case "share":
       shareItem(type, id);
       break;
@@ -13386,9 +15873,30 @@ function onAction(action, type, id) {
   }
 }
 
-// Toggle Like (juste le compteur, pas de sauvegarde)
+function updatePopupLikeButtonState(type, id, isLiked) {
+  const scrollContainer = document.getElementById("popup-scroll-container");
+  if (!scrollContainer) return;
+  const buttons = scrollContainer.querySelectorAll("button");
+  const idStr = String(id);
+  buttons.forEach((btn) => {
+    const handler = btn.getAttribute("onclick") || "";
+    if (!handler.includes("onAction('like'")) return;
+    if (!handler.includes(`'${type}'`)) return;
+    if (!handler.includes(`, ${idStr})`) && !handler.includes(`,${idStr})`)) return;
+    const label = (typeof window.t === "function" ? window.t("like") : "Like");
+    btn.innerHTML = `${isLiked ? "👍" : "👍🏻"} ${label}`;
+    if (type === "booking" || type === "service") {
+      btn.style.background = isLiked ? "rgba(59,130,246,0.22)" : "rgba(15,23,42,0.9)";
+      btn.style.borderColor = isLiked ? "rgba(59,130,246,0.55)" : "rgba(148,163,184,0.45)";
+      btn.style.color = isLiked ? "#93c5fd" : "#e2e8f0";
+    }
+  });
+}
+
+// Toggle Like (persistant + sauvegarde locale robuste)
 async function toggleLike(type, id) {
   if (navigator.vibrate) navigator.vibrate(10);
+  normalizeCurrentUserCollections();
   const key = `${type}:${id}`;
   const index = currentUser.likes.indexOf(key);
   
@@ -13407,20 +15915,24 @@ async function toggleLike(type, id) {
       })
     });
     
-    if (response.ok) {
-      if (action === 'add') {
-        currentUser.likes.push(key);
-        showNotification("👍 Like ajouté", "success");
-      } else {
-        currentUser.likes.splice(index, 1);
-        showNotification("👎 Like retiré", "info");
-      }
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || `Erreur HTTP ${response.status}`);
+    }
+    if (action === 'add') {
+      if (!currentUser.likes.includes(key)) currentUser.likes.push(key);
+      showNotification("👍 Like ajouté", "success");
+    } else {
+      const removeAt = currentUser.likes.indexOf(key);
+      if (removeAt > -1) currentUser.likes.splice(removeAt, 1);
+      showNotification("👎 Like retiré", "info");
     }
   } catch (error) {
     console.error('Erreur toggleLike:', error);
     // Fallback local
-    if (index > -1) {
-      currentUser.likes.splice(index, 1);
+    const localIndex = currentUser.likes.indexOf(key);
+    if (localIndex > -1) {
+      currentUser.likes.splice(localIndex, 1);
       showNotification("👎 Like retiré", "info");
     } else {
       currentUser.likes.push(key);
@@ -13429,17 +15941,21 @@ async function toggleLike(type, id) {
   }
   
   // Mettre à jour l'affichage
-  updateItemLikes(type, id, action === 'add' ? 1 : -1);
+  const nowLiked = currentUser.likes.includes(key);
+  updateItemLikes(type, id, nowLiked ? 1 : -1);
   refreshMarkers();
+  if (typeof saveUserData === 'function') saveUserData();
+  persistLikesBackups(currentUser.likes);
   
-  // Rafraîchir la popup si elle est ouverte
+  // Rafraîchir la popup event ou mettre à jour le bouton de façon légère (booking/service)
   const backdrop = document.getElementById("popup-modal-backdrop");
-  if (backdrop && backdrop.style.display !== "none") {
+  if (type === "event" && backdrop && backdrop.style.display !== "none") {
     const data = type === "event" ? eventsData : type === "booking" ? bookingsData : servicesData;
     const item = data.find(i => i.id === parseInt(id));
     if (item) {
       let popupHtml = "";
       if (type === "event") {
+        await ensureEventDetailsForPopup(item);
         popupHtml = buildEventPopup(item);
       } else if (type === "booking") {
         popupHtml = buildBookingPopup(item);
@@ -13455,25 +15971,27 @@ async function toggleLike(type, id) {
         }
       }
     }
+  } else if (backdrop && backdrop.style.display !== "none") {
+    updatePopupLikeButtonState(type, id, nowLiked);
   }
 }
 
 // Toggle Favorite (sauvegarde dans "Mes favoris", pas dans l'agenda)
 async function toggleFavorite(type, id) {
   if (navigator.vibrate) navigator.vibrate(10);
-  const key = `${type}:${id}`;
+  normalizeCurrentUserCollections();
   
   // Trouver l'item pour obtenir son nom
   const data = type === 'event' ? eventsData : type === 'booking' ? bookingsData : servicesData;
-  const item = data.find(i => i.id === id);
+  const item = data.find(i => i.id === id || i.id === parseInt(id));
   if (!item) return;
   
   const favoriteName = item.title || item.name;
   const favoriteMode = type;
   
   // Vérifier si déjà en favoris
-  const existingFavorite = currentUser.favorites.find(f => 
-    f.id === id.toString() && f.mode === type
+  const existingFavorite = currentUser.favorites.find(f =>
+    f && typeof f === 'object' && f.id === id.toString() && f.mode === type
   );
   
   const action = existingFavorite ? 'remove' : 'add';
@@ -13503,11 +16021,11 @@ async function toggleFavorite(type, id) {
           lng: item.lng
         };
         currentUser.favorites.push(favorite);
-        showNotification("⭐ Ajouté aux favoris !", "success");
+        showNotification("\u2B50 Ajouté à vos favoris ! Vous recevrez des alertes de proximité.", "success");
       } else {
         // Retirer des favoris
-        const index = currentUser.favorites.findIndex(f => 
-          f.id === id.toString() && f.mode === type
+        const index = currentUser.favorites.findIndex(f =>
+          f && typeof f === 'object' && f.id === id.toString() && f.mode === type
         );
         if (index > -1) {
           currentUser.favorites.splice(index, 1);
@@ -13515,19 +16033,14 @@ async function toggleFavorite(type, id) {
         showNotification("💔 Retiré des favoris", "info");
       }
       
-      // Sauvegarder dans localStorage
-      try {
-        safeSetItem('currentUser', JSON.stringify(currentUser));
-      } catch (e) {
-        console.error('Erreur sauvegarde favoris:', e);
-      }
+      if (typeof saveUserData === 'function') saveUserData();
     }
   } catch (error) {
     console.error('Erreur toggleFavorite:', error);
     // Fallback local
     if (existingFavorite) {
-      const index = currentUser.favorites.findIndex(f => 
-        f.id === id.toString() && f.mode === type
+      const index = currentUser.favorites.findIndex(f =>
+        f && typeof f === 'object' && f.id === id.toString() && f.mode === type
       );
       if (index > -1) {
         currentUser.favorites.splice(index, 1);
@@ -13543,15 +16056,17 @@ async function toggleFavorite(type, id) {
         lng: item.lng
       };
       currentUser.favorites.push(favorite);
-      showNotification("⭐ Ajouté aux favoris !", "success");
+      showNotification("\u2B50 Ajouté aux favoris !", "success");
     }
   }
+  normalizeCurrentUserCollections();
+  if (typeof saveUserData === 'function') saveUserData();
   
   refreshMarkers();
   
-  // Rafraîchir la popup si elle est ouverte
+  // Rafraîchir la popup si elle est ouverte (event seulement pour préserver l'audio booking/service)
   const backdrop = document.getElementById("popup-modal-backdrop");
-  if (backdrop && backdrop.style.display !== "none") {
+  if (type === "event" && backdrop && backdrop.style.display !== "none") {
     if (item) {
       let popupHtml = "";
       if (type === "event") {
@@ -13599,14 +16114,14 @@ function toggleParticipation(type, id) {
     if (!currentUser.agenda.includes(key)) {
       currentUser.agenda.push(key);
     }
-    showNotification("✅ Participation confirmée ! Ajouté à votre agenda.", "success");
+    showNotification("\u2705 Participation confirmée ! Ajouté à votre agenda.", "success");
   }
   
   refreshMarkers();
   
-  // Rafraîchir la popup si elle est ouverte
+  // Rafraîchir la popup si elle est ouverte (event seulement pour préserver l'audio booking/service)
   const backdrop = document.getElementById("popup-modal-backdrop");
-  if (backdrop && backdrop.style.display !== "none") {
+  if (type === "event" && backdrop && backdrop.style.display !== "none") {
     if (item) {
       let popupHtml = "";
       if (type === "event") {
@@ -13634,10 +16149,16 @@ function toggleParticipation(type, id) {
       marker.bindPopup(buildPopupHtml(item), { maxWidth: 400 });
       // Réajouter le gestionnaire pour intercepter l'ouverture
       marker.off('popupopen'); // Retirer l'ancien gestionnaire s'il existe
-      marker.on('popupopen', function() {
+      marker.on('popupopen', async function() {
         marker.closePopup();
         // Stocker le marqueur pour le recentrage à la fermeture
         currentPopupMarker = marker;
+        if (item.type === "event") {
+          await ensureEventDetailsForPopup(item);
+          if (typeof item.lat === 'number' && typeof item.lng === 'number') {
+            marker.setLatLng([item.lat, item.lng]);
+          }
+        }
         const popupContent = buildPopupHtml(item);
         openPopupModal(popupContent, item);
       });
@@ -13661,7 +16182,7 @@ async function toggleAgenda(type, id) {
   if (action === 'add') {
     const maxAgenda = getAgendaLimit();
     if (currentUser.agenda.length >= maxAgenda) {
-      showNotification(`⚠️ Limite d'agenda atteinte (${maxAgenda} places). Retirez un événement ou passez à un abonnement supérieur pour plus de places !`, "warning");
+      showNotification(`\u26A0️ Limite d'agenda atteinte (${maxAgenda} places). Retirez un événement ou passez à un abonnement supérieur pour plus de places !`, "warning");
       openSubscriptionModal();
       return;
     }
@@ -13669,9 +16190,13 @@ async function toggleAgenda(type, id) {
   
   // Appeler l'API pour persister en base
   try {
+    const token = typeof getAuthToken === 'function' ? getAuthToken() : null;
     const response = await fetch(`${window.API_BASE_URL}/user/agenda`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      },
       body: JSON.stringify({
         userId: currentUser.id.toString(),
         itemId: id,
@@ -13686,14 +16211,14 @@ async function toggleAgenda(type, id) {
     }
   } catch (error) {
     console.error('[AGENDA] Erreur persistance:', error);
-    showNotification("❌ Impossible de sauvegarder l'agenda. Réessayez.", "error");
+    showNotification("\u274C Impossible de sauvegarder l'agenda. Réessayez.", "error");
     return;
   }
   
   if (index > -1) {
     currentUser.agenda.splice(index, 1);
     if (typeof saveUserData === 'function') saveUserData();
-    try { localStorage.setItem('user_agenda_backup', JSON.stringify(currentUser.agenda)); } catch(e) {}
+    persistAgendaBackups(currentUser.agenda);
     showNotification("📅 Retiré de l'agenda", "info");
     refreshMarkers();
     refreshListView();
@@ -13722,7 +16247,7 @@ async function toggleAgenda(type, id) {
   } else {
     currentUser.agenda.push(key);
     if (typeof saveUserData === 'function') saveUserData();
-    try { localStorage.setItem('user_agenda_backup', JSON.stringify(currentUser.agenda)); } catch(e) {}
+    persistAgendaBackups(currentUser.agenda);
     refreshMarkers();
     refreshListView();
 
@@ -13757,13 +16282,13 @@ function showAgendaConfirmToast() {
   toast.id = 'agenda-confirm-toast';
   toast.innerHTML = `
     <div style="display:flex;align-items:flex-start;gap:12px;">
-      <div style="font-size:28px;line-height:1;">✅</div>
+      <div style="font-size:28px;line-height:1;">\u2705</div>
       <div style="flex:1;">
         <div style="font-weight:700;font-size:15px;margin-bottom:4px;color:#fff;">Ajouté à votre agenda !</div>
         <div style="font-size:13px;color:rgba(255,255,255,0.85);line-height:1.4;">Consultez vos événements sauvegardés dans votre compte.</div>
         <button onclick="document.getElementById('agenda-confirm-toast').remove();if(typeof openAgendaModal==='function')openAgendaModal();" style="margin-top:8px;padding:6px 14px;border-radius:8px;border:none;background:rgba(255,255,255,0.2);color:#fff;font-size:12px;font-weight:600;cursor:pointer;transition:background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.35)'" onmouseout="this.style.background='rgba(255,255,255,0.2)'">📅 Voir mon agenda</button>
       </div>
-      <button onclick="this.parentElement.parentElement.remove()" style="background:none;border:none;color:rgba(255,255,255,0.6);font-size:18px;cursor:pointer;padding:0;line-height:1;">✕</button>
+      <button onclick="this.parentElement.parentElement.remove()" style="background:none;border:none;color:rgba(255,255,255,0.6);font-size:18px;cursor:pointer;padding:0;line-height:1;">\u2715</button>
     </div>
   `;
   toast.style.cssText = `
@@ -13839,7 +16364,7 @@ function canSendSMS() {
 }
 
 // Vérifier les changements d'événements et envoyer des alertes
-// ⚠️ LES ALERTES DE STATUT (annulé, complet, reporté) SONT TOUJOURS GRATUITES ET ILLIMITÉES
+// \u26A0️ LES ALERTES DE STATUT (annulé, complet, reporté) SONT TOUJOURS GRATUITES ET ILLIMITÉES
 function checkEventChanges() {
   if (!isLoggedIn()) return;
   
@@ -13943,143 +16468,6 @@ function getItemById(type, id) {
   return null;
 }
 
-// Inviter des amis à un événement/booking/service
-function inviteFriendsToEvent(type, id) {
-  if (!currentUser || !currentUser.isLoggedIn) {
-    openLoginModal();
-    return;
-  }
-  
-  const item = getItemById(type, id);
-  if (!item) return;
-  
-  // Utiliser le nouveau système d'invitation par API
-  openInviteFriendsModal(type, id, item.title || item.name || 'Événement');
-  return;
-  
-  // --- Ancien code local ci-dessous (désactivé) ---
-  const friendsList = currentUser.friends || [];
-  if (friendsList.length === 0) {
-    showNotification("👥 Vous n'avez pas encore d'amis. Ajoutez-en depuis le menu Amis !", "info");
-    openFriendsModal();
-    return;
-  }
-  
-  initDemoUsers();
-  const friendsInfo = friendsList.map(friendId => {
-    return allUsers.find(u => u.id === friendId) || { id: friendId, name: 'Ami', avatar: '👤' };
-  });
-  
-  const itemTitle = item.title || item.name || 'Élément';
-  const itemTypeLabel = type === 'event' ? 'événement' : type === 'booking' ? 'artiste' : 'service';
-  
-  const html = `
-    <div style="padding:20px;max-width:550px;margin:0 auto;max-height:85vh;overflow-y:auto;">
-      <div style="text-align:center;margin-bottom:20px;">
-        <div style="font-size:40px;margin-bottom:8px;">➕</div>
-        <h2 style="margin:0;font-size:22px;font-weight:700;color:#fff;">Inviter des amis</h2>
-        <p style="color:var(--ui-text-muted);margin-top:6px;font-size:13px;">${escapeHtml(itemTitle)}</p>
-      </div>
-      
-      <div style="margin-bottom:16px;">
-        <label style="display:block;font-size:13px;font-weight:600;color:#fff;margin-bottom:8px;">🔍 Rechercher un ami</label>
-        <input type="text" id="invite-search-friends" placeholder="Nom d'ami..." 
-               onkeyup="filterInviteFriends(this.value)"
-               style="width:100%;padding:12px;border-radius:10px;border:1px solid var(--ui-card-border);background:rgba(15,23,42,0.9);color:var(--ui-text-main);font-size:14px;">
-      </div>
-      
-      <div id="invite-friends-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px;">
-        ${friendsInfo.map(friend => `
-          <div id="invite-friend-${friend.id}" style="display:flex;align-items:center;gap:12px;padding:12px;background:rgba(15,23,42,0.5);border-radius:12px;border:1px solid var(--ui-card-border);">
-            <div style="width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#00ffc3,#3b82f6);display:flex;align-items:center;justify-content:center;font-size:24px;">${friend.avatar}</div>
-            <div style="flex:1;">
-              <div style="font-weight:600;font-size:14px;color:#fff;">${escapeHtml(friend.name)}</div>
-              <div style="font-size:11px;color:var(--ui-text-muted);">${friend.isOnline ? '🟢 En ligne' : '⚫ Hors ligne'}</div>
-            </div>
-            <button onclick="sendInvitationToFriend('${friend.id}', '${escapeHtml(friend.name)}', '${friend.avatar}', '${type}', ${id})" 
-                    style="padding:8px 14px;border-radius:8px;border:none;background:linear-gradient(135deg,#00ffc3,#3b82f6);color:#000;font-size:12px;font-weight:600;cursor:pointer;">
-              Inviter
-            </button>
-          </div>
-        `).join('')}
-      </div>
-      
-      <button onclick="closePublishModal()" style="width:100%;padding:12px;border-radius:999px;border:1px solid var(--ui-card-border);background:transparent;color:var(--ui-text-main);cursor:pointer;font-weight:600;">
-        Fermer
-      </button>
-    </div>
-  `;
-  
-  showModalWithContent(html);
-}
-
-// Filtrer les amis lors de l'invitation
-function filterInviteFriends(query) {
-  const friendsList = currentUser.friends || [];
-  initDemoUsers();
-  
-  const filtered = friendsList
-    .map(friendId => allUsers.find(u => u.id === friendId))
-    .filter(friend => {
-      if (!friend) return false;
-      if (!query || query.trim() === '') return true;
-      return friend.name.toLowerCase().includes(query.toLowerCase());
-    });
-  
-  const container = document.getElementById("invite-friends-list");
-  if (!container) return;
-  
-  container.innerHTML = filtered.map(friend => `
-    <div id="invite-friend-${friend.id}" style="display:flex;align-items:center;gap:12px;padding:12px;background:rgba(15,23,42,0.5);border-radius:12px;border:1px solid var(--ui-card-border);">
-      <div style="width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#00ffc3,#3b82f6);display:flex;align-items:center;justify-content:center;font-size:24px;">${friend.avatar}</div>
-      <div style="flex:1;">
-        <div style="font-weight:600;font-size:14px;color:#fff;">${escapeHtml(friend.name)}</div>
-        <div style="font-size:11px;color:var(--ui-text-muted);">${friend.isOnline ? '🟢 En ligne' : '⚫ Hors ligne'}</div>
-      </div>
-      <button onclick="sendInvitationToFriend('${friend.id}', '${escapeHtml(friend.name)}', '${friend.avatar}', 'event', 0)" 
-              style="padding:8px 14px;border-radius:8px;border:none;background:linear-gradient(135deg,#00ffc3,#3b82f6);color:#000;font-size:12px;font-weight:600;cursor:pointer;">
-        Inviter
-      </button>
-    </div>
-  `).join('');
-}
-
-// Envoyer une invitation à un ami
-function sendInvitationToFriend(friendId, friendName, friendAvatar, type, id) {
-  const item = getItemById(type, id);
-  if (!item) return;
-  
-  const itemTitle = item.title || item.name || 'Élément';
-  const itemTypeLabel = type === 'event' ? 'événement' : type === 'booking' ? 'artiste' : 'service';
-  
-  // Créer une alerte sociale pour l'ami
-  if (!window.userAlerts) window.userAlerts = {};
-  if (!window.userAlerts[friendId]) window.userAlerts[friendId] = [];
-  
-  window.userAlerts[friendId].push({
-    type: 'event_invitation',
-    fromUserId: currentUser.id,
-    fromUserName: currentUser.name,
-    fromUserAvatar: currentUser.avatar,
-    eventType: type,
-    eventId: id,
-    eventTitle: itemTitle,
-    message: `${currentUser.name} vous invite à découvrir cet ${itemTypeLabel}`,
-    date: new Date().toISOString(),
-    read: false,
-    icon: '🎉'
-  });
-  
-  showNotification(`✅ Invitation envoyée à ${friendName} !`, "success");
-  
-  // Mettre à jour le bouton
-  const button = document.querySelector(`#invite-friend-${friendId} button`);
-  if (button) {
-    button.textContent = '✅ Invité';
-    button.style.background = '#22c55e';
-    button.disabled = true;
-  }
-}
 
 // Ouvrir le profil utilisateur complet
 function openUserProfile(userId = null) {
@@ -14123,28 +16511,16 @@ function openUserProfile(userId = null) {
         
         ${isOwnProfile ? `
           <button onclick="editProfile()" style="margin-top:16px;padding:10px 20px;border-radius:999px;border:1px solid var(--ui-card-border);background:transparent;color:var(--ui-text-main);font-weight:600;cursor:pointer;">
-            ✏️ Modifier le profil
+            \u270F️ Modifier le profil
           </button>
-        ` : `
-          <div style="display:flex;gap:8px;justify-content:center;margin-top:16px;">
-            ${currentUser.friends?.includes(targetUserId) ? `
-              <button onclick="openChatWith('${targetUserId}')" style="padding:10px 20px;border-radius:999px;border:none;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;font-weight:600;cursor:pointer;">
-                💬 Message
-              </button>
-            ` : `
-              <button onclick="sendFriendRequest('${targetUserId}', '${escapeHtml(targetUser.name)}', '${targetUser.avatar}')" style="padding:10px 20px;border-radius:999px;border:none;background:linear-gradient(135deg,#00ffc3,#3b82f6);color:#000;font-weight:600;cursor:pointer;">
-                ➕ Ajouter comme ami
-              </button>
-            `}
-          </div>
-        `}
+        ` : ''}
       </div>
       
       <!-- Stats -->
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px;">
         <div style="text-align:center;padding:16px;background:rgba(15,23,42,0.5);border-radius:12px;border:1px solid var(--ui-card-border);">
-          <div style="font-size:24px;font-weight:700;color:#00ffc3;">${friendsCount}</div>
-          <div style="font-size:12px;color:var(--ui-text-muted);margin-top:4px;">Amis</div>
+          <div style="font-size:24px;font-weight:700;color:#00ffc3;">${(targetUser.favorites || []).length}</div>
+          <div style="font-size:12px;color:var(--ui-text-muted);margin-top:4px;">Favoris</div>
         </div>
         <div style="text-align:center;padding:16px;background:rgba(15,23,42,0.5);border-radius:12px;border:1px solid var(--ui-card-border);">
           <div style="font-size:24px;font-weight:700;color:#3b82f6;">${eventsCount}</div>
@@ -14180,7 +16556,7 @@ function openUserProfile(userId = null) {
               <div style="aspect-ratio:16/9;border-radius:12px;overflow:hidden;background:rgba(15,23,42,0.5);border:1px solid var(--ui-card-border);cursor:pointer;position:relative;"
                    onclick="viewVideo('${video}')">
                 <img src="${video.thumbnail || ''}" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none'">
-                <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:48px;height:48px;border-radius:50%;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;font-size:24px;">▶️</div>
+                <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:48px;height:48px;border-radius:50%;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;font-size:24px;">\u25B6️</div>
               </div>
             `).join('')}
           </div>
@@ -14245,7 +16621,7 @@ window.handleEditProfilePhotoUpload = function(event) {
   if (!file) return;
   
   if (file.size > 5 * 1024 * 1024) {
-    showNotification('⚠️ La photo doit faire moins de 5MB', 'warning');
+    showNotification('\u26A0️ La photo doit faire moins de 5MB', 'warning');
     return;
   }
   
@@ -14289,7 +16665,7 @@ function setupEditProfileAddressAutocomplete(inputElement) {
     
     timeout = setTimeout(async () => {
       try {
-        // ⚠️⚠️⚠️ RECHERCHE MONDIALE - Pas de restriction de pays, support multilingue
+        // \u26A0️\u26A0️\u26A0️ RECHERCHE MONDIALE - Pas de restriction de pays, support multilingue
         const langCode = (navigator.language || 'fr').split('-')[0];
         const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=10&addressdetails=1&accept-language=${langCode},en&dedupe=1`, {
           headers: {
@@ -14327,7 +16703,7 @@ function setupEditProfileAddressAutocomplete(inputElement) {
           
           suggestionsContainer.innerHTML = sortedResults.map(result => {
             const hasFullAddress = result.address?.road && (result.address?.house_number || result.address?.house);
-            const addressQuality = hasFullAddress ? '✅' : '📍';
+            const addressQuality = hasFullAddress ? '\u2705' : '📍';
             return `
             <div class="edit-profile-address-suggestion" style="padding:12px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.1);transition:background 0.2s;" 
                  onmouseover="this.style.background='rgba(0,255,195,0.1)'" 
@@ -14343,7 +16719,7 @@ function setupEditProfileAddressAutocomplete(inputElement) {
                 <span style="font-size:14px;">${addressQuality}</span>
                 <div style="font-weight:600;color:var(--ui-text-main);font-size:13px;flex:1;">${result.display_name}</div>
               </div>
-              <div style="font-size:11px;color:var(--ui-text-muted);padding-left:22px;">${result.address?.country || ''}${result.address?.postcode ? ' • ' + result.address.postcode : ''}</div>
+              <div style="font-size:11px;color:var(--ui-text-muted);padding-left:22px;">${result.address?.country || ''}${result.address?.postcode ? ' \u2022 ' + result.address.postcode : ''}</div>
             </div>
           `;
           }).join('');
@@ -14402,10 +16778,10 @@ async function saveProfile() {
   if (window.editProfilePhotoFile) {
     try {
       await uploadProfilePhoto(window.editProfilePhotoFile);
-      showNotification("✅ Photo de profil mise à jour !", "success");
+      showNotification("\u2705 Photo de profil mise à jour !", "success");
     } catch (error) {
       console.error('[EDIT PROFILE] Erreur upload photo:', error);
-      showNotification("⚠️ Erreur lors de l'upload de la photo", "error");
+      showNotification("\u26A0️ Erreur lors de l'upload de la photo", "error");
     }
   }
   
@@ -14415,7 +16791,7 @@ async function saveProfile() {
       await saveUserAddress(window.editProfileSelectedAddress);
     } catch (error) {
       console.error('[EDIT PROFILE] Erreur sauvegarde adresse:', error);
-      showNotification("⚠️ Erreur lors de la sauvegarde de l'adresse", "error");
+      showNotification("\u26A0️ Erreur lors de la sauvegarde de l'adresse", "error");
     }
   }
   
@@ -14439,7 +16815,7 @@ async function saveProfile() {
       } else {
         const errorData = await response.json();
         if (errorData.error && errorData.error.includes('déjà pris')) {
-          showNotification("⚠️ Ce nom d'utilisateur est déjà pris", "error");
+          showNotification("\u26A0️ Ce nom d'utilisateur est déjà pris", "error");
           return;
         }
       }
@@ -14460,7 +16836,7 @@ async function saveProfile() {
   await loadCurrentUserFromAPI();
   
   saveUserData();
-  showNotification("✅ Profil mis à jour !", "success");
+  showNotification("\u2705 Profil mis à jour !", "success");
   openUserProfile();
 }
 
@@ -14540,9 +16916,9 @@ function shareItem(type, id) {
   // Ces métadonnées seront utilisées par Facebook, Twitter, LinkedIn, etc.
   if (item) {
     updateOpenGraphMetadata(type, id, item);
-    console.log(`✅ Partage de ${type} ${id}: "${title}"`);
+    console.log(`\u2705 Partage de ${type} ${id}: "${title}"`);
   } else {
-    console.warn(`⚠️ ${type} ${id} non trouvé pour le partage`);
+    console.warn(`\u26A0️ ${type} ${id} non trouvé pour le partage`);
   }
   
   shareItemModal(type, id, item, title);
@@ -14704,11 +17080,11 @@ function checkUrlParamsAndUpdateMetadata() {
       
       if (item && type && id) {
         clearInterval(checkInterval);
-        console.log(`✅ Mise à jour des métadonnées Open Graph pour ${type} ${id}`);
+        console.log(`\u2705 Mise à jour des métadonnées Open Graph pour ${type} ${id}`);
         updateOpenGraphMetadata(type, id, item);
       } else if (attempts >= maxAttempts) {
         clearInterval(checkInterval);
-        console.warn(`⚠️ Impossible de mettre à jour les métadonnées après ${maxAttempts} tentatives`);
+        console.warn(`\u26A0️ Impossible de mettre à jour les métadonnées après ${maxAttempts} tentatives`);
       }
     }, 300); // Vérifier toutes les 300ms
   }
@@ -14724,9 +17100,7 @@ window.updateMetaTag = updateMetaTag;
 // Fonction pour créer le modal de partage (séparée pour réutilisation)
 function shareItemModal(type, id, item, title) {
   
-  // URL de partage via l'API pour que les crawlers sociaux (Facebook, Twitter) voient les bonnes meta OG
-  const shareUrl = `${window.API_BASE_URL}/share/${type}/${id}`;
-  // URL directe pour le clipboard et le navigateur
+  const shareUrl = `https://mapevent.world/e/${id}/`;
   const url = shareUrl;
 
   // Sur mobile, essayer l'API Web Share native (menu système du téléphone)
@@ -14734,7 +17108,7 @@ function shareItemModal(type, id, item, title) {
   if (isMobile && navigator.share) {
     navigator.share({
       title: title || 'MapEvent',
-      text: title + ' — sur MapEvent',
+      text: title + ' \u2014 sur MapEvent',
       url: url
     }).catch(function() { /* utilisateur a annulé, pas d'erreur */ });
     return;
@@ -14801,7 +17175,7 @@ function shareItemModal(type, id, item, title) {
              style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:16px 12px;border-radius:12px;background:rgba(0,136,204,0.15);border:1px solid rgba(0,136,204,0.3);text-decoration:none;transition:all 0.2s;"
              onmouseover="this.style.background='rgba(0,136,204,0.25)';this.style.transform='scale(1.05)'"
              onmouseout="this.style.background='rgba(0,136,204,0.15)';this.style.transform='scale(1)'">
-            <span style="font-size:28px;">✈️</span>
+            <span style="font-size:28px;">\u2708️</span>
             <span style="font-size:11px;font-weight:600;color:#0088cc;">Telegram</span>
           </a>
           
@@ -14935,7 +17309,7 @@ async function generateShareStory(type, id) {
     ctx.font = 'bold 32px system-ui, sans-serif';
     let sub = '';
     if (item.startDate) sub = new Date(item.startDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
-    if (item.city || item.address) sub += (sub ? ' • ' : '') + (item.city || item.address || '').substring(0, 40);
+    if (item.city || item.address) sub += (sub ? ' \u2022 ' : '') + (item.city || item.address || '').substring(0, 40);
     if (sub) ctx.fillText(sub, W / 2, H * 0.62, W - pad * 2);
   }
   
@@ -15012,7 +17386,51 @@ window.sharePopup = function(type, id) {
 // ============================================
 // NOTIFICATIONS
 // ============================================
+function localizeNotificationMessage(message) {
+  if (!message || typeof window.t !== 'function') return message;
+  const text = String(message);
+  const match = text.match(/^\s*([^A-Za-z0-9À-ÿ]*?)\s*(.*)$/);
+  const lead = match ? match[1] : "";
+  const core = (match ? match[2] : text).trim();
+  const keyByCore = {
+    "Erreur lors de la connexion Google": "notif_google_login_error",
+    "Connexion expirée. Réessayez en cliquant sur Connexion Google.": "notif_login_expired_retry_google",
+    "Impossible d’échanger le code (token).": "notif_token_exchange_failed",
+    "Impossible d'echanger le code (token).": "notif_token_exchange_failed",
+    "Compte créé avec succès ! Vous êtes maintenant connecté.": "notif_account_created_connected",
+    "Veuillez compléter votre profil pour continuer.": "notif_complete_profile_continue",
+    "Connexion Google réussie !": "notif_google_login_success",
+    "Connecté (token reçu).": "notif_connected_token_received",
+    "L'artiste n'est plus visible sur la carte. Rapprochez-vous de sa position.": "notif_artist_not_visible",
+    "Lecture directe bloquée, ouverture du lien audio.": "notif_direct_play_blocked_open_link",
+    "Erreur de lecture audio, ouverture du lien source.": "notif_audio_error_open_source",
+    "Item introuvable": "notif_item_not_found",
+    "Filtres réinitialisés - Tous les points affichés": "notif_filters_reset_all_points",
+    "Veuillez vous connecter pour publier": "notif_login_required_publish",
+    "Liens collés": "notif_links_pasted",
+    "Accès presse-papiers refusé": "notif_clipboard_access_denied",
+    "Formulaire réinitialisé": "notif_form_reset",
+    "Aucun code promo à copier": "notif_no_promo_code_to_copy",
+    "Code promo copié": "notif_promo_code_copied",
+    "Code sélectionné: Ctrl+C": "notif_promo_code_selected_ctrl_c",
+    "Like ajouté": "notif_like_added",
+    "Like retiré": "notif_like_removed",
+    "Ajouté aux favoris": "notif_favorite_added",
+    "Retiré des favoris": "notif_favorite_removed",
+    "Participation annulée": "notif_participation_cancelled",
+    "Ajouté à votre agenda.": "notif_added_to_agenda",
+    "Retiré de l'agenda": "notif_removed_from_agenda",
+    "Itinéraire ouvert dans Google Maps": "notif_route_opened_google_maps",
+    "Lien copié dans le presse-papier !": "notif_link_copied_clipboard"
+  };
+  const key = keyByCore[core];
+  if (!key) return message;
+  const translated = window.t(key) || core;
+  return (lead ? (lead + " ") : "") + translated;
+}
+
 function showNotification(message, type = "info", options = {}) {
+  message = localizeNotificationMessage(message);
   const existing = document.getElementById("notification-toast");
   if (existing) existing.remove();
 
@@ -15104,7 +17522,7 @@ function showContextualError(errorCode, message, context = {}) {
       }
     },
     'EMAIL_ALREADY_EXISTS': {
-      message: '⚠️ Email déjà utilisé',
+      message: '\u26A0️ Email déjà utilisé',
       details: `L'email "${context.email || ''}" est déjà associé à un compte.`,
       action: {
         label: 'Se connecter',
@@ -15116,7 +17534,7 @@ function showContextualError(errorCode, message, context = {}) {
       }
     },
     'USERNAME_ALREADY_EXISTS': {
-      message: '⚠️ Nom d\'utilisateur indisponible',
+      message: '\u26A0️ Nom d\'utilisateur indisponible',
       details: `Le nom "${context.username || ''}" est déjà pris. Choisissez-en un autre.`,
       action: {
         label: 'Modifier',
@@ -15151,7 +17569,7 @@ function showContextualError(errorCode, message, context = {}) {
       }
     },
     'RATE_LIMITED': {
-      message: '⏱️ Trop de tentatives',
+      message: '\u23F1️ Trop de tentatives',
       details: `Veuillez patienter ${context.retryAfter || 0} secondes avant de réessayer.`,
       action: null // Pas d'action pour rate limiting
     },
@@ -15164,7 +17582,7 @@ function showContextualError(errorCode, message, context = {}) {
       }
     },
     'VALIDATION_ERROR': {
-      message: '✏️ Informations manquantes',
+      message: '\u270F️ Informations manquantes',
       details: context.details || 'Veuillez compléter tous les champs requis.',
       action: {
         label: 'Voir le champ',
@@ -15189,7 +17607,7 @@ function showContextualError(errorCode, message, context = {}) {
   };
 
   const errorConfig = errorMessages[errorCode] || {
-    message: '❌ Erreur',
+    message: '\u274C Erreur',
     details: message,
     action: null
   };
@@ -15324,7 +17742,7 @@ function openOnboardingModal(missingSteps = []) {
     stepHTML = renderOnboardingAddressStep();
   } else {
     // Toutes les étapes sont complètes
-    stepTitle = '✅ Profil complété !';
+    stepTitle = '\u2705 Profil complété !';
     stepSubtitle = 'Votre profil est maintenant complet. Vous pouvez accéder à toutes les fonctionnalités.';
     stepHTML = renderOnboardingCompleteStep();
   }
@@ -15404,7 +17822,7 @@ function renderOnboardingAddressStep() {
       <!-- Adresse sélectionnée (affichée après sélection) -->
       <div id="selected-address-display" style="display:none;padding:12px;background:rgba(0,255,195,0.1);border:1px solid rgba(0,255,195,0.3);border-radius:10px;margin-bottom:16px;">
         <div style="display:flex;align-items:start;gap:8px;">
-          <span style="font-size:20px;">✅</span>
+          <span style="font-size:20px;">\u2705</span>
           <div style="flex:1;">
             <div style="font-weight:600;color:#00ffc3;margin-bottom:4px;" id="selected-address-label"></div>
             <div style="font-size:12px;color:var(--ui-text-muted);" id="selected-address-details"></div>
@@ -15528,7 +17946,7 @@ window.handleOnboardingPhotoUpload = function(event) {
   if (!file) return;
   
   if (file.size > 5 * 1024 * 1024) {
-    showNotification('⚠️ La photo doit faire moins de 5MB', 'warning');
+    showNotification('\u26A0️ La photo doit faire moins de 5MB', 'warning');
     return;
   }
   
@@ -15572,7 +17990,7 @@ function continueOnboardingStep(step) {
         }
       }).catch(error => {
         console.error('[ONBOARDING] Erreur upload photo:', error);
-        showNotification('⚠️ Erreur lors de l\'upload de la photo', 'error');
+        showNotification('\u26A0️ Erreur lors de l\'upload de la photo', 'error');
       });
     }
   } else if (step === 'address') {
@@ -15584,7 +18002,7 @@ function continueOnboardingStep(step) {
         openOnboardingModal([]);
       }).catch(error => {
         console.error('[ONBOARDING] Erreur sauvegarde adresse:', error);
-        showNotification('⚠️ Erreur lors de la sauvegarde de l\'adresse', 'error');
+        showNotification('\u26A0️ Erreur lors de la sauvegarde de l\'adresse', 'error');
       });
     }
   }
@@ -15738,7 +18156,7 @@ function setupAddressAutocomplete(inputElement) {
       try {
         // VALIDATION STRICTE + PERFORMANCE: Paramètres optimisés pour recherche rapide et exacte
         // addressdetails=1 pour validation complète, limit=5 pour rapidité, language=fr pour pertinence, dedupe=1 pour éviter doublons
-        // ⚠️⚠️⚠️ RECHERCHE MONDIALE - Pas de restriction de pays, support multilingue
+        // \u26A0️\u26A0️\u26A0️ RECHERCHE MONDIALE - Pas de restriction de pays, support multilingue
         const langCode = (navigator.language || 'fr').split('-')[0];
         const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=10&addressdetails=1&accept-language=${langCode},en&dedupe=1`, {
           headers: {
@@ -15780,7 +18198,7 @@ function setupAddressAutocomplete(inputElement) {
           
           suggestionsContainer.innerHTML = sortedResults.map(result => {
             const hasFullAddress = result.address?.road && (result.address?.house_number || result.address?.house);
-            const addressQuality = hasFullAddress ? '✅' : '📍';
+            const addressQuality = hasFullAddress ? '\u2705' : '📍';
             return `
             <div class="address-suggestion" style="padding:12px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.1);transition:background 0.2s;"
                  onmouseover="this.style.background='rgba(0,255,195,0.1)'" 
@@ -15796,7 +18214,7 @@ function setupAddressAutocomplete(inputElement) {
                 <span style="font-size:14px;">${addressQuality}</span>
                 <div style="font-weight:600;color:var(--ui-text-main);flex:1;">${result.display_name}</div>
               </div>
-              <div style="font-size:11px;color:var(--ui-text-muted);padding-left:22px;">${result.address?.country || ''}${result.address?.postcode ? ' • ' + result.address.postcode : ''}</div>
+              <div style="font-size:11px;color:var(--ui-text-muted);padding-left:22px;">${result.address?.country || ''}${result.address?.postcode ? ' \u2022 ' + result.address.postcode : ''}</div>
             </div>
           `;
           }).join('');
@@ -15881,14 +18299,14 @@ window.testOnboarding = function(missingSteps = ['photo', 'address']) {
 // Exposer les fonctions globalement IMMÉDIATEMENT après leur définition
 // REMOVED: openAuthModal est maintenant dans auth.js et exposé via window.openAuthModal
 
-// ⚠️⚠️⚠️ WRAPPER SIMPLIFIÉ : Délègue directement à window.openLoginModal de auth.js
-// ⚠️⚠️⚠️ CRITIQUE : Ne JAMAIS écraser window.openLoginModal ici !
+// \u26A0️\u26A0️\u26A0️ WRAPPER SIMPLIFIÉ : Délègue directement à window.openLoginModal de auth.js
+// \u26A0️\u26A0️\u26A0️ CRITIQUE : Ne JAMAIS écraser window.openLoginModal ici !
 function openLoginModal() {
-  // ⚠️⚠️⚠️ SIMPLE : Appeler directement window.openLoginModal de auth.js
+  // \u26A0️\u26A0️\u26A0️ SIMPLE : Appeler directement window.openLoginModal de auth.js
   if (typeof window.openLoginModal === 'function') {
     const authFn = window.openLoginModal;
     const fnSource = authFn.toString();
-    // ⚠️⚠️⚠️ VÉRIFICATION : Si ce n'est pas le wrapper lui-même, l'appeler
+    // \u26A0️\u26A0️\u26A0️ VÉRIFICATION : Si ce n'est pas le wrapper lui-même, l'appeler
     if (!fnSource.includes('openLoginModalCalling')) {
       return authFn();
     }
@@ -15910,9 +18328,9 @@ function openLoginModal() {
   }, 100);
 }
 
-// ⚠️⚠️⚠️ CRITIQUE : NE JAMAIS faire window.openLoginModal = openLoginModal ici !
+// \u26A0️\u26A0️\u26A0️ CRITIQUE : NE JAMAIS faire window.openLoginModal = openLoginModal ici !
 // Cela créerait une récursion infinie car le wrapper s'appellerait lui-même
-// ⚠️⚠️⚠️ SUPPRIMÉ : window.openLoginModal = openLoginModal; (ligne supprimée pour éviter la récursion)
+// \u26A0️\u26A0️\u26A0️ SUPPRIMÉ : window.openLoginModal = openLoginModal; (ligne supprimée pour éviter la récursion)
 
 function openRegisterModal() {
   console.log('[AUTH] openRegisterModal (wrapper) called');
@@ -15926,10 +18344,10 @@ function openRegisterModal() {
   }
 }
 
-// ⚠️⚠️⚠️ CRITIQUE : NE JAMAIS écraser window.openLoginModal ici !
+// \u26A0️\u26A0️\u26A0️ CRITIQUE : NE JAMAIS écraser window.openLoginModal ici !
 // Cela créerait une récursion infinie car le wrapper s'appellerait lui-même via window.openLoginModal()
 // window.openLoginModal doit rester la fonction de auth.js uniquement !
-// window.openLoginModal = openLoginModal; // ⚠️⚠️⚠️ SUPPRIMÉ pour éviter la récursion infinie
+// window.openLoginModal = openLoginModal; // \u26A0️\u26A0️\u26A0️ SUPPRIMÉ pour éviter la récursion infinie
 window.openRegisterModal = openRegisterModal;
 
 // REMOVED: Les wrappers openLoginModal et openRegisterModal ne doivent PAS être exposés ici
@@ -15943,7 +18361,7 @@ window.handleRegisterPhotoUpload = function(event) {
   if (!file) return;
   
   if (file.size > 5 * 1024 * 1024) {
-    showNotification('⚠️ La photo doit faire moins de 5MB', 'warning');
+    showNotification('\u26A0️ La photo doit faire moins de 5MB', 'warning');
     return;
   }
   
@@ -15988,7 +18406,7 @@ function setupRegisterAddressAutocomplete(inputElement) {
       try {
         // VALIDATION STRICTE + PERFORMANCE: Paramètres optimisés pour recherche rapide et exacte
         // addressdetails=1 pour validation complète, limit=5 pour rapidité, language=fr pour pertinence
-        // ⚠️⚠️⚠️ RECHERCHE MONDIALE - Pas de restriction de pays, support multilingue
+        // \u26A0️\u26A0️\u26A0️ RECHERCHE MONDIALE - Pas de restriction de pays, support multilingue
         const langCode = (navigator.language || 'fr').split('-')[0];
         const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=10&addressdetails=1&accept-language=${langCode},en&dedupe=1`, {
           headers: {
@@ -16030,7 +18448,7 @@ function setupRegisterAddressAutocomplete(inputElement) {
           
           suggestionsContainer.innerHTML = sortedResults.map(result => {
             const hasFullAddress = result.address?.road && (result.address?.house_number || result.address?.house);
-            const addressQuality = hasFullAddress ? '✅' : '📍';
+            const addressQuality = hasFullAddress ? '\u2705' : '📍';
             return `
             <div class="register-address-suggestion" style="padding:12px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.1);transition:background 0.2s;" 
                  onmouseover="this.style.background='rgba(0,255,195,0.1)'" 
@@ -16046,7 +18464,7 @@ function setupRegisterAddressAutocomplete(inputElement) {
                 <span style="font-size:14px;">${addressQuality}</span>
                 <div style="font-weight:600;color:var(--ui-text-main);font-size:13px;flex:1;">${result.display_name}</div>
               </div>
-              <div style="font-size:11px;color:var(--ui-text-muted);padding-left:22px;">${result.address?.country || ''}${result.address?.postcode ? ' • ' + result.address.postcode : ''}</div>
+              <div style="font-size:11px;color:var(--ui-text-muted);padding-left:22px;">${result.address?.country || ''}${result.address?.postcode ? ' \u2022 ' + result.address.postcode : ''}</div>
             </div>
           `;
           }).join('');
@@ -16112,9 +18530,9 @@ function showRegisterTimeoutError(email, username) {
   const html = `
     <div style="text-align:center;padding:40px 20px;position:relative;">
       <!-- Bouton X (croix) pour fermer -->
-      <button onclick="closeAuthModal()" style="position:absolute;top:16px;right:16px;background:none;border:none;color:var(--ui-text-muted);font-size:24px;cursor:pointer;padding:8px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:all 0.2s;z-index:10;" onmouseover="this.style.background='rgba(239,68,68,0.2)';this.style.color='#ef4444';this.style.transform='scale(1.1)';" onmouseout="this.style.background='none';this.style.color='var(--ui-text-muted)';this.style.transform='scale(1)';" title="Fermer">✕</button>
+      <button onclick="closeAuthModal()" style="position:absolute;top:16px;right:16px;background:none;border:none;color:var(--ui-text-muted);font-size:24px;cursor:pointer;padding:8px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:all 0.2s;z-index:10;" onmouseover="this.style.background='rgba(239,68,68,0.2)';this.style.color='#ef4444';this.style.transform='scale(1.1)';" onmouseout="this.style.background='none';this.style.color='var(--ui-text-muted)';this.style.transform='scale(1)';" title="Fermer">\u2715</button>
       
-      <div style="font-size:64px;margin-bottom:20px;">⏱️</div>
+      <div style="font-size:64px;margin-bottom:20px;">\u23F1️</div>
       <h2 style="margin:0 0 12px;font-size:24px;font-weight:700;color:#fff;">Quelque chose cloche...</h2>
       <p style="margin:0 0 24px;font-size:14px;color:var(--ui-text-muted);line-height:1.6;">
         L'inscription prend trop de temps (cold start probable).<br>
@@ -16158,9 +18576,9 @@ function showRegisterConflictError(errorData, email) {
   const html = `
     <div style="text-align:center;padding:40px 20px;position:relative;">
       <!-- Bouton X (croix) pour fermer -->
-      <button onclick="closeAuthModal()" style="position:absolute;top:16px;right:16px;background:none;border:none;color:var(--ui-text-muted);font-size:24px;cursor:pointer;padding:8px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:all 0.2s;z-index:10;" onmouseover="this.style.background='rgba(239,68,68,0.2)';this.style.color='#ef4444';this.style.transform='scale(1.1)';" onmouseout="this.style.background='none';this.style.color='var(--ui-text-muted)';this.style.transform='scale(1)';" title="Fermer">✕</button>
+      <button onclick="closeAuthModal()" style="position:absolute;top:16px;right:16px;background:none;border:none;color:var(--ui-text-muted);font-size:24px;cursor:pointer;padding:8px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:all 0.2s;z-index:10;" onmouseover="this.style.background='rgba(239,68,68,0.2)';this.style.color='#ef4444';this.style.transform='scale(1.1)';" onmouseout="this.style.background='none';this.style.color='var(--ui-text-muted)';this.style.transform='scale(1)';" title="Fermer">\u2715</button>
       
-      <div style="font-size:64px;margin-bottom:20px;">⚠️</div>
+      <div style="font-size:64px;margin-bottom:20px;">\u26A0️</div>
       <h2 style="margin:0 0 12px;font-size:24px;font-weight:700;color:#fff;">Compte déjà existant</h2>
       <p style="margin:0 0 24px;font-size:14px;color:var(--ui-text-muted);line-height:1.6;">
         ${errorMsg}<br>
@@ -16243,16 +18661,16 @@ function showProRegisterForm() {
   const modal = document.getElementById('publish-modal-inner');
 
   if (!backdrop) {
-    console.error('❌ Backdrop not found');
+    console.error('\u274C Backdrop not found');
     return;
   }
   
   if (!modal) {
-    console.error('❌ Modal inner not found');
+    console.error('\u274C Modal inner not found');
     return;
   }
   
-  console.log('✅ Modal elements found, displaying form...');
+  console.log('\u2705 Modal elements found, displaying form...');
   
   // S'assurer que registerData est initialisé
   if (!window.registerData) {
@@ -16275,7 +18693,7 @@ function showProRegisterForm() {
     if ((!window.registerData.photoData || window.registerData.photoData.length === 0) && 
         window.registerData.profilePhoto && window.registerData.profilePhoto.length > 0) {
       window.registerData.photoData = window.registerData.profilePhoto;
-      console.log('[REGISTER] ✅ photoData copié depuis profilePhoto dans showProRegisterForm');
+      console.log('[REGISTER] \u2705 photoData copié depuis profilePhoto dans showProRegisterForm');
     }
   }
   
@@ -16338,34 +18756,75 @@ function showProRegisterForm() {
       .pro-register-password-strength-fill.strong {
         background-color: #22c55e;
       }
+      /* Mode compact pour le popup d'inscription ouvert depuis Publier */
+      #publish-modal-inner .pro-register-container {
+        max-width: 520px !important;
+        padding: 14px 16px 10px !important;
+      }
+      #publish-modal-inner .pro-register-header {
+        margin-bottom: 10px !important;
+      }
+      #publish-modal-inner .pro-register-logo {
+        font-size: 34px !important;
+        margin-bottom: 4px !important;
+        line-height: 1 !important;
+      }
+      #publish-modal-inner .pro-register-title {
+        font-size: 22px !important;
+        margin: 0 0 2px 0 !important;
+      }
+      #publish-modal-inner .pro-register-subtitle {
+        font-size: 12px !important;
+      }
+      #publish-modal-inner .registration-progress {
+        margin-bottom: 10px !important;
+        padding: 0 2px !important;
+      }
+      #publish-modal-inner .pro-register-form {
+        gap: 10px !important;
+      }
+      #publish-modal-inner .pro-register-field {
+        gap: 4px !important;
+        margin-bottom: 0 !important;
+      }
+      #publish-modal-inner .pro-register-label {
+        font-size: 12px !important;
+      }
+      #publish-modal-inner .pro-register-input {
+        padding: 10px 12px !important;
+        font-size: 14px !important;
+      }
+      #publish-modal-inner .pro-register-actions {
+        margin-top: 8px !important;
+      }
     </style>
-    <div class="pro-register-container" style="position:relative;">
+    <div class="pro-register-container" style="position:relative;padding:12px 16px 8px !important;max-width:520px !important;">
       <!-- Bouton X (croix) pour fermer -->
-      <button onclick="closeAuthModal()" style="position:absolute;top:16px;right:16px;background:none;border:none;color:var(--ui-text-muted);font-size:24px;cursor:pointer;padding:8px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:all 0.2s;z-index:10;" onmouseover="this.style.background='rgba(239,68,68,0.2)';this.style.color='#ef4444';this.style.transform='scale(1.1)';" onmouseout="this.style.background='none';this.style.color='var(--ui-text-muted)';this.style.transform='scale(1)';" title="Fermer">✕</button>
+      <button onclick="closeAuthModal()" style="position:absolute;top:16px;right:16px;background:none;border:none;color:var(--ui-text-muted);font-size:24px;cursor:pointer;padding:8px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:all 0.2s;z-index:10;" onmouseover="this.style.background='rgba(239,68,68,0.2)';this.style.color='#ef4444';this.style.transform='scale(1.1)';" onmouseout="this.style.background='none';this.style.color='var(--ui-text-muted)';this.style.transform='scale(1)';" title="Fermer">\u2715</button>
       
-      <div class="pro-register-header">
-        <div class="pro-register-logo">🌍</div>
-        <h1 class="pro-register-title">Créer un compte</h1>
-        <p class="pro-register-subtitle">Rejoignez MapEvent et découvrez les événements près de chez vous</p>
+      <div class="pro-register-header" style="margin-bottom:8px !important;text-align:center;">
+        <div class="pro-register-logo" style="font-size:30px !important;margin-bottom:2px !important;line-height:1 !important;">🌍</div>
+        <h1 class="pro-register-title" style="font-size:20px !important;margin:0 0 2px 0 !important;">Créer un compte</h1>
+        <p class="pro-register-subtitle" style="font-size:11px !important;margin:0 !important;">Rejoignez MapEvent</p>
       </div>
       
       <!-- Progress Indicator -->
-      <div class="registration-progress" style="display:flex;justify-content:space-between;margin-bottom:24px;padding:0 8px;">
-        <div class="progress-step" data-step="1" style="flex:1;text-align:center;padding:8px;border-radius:8px;background:rgba(34,197,94,0.2);color:#22c55e;font-weight:600;font-size:12px;transition:all 0.3s;">
-          <div style="width:32px;height:32px;border-radius:50%;background:#22c55e;color:#fff;display:flex;align-items:center;justify-content:center;margin:0 auto 4px;font-weight:bold;">1</div>
-          Informations
+      <div class="registration-progress" style="display:flex;justify-content:space-between;margin-bottom:8px;padding:0 2px;">
+        <div class="progress-step" data-step="1" style="flex:1;text-align:center;padding:4px;border-radius:6px;background:rgba(34,197,94,0.2);color:#22c55e;font-weight:600;font-size:10px;transition:all 0.3s;">
+          <div style="width:22px;height:22px;border-radius:50%;background:#22c55e;color:#fff;display:flex;align-items:center;justify-content:center;margin:0 auto 2px;font-weight:bold;font-size:11px;">1</div>
+          Infos
         </div>
-        <div class="progress-step" data-step="2" style="flex:1;text-align:center;padding:8px;border-radius:8px;background:rgba(255,255,255,0.05);color:var(--ui-text-muted);font-size:12px;margin:0 8px;transition:all 0.3s;">
-          <div style="width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.1);color:var(--ui-text-muted);display:flex;align-items:center;justify-content:center;margin:0 auto 4px;font-weight:bold;">2</div>
-          Vérification
+        <div class="progress-step" data-step="2" style="flex:1;text-align:center;padding:4px;border-radius:6px;background:rgba(255,255,255,0.05);color:var(--ui-text-muted);font-size:10px;margin:0 6px;transition:all 0.3s;">
+          <div style="width:22px;height:22px;border-radius:50%;background:rgba(255,255,255,0.1);color:var(--ui-text-muted);display:flex;align-items:center;justify-content:center;margin:0 auto 2px;font-weight:bold;font-size:11px;">2</div>
+          Vérif.
         </div>
-        <div class="progress-step" data-step="3" style="flex:1;text-align:center;padding:8px;border-radius:8px;background:rgba(255,255,255,0.05);color:var(--ui-text-muted);font-size:12px;transition:all 0.3s;">
-          <div style="width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.1);color:var(--ui-text-muted);display:flex;align-items:center;justify-content:center;margin:0 auto 4px;font-weight:bold;">3</div>
-          Confirmation
+        <div class="progress-step" data-step="3" style="flex:1;text-align:center;padding:4px;border-radius:6px;background:rgba(255,255,255,0.05);color:var(--ui-text-muted);font-size:10px;transition:all 0.3s;">
+          <div style="width:22px;height:22px;border-radius:50%;background:rgba(255,255,255,0.1);color:var(--ui-text-muted);display:flex;align-items:center;justify-content:center;margin:0 auto 2px;font-weight:bold;font-size:11px;">3</div>
+          Confirm.
         </div>
       </div>
 
-      <form class="pro-register-form" onsubmit="handleProRegisterSubmit(event)">
+      <form class="pro-register-form" onsubmit="handleProRegisterSubmit(event)" style="gap:6px !important;">
         <!-- HONEYPOT FIELD (Anti-Bot) - Invisible pour les humains -->
         <input 
           type="text" 
@@ -16481,7 +18940,7 @@ function showProRegisterForm() {
         </div>
 
         <!-- Adresse postale pour les alertes (avec autocomplete OpenStreetMap) -->
-        <div class="pro-register-field" style="margin-bottom: 20px;">
+        <div class="pro-register-field" style="margin-bottom: 6px;">
           <label class="pro-register-label">
             Adresse postale
             <span style="font-weight: normal; color: var(--ui-text-muted); font-size: 12px;">(pour recevoir les alertes)</span>
@@ -16518,7 +18977,7 @@ function showProRegisterForm() {
         </div>
 
         <!-- Consentement RGPD -->
-        <div class="pro-register-field" style="margin-top: 51px; position: relative; z-index: 10002;">
+        <div class="pro-register-field" style="margin-top: 8px; position: relative; z-index: 10002;">
           <label style="display: flex; align-items: flex-start; gap: 8px; cursor: pointer; font-size: 13px; color: var(--ui-text-main);">
             <input 
               type="checkbox" 
@@ -16548,7 +19007,7 @@ function showProRegisterForm() {
 
         <!-- Bouton de soumission -->
         <div class="pro-register-actions">
-          <button type="submit" class="pro-register-btn-primary" id="pro-submit-btn">
+          <button type="submit" class="pro-register-btn-primary" id="pro-submit-btn" onclick="if(typeof handleProRegisterSubmit==='function'){return handleProRegisterSubmit(event);}">
             Créer le compte
           </button>
           <button type="button" id="auth-cancel-btn-pro" class="pro-register-btn-secondary" onclick="console.log('[ANNULER PRO] Click detecte');const e=event||window.event;if(e){e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();}if(typeof window.fermerModalAuth==='function'){window.fermerModalAuth();}else if(typeof closeAuthModal==='function'){closeAuthModal();}else{const b=document.getElementById('publish-modal-backdrop');const m=document.getElementById('publish-modal-inner');if(b){b.style.display='none';b.style.visibility='hidden';b.style.opacity='0';}if(m){m.innerHTML='';m.style.display='none';}}return false;" style="cursor:pointer;pointer-events:auto;z-index:10001;position:relative;">
@@ -16573,19 +19032,31 @@ function showProRegisterForm() {
   backdrop.style.width = "100%";
   backdrop.style.height = "100%";
   backdrop.style.background = "rgba(0, 0, 0, 0.8)";
-  backdrop.style.alignItems = "center";
+  backdrop.style.alignItems = "flex-start";
   backdrop.style.justifyContent = "center";
+  backdrop.style.padding = "8px 10px";
+  backdrop.style.boxSizing = "border-box";
   
   // Forcer l'affichage du modal inner
   modal.style.display = "block";
   modal.style.visibility = "visible";
   modal.style.opacity = "1";
+  modal.style.position = "fixed";
+  modal.style.left = "50%";
+  modal.style.top = "50%";
+  modal.style.transform = "translate(-50%, -56%)";
+  modal.style.width = "min(96vw, 560px)";
+  modal.style.maxWidth = "560px";
+  modal.style.maxHeight = "96vh";
+  modal.style.overflowY = "auto";
+  modal.style.overflowX = "hidden";
+  modal.style.margin = "0";
   
-  console.log('✅ Formulaire professionnel affiché');
-  console.log('✅ Backdrop display:', backdrop.style.display);
-  console.log('✅ Backdrop computed display:', window.getComputedStyle(backdrop).display);
-  console.log('✅ Modal inner HTML length:', modal.innerHTML.length);
-  console.log('✅ Modal inner first 200 chars:', modal.innerHTML.substring(0, 200));
+  console.log('\u2705 Formulaire professionnel affiché');
+  console.log('\u2705 Backdrop display:', backdrop.style.display);
+  console.log('\u2705 Backdrop computed display:', window.getComputedStyle(backdrop).display);
+  console.log('\u2705 Modal inner HTML length:', modal.innerHTML.length);
+  console.log('\u2705 Modal inner first 200 chars:', modal.innerHTML.substring(0, 200));
 
   // SOLUTION ULTRA-ROBUSTE : Utiliser la même fonction nommée que dans openAuthModal
   // Supprimer l'ancien event listener si il existe déjà (de openAuthModal)
@@ -16654,12 +19125,12 @@ function showProRegisterForm() {
         window.registerPhotoFile = null;
         window.isGoogleLoginInProgress = false;
         
-        console.log('[PRO REGISTER] ✅ Modal ferme COMPLETEMENT (via event delegation)');
+        console.log('[PRO REGISTER] \u2705 Modal ferme COMPLETEMENT (via event delegation)');
         return false;
       }
       
       // Si on clique directement sur le backdrop (pas sur ses enfants), fermer le modal
-      // ⚠️⚠️⚠️ IMPORTANT : Ignorer TOUS les éléments du formulaire d'inscription
+      // \u26A0️\u26A0️\u26A0️ IMPORTANT : Ignorer TOUS les éléments du formulaire d'inscription
       const isClickOnChild = target.closest('button') || 
                             target.closest('input') || 
                             target.closest('a') || 
@@ -16693,11 +19164,11 @@ function showProRegisterForm() {
   
   // Attacher l'event listener avec useCapture=true pour s'exécuter AVANT tout le monde
   backdrop.addEventListener('click', window._authModalCancelHandler, true);
-  console.log('[PRO REGISTER] ✅ Event delegation attachee avec useCapture=true');
+  console.log('[PRO REGISTER] \u2705 Event delegation attachee avec useCapture=true');
   
   // VERIFIER et corriger le bouton Annuler dans showProRegisterForm
   // AUGMENTER le délai pour s'assurer que le HTML est complètement injecté
-  console.log('[PRO REGISTER] ⏰ setTimeout PROGRAMMÉ pour 200ms...');
+  console.log('[PRO REGISTER] \u23F0 setTimeout PROGRAMMÉ pour 200ms...');
   setTimeout(() => {
     console.log('[PRO REGISTER] 🔍🔍🔍 setTimeout EXÉCUTÉ (200ms), recherche des éléments...');
     const modalInner = document.getElementById('publish-modal-inner');
@@ -16706,7 +19177,7 @@ function showProRegisterForm() {
     console.log('[PRO REGISTER] Modal inner contient "pro-photo-input":', modalInner?.innerHTML?.includes('pro-photo-input') || false);
     const cancelBtnPro = document.getElementById('auth-cancel-btn-pro');
     if (cancelBtnPro) {
-      console.log('[PRO REGISTER] ✅ Bouton Annuler trouve (auth-cancel-btn-pro)');
+      console.log('[PRO REGISTER] \u2705 Bouton Annuler trouve (auth-cancel-btn-pro)');
       cancelBtnPro.style.pointerEvents = 'auto';
       cancelBtnPro.style.cursor = 'pointer';
       cancelBtnPro.style.zIndex = '10001';
@@ -16736,9 +19207,9 @@ function showProRegisterForm() {
         }
         return false;
       };
-      console.log('[PRO REGISTER] ✅ ONCLICK DIRECT attache au bouton Annuler');
+      console.log('[PRO REGISTER] \u2705 ONCLICK DIRECT attache au bouton Annuler');
     } else {
-      console.warn('[PRO REGISTER] ⚠️ Bouton Annuler non trouve');
+      console.warn('[PRO REGISTER] \u26A0️ Bouton Annuler non trouve');
     }
     
     // CORRECTION: Attacher aussi un event listener programmatique pour l'input photo
@@ -16749,7 +19220,7 @@ function showProRegisterForm() {
     const photoInput = document.getElementById('pro-photo-input');
     console.log('[PRO REGISTER] Résultat getElementById:', photoInput);
     if (photoInput) {
-      console.log('[PRO REGISTER] ✅✅✅ Input photo TROUVÉ!', photoInput);
+      console.log('[PRO REGISTER] \u2705\u2705\u2705 Input photo TROUVÉ!', photoInput);
       console.log('[PRO REGISTER] Type:', photoInput.type, 'ID:', photoInput.id);
       console.log('[PRO REGISTER] Parent:', photoInput.parentElement?.id || 'pas de parent');
       console.log('[PRO REGISTER] Visible:', photoInput.offsetParent !== null);
@@ -16769,10 +19240,10 @@ function showProRegisterForm() {
         
         // Appeler handleProPhotoUpload directement (elle doit être définie globalement)
         if (typeof window.handleProPhotoUpload === 'function') {
-          console.log('[PRO REGISTER] ✅ Appel de window.handleProPhotoUpload...');
+          console.log('[PRO REGISTER] \u2705 Appel de window.handleProPhotoUpload...');
           window.handleProPhotoUpload(e);
         } else {
-          console.error('[PRO REGISTER] ❌❌❌ window.handleProPhotoUpload n\'est PAS une fonction!', typeof window.handleProPhotoUpload);
+          console.error('[PRO REGISTER] \u274C\u274C\u274C window.handleProPhotoUpload n\'est PAS une fonction!', typeof window.handleProPhotoUpload);
           // Définir inline si elle n'existe pas encore
           window.handleProPhotoUpload = function(event) {
             console.log('[PHOTO] 🔥🔥🔥 handleProPhotoUpload INLINE APPELÉE!', event);
@@ -16792,7 +19263,7 @@ function showProRegisterForm() {
               if (!window.registerData) window.registerData = {};
               window.registerData.profilePhoto = base64;
               window.registerData.photoData = base64;
-              console.log('[PHOTO] ✅✅✅ Photo sauvegardée (INLINE) - photoData:', base64.length, 'chars');
+              console.log('[PHOTO] \u2705\u2705\u2705 Photo sauvegardée (INLINE) - photoData:', base64.length, 'chars');
               const preview = document.getElementById('pro-photo-preview');
               const placeholder = document.getElementById('pro-photo-placeholder');
               if (preview) {
@@ -16805,7 +19276,7 @@ function showProRegisterForm() {
             };
             reader.readAsDataURL(file);
           };
-          console.log('[PRO REGISTER] ✅ handleProPhotoUpload définie inline, appel...');
+          console.log('[PRO REGISTER] \u2705 handleProPhotoUpload définie inline, appel...');
           window.handleProPhotoUpload(e);
         }
       };
@@ -16813,13 +19284,13 @@ function showProRegisterForm() {
       // Ajouter le nouveau listener avec capture pour s'assurer qu'il est appelé AVANT closePublishModal
       photoInput.addEventListener('change', photoChangeHandler, true); // useCapture=true
       photoInput.addEventListener('input', photoChangeHandler, true); // Aussi sur 'input' au cas où
-      console.log('[PRO REGISTER] ✅✅✅✅✅ Event listeners change ET input attachés a pro-photo-input avec useCapture=true');
+      console.log('[PRO REGISTER] \u2705\u2705\u2705\u2705\u2705 Event listeners change ET input attachés a pro-photo-input avec useCapture=true');
       
       // Vérifier aussi l'attribut onchange
       if (photoInput.getAttribute('onchange')) {
-        console.log('[PRO REGISTER] ✅ Attribut onchange présent:', photoInput.getAttribute('onchange'));
+        console.log('[PRO REGISTER] \u2705 Attribut onchange présent:', photoInput.getAttribute('onchange'));
       } else {
-        console.warn('[PRO REGISTER] ⚠️ Attribut onchange manquant, ajout programmatique');
+        console.warn('[PRO REGISTER] \u26A0️ Attribut onchange manquant, ajout programmatique');
         photoInput.setAttribute('onchange', 'handleProPhotoUpload(event)');
       }
       
@@ -16835,7 +19306,7 @@ function showProRegisterForm() {
         return false;
       }, true);
     } else {
-      console.error('[PRO REGISTER] ❌❌❌ Input photo NON TROUVÉ!');
+      console.error('[PRO REGISTER] \u274C\u274C\u274C Input photo NON TROUVÉ!');
       console.error('[PRO REGISTER] Tous les éléments avec "photo" dans l\'ID:');
       const allElements = document.querySelectorAll('[id*="photo"]');
       allElements.forEach(el => console.log('[PRO REGISTER]   -', el.id, el.tagName));
@@ -16846,7 +19317,7 @@ function showProRegisterForm() {
           console.log(`[PRO REGISTER] 🔄 Retry ${index + 1} après ${delay}ms...`);
           const retryInput = document.getElementById('pro-photo-input');
           if (retryInput) {
-            console.log(`[PRO REGISTER] ✅✅✅ Input photo trouvé au retry ${index + 1}!`);
+            console.log(`[PRO REGISTER] \u2705\u2705\u2705 Input photo trouvé au retry ${index + 1}!`);
             const photoChangeHandler = function(e) {
               console.log('[PRO REGISTER] 🔥 EVENT CHANGE (retry)', e);
               e.stopPropagation();
@@ -16861,20 +19332,20 @@ function showProRegisterForm() {
               e.stopPropagation();
               console.log('[PRO REGISTER] 🔥 Clic sur input photo (retry), propagation stoppée');
             }, true);
-            console.log(`[PRO REGISTER] ✅ Event listeners attachés au retry ${index + 1}`);
+            console.log(`[PRO REGISTER] \u2705 Event listeners attachés au retry ${index + 1}`);
           } else {
-            console.warn(`[PRO REGISTER] ⚠️ Input photo toujours non trouvé au retry ${index + 1}`);
+            console.warn(`[PRO REGISTER] \u26A0️ Input photo toujours non trouvé au retry ${index + 1}`);
           }
         }, delay);
       });
     }
     } catch (error) {
-      console.error('[PRO REGISTER] ❌❌❌ ERREUR lors de l\'attachement de l\'event listener photo:', error);
+      console.error('[PRO REGISTER] \u274C\u274C\u274C ERREUR lors de l\'attachement de l\'event listener photo:', error);
       console.error('[PRO REGISTER] Stack trace:', error.stack);
     }
   }, 200); // Augmenté à 200ms pour laisser plus de temps au DOM
 
-  // ⚠️⚠️⚠️ NOUVEAU : Attacher un event listener sur la zone de photo pour ouvrir le sélecteur
+  // \u26A0️\u26A0️\u26A0️ NOUVEAU : Attacher un event listener sur la zone de photo pour ouvrir le sélecteur
   setTimeout(() => {
     const photoUploadArea = document.querySelector('.pro-register-photo-upload');
     const photoInput = document.getElementById('pro-photo-input');
@@ -16902,7 +19373,7 @@ function showProRegisterForm() {
       
       // Attacher le listener avec useCapture pour intercepter avant les autres
       photoUploadArea.addEventListener('click', window._photoUploadClickHandler, true);
-      console.log('[PHOTO] ✅ Event listener attaché sur zone de photo');
+      console.log('[PHOTO] \u2705 Event listener attaché sur zone de photo');
     }
   }, 300);
   
@@ -16912,7 +19383,7 @@ function showProRegisterForm() {
     if (addressInput) {
       setupProAddressAutocomplete(addressInput);
     } else {
-      console.warn('[PRO REGISTER] ⚠️ Champ pro-postal-address non trouvé');
+      console.warn('[PRO REGISTER] \u26A0️ Champ pro-postal-address non trouvé');
     }
   }, 100);
 
@@ -16921,7 +19392,7 @@ function showProRegisterForm() {
     if (typeof restoreRegistrationForm === 'function') {
       const restored = restoreRegistrationForm();
       if (restored) {
-        console.log('[PRO REGISTER] ✅ Formulaire restauré depuis localStorage');
+        console.log('[PRO REGISTER] \u2705 Formulaire restauré depuis localStorage');
       }
     }
   }, 200);
@@ -16936,9 +19407,9 @@ function showProRegisterForm() {
                         document.getElementById("pro-password");
       if (firstInput) {
         firstInput.focus();
-        console.log('✅ Focus sur le premier champ:', firstInput.id);
+        console.log('\u2705 Focus sur le premier champ:', firstInput.id);
       } else {
-        console.warn('⚠️ Premier champ non trouvé (pro-email, pro-username, pro-password)');
+        console.warn('\u26A0️ Premier champ non trouvé (pro-email, pro-username, pro-password)');
         // Lister tous les inputs pour debug
         const modalInner = document.getElementById('publish-modal-inner');
         if (modalInner) {
@@ -16948,7 +19419,7 @@ function showProRegisterForm() {
           if (allInputs.length > 0) {
             const firstFound = allInputs[0];
             firstFound.focus();
-            console.log('✅ Focus sur le premier input trouvé:', firstFound.id);
+            console.log('\u2705 Focus sur le premier input trouvé:', firstFound.id);
           }
         }
       }
@@ -16962,7 +19433,7 @@ function showProRegisterForm() {
       console.log('[PRO REGISTER] 🔍🔍🔍 Recherche IMMÉDIATE de pro-photo-input (via requestAnimationFrame)');
       const photoInput = document.getElementById('pro-photo-input');
       if (photoInput) {
-        console.log('[PRO REGISTER] ✅✅✅ Input photo TROUVÉ IMMÉDIATEMENT!');
+        console.log('[PRO REGISTER] \u2705\u2705\u2705 Input photo TROUVÉ IMMÉDIATEMENT!');
         const photoChangeHandler = function(e) {
           console.log('[PRO REGISTER] 🔥🔥🔥 EVENT CHANGE DÉTECTÉ sur pro-photo-input!');
           e.stopPropagation();
@@ -16977,9 +19448,9 @@ function showProRegisterForm() {
           e.stopPropagation();
           console.log('[PRO REGISTER] 🔥 Clic sur input photo, propagation stoppée');
         }, true);
-        console.log('[PRO REGISTER] ✅✅✅ Event listeners attachés IMMÉDIATEMENT');
+        console.log('[PRO REGISTER] \u2705\u2705\u2705 Event listeners attachés IMMÉDIATEMENT');
       } else {
-        console.warn('[PRO REGISTER] ⚠️ Input photo non trouvé immédiatement, retry dans setTimeout');
+        console.warn('[PRO REGISTER] \u26A0️ Input photo non trouvé immédiatement, retry dans setTimeout');
       }
     });
   });
@@ -16988,18 +19459,18 @@ function showProRegisterForm() {
 // Fonction d'autocomplete d'adresse pour le formulaire pro (Nominatim)
 function setupProAddressAutocomplete(input) {
   if (!input) {
-    console.error('[PRO ADDRESS] ❌ Input non fourni à setupProAddressAutocomplete');
+    console.error('[PRO ADDRESS] \u274C Input non fourni à setupProAddressAutocomplete');
     return;
   }
   
-  console.log('[PRO ADDRESS] ✅ Initialisation autocomplete pour:', input.id);
+  console.log('[PRO ADDRESS] \u2705 Initialisation autocomplete pour:', input.id);
   
   let searchTimeout = null;
   const suggestionsWrapper = document.getElementById('pro-address-suggestions-wrapper');
   const suggestionsDiv = document.getElementById('pro-address-suggestions');
   
   if (!suggestionsDiv || !suggestionsWrapper) {
-    console.error('[PRO ADDRESS] ❌ Div suggestions ou wrapper non trouvé');
+    console.error('[PRO ADDRESS] \u274C Div suggestions ou wrapper non trouvé');
     return;
   }
   
@@ -17042,7 +19513,7 @@ function setupProAddressAutocomplete(input) {
     try {
       console.log('[PRO ADDRESS] 🔍 Recherche Nominatim pour:', query);
       
-      // ⚠️⚠️⚠️ CRITIQUE : Recherche MONDIALE - pas de restriction de pays
+      // \u26A0️\u26A0️\u26A0️ CRITIQUE : Recherche MONDIALE - pas de restriction de pays
       // Nominatim supporte toutes les adresses du monde (Afrique, Asie, Amériques, Océanie, etc.)
       // Détection automatique de la langue depuis le navigateur pour traduction Google
       const userLanguage = navigator.language || navigator.userLanguage || 'fr';
@@ -17050,7 +19521,7 @@ function setupProAddressAutocomplete(input) {
       
       console.log('[PRO ADDRESS] 🌍 Langue détectée:', langCode, '- Recherche MONDIALE activée');
       
-      // ⚠️⚠️⚠️ RECHERCHE MONDIALE - Pas de restriction de pays
+      // \u26A0️\u26A0️\u26A0️ RECHERCHE MONDIALE - Pas de restriction de pays
       const response = await fetch(
         `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=10&addressdetails=1&accept-language=${langCode},en`,
         {
@@ -17066,12 +19537,12 @@ function setupProAddressAutocomplete(input) {
       }
       
       const results = await response.json();
-      console.log('[PRO ADDRESS] ✅ Résultats Nominatim:', results.length, 'résultats');
+      console.log('[PRO ADDRESS] \u2705 Résultats Nominatim:', results.length, 'résultats');
       
       if (results.length === 0) {
         // Afficher le wrapper et les suggestions avec fond opaque (hauteur de ~2 adresses)
         suggestionsWrapper.style.display = 'block';
-        // ⚠️⚠️⚠️ Message clair : adresse non trouvée (peut être une adresse très reculée)
+        // \u26A0️\u26A0️\u26A0️ Message clair : adresse non trouvée (peut être une adresse très reculée)
         const langCode = (navigator.language || navigator.userLanguage || 'fr').split('-')[0];
         const messages = {
           'fr': 'Aucune adresse trouvée. Essayez avec un nom de ville ou un point de repère proche.',
@@ -17116,7 +19587,7 @@ function setupProAddressAutocomplete(input) {
       suggestionsDiv.style.cssText = 'display:block;position:relative;width:100%;background:#050810;background-color:#050810;border:2px solid rgba(255,255,255,0.7);border-radius:8px;max-height:120px;overflow-y:auto;opacity:1;backdrop-filter:none;isolation:isolate;mix-blend-mode:normal;box-shadow:0 8px 40px rgba(0,0,0,1), inset 0 0 0 2px rgba(0,0,0,0.5);';
       
     } catch (error) {
-      console.error('[PRO ADDRESS] ❌ Erreur Nominatim:', error);
+      console.error('[PRO ADDRESS] \u274C Erreur Nominatim:', error);
       suggestionsWrapper.style.display = 'block';
       suggestionsDiv.innerHTML = '<div class="address-suggestion" style="padding:12px;color:#ef4444;background:#050810;background-color:#050810;opacity:1;mix-blend-mode:normal;">Erreur de recherche. Veuillez réessayer.</div>';
       suggestionsDiv.style.cssText = 'display:block;position:relative;width:100%;background:#050810;background-color:#050810;border:2px solid rgba(255,255,255,0.7);border-radius:8px;max-height:120px;overflow-y:auto;opacity:1;backdrop-filter:none;isolation:isolate;mix-blend-mode:normal;box-shadow:0 8px 40px rgba(0,0,0,1), inset 0 0 0 2px rgba(0,0,0,0.5);';
@@ -17125,7 +19596,7 @@ function setupProAddressAutocomplete(input) {
   
   // Fonction de sélection d'adresse
   window.selectProAddress = function(index, label, lat, lng, country, city, postcode, street) {
-    console.log('[PRO ADDRESS] ✅ Adresse sélectionnée:', { label, lat, lng, country });
+    console.log('[PRO ADDRESS] \u2705 Adresse sélectionnée:', { label, lat, lng, country });
     
     // Masquer les suggestions
     const suggestionsWrapper = document.getElementById('pro-address-suggestions-wrapper');
@@ -17172,7 +19643,7 @@ function setupProAddressAutocomplete(input) {
       window.validateProField('postalAddress', label);
     }
     
-    console.log('[PRO ADDRESS] ✅ Adresse sauvegardée dans registerData');
+    console.log('[PRO ADDRESS] \u2705 Adresse sauvegardée dans registerData');
   };
   
   // Masquer les suggestions si on clique ailleurs
@@ -17193,7 +19664,7 @@ window.setupProAddressAutocomplete = setupProAddressAutocomplete;
 
 // Gestion de l'upload de photo de profil
 function handleProPhotoUpload(event) {
-  // ⚠️⚠️⚠️ CRITIQUE : Empêcher TOUTE propagation pour éviter la fermeture du formulaire
+  // \u26A0️\u26A0️\u26A0️ CRITIQUE : Empêcher TOUTE propagation pour éviter la fermeture du formulaire
   if (event) {
     event.preventDefault();
     event.stopPropagation();
@@ -17225,25 +19696,25 @@ function handleProPhotoUpload(event) {
     return;
   }
 
-  console.log('[PHOTO] ✅ Fichier valide, début conversion en base64...');
+  console.log('[PHOTO] \u2705 Fichier valide, début conversion en base64...');
 
   // Lire et convertir en Base64
   const reader = new FileReader();
   reader.onload = function(e) {
     const base64 = e.target.result;
-    console.log('[PHOTO] ✅ Photo convertie en base64, longueur:', base64.length);
+    console.log('[PHOTO] \u2705 Photo convertie en base64, longueur:', base64.length);
     
     // S'assurer que registerData existe
     if (!window.registerData) {
       window.registerData = {};
-      console.log('[PHOTO] ⚠️ registerData créé car n\'existait pas');
+      console.log('[PHOTO] \u26A0️ registerData créé car n\'existait pas');
     }
     
     // Sauvegarder dans registerData.profilePhoto ET registerData.photoData
     window.registerData.profilePhoto = base64;
     window.registerData.photoData = base64; // AUSSI dans photoData pour compatibilité
     
-    console.log('[PHOTO] ✅✅✅ Photo sauvegardée dans registerData.profilePhoto ET registerData.photoData');
+    console.log('[PHOTO] \u2705\u2705\u2705 Photo sauvegardée dans registerData.profilePhoto ET registerData.photoData');
     console.log('[PHOTO] registerData.profilePhoto existe:', !!window.registerData.profilePhoto);
     console.log('[PHOTO] registerData.photoData existe:', !!window.registerData.photoData);
     console.log('[PHOTO] registerData.photoData longueur:', window.registerData.photoData ? window.registerData.photoData.length : 0);
@@ -17258,9 +19729,9 @@ function handleProPhotoUpload(event) {
       preview.src = base64;
       preview.style.display = 'block';
       preview.classList.add('show');
-      console.log('[PHOTO] ✅ Preview mise à jour avec base64');
+      console.log('[PHOTO] \u2705 Preview mise à jour avec base64');
     } else {
-      console.warn('[PHOTO] ⚠️ Preview non trouvée');
+      console.warn('[PHOTO] \u26A0️ Preview non trouvée');
     }
     if (placeholder) {
       placeholder.style.display = 'none';
@@ -17282,7 +19753,7 @@ function handleProPhotoUpload(event) {
   };
   
   reader.onerror = function(error) {
-    console.error('[PHOTO] ❌ Erreur lors de la lecture du fichier:', error);
+    console.error('[PHOTO] \u274C Erreur lors de la lecture du fichier:', error);
     showError('pro-photo-error', 'Erreur lors de la lecture de la photo');
   };
   
@@ -17293,7 +19764,7 @@ function handleProPhotoUpload(event) {
 // Exposer globalement
 // Exposer handleProPhotoUpload globalement AVANT qu'elle soit utilisée
 window.handleProPhotoUpload = handleProPhotoUpload;
-console.log('[PHOTO] ✅ handleProPhotoUpload exposée globalement');
+console.log('[PHOTO] \u2705 handleProPhotoUpload exposée globalement');
 
 // Fonctions globales pour éviter les erreurs "is not defined" (PRIORITÉ 0)
 window.handleAddressInput = function(event) {
@@ -17314,13 +19785,13 @@ window.handleAddressBlur = function(event) {
   // Fonction vide pour éviter les erreurs - l'autocomplete gère le blur
 };
 
-// ⚠️⚠️⚠️ FONCTION DUPLIQUÉE SUPPRIMÉE - La fonction setupProAddressAutocomplete est déjà définie ligne 12439
+// \u26A0️\u26A0️\u26A0️ FONCTION DUPLIQUÉE SUPPRIMÉE - La fonction setupProAddressAutocomplete est déjà définie ligne 12439
 // Cette fonction clonait l'input et cassait l'autocomplete, elle a été supprimée
 // Utiliser la fonction définie ligne 12439 à la place
 function setupProAddressAutocomplete_DUPLICATE_REMOVED(inputElement) {
   // Cette fonction a été supprimée car elle clonait l'input et cassait l'autocomplete
   // Utiliser la fonction définie ligne 12439 à la place
-  console.warn('[PRO ADDRESS] ⚠️ Fonction dupliquée appelée - redirection vers la fonction principale');
+  console.warn('[PRO ADDRESS] \u26A0️ Fonction dupliquée appelée - redirection vers la fonction principale');
   const mainFunction = window.setupProAddressAutocomplete;
   if (mainFunction && typeof mainFunction === 'function') {
     return mainFunction(inputElement);
@@ -17354,7 +19825,7 @@ function setupProAddressAutocomplete_DUPLICATE_REMOVED(inputElement) {
     
     timeout = setTimeout(async () => {
       try {
-        // ⚠️⚠️⚠️ RECHERCHE MONDIALE - Pas de restriction de pays, support multilingue
+        // \u26A0️\u26A0️\u26A0️ RECHERCHE MONDIALE - Pas de restriction de pays, support multilingue
         const langCode = (navigator.language || 'fr').split('-')[0];
         const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=10&addressdetails=1&accept-language=${langCode},en&dedupe=1`, {
           headers: {
@@ -17394,7 +19865,7 @@ function setupProAddressAutocomplete_DUPLICATE_REMOVED(inputElement) {
           
           suggestionsContainer.innerHTML = sortedResults.map(result => {
             const hasFullAddress = result.address?.road && (result.address?.house_number || result.address?.house);
-            const addressQuality = hasFullAddress ? '✅' : '📍';
+            const addressQuality = hasFullAddress ? '\u2705' : '📍';
             return `
             <div class="pro-address-suggestion" style="padding:12px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.1);transition:background 0.2s;" 
                  onmouseover="this.style.background='rgba(0,255,195,0.1)'" 
@@ -17410,7 +19881,7 @@ function setupProAddressAutocomplete_DUPLICATE_REMOVED(inputElement) {
                 <span style="font-size:14px;">${addressQuality}</span>
                 <div style="font-weight:600;color:var(--ui-text-main);font-size:13px;flex:1;">${result.display_name}</div>
               </div>
-              <div style="font-size:11px;color:var(--ui-text-muted);padding-left:22px;">${result.address?.country || ''}${result.address?.postcode ? ' • ' + result.address.postcode : ''}</div>
+              <div style="font-size:11px;color:var(--ui-text-muted);padding-left:22px;">${result.address?.country || ''}${result.address?.postcode ? ' \u2022 ' + result.address.postcode : ''}</div>
             </div>
           `;
           }).join('');
@@ -17481,15 +19952,15 @@ async function validateProField(fieldName, value) {
     case 'lastname':
       if (!value || value.trim().length < 2) {
         isValid = false;
-        errorMsg = '⚠️ Minimum 2 caractères requis';
+        errorMsg = '\u26A0️ Minimum 2 caractères requis';
       } else if (value.length > 50) {
         isValid = false;
-        errorMsg = '⚠️ Maximum 50 caractères';
+        errorMsg = '\u26A0️ Maximum 50 caractères';
       } else if (!/^[a-zA-ZàáâäãåèéêëìíîïòóôöõùúûüýÿñçÀÁÂÄÃÅÈÉÊËÌÍÎÏÒÓÔÖÕÙÚÛÜÝŸÑÇ\s-]+$/.test(value)) {
         isValid = false;
-        errorMsg = '⚠️ Seules les lettres sont autorisées';
+        errorMsg = '\u26A0️ Seules les lettres sont autorisées';
       } else {
-        successMsg = '✓ Format valide';
+        successMsg = '\u2713 Format valide';
       }
       break;
     
@@ -17497,10 +19968,10 @@ async function validateProField(fieldName, value) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!value) {
         isValid = false;
-        errorMsg = '⚠️ Email requis';
+        errorMsg = '\u26A0️ Email requis';
       } else if (!emailRegex.test(value)) {
         isValid = false;
-        errorMsg = '⚠️ Format email invalide (ex: nom@exemple.com)';
+        errorMsg = '\u26A0️ Format email invalide (ex: nom@exemple.com)';
       } else {
         // Vérifier la disponibilité avec debounce
         clearTimeout(validationTimers[fieldName]);
@@ -17514,7 +19985,7 @@ async function validateProField(fieldName, value) {
             if (!response.ok) {
               if (response.status === 502 || response.status === 503) {
                 console.warn('Backend temporairement indisponible pour vérification email');
-                showSuccess(`pro-${fieldName}-success`, '✓ Format valide (vérification indisponible)');
+                showSuccess(`pro-${fieldName}-success`, '\u2713 Format valide (vérification indisponible)');
                 return; // Ne pas bloquer l'utilisateur
               }
               throw new Error(`HTTP ${response.status}`);
@@ -17523,38 +19994,38 @@ async function validateProField(fieldName, value) {
             const data = await response.json();
             
             if (data.exists) {
-              showError(`pro-${fieldName}-error`, '⚠️ Cet email est déjà utilisé');
+              showError(`pro-${fieldName}-error`, '\u26A0️ Cet email est déjà utilisé');
               showSuccess(`pro-${fieldName}-success`, '');
               inputEl.classList.add('field-error');
             } else {
               showError(`pro-${fieldName}-error`, '');
-              showSuccess(`pro-${fieldName}-success`, '✓ Email disponible');
+              showSuccess(`pro-${fieldName}-success`, '\u2713 Email disponible');
               inputEl.classList.add('field-success');
             }
           } catch (error) {
             console.error('Erreur vérification email:', error);
             // En cas d'erreur, ne pas bloquer - juste afficher format valide
-            showSuccess(`pro-${fieldName}-success`, '✓ Format valide');
+            showSuccess(`pro-${fieldName}-success`, '\u2713 Format valide');
           }
         }, 500);
         
-        successMsg = '✓ Format valide';
+        successMsg = '\u2713 Format valide';
       }
       break;
     
     case 'username':
       if (!value) {
         isValid = false;
-        errorMsg = '⚠️ Nom d\'utilisateur requis';
+        errorMsg = '\u26A0️ Nom d\'utilisateur requis';
       } else if (value.length < 3) {
         isValid = false;
-        errorMsg = '⚠️ Minimum 3 caractères';
+        errorMsg = '\u26A0️ Minimum 3 caractères';
       } else if (value.length > 20) {
         isValid = false;
-        errorMsg = '⚠️ Maximum 20 caractères';
+        errorMsg = '\u26A0️ Maximum 20 caractères';
       } else if (!/^[a-zA-Z0-9_-]+$/.test(value)) {
         isValid = false;
-        errorMsg = '⚠️ Caractères autorisés: lettres, chiffres, _ et -';
+        errorMsg = '\u26A0️ Caractères autorisés: lettres, chiffres, _ et -';
       } else {
         // Vérifier la disponibilité avec debounce
         clearTimeout(validationTimers[fieldName]);
@@ -17568,7 +20039,7 @@ async function validateProField(fieldName, value) {
             if (!response.ok) {
               if (response.status === 502 || response.status === 503) {
                 console.warn('Backend temporairement indisponible pour vérification username');
-                showSuccess(`pro-${fieldName}-success`, '✓ Format valide (vérification indisponible)');
+                showSuccess(`pro-${fieldName}-success`, '\u2713 Format valide (vérification indisponible)');
                 return; // Ne pas bloquer l'utilisateur
               }
               throw new Error(`HTTP ${response.status}`);
@@ -17577,22 +20048,22 @@ async function validateProField(fieldName, value) {
             const data = await response.json();
             
             if (data.exists) {
-              showError(`pro-${fieldName}-error`, '⚠️ Ce nom d\'utilisateur est déjà pris');
+              showError(`pro-${fieldName}-error`, '\u26A0️ Ce nom d\'utilisateur est déjà pris');
               showSuccess(`pro-${fieldName}-success`, '');
               inputEl.classList.add('field-error');
             } else {
               showError(`pro-${fieldName}-error`, '');
-              showSuccess(`pro-${fieldName}-success`, '✓ Disponible');
+              showSuccess(`pro-${fieldName}-success`, '\u2713 Disponible');
               inputEl.classList.add('field-success');
             }
           } catch (error) {
             console.error('Erreur vérification username:', error);
             // En cas d'erreur, ne pas bloquer - juste afficher format valide
-            showSuccess(`pro-${fieldName}-success`, '✓ Format valide');
+            showSuccess(`pro-${fieldName}-success`, '\u2713 Format valide');
           }
         }, 500);
         
-        successMsg = '✓ Format valide';
+        successMsg = '\u2713 Format valide';
       }
       break;
     
@@ -17600,12 +20071,12 @@ async function validateProField(fieldName, value) {
       const skipAddress = document.getElementById('pro-skip-address')?.checked;
       if (!skipAddress && (!value || value.trim().length < 5)) {
         isValid = false;
-        errorMsg = '⚠️ Adresse complète requise (minimum 5 caractères)';
+        errorMsg = '\u26A0️ Adresse complète requise (minimum 5 caractères)';
       } else if (!skipAddress && value && value.trim().length < 5) {
         isValid = false;
-        errorMsg = '⚠️ Adresse trop courte (minimum 5 caractères)';
+        errorMsg = '\u26A0️ Adresse trop courte (minimum 5 caractères)';
       } else if (!skipAddress && value) {
-        successMsg = '✓ Adresse valide';
+        successMsg = '\u2713 Adresse valide';
       }
       break;
   }
@@ -17622,7 +20093,7 @@ async function validateProField(fieldName, value) {
 // Fonction pour vérifier si un mot de passe a été compromis via Have I Been Pwned
 // NOTE: L'API HIBP ne supporte pas CORS depuis le navigateur, donc on désactive temporairement
 // La vérification devrait être faite côté backend pour être efficace
-// ⚠️⚠️⚠️ DÉFINIE DIRECTEMENT SUR window POUR ÉVITER LES PROBLÈMES DE SCOPE
+// \u26A0️\u26A0️\u26A0️ DÉFINIE DIRECTEMENT SUR window POUR ÉVITER LES PROBLÈMES DE SCOPE
 window.checkPasswordPwned = async function checkPasswordPwned(password) {
   // DÉSACTIVÉ : CORS bloque les requêtes depuis le navigateur
   // TODO: Implémenter la vérification côté backend
@@ -17767,7 +20238,7 @@ async function validateProPassword(password) {
   if (!hasSpecial) missingCriteria.push('un caractère spécial');
 
   if (missingCriteria.length > 0 && password.length > 0) {
-    errorMsg = `⚠️ Ajoutez: ${missingCriteria.slice(0, 3).join(', ')}${missingCriteria.length > 3 ? '...' : ''}`;
+    errorMsg = `\u26A0️ Ajoutez: ${missingCriteria.slice(0, 3).join(', ')}${missingCriteria.length > 3 ? '...' : ''}`;
   } else if (strength >= 5 && password.length >= 12) {
     // Mot de passe fort - vérifier Have I Been Pwned
     // Debounce pour éviter trop d'appels API
@@ -17846,7 +20317,7 @@ function validateProPasswordMatch() {
   }
 
   if (password !== confirm) {
-    showError('pro-password-confirm-error', '⚠️ Les mots de passe ne correspondent pas');
+    showError('pro-password-confirm-error', '\u26A0️ Les mots de passe ne correspondent pas');
     showSuccess('pro-password-confirm-success', '');
     if (inputEl) {
       inputEl.classList.add('field-error');
@@ -17857,7 +20328,7 @@ function validateProPasswordMatch() {
     return false;
   } else {
     showError('pro-password-confirm-error', '');
-    showSuccess('pro-password-confirm-success', '✓ Les mots de passe correspondent');
+    showSuccess('pro-password-confirm-success', '\u2713 Les mots de passe correspondent');
     if (inputEl) {
       inputEl.classList.add('field-success');
       inputEl.classList.remove('field-error');
@@ -17917,10 +20388,10 @@ function autoSaveRegistrationForm() {
             // Réessayer
             localStorage.setItem('registerFormDraft', JSON.stringify(formData));
             Object.assign(window.registerData, formData);
-            console.log('[AUTO-SAVE] ✅ Sauvegarde réussie après nettoyage');
+            console.log('[AUTO-SAVE] \u2705 Sauvegarde réussie après nettoyage');
           } catch (e2) {
             // Si toujours plein, continuer sans sauvegarder (les données sont dans window.registerData)
-            console.warn('[AUTO-SAVE] ⚠️ localStorage toujours plein - continuation sans sauvegarde');
+            console.warn('[AUTO-SAVE] \u26A0️ localStorage toujours plein - continuation sans sauvegarde');
             Object.assign(window.registerData, formData); // Mettre à jour quand même en mémoire
           }
         } else {
@@ -18000,16 +20471,16 @@ function restoreRegistrationForm() {
       // Restaurer profilePhoto si présent
       if (formData.profilePhoto && formData.profilePhoto.length > 0) {
         window.registerData.profilePhoto = formData.profilePhoto;
-        console.log('[RESTORE] ✅ profilePhoto restauré depuis localStorage');
+        console.log('[RESTORE] \u2705 profilePhoto restauré depuis localStorage');
       }
       
       // Restaurer photoData si présent, sinon utiliser profilePhoto
       if (formData.photoData && formData.photoData.length > 0) {
         window.registerData.photoData = formData.photoData;
-        console.log('[RESTORE] ✅ photoData restauré depuis localStorage');
+        console.log('[RESTORE] \u2705 photoData restauré depuis localStorage');
       } else if (formData.profilePhoto && formData.profilePhoto.length > 0) {
         window.registerData.photoData = formData.profilePhoto;
-        console.log('[RESTORE] ✅ photoData copié depuis profilePhoto (photoData manquant dans localStorage)');
+        console.log('[RESTORE] \u2705 photoData copié depuis profilePhoto (photoData manquant dans localStorage)');
       }
       
       const photoPreview = document.getElementById('pro-photo-preview');
@@ -18021,7 +20492,7 @@ function restoreRegistrationForm() {
         if (photoPlaceholder) {
           photoPlaceholder.style.display = 'none';
         }
-        console.log('[RESTORE] ✅ Preview mise à jour avec photo restaurée');
+        console.log('[RESTORE] \u2705 Preview mise à jour avec photo restaurée');
       }
       
       console.log('[RESTORE] registerData.photoData APRÈS restauration:', window.registerData.photoData ? `PRÉSENT (${window.registerData.photoData.length} chars)` : 'NULL');
@@ -18035,7 +20506,7 @@ function restoreRegistrationForm() {
     if (window.registerData && window.registerData.profilePhoto && window.registerData.profilePhoto.length > 0) {
       if (!window.registerData.photoData || window.registerData.photoData.length === 0) {
         window.registerData.photoData = window.registerData.profilePhoto;
-        console.log('[RESTORE] ✅✅✅ photoData FORCÉ depuis profilePhoto après Object.assign');
+        console.log('[RESTORE] \u2705\u2705\u2705 photoData FORCÉ depuis profilePhoto après Object.assign');
       }
     }
     
@@ -18052,7 +20523,7 @@ window.restoreRegistrationForm = restoreRegistrationForm;
 
 // Toggle visibilité mot de passe
 function toggleProPasswordVisibility(inputId, event) {
-  // ⚠️⚠️⚠️ CRITIQUE : Empêcher la propagation pour éviter la fermeture du formulaire
+  // \u26A0️\u26A0️\u26A0️ CRITIQUE : Empêcher la propagation pour éviter la fermeture du formulaire
   if (event) {
     event.preventDefault();
     event.stopPropagation();
@@ -18102,38 +20573,38 @@ function validateRegisterPassword(password) {
   
   // Règles de validation
   if (password.length < 8) {
-    rules.push('❌ Au moins 8 caractères');
+    rules.push('\u274C Au moins 8 caractères');
     isValid = false;
   } else {
-    rules.push('✅ Au moins 8 caractères');
+    rules.push('\u2705 Au moins 8 caractères');
   }
   
   if (!/[A-Z]/.test(password)) {
-    rules.push('❌ Au moins une majuscule');
+    rules.push('\u274C Au moins une majuscule');
     isValid = false;
   } else {
-    rules.push('✅ Au moins une majuscule');
+    rules.push('\u2705 Au moins une majuscule');
   }
   
   if (!/[a-z]/.test(password)) {
-    rules.push('❌ Au moins une minuscule');
+    rules.push('\u274C Au moins une minuscule');
     isValid = false;
   } else {
-    rules.push('✅ Au moins une minuscule');
+    rules.push('\u2705 Au moins une minuscule');
   }
   
   if (!/[0-9]/.test(password)) {
-    rules.push('❌ Au moins un chiffre');
+    rules.push('\u274C Au moins un chiffre');
     isValid = false;
   } else {
-    rules.push('✅ Au moins un chiffre');
+    rules.push('\u2705 Au moins un chiffre');
   }
   
   if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
-    rules.push('❌ Au moins un caractère spécial');
+    rules.push('\u274C Au moins un caractère spécial');
     isValid = false;
   } else {
-    rules.push('✅ Au moins un caractère spécial');
+    rules.push('\u2705 Au moins un caractère spécial');
   }
   
   rulesDiv.innerHTML = rules.map(rule => `<div style="margin:2px 0;">${rule}</div>`).join('');
@@ -18174,12 +20645,12 @@ function validateRegisterPasswordMatch() {
   
   if (password === confirm && password.length > 0) {
     matchDiv.style.display = 'block';
-    matchDiv.textContent = '✓ Les mots de passe correspondent';
+    matchDiv.textContent = '\u2713 Les mots de passe correspondent';
     matchDiv.style.color = '#22c55e';
     confirmInput.style.borderColor = '#22c55e';
   } else {
     matchDiv.style.display = 'block';
-    matchDiv.textContent = '❌ Les mots de passe ne correspondent pas';
+    matchDiv.textContent = '\u274C Les mots de passe ne correspondent pas';
     matchDiv.style.color = '#ef4444';
     confirmInput.style.borderColor = '#ef4444';
   }
@@ -18312,17 +20783,18 @@ function updatePostalAddressRequired() {
 
 async function handleProRegisterSubmit(event) {
   event.preventDefault();
+  let submitBtn = null;
   
   // GUARD: Éviter double-submit et double clic
   if (window.isSubmittingProRegister) {
-    console.warn('⚠️ Soumission déjà en cours - double clic ignoré');
+    console.warn('\u26A0️ Soumission déjà en cours - double clic ignoré');
     return;
   }
   
   // VÉRIFICATION CRITIQUE : Si le profil est déjà complet, ne pas permettre la soumission
   if (currentUser && currentUser.profileComplete === true && currentUser.isLoggedIn === true) {
-    console.warn('⚠️ Tentative de soumission formulaire alors que le profil est déjà complet');
-    showNotification('✅ Votre compte est déjà créé et complet. Vous êtes connecté !', 'success');
+    console.warn('\u26A0️ Tentative de soumission formulaire alors que le profil est déjà complet');
+    showNotification('\u2705 Votre compte est déjà créé et complet. Vous êtes connecté !', 'success');
     closePublishModal();
     return;
   }
@@ -18337,7 +20809,7 @@ async function handleProRegisterSubmit(event) {
   }
   
   // Récupérer toutes les valeurs
-  // ⚠️ firstName et lastName sont OPTIONNELS (comme les leaders mondiaux : Twitter, Instagram, TikTok)
+  // \u26A0️ firstName et lastName sont OPTIONNELS (comme les leaders mondiaux : Twitter, Instagram, TikTok)
   // Seul le username est requis pour l'identification
   window.registerData.firstName = ''; // Optionnel - pas de champ dans le formulaire
   window.registerData.lastName = ''; // Optionnel - pas de champ dans le formulaire
@@ -18449,7 +20921,7 @@ async function handleProRegisterSubmit(event) {
          window.registerData.photoData === '' ||
          window.registerData.photoData.length === 0)) {
       window.registerData.photoData = window.registerData.profilePhoto;
-      console.log('[REGISTER] ✅✅✅✅✅ photoData FORCÉ depuis profilePhoto!');
+      console.log('[REGISTER] \u2705\u2705\u2705\u2705\u2705 photoData FORCÉ depuis profilePhoto!');
       photoCopied = true;
     }
     
@@ -18460,15 +20932,15 @@ async function handleProRegisterSubmit(event) {
       // Copier aussi dans profilePhoto si vide
       if (!window.registerData.profilePhoto || window.registerData.profilePhoto.length === 0) {
         window.registerData.profilePhoto = photoPreview.src;
-        console.log('[REGISTER] ✅✅✅ profilePhoto ET photoData copiés depuis preview.src');
+        console.log('[REGISTER] \u2705\u2705\u2705 profilePhoto ET photoData copiés depuis preview.src');
       } else {
-        console.log('[REGISTER] ✅✅✅ photoData copié depuis preview.src');
+        console.log('[REGISTER] \u2705\u2705\u2705 photoData copié depuis preview.src');
       }
       photoCopied = true;
     }
     
     if (!photoCopied) {
-      console.log('[REGISTER] ⚠️ Aucune copie effectuée - photoData existe déjà ou aucune source disponible');
+      console.log('[REGISTER] \u26A0️ Aucune copie effectuée - photoData existe déjà ou aucune source disponible');
     }
   }
   
@@ -18486,17 +20958,17 @@ async function handleProRegisterSubmit(event) {
   
   // CORRECTION ABSOLUE FINALE: Si photoData est toujours null mais que profilePhoto ou preview existe, FORCER la copie
   if (!hasPhotoData && (hasProfilePhoto || hasPhotoPreview)) {
-    console.log('[REGISTER] ⚠️⚠️⚠️ DERNIÈRE CHANCE: photoData est null mais profilePhoto/preview existe, FORCER copie!');
+    console.log('[REGISTER] \u26A0️\u26A0️\u26A0️ DERNIÈRE CHANCE: photoData est null mais profilePhoto/preview existe, FORCER copie!');
     if (window.registerData.profilePhoto && window.registerData.profilePhoto.length > 0) {
       window.registerData.photoData = window.registerData.profilePhoto;
-      console.log('[REGISTER] ✅✅✅✅✅✅✅ photoData FORCÉ depuis profilePhoto (DERNIÈRE CHANCE)!');
+      console.log('[REGISTER] \u2705\u2705\u2705\u2705\u2705\u2705\u2705 photoData FORCÉ depuis profilePhoto (DERNIÈRE CHANCE)!');
       hasPhotoData = true;
     } else if (hasPhotoPreview && photoPreview && photoPreview.src && photoPreview.src.startsWith('data:image') && photoPreview.src.length > 100) {
       window.registerData.photoData = photoPreview.src;
       if (!window.registerData.profilePhoto || window.registerData.profilePhoto.length === 0) {
         window.registerData.profilePhoto = photoPreview.src;
       }
-      console.log('[REGISTER] ✅✅✅✅✅✅✅ photoData FORCÉ depuis preview.src (DERNIÈRE CHANCE)!');
+      console.log('[REGISTER] \u2705\u2705\u2705\u2705\u2705\u2705\u2705 photoData FORCÉ depuis preview.src (DERNIÈRE CHANCE)!');
       hasPhotoData = true;
     }
   }
@@ -18506,7 +20978,7 @@ async function handleProRegisterSubmit(event) {
   console.log('[REGISTER] registerData.photoData FINAL:', window.registerData?.photoData ? `PRÉSENT (${window.registerData.photoData.length} chars)` : 'NULL');
   
   if (!hasPhoto) {
-    showError('pro-photo-error', '⚠️ Veuillez ajouter une photo de profil');
+    showError('pro-photo-error', '\u26A0️ Veuillez ajouter une photo de profil');
     isValid = false;
   } else {
     showError('pro-photo-error', ''); // Effacer l'erreur si la photo est présente
@@ -18516,25 +20988,25 @@ async function handleProRegisterSubmit(event) {
   const consentTerms = document.getElementById('pro-consent-terms')?.checked;
   const consentPrivacy = document.getElementById('pro-consent-privacy')?.checked;
   if (!consentTerms || !consentPrivacy) {
-    console.log('[REGISTER] ⚠️ Consentement RGPD manquant - consentTerms:', consentTerms, 'consentPrivacy:', consentPrivacy);
-    showNotification('⚠️ Vous devez accepter les conditions d\'utilisation et la politique de confidentialité', 'warning');
+    console.log('[REGISTER] \u26A0️ Consentement RGPD manquant - consentTerms:', consentTerms, 'consentPrivacy:', consentPrivacy);
+    showNotification('\u26A0️ Vous devez accepter les conditions d\'utilisation et la politique de confidentialité', 'warning');
     isValid = false;
   } else {
-    console.log('[REGISTER] ✅ Consentement RGPD accepté');
+    console.log('[REGISTER] \u2705 Consentement RGPD accepté');
   }
 
   if (!isValid) {
-    console.log('[REGISTER] ⚠️ Validation échouée - formulaire non soumis');
+    console.log('[REGISTER] \u26A0️ Validation échouée - formulaire non soumis');
     window.isSubmittingProRegister = false; // Réactiver le bouton
     if (submitBtn) {
       submitBtn.disabled = false;
       submitBtn.textContent = 'Créer le compte';
     }
-    showNotification('⚠️ Veuillez corriger les erreurs dans le formulaire', 'warning');
+    showNotification('\u26A0️ Veuillez corriger les erreurs dans le formulaire', 'warning');
     return;
   }
   
-  console.log('[REGISTER] ✅✅✅ Validation réussie - soumission du formulaire...');
+  console.log('[REGISTER] \u2705\u2705\u2705 Validation réussie - soumission du formulaire...');
   
   // Arrêter l'auto-save avant soumission
   if (typeof stopAutoSave === 'function') {
@@ -18545,7 +21017,7 @@ async function handleProRegisterSubmit(event) {
   localStorage.removeItem('registration_draft');
 
   // Désactiver le bouton
-  const submitBtn = document.getElementById('pro-submit-btn');
+  submitBtn = document.getElementById('pro-submit-btn');
   if (submitBtn) {
     submitBtn.disabled = true;
     submitBtn.textContent = 'Création du compte...';
@@ -18569,7 +21041,7 @@ async function handleProRegisterSubmit(event) {
       // Si profilePhoto est vide mais la preview a une image, utiliser la preview
       if (!window.registerData.profilePhoto || window.registerData.profilePhoto.length === 0) {
         window.registerData.profilePhoto = photoPreview.src;
-        console.log('[REGISTER] ✅ profilePhoto copié depuis preview.src');
+        console.log('[REGISTER] \u2705 profilePhoto copié depuis preview.src');
       }
     }
     
@@ -18583,14 +21055,14 @@ async function handleProRegisterSubmit(event) {
            window.registerData.photoData === '' ||
            window.registerData.photoData.length === 0)) {
         window.registerData.photoData = window.registerData.profilePhoto;
-        console.log('[REGISTER] ✅✅✅✅✅ photoData FORCÉ depuis profilePhoto avant pendingRegisterData');
+        console.log('[REGISTER] \u2705\u2705\u2705\u2705\u2705 photoData FORCÉ depuis profilePhoto avant pendingRegisterData');
       }
       
       // Si photoData est toujours vide mais que la preview a une image
       if ((!window.registerData.photoData || window.registerData.photoData.length === 0) &&
           photoPreview && photoPreview.src && photoPreview.src.startsWith('data:image') && photoPreview.src.length > 100) {
         window.registerData.photoData = photoPreview.src;
-        console.log('[REGISTER] ✅✅✅ photoData copié depuis preview.src');
+        console.log('[REGISTER] \u2705\u2705\u2705 photoData copié depuis preview.src');
       }
     }
     
@@ -18681,13 +21153,13 @@ async function handleProRegisterSubmit(event) {
               updateAuthUI(slimUser);
             }
             
-            showNotification('✅ Compte créé avec succès ! Vous êtes maintenant connecté.', 'success');
+            showNotification('\u2705 Compte créé avec succès ! Vous êtes maintenant connecté.', 'success');
             closePublishModal();
           }
         } else {
           const errorData = await response.json().catch(() => ({ error: 'Erreur lors de la création du compte' }));
           console.error('[REGISTER] Erreur création compte:', errorData);
-          showNotification(`❌ Erreur: ${errorData.error || 'Erreur lors de la création du compte'}`, 'error');
+          showNotification(`\u274C Erreur: ${errorData.error || 'Erreur lors de la création du compte'}`, 'error');
           
           if (submitBtn) {
             submitBtn.disabled = false;
@@ -18696,7 +21168,7 @@ async function handleProRegisterSubmit(event) {
         }
       } catch (error) {
         console.error('[REGISTER] Erreur lors de la création du compte:', error);
-        showNotification('❌ Erreur de connexion. Veuillez réessayer.', 'error');
+        showNotification('\u274C Erreur de connexion. Veuillez réessayer.', 'error');
         
         if (submitBtn) {
           submitBtn.disabled = false;
@@ -18749,8 +21221,8 @@ async function handleProRegisterSubmit(event) {
     
     return; // NE PAS créer le compte maintenant, attendre le choix de vérification
   } catch (error) {
-    console.error('❌ Erreur lors de la préparation du formulaire:', error);
-    showNotification('❌ Erreur lors de la préparation du formulaire', 'error');
+    console.error('\u274C Erreur lors de la préparation du formulaire:', error);
+    showNotification('\u274C Erreur lors de la préparation du formulaire', 'error');
     
     if (submitBtn) {
       submitBtn.disabled = false;
@@ -18853,16 +21325,16 @@ async function handleProRegisterSubmit(event) {
         const slimJson = JSON.stringify(slimUser);
         try {
           localStorage.setItem('currentUser', slimJson);
-          console.log('✅ User slim sauvegardé dans localStorage');
+          console.log('\u2705 User slim sauvegardé dans localStorage');
         } catch (localStorageError) {
           if (localStorageError.name === 'QuotaExceededError' || localStorageError.message.includes('quota')) {
-            console.warn('⚠️ localStorage plein - tentative sessionStorage...');
+            console.warn('\u26A0️ localStorage plein - tentative sessionStorage...');
             try {
               sessionStorage.setItem('currentUser', slimJson);
-              console.log('✅ User slim sauvegardé dans sessionStorage (fallback)');
-              showNotification('⚠️ Données sauvegardées temporairement (session)', 'info');
+              console.log('\u2705 User slim sauvegardé dans sessionStorage (fallback)');
+              showNotification('\u26A0️ Données sauvegardées temporairement (session)', 'info');
             } catch (sessionStorageError) {
-              console.warn('⚠️ sessionStorage aussi plein - user gardé en mémoire (window.currentUser)');
+              console.warn('\u26A0️ sessionStorage aussi plein - user gardé en mémoire (window.currentUser)');
               // User déjà en window.currentUser, UI déjà mise à jour - continuer
             }
           } else {
@@ -18870,7 +21342,7 @@ async function handleProRegisterSubmit(event) {
           }
         }
       } catch (storageError) {
-        console.warn('⚠️ Erreur storage (non bloquant):', storageError);
+        console.warn('\u26A0️ Erreur storage (non bloquant):', storageError);
         // User déjà en window.currentUser, UI déjà mise à jour - continuer
       }
       
@@ -18878,7 +21350,7 @@ async function handleProRegisterSubmit(event) {
       try {
         await loadUserDataOnLogin();
       } catch (loadError) {
-        console.warn('⚠️ Erreur loadUserDataOnLogin (non bloquant):', loadError);
+        console.warn('\u26A0️ Erreur loadUserDataOnLogin (non bloquant):', loadError);
         // Continuer - l'utilisateur est déjà connecté et l'UI mise à jour
       }
       
@@ -18891,7 +21363,7 @@ async function handleProRegisterSubmit(event) {
       
       try {
         const errorText = await response.text();
-        console.error(`❌ Erreur serveur ${response.status}:`, errorText);
+        console.error(`\u274C Erreur serveur ${response.status}:`, errorText);
         
         try {
           errorData = JSON.parse(errorText);
@@ -18909,7 +21381,7 @@ async function handleProRegisterSubmit(event) {
       // PRIORITÉ 3 FIX: Gérer USERNAME_ALREADY_EXISTS avec message clair
       if (errorData && errorData.code === 'USERNAME_ALREADY_EXISTS') {
         errorMessage = 'Ce nom d\'utilisateur est déjà pris. Choisissez-en un autre ou contactez le support si c\'est votre compte.';
-        showNotification(`⚠️ ${errorMessage}`, 'warning');
+        showNotification(`\u26A0️ ${errorMessage}`, 'warning');
         
         // Focus sur le champ username pour permettre la modification
         const usernameInput = document.getElementById('pro-username') || document.getElementById('register-username');
@@ -18931,8 +21403,8 @@ async function handleProRegisterSubmit(event) {
         errorMessage = 'Utilisateur non trouvé. Veuillez d\'abord vous connecter avec Google.';
       }
       
-      console.error(`❌ Échec création compte: ${response.status} - ${errorMessage}`);
-      showNotification(`❌ ${errorMessage}`, 'error');
+      console.error(`\u274C Échec création compte: ${response.status} - ${errorMessage}`);
+      showNotification(`\u274C ${errorMessage}`, 'error');
       
       // Réinitialiser le flag de soumission
       window.isSubmittingProRegister = false;
@@ -18943,7 +21415,7 @@ async function handleProRegisterSubmit(event) {
       }
     }
   } catch (error) {
-    console.error('❌ Erreur création compte:', error);
+    console.error('\u274C Erreur création compte:', error);
     console.error('Détails erreur:', error.message, error.stack);
     
     // Réinitialiser le flag de soumission
@@ -18956,7 +21428,7 @@ async function handleProRegisterSubmit(event) {
       errorMessage = 'Timeout de connexion. Le serveur met trop de temps à répondre.';
     }
     
-    showNotification(`❌ ${errorMessage}`, 'error');
+    showNotification(`\u274C ${errorMessage}`, 'error');
     
     if (submitBtn) {
       submitBtn.disabled = false;
@@ -18985,7 +21457,7 @@ function showPhotoUploadForm(userData) {
   const html = `
     <div style="padding:40px;max-width:500px;margin:0 auto;text-align:center;position:relative;">
       <!-- Bouton X (croix) pour fermer -->
-      <button onclick="closeAuthModal()" style="position:absolute;top:16px;right:16px;background:none;border:none;color:var(--ui-text-muted);font-size:24px;cursor:pointer;padding:8px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:all 0.2s;z-index:10;" onmouseover="this.style.background='rgba(239,68,68,0.2)';this.style.color='#ef4444';this.style.transform='scale(1.1)';" onmouseout="this.style.background='none';this.style.color='var(--ui-text-muted)';this.style.transform='scale(1)';" title="Fermer">✕</button>
+      <button onclick="closeAuthModal()" style="position:absolute;top:16px;right:16px;background:none;border:none;color:var(--ui-text-muted);font-size:24px;cursor:pointer;padding:8px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:all 0.2s;z-index:10;" onmouseover="this.style.background='rgba(239,68,68,0.2)';this.style.color='#ef4444';this.style.transform='scale(1.1)';" onmouseout="this.style.background='none';this.style.color='var(--ui-text-muted)';this.style.transform='scale(1)';" title="Fermer">\u2715</button>
       
       <div style="font-size:64px;margin-bottom:20px;">📷</div>
       <h2 style="margin:0 0 12px;font-size:24px;font-weight:700;color:#fff;">Photo de profil requise</h2>
@@ -19031,13 +21503,13 @@ window.handleOAuthPhotoUpload = function(event) {
   
   // Vérifier que c'est une image
   if (!file.type.startsWith('image/')) {
-    document.getElementById('photo-upload-feedback').innerHTML = '<span style="color:var(--ui-text-error);">⚠️ Veuillez sélectionner une image</span>';
+    document.getElementById('photo-upload-feedback').innerHTML = '<span style="color:var(--ui-text-error);">\u26A0️ Veuillez sélectionner une image</span>';
     return;
   }
   
   // Vérifier la taille (max 5MB)
   if (file.size > 5 * 1024 * 1024) {
-    document.getElementById('photo-upload-feedback').innerHTML = '<span style="color:var(--ui-text-error);">⚠️ L\'image est trop volumineuse (max 5MB)</span>';
+    document.getElementById('photo-upload-feedback').innerHTML = '<span style="color:var(--ui-text-error);">\u26A0️ L\'image est trop volumineuse (max 5MB)</span>';
     return;
   }
   
@@ -19058,7 +21530,7 @@ window.handleOAuthPhotoUpload = function(event) {
       uploadBtn.style.cursor = 'pointer';
     }
     
-    document.getElementById('photo-upload-feedback').innerHTML = '<span style="color:var(--ui-text-success);">✅ Photo sélectionnée</span>';
+    document.getElementById('photo-upload-feedback').innerHTML = '<span style="color:var(--ui-text-success);">\u2705 Photo sélectionnée</span>';
   };
   reader.readAsDataURL(file);
   
@@ -19072,7 +21544,7 @@ window.uploadOAuthPhoto = async function() {
   const userData = window.oauthPhotoUploadData;
   
   if (!file || !userData) {
-    showNotification('❌ Erreur: Fichier ou données utilisateur manquants', 'error');
+    showNotification('\u274C Erreur: Fichier ou données utilisateur manquants', 'error');
     return;
   }
   
@@ -19085,7 +21557,7 @@ window.uploadOAuthPhoto = async function() {
   }
   
   if (feedback) {
-    feedback.innerHTML = '<span style="color:var(--ui-text-info);">⏳ Upload en cours...</span>';
+    feedback.innerHTML = '<span style="color:var(--ui-text-info);">\u23F3 Upload en cours...</span>';
   }
   
   try {
@@ -19147,7 +21619,7 @@ window.uploadOAuthPhoto = async function() {
           showEmailVerificationModal(userData.email, userData.username || 'Utilisateur');
         } else {
           const displayName = userData.username || userData.firstName || userData.email?.split('@')[0] || 'Utilisateur';
-          showNotification(`✅ Bienvenue ${displayName} ! Vous êtes connecté.`, 'success');
+          showNotification(`\u2705 Bienvenue ${displayName} ! Vous êtes connecté.`, 'success');
         }
         
         // Nettoyer
@@ -19159,15 +21631,15 @@ window.uploadOAuthPhoto = async function() {
     };
     reader.readAsDataURL(file);
   } catch (error) {
-    console.error('❌ Erreur upload photo OAuth:', error);
+    console.error('\u274C Erreur upload photo OAuth:', error);
     if (feedback) {
-      feedback.innerHTML = `<span style="color:var(--ui-text-error);">❌ ${error.message || 'Erreur lors de l\'upload'}</span>`;
+      feedback.innerHTML = `<span style="color:var(--ui-text-error);">\u274C ${error.message || 'Erreur lors de l\'upload'}</span>`;
     }
     if (uploadBtn) {
       uploadBtn.disabled = false;
       uploadBtn.textContent = 'Ajouter la photo';
     }
-    showNotification(`❌ ${error.message || 'Erreur lors de l\'upload de la photo'}`, 'error');
+    showNotification(`\u274C ${error.message || 'Erreur lors de l\'upload de la photo'}`, 'error');
   }
 };
 
@@ -19215,7 +21687,7 @@ window.skipPhotoUpload = function() {
     lastResendAttempt: null
   };
   
-  showNotification('⚠️ Une photo de profil est obligatoire. Veuillez compléter votre profil.', 'warning');
+  showNotification('\u26A0️ Une photo de profil est obligatoire. Veuillez compléter votre profil.', 'warning');
   
   // Nettoyer
   delete window.oauthPhotoFile;
@@ -19284,7 +21756,7 @@ function showEmailVerificationModal(email, username) {
   const html = `
     <div style="padding:40px;max-width:500px;margin:0 auto;text-align:center;position:relative;">
       <!-- Bouton X (croix) pour fermer -->
-      <button onclick="closeAuthModal()" style="position:absolute;top:16px;right:16px;background:none;border:none;color:var(--ui-text-muted);font-size:24px;cursor:pointer;padding:8px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:all 0.2s;z-index:10;" onmouseover="this.style.background='rgba(239,68,68,0.2)';this.style.color='#ef4444';this.style.transform='scale(1.1)';" onmouseout="this.style.background='none';this.style.color='var(--ui-text-muted)';this.style.transform='scale(1)';" title="Fermer">✕</button>
+      <button onclick="closeAuthModal()" style="position:absolute;top:16px;right:16px;background:none;border:none;color:var(--ui-text-muted);font-size:24px;cursor:pointer;padding:8px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:all 0.2s;z-index:10;" onmouseover="this.style.background='rgba(239,68,68,0.2)';this.style.color='#ef4444';this.style.transform='scale(1.1)';" onmouseout="this.style.background='none';this.style.color='var(--ui-text-muted)';this.style.transform='scale(1)';" title="Fermer">\u2715</button>
       
       <div style="font-size:64px;margin-bottom:20px;">📧</div>
       <h2 style="margin:0 0 12px;font-size:24px;font-weight:700;color:#fff;">Vérifiez votre email</h2>
@@ -19371,7 +21843,7 @@ async function verifyEmailCode(providedCode) {
   }
   
   if (providedCode.length !== 6) {
-    showNotification('⚠️ Veuillez entrer un code à 6 chiffres', 'warning');
+    showNotification('\u26A0️ Veuillez entrer un code à 6 chiffres', 'warning');
     return;
   }
   
@@ -19403,7 +21875,7 @@ async function verifyEmailCode(providedCode) {
       
       // Afficher le succès
       if (feedbackEl) {
-        feedbackEl.textContent = '✅ Email vérifié avec succès !';
+        feedbackEl.textContent = '\u2705 Email vérifié avec succès !';
         feedbackEl.style.color = '#22c55e';
       }
       
@@ -19416,7 +21888,7 @@ async function verifyEmailCode(providedCode) {
         }
       }
       
-      showNotification('✅ Email vérifié avec succès !', 'success');
+      showNotification('\u2705 Email vérifié avec succès !', 'success');
       
       // Fermer le modal et mettre à jour le bloc compte
       setTimeout(() => {
@@ -19441,7 +21913,7 @@ async function verifyEmailCode(providedCode) {
         }
       }
       
-      showNotification('❌ Code incorrect. Veuillez réessayer.', 'error');
+      showNotification('\u274C Code incorrect. Veuillez réessayer.', 'error');
     }
   } catch (error) {
     console.error('[EMAIL VERIFICATION] Erreur:', error);
@@ -19449,14 +21921,14 @@ async function verifyEmailCode(providedCode) {
       feedbackEl.textContent = 'Erreur de connexion. Veuillez réessayer.';
       feedbackEl.style.color = '#ef4444';
     }
-    showNotification('❌ Erreur de connexion. Veuillez réessayer.', 'error');
+    showNotification('\u274C Erreur de connexion. Veuillez réessayer.', 'error');
   }
 }
 
 // Renvoyer le code de vérification
 async function resendEmailVerificationCode() {
   if (!window.pendingEmailVerification) {
-    showNotification('⚠️ Aucune vérification en cours', 'warning');
+    showNotification('\u26A0️ Aucune vérification en cours', 'warning');
     return;
   }
   
@@ -19473,7 +21945,7 @@ async function resendEmailVerificationCode() {
       body: JSON.stringify({ email, code: newCode })
     });
     
-    showNotification('✅ Code renvoyé ! Vérifiez votre boîte email.', 'success');
+    showNotification('\u2705 Code renvoyé ! Vérifiez votre boîte email.', 'success');
     
     // En mode développement, afficher le code
     if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
@@ -19481,7 +21953,7 @@ async function resendEmailVerificationCode() {
     }
   } catch (error) {
     console.error('[EMAIL VERIFICATION] Erreur renvoi code:', error);
-    showNotification('⚠️ Erreur lors du renvoi du code', 'error');
+    showNotification('\u26A0️ Erreur lors du renvoi du code', 'error');
   }
 }
 
@@ -19503,7 +21975,7 @@ function socialLogin(provider) {
   // TODO: Implémenter l'authentification sociale réelle
   // Pour l'instant, simulation
   setTimeout(() => {
-    showNotification(`✅ Connexion ${provider} bientôt disponible ! Utilisez l'inscription par email pour l'instant.`, "info");
+    showNotification(`\u2705 Connexion ${provider} bientôt disponible ! Utilisez l'inscription par email pour l'instant.`, "info");
   }, 1000);
 }
 
@@ -19608,11 +22080,11 @@ function showRegisterStep2() {
         </div>
         <div id="password-feedback" class="register-feedback"></div>
         <div id="password-requirements" class="register-password-requirements">
-          <div id="req-length" class="register-password-req">✓ Au moins 8 caractères</div>
-          <div id="req-upper" class="register-password-req">✓ Une majuscule</div>
-          <div id="req-lower" class="register-password-req">✓ Une minuscule</div>
-          <div id="req-number" class="register-password-req">✓ Un chiffre</div>
-          <div id="req-special" class="register-password-req">✓ Un caractère spécial (!@#$%^&*)</div>
+          <div id="req-length" class="register-password-req">\u2713 Au moins 8 caractères</div>
+          <div id="req-upper" class="register-password-req">\u2713 Une majuscule</div>
+          <div id="req-lower" class="register-password-req">\u2713 Une minuscule</div>
+          <div id="req-number" class="register-password-req">\u2713 Un chiffre</div>
+          <div id="req-special" class="register-password-req">\u2713 Un caractère spécial (!@#$%^&*)</div>
         </div>
       </div>
       
@@ -19653,10 +22125,10 @@ function showRegisterStep2() {
       
       <div class="register-step-buttons">
         <button onclick="showRegisterStep1()" class="register-btn-secondary">
-          ← Précédent
+          \u2190 Précédent
         </button>
         <button onclick="validateStep2()" class="register-btn-primary">
-          Suivant →
+          Suivant \u2192
         </button>
       </div>
     </div>
@@ -19715,7 +22187,7 @@ function showRegisterStep2() {
   if (window.registerData.username) validateUsernameRealTime(window.registerData.username);
   if (window.registerData.password) checkPasswordStrength(window.registerData.password);
 
-  console.log('✅ showRegisterStep2 completed successfully');
+  console.log('\u2705 showRegisterStep2 completed successfully');
 }
 
 // Sélectionner un avatar
@@ -19762,7 +22234,7 @@ function validateEmailRealTime(email) {
   const isValid = emailRegex.test(email);
   
   if (statusEl) {
-    statusEl.textContent = isValid ? '✅' : '❌';
+    statusEl.textContent = isValid ? '\u2705' : '\u274C';
     statusEl.style.color = isValid ? '#22c55e' : '#ef4444';
   }
   
@@ -19799,7 +22271,7 @@ function validateUsernameRealTime(username) {
   const isValid = usernameRegex.test(username);
   
   if (statusEl) {
-    statusEl.textContent = isValid ? '✅' : '❌';
+    statusEl.textContent = isValid ? '\u2705' : '\u274C';
     statusEl.style.color = isValid ? '#22c55e' : '#ef4444';
   }
   
@@ -19958,7 +22430,7 @@ function validateNameRealTime(type, value) {
   const finalValid = isValid && !hasTooManyNumbers && !hasTooManySpecial && hasCapital && isMostlyLetters;
   
   if (statusEl) {
-    statusEl.textContent = finalValid ? '✅' : '❌';
+    statusEl.textContent = finalValid ? '\u2705' : '\u274C';
     statusEl.style.color = finalValid ? '#22c55e' : '#ef4444';
   }
   
@@ -20004,49 +22476,49 @@ async function validateStep2() {
   
   // Validation prénom
   if (!firstName || !validateNameRealTime('firstname', firstName)) {
-    showNotification("⚠️ Veuillez entrer un prénom valide (2-30 caractères, lettres uniquement)", "warning");
+    showNotification("\u26A0️ Veuillez entrer un prénom valide (2-30 caractères, lettres uniquement)", "warning");
     return;
   }
   
   // Validation nom
   if (!lastName || !validateNameRealTime('lastname', lastName)) {
-    showNotification("⚠️ Veuillez entrer un nom valide (2-30 caractères, lettres uniquement)", "warning");
+    showNotification("\u26A0️ Veuillez entrer un nom valide (2-30 caractères, lettres uniquement)", "warning");
     return;
   }
   
   // Validation email
   if (!email || !validateEmailRealTime(email)) {
-    showNotification("⚠️ Veuillez entrer une adresse email valide", "warning");
+    showNotification("\u26A0️ Veuillez entrer une adresse email valide", "warning");
     return;
   }
   
   // Validation username
   if (!username || !validateUsernameRealTime(username)) {
-    showNotification("⚠️ Le nom d'utilisateur doit contenir 3-20 caractères (lettres, chiffres, _ et -)", "warning");
+    showNotification("\u26A0️ Le nom d'utilisateur doit contenir 3-20 caractères (lettres, chiffres, _ et -)", "warning");
     return;
   }
   
   // Validation mot de passe
   if (!password) {
-    showNotification("⚠️ Veuillez entrer un mot de passe", "warning");
+    showNotification("\u26A0️ Veuillez entrer un mot de passe", "warning");
     return;
   }
   
   const passwordStrength = checkPasswordStrength(password);
   if (passwordStrength < 40) {
-    showNotification("⚠️ Le mot de passe est trop faible. Veuillez renforcer votre mot de passe.", "warning");
+    showNotification("\u26A0️ Le mot de passe est trop faible. Veuillez renforcer votre mot de passe.", "warning");
     return;
   }
   
   // Validation avatar
   if (!window.registerData.avatarId) {
-    showNotification("⚠️ Veuillez choisir un avatar", "warning");
+    showNotification("\u26A0️ Veuillez choisir un avatar", "warning");
     return;
   }
   
   // Validation CGU
   if (!acceptTerms) {
-    showNotification("⚠️ Vous devez accepter les Conditions d'utilisation et la Politique de confidentialité", "warning");
+    showNotification("\u26A0️ Vous devez accepter les Conditions d'utilisation et la Politique de confidentialité", "warning");
     return;
   }
   
@@ -20054,7 +22526,7 @@ async function validateStep2() {
   const now = Date.now();
   if (window.registerData.lastRegistrationAttempt && (now - window.registerData.lastRegistrationAttempt) < 60000) {
     const remainingSeconds = Math.ceil((60000 - (now - window.registerData.lastRegistrationAttempt)) / 1000);
-    showNotification(`⏱️ Veuillez patienter ${remainingSeconds} secondes avant de réessayer`, "warning");
+    showNotification(`\u23F1️ Veuillez patienter ${remainingSeconds} secondes avant de réessayer`, "warning");
     return;
   }
   
@@ -20067,7 +22539,8 @@ async function validateStep2() {
   window.registerData.lastRegistrationAttempt = now;
   window.registerData.registrationAttempts++;
   
-  // Vérifier si l'email existe déjà
+  // Vérification indicative: ne pas bloquer ici.
+  // Le backend gère désormais le cas "email existant non vérifié".
   try {
     const checkResponse = await fetch(`${window.API_BASE_URL}/user/check-email`, {
       method: 'POST',
@@ -20078,8 +22551,7 @@ async function validateStep2() {
     if (checkResponse.ok) {
       const checkData = await checkResponse.json();
       if (checkData.exists) {
-        showNotification("⚠️ Cet email est déjà utilisé. Veuillez vous connecter ou utiliser un autre email.", "warning");
-        return;
+        showNotification("ℹ️ Email déjà connu: on vérifie s'il est réactivable.", "info");
       }
     }
   } catch (error) {
@@ -20171,11 +22643,11 @@ function showRegisterStep2_5() {
       </div>
       
       <div style="display:flex;gap:12px;">
-        <button onclick="showRegisterStep2()" style="flex:1;padding:14px;border-radius:999px;border:1px solid var(--ui-card-border);background:transparent;color:var(--ui-text-main);cursor:pointer;font-weight:600;transition:all 0.2s;" onmouseover="this.style.background='rgba(15,23,42,0.5)'" onmouseout="this.style.background='transparent'">
-          ← Précédent
+        <button onclick="if(typeof window.backToRegisterInformations==='function'){window.backToRegisterInformations();}else if(typeof window.showProRegisterForm==='function'){window.showProRegisterForm();}else if(typeof showProRegisterForm==='function'){showProRegisterForm();}else if(typeof showRegisterStep2==='function'){showRegisterStep2();}return false;" style="flex:1;padding:14px;border-radius:999px;border:1px solid var(--ui-card-border);background:transparent;color:var(--ui-text-main);cursor:pointer;font-weight:600;transition:all 0.2s;" onmouseover="this.style.background='rgba(15,23,42,0.5)'" onmouseout="this.style.background='transparent'">
+          \u2190 Précédent
         </button>
         <button onclick="verifyEmailCode()" style="flex:1;padding:14px;border-radius:999px;border:none;background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;font-weight:700;cursor:pointer;box-shadow:0 4px 15px rgba(34,197,94,0.4);transition:all 0.2s;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 20px rgba(34,197,94,0.6)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 4px 15px rgba(34,197,94,0.4)'">
-          Vérifier →
+          Vérifier \u2192
         </button>
       </div>
     </div>
@@ -20314,7 +22786,7 @@ async function sendVerificationCode() {
     });
     
     if (response.ok) {
-      showNotification("✅ Code envoyé ! Vérifiez votre boîte email.", "success");
+      showNotification("\u2705 Code envoyé ! Vérifiez votre boîte email.", "success");
       
       // En mode développement, afficher le code dans la console
       if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
@@ -20323,7 +22795,7 @@ async function sendVerificationCode() {
     } else {
       // En cas d'erreur backend, utiliser le code généré localement
       console.warn('Backend non disponible, utilisation du code local');
-      showNotification("✅ Code généré ! (Mode développement)", "success");
+      showNotification("\u2705 Code généré ! (Mode développement)", "success");
       console.log(`🔐 CODE DE VÉRIFICATION (DEV ONLY): ${code}`);
     }
   } catch (error) {
@@ -20333,7 +22805,7 @@ async function sendVerificationCode() {
     window.window.registerData.emailVerificationCode = code;
     window.registerData.codeSentAt = Date.now();
     window.registerData.codeExpiresAt = Date.now() + (15 * 60 * 1000);
-    showNotification("✅ Code généré ! (Mode développement - vérifiez la console)", "info");
+    showNotification("\u2705 Code généré ! (Mode développement - vérifiez la console)", "info");
     console.log(`🔐 CODE DE VÉRIFICATION (DEV ONLY): ${code}`);
   }
 }
@@ -20346,7 +22818,7 @@ async function resendVerificationCode() {
   // Rate limiting : 60 secondes entre chaque renvoi
   if (now - lastResend < 60000) {
     const remaining = Math.ceil((60000 - (now - lastResend)) / 1000);
-    showNotification(`⏱️ Veuillez patienter ${remaining} secondes avant de renvoyer`, "warning");
+    showNotification(`\u23F1️ Veuillez patienter ${remaining} secondes avant de renvoyer`, "warning");
     return;
   }
   
@@ -20399,7 +22871,7 @@ async function verifyEmailCode(providedCode) {
   
   if (!captchaInput || !captchaInput.value) {
     if (captchaFeedback) {
-      captchaFeedback.textContent = "⚠️ Veuillez répondre au CAPTCHA";
+      captchaFeedback.textContent = "\u26A0️ Veuillez répondre au CAPTCHA";
       captchaFeedback.style.color = "#ef4444";
     }
     return;
@@ -20408,7 +22880,7 @@ async function verifyEmailCode(providedCode) {
   const captchaAnswer = parseInt(captchaInput.value.trim());
   if (captchaAnswer !== window.registerData.captchaAnswer) {
     if (captchaFeedback) {
-      captchaFeedback.textContent = "❌ Réponse incorrecte";
+      captchaFeedback.textContent = "\u274C Réponse incorrecte";
       captchaFeedback.style.color = "#ef4444";
     }
     generateCaptcha(); // Régénérer le CAPTCHA
@@ -20417,7 +22889,7 @@ async function verifyEmailCode(providedCode) {
   }
   
   if (captchaFeedback) {
-    captchaFeedback.textContent = "✅ CAPTCHA correct";
+    captchaFeedback.textContent = "\u2705 CAPTCHA correct";
     captchaFeedback.style.color = "#22c55e";
   }
   
@@ -20435,7 +22907,7 @@ async function verifyEmailCode(providedCode) {
   if (providedCode.length !== 6) {
     const feedbackEl = document.getElementById("code-feedback");
     if (feedbackEl) {
-      feedbackEl.textContent = "⚠️ Veuillez entrer les 6 chiffres";
+      feedbackEl.textContent = "\u26A0️ Veuillez entrer les 6 chiffres";
       feedbackEl.style.color = "#ef4444";
     }
     return;
@@ -20446,7 +22918,7 @@ async function verifyEmailCode(providedCode) {
   if (window.registerData.lastVerificationAttempt) {
     const timeSinceLastAttempt = now - window.registerData.lastVerificationAttempt;
     if (timeSinceLastAttempt < 2000) { // 2 secondes entre chaque tentative
-      showNotification("⏱️ Veuillez patienter avant de réessayer", "warning");
+      showNotification("\u23F1️ Veuillez patienter avant de réessayer", "warning");
       return;
     }
   }
@@ -20456,7 +22928,7 @@ async function verifyEmailCode(providedCode) {
   
   // Vérifier si le code a expiré
   if (window.registerData.codeExpiresAt && now > window.registerData.codeExpiresAt) {
-    showNotification("⏰ Le code a expiré. Veuillez en demander un nouveau.", "warning");
+    showNotification("\u23F0 Le code a expiré. Veuillez en demander un nouveau.", "warning");
     window.window.registerData.emailVerificationCode = null;
     return;
   }
@@ -20476,11 +22948,11 @@ async function verifyEmailCode(providedCode) {
     
     const feedbackEl = document.getElementById("code-feedback");
     if (feedbackEl) {
-      feedbackEl.textContent = "✅ Code vérifié avec succès !";
+      feedbackEl.textContent = "\u2705 Code vérifié avec succès !";
       feedbackEl.style.color = "#22c55e";
     }
     
-    showNotification("✅ Email vérifié !", "success");
+    showNotification("\u2705 Email vérifié !", "success");
     
     // Passer à l'étape suivante après un court délai
     setTimeout(() => {
@@ -20502,7 +22974,7 @@ async function verifyEmailCode(providedCode) {
     // Afficher l'erreur
     const feedbackEl = document.getElementById("code-feedback");
     if (feedbackEl) {
-      feedbackEl.textContent = `❌ Code incorrect (${window.registerData.verificationAttempts}/5 tentatives)`;
+      feedbackEl.textContent = `\u274C Code incorrect (${window.registerData.verificationAttempts}/5 tentatives)`;
       feedbackEl.style.color = "#ef4444";
     }
     
@@ -20592,11 +23064,11 @@ function showRegisterStep3() {
             </div>
             ${addr.lat && addr.lng ? `
               <div style="margin-top:8px;font-size:11px;color:#22c55e;">
-                ✅ Coordonnées : ${addr.lat.toFixed(6)}, ${addr.lng.toFixed(6)}
+                \u2705 Coordonnées : ${addr.lat.toFixed(6)}, ${addr.lng.toFixed(6)}
               </div>
             ` : `
               <div style="margin-top:8px;font-size:11px;color:var(--ui-text-muted);">
-                ⚠️ Cliquez sur "Géocoder" pour obtenir les coordonnées
+                \u26A0️ Cliquez sur "Géocoder" pour obtenir les coordonnées
               </div>
             `}
             ${index > 0 ? `
@@ -20638,7 +23110,7 @@ function showRegisterStep3() {
 
 function addAddressField() {
   if (window.registerData.addresses.length >= 2) {
-    showNotification("⚠️ Maximum 2 adresses autorisées", "warning");
+    showNotification("\u26A0️ Maximum 2 adresses autorisées", "warning");
     return;
   }
   
@@ -20648,7 +23120,7 @@ function addAddressField() {
 
 function removeAddressField(index) {
   if (window.registerData.addresses.length <= 1) {
-    showNotification("⚠️ Au moins une adresse est requise", "warning");
+    showNotification("\u26A0️ Au moins une adresse est requise", "warning");
     return;
   }
   
@@ -20666,7 +23138,7 @@ async function geocodeAddress(addressIndex) {
   const city = cityInput.value.trim();
   
   if (!address || !city) {
-    showNotification("⚠️ Veuillez remplir l'adresse et la ville", "warning");
+    showNotification("\u26A0️ Veuillez remplir l'adresse et la ville", "warning");
     return;
   }
   
@@ -20677,7 +23149,7 @@ async function geocodeAddress(addressIndex) {
     
     // Utiliser Nominatim avec plus de détails pour vérifier que l'adresse est réelle
     // VALIDATION STRICTE + PERFORMANCE: Paramètres optimisés pour recherche rapide et exacte
-    // ⚠️⚠️⚠️ RECHERCHE MONDIALE - Pas de restriction de pays, support multilingue
+    // \u26A0️\u26A0️\u26A0️ RECHERCHE MONDIALE - Pas de restriction de pays, support multilingue
     const langCode = (navigator.language || 'fr').split('-')[0];
     const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(fullAddress)}&limit=10&addressdetails=1&extratags=1&accept-language=${langCode},en&dedupe=1`, {
       headers: {
@@ -20693,7 +23165,7 @@ async function geocodeAddress(addressIndex) {
     const data = await response.json();
     
     if (data.length === 0) {
-      showNotification("⚠️ Adresse introuvable. Veuillez vérifier que l'adresse existe réellement.", "warning");
+      showNotification("\u26A0️ Adresse introuvable. Veuillez vérifier que l'adresse existe réellement.", "warning");
       return;
     }
     
@@ -20729,14 +23201,14 @@ async function geocodeAddress(addressIndex) {
     
     // Vérifier que les coordonnées sont valides
     if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-      showNotification("⚠️ Coordonnées invalides. L'adresse semble incorrecte.", "warning");
+      showNotification("\u26A0️ Coordonnées invalides. L'adresse semble incorrecte.", "warning");
       return;
     }
     
     // Vérifier que l'adresse est en Suisse (ou pays autorisé)
     const country = addressDetails.country_code?.toUpperCase() || '';
     if (country && country !== 'CH' && country !== 'FR' && country !== 'DE' && country !== 'IT' && country !== 'AT') {
-      showNotification(`⚠️ L'adresse doit être en Suisse ou dans un pays voisin (actuellement: ${country}).`, "warning");
+      showNotification(`\u26A0️ L'adresse doit être en Suisse ou dans un pays voisin (actuellement: ${country}).`, "warning");
       return;
     }
     
@@ -20759,11 +23231,11 @@ async function geocodeAddress(addressIndex) {
       country_code: country
     };
     
-    showNotification("✅ Adresse vérifiée et validée !", "success");
+    showNotification("\u2705 Adresse vérifiée et validée !", "success");
     showRegisterStep3(); // Rafraîchir pour afficher les coordonnées
   } catch (error) {
     console.error('Erreur géocodage:', error);
-    showNotification("❌ Erreur lors de la vérification. Réessayez plus tard.", "error");
+    showNotification("\u274C Erreur lors de la vérification. Réessayez plus tard.", "error");
   }
 }
 
@@ -20929,7 +23401,7 @@ async function completeRegistration() {
       currentUser.id = result.userId;
     }
     
-    console.log('✅ Compte créé avec succès dans le backend:', result);
+    console.log('\u2705 Compte créé avec succès dans le backend:', result);
   } catch (error) {
     console.error('Erreur enregistrement backend:', error);
     showContextualError('NETWORK_ERROR', 'Erreur de connexion au serveur', {
@@ -20938,7 +23410,7 @@ async function completeRegistration() {
     return; // Ne pas continuer si le backend échoue
   }
   
-  showNotification("✅ Compte créé avec succès !", "success");
+  showNotification("\u2705 Compte créé avec succès !", "success");
   closePublishModal();
   // INTERDICTION : Ne pas modifier le bloc compte - fonctions supprimées
   
@@ -20993,18 +23465,18 @@ function showTermsModal() {
 }
 
 function showPrivacyModal() {
-  console.log('[MODAL] ✅ showPrivacyModal appelée');
+  console.log('[MODAL] \u2705 showPrivacyModal appelée');
   
   // Ouvrir le modal d'abord
   const backdrop = document.getElementById('publish-modal-backdrop');
   const modal = document.getElementById('publish-modal-inner');
   
   if (!backdrop || !modal) {
-    console.error('[MODAL] ❌ Éléments modal non trouvés pour showPrivacyModal');
+    console.error('[MODAL] \u274C Éléments modal non trouvés pour showPrivacyModal');
     return false;
   }
   
-  console.log('[MODAL] ✅ Éléments trouvés, ouverture du modal');
+  console.log('[MODAL] \u2705 Éléments trouvés, ouverture du modal');
   
   const html = `
     <div style="padding:24px;max-width:700px;margin:0 auto;max-height:85vh;overflow-y:auto;">
@@ -21039,313 +23511,6 @@ function showPrivacyModal() {
   return false;
 }
 
-function openReviewModal(type, id) {
-  const key = `${type}:${id}`;
-  const reviews = currentUser.reviews[key] || [];
-  const reviewsPerPage = 10;
-  let currentPage = 1;
-  
-  // Initialiser si nécessaire
-  if (!currentUser.reviews[key]) {
-    currentUser.reviews[key] = [];
-  }
-  
-  function renderReviews(page = 1) {
-    const start = (page - 1) * reviewsPerPage;
-    const end = start + reviewsPerPage;
-    const pageReviews = reviews.slice(start, end);
-    const totalPages = Math.ceil(reviews.length / reviewsPerPage);
-    
-    const reviewsHtml = pageReviews.length === 0 ? `
-      <div style="text-align:center;padding:40px;color:var(--ui-text-muted);">
-        <div style="font-size:48px;margin-bottom:16px;">💬</div>
-        <p>Aucun avis pour le moment</p>
-        <p style="font-size:12px;margin-top:8px;">Soyez le premier à laisser un avis !</p>
-      </div>
-    ` : pageReviews.map(review => {
-      const repliesHtml = (review.replies || []).map(reply => `
-        <div style="margin-left:40px;margin-top:8px;padding:8px;background:rgba(15,23,42,0.5);border-radius:8px;border-left:3px solid #3b82f6;">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
-            <div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,${reply.avatarColor || '#3b82f6'},${reply.avatarColor2 || '#8b5cf6'});display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;">
-              ${reply.avatar || reply.userName.charAt(0).toUpperCase()}
-            </div>
-            <span style="font-weight:600;font-size:12px;">${escapeHtml(reply.userName)}</span>
-            <span style="font-size:10px;color:var(--ui-text-muted);">${formatDate(reply.date)}</span>
-          </div>
-          <div style="font-size:13px;color:var(--ui-text-main);">${escapeHtml(reply.text)}</div>
-        </div>
-      `).join('');
-      
-      return `
-        <div style="padding:12px;background:rgba(15,23,42,0.5);border-radius:12px;margin-bottom:12px;border:1px solid var(--ui-card-border);">
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
-            <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,${review.avatarColor || '#00ffc3'},${review.avatarColor2 || '#3b82f6'});display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;">
-              ${review.avatar || review.userName.charAt(0).toUpperCase()}
-            </div>
-            <div style="flex:1;">
-              <div style="display:flex;align-items:center;gap:8px;">
-                <span style="font-weight:600;font-size:14px;">${escapeHtml(review.userName)}</span>
-                ${review.rating ? `<span style="font-size:12px;color:#facc15;">${'⭐'.repeat(review.rating)}</span>` : ''}
-              </div>
-              <div style="font-size:11px;color:var(--ui-text-muted);">${formatDate(review.date)}</div>
-            </div>
-          </div>
-          <div style="font-size:14px;color:var(--ui-text-main);line-height:1.5;margin-bottom:8px;">${escapeHtml(review.text)}</div>
-          ${repliesHtml}
-          <button onclick="showReplyForm('${review.id}', '${type}', ${id})" style="margin-top:8px;padding:4px 12px;border-radius:6px;border:1px solid var(--ui-card-border);background:transparent;color:var(--ui-text-main);cursor:pointer;font-size:12px;">
-            💬 Répondre
-          </button>
-        </div>
-      `;
-    }).join('');
-    
-    const paginationHtml = totalPages > 1 ? `
-      <div style="display:flex;justify-content:center;align-items:center;gap:8px;margin-top:16px;">
-        <button onclick="loadReviewPage(${Math.max(1, page - 1)})" ${page === 1 ? 'disabled' : ''} style="padding:6px 12px;border-radius:6px;border:1px solid var(--ui-card-border);background:transparent;color:var(--ui-text-main);cursor:pointer;font-size:12px;${page === 1 ? 'opacity:0.5;cursor:not-allowed;' : ''}">
-          ← Précédent
-        </button>
-        <span style="font-size:12px;color:var(--ui-text-muted);">Page ${page}/${totalPages}</span>
-        <button onclick="loadReviewPage(${Math.min(totalPages, page + 1)})" ${page === totalPages ? 'disabled' : ''} style="padding:6px 12px;border-radius:6px;border:1px solid var(--ui-card-border);background:transparent;color:var(--ui-text-main);cursor:pointer;font-size:12px;${page === totalPages ? 'opacity:0.5;cursor:not-allowed;' : ''}">
-          Suivant →
-        </button>
-      </div>
-    ` : '';
-    
-    const container = document.getElementById('reviews-list-container');
-    if (container) {
-      container.innerHTML = reviewsHtml + paginationHtml;
-    }
-  }
-  
-  const html = `
-    <div style="padding:10px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-        <h2 style="margin:0;font-size:18px;">⭐ Avis et Discussions (${reviews.length})</h2>
-        <button onclick="closePublishModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--ui-text-muted);">✕</button>
-      </div>
-      
-      <!-- Liste des avis avec pagination -->
-      <div id="reviews-list-container" style="max-height:calc(80vh - 250px);overflow-y:auto;margin-bottom:16px;padding-right:8px;">
-        ${reviews.length === 0 ? `
-          <div style="text-align:center;padding:40px;color:var(--ui-text-muted);">
-            <div style="font-size:48px;margin-bottom:16px;">💬</div>
-            <p>Aucun avis pour le moment</p>
-            <p style="font-size:12px;margin-top:8px;">Soyez le premier à laisser un avis !</p>
-          </div>
-        ` : reviews.slice(0, reviewsPerPage).map(review => {
-          const repliesHtml = (review.replies || []).map(reply => `
-            <div style="margin-left:40px;margin-top:8px;padding:8px;background:rgba(15,23,42,0.5);border-radius:8px;border-left:3px solid #3b82f6;">
-              <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
-                <div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,${reply.avatarColor || '#3b82f6'},${reply.avatarColor2 || '#8b5cf6'});display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;">
-                  ${reply.avatar || reply.userName.charAt(0).toUpperCase()}
-                </div>
-                <span style="font-weight:600;font-size:12px;">${escapeHtml(reply.userName)}</span>
-                <span style="font-size:10px;color:var(--ui-text-muted);">${formatDate(reply.date)}</span>
-              </div>
-              <div style="font-size:13px;color:var(--ui-text-main);">${escapeHtml(reply.text)}</div>
-            </div>
-          `).join('');
-          
-          return `
-            <div style="padding:12px;background:rgba(15,23,42,0.5);border-radius:12px;margin-bottom:12px;border:1px solid var(--ui-card-border);">
-              <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
-                <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,${review.avatarColor || '#00ffc3'},${review.avatarColor2 || '#3b82f6'});display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;">
-                  ${review.avatar || review.userName.charAt(0).toUpperCase()}
-                </div>
-                <div style="flex:1;">
-                  <div style="display:flex;align-items:center;gap:8px;">
-                    <span style="font-weight:600;font-size:14px;">${escapeHtml(review.userName)}</span>
-                    ${review.rating ? `<span style="font-size:12px;color:#facc15;">${'⭐'.repeat(review.rating)}</span>` : ''}
-                  </div>
-                  <div style="font-size:11px;color:var(--ui-text-muted);">${formatDate(review.date)}</div>
-                </div>
-              </div>
-              <div style="font-size:14px;color:var(--ui-text-main);line-height:1.5;margin-bottom:8px;">${escapeHtml(review.text)}</div>
-              ${repliesHtml}
-              <button onclick="showReplyForm('${review.id}', '${type}', ${id})" style="margin-top:8px;padding:4px 12px;border-radius:6px;border:1px solid var(--ui-card-border);background:transparent;color:var(--ui-text-main);cursor:pointer;font-size:12px;">
-                💬 Répondre
-              </button>
-            </div>
-          `;
-        }).join('')}
-      </div>
-      ${reviews.length > reviewsPerPage ? `
-        <div style="display:flex;justify-content:center;align-items:center;gap:8px;margin-bottom:16px;">
-          <button onclick="loadReviewPage(1)" style="padding:6px 12px;border-radius:6px;border:1px solid var(--ui-card-border);background:transparent;color:var(--ui-text-main);cursor:pointer;font-size:12px;">
-            ← Précédent
-          </button>
-          <span style="font-size:12px;color:var(--ui-text-muted);">Page 1/${Math.ceil(reviews.length / reviewsPerPage)}</span>
-          <button onclick="loadReviewPage(2)" style="padding:6px 12px;border-radius:6px;border:1px solid var(--ui-card-border);background:transparent;color:var(--ui-text-main);cursor:pointer;font-size:12px;">
-            Suivant →
-          </button>
-        </div>
-      ` : ''}
-      
-      <!-- Formulaire pour laisser un avis -->
-      <div style="padding:12px;background:rgba(15,23,42,0.5);border-radius:12px;border:1px solid var(--ui-card-border);margin-top:16px;">
-        <h3 style="margin:0 0 12px;font-size:14px;">Laisser un avis</h3>
-        <div style="display:flex;gap:8px;margin-bottom:12px;justify-content:center;">
-          ${[1,2,3,4,5].map(n => `
-            <button onclick="setRating(${n})" class="rating-star" data-rating="${n}" style="font-size:24px;background:none;border:none;cursor:pointer;transition:transform 0.1s;">⭐</button>
-          `).join('')}
-        </div>
-        <textarea id="review-text" rows="3" placeholder="Partagez votre expérience..." style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--ui-card-border);background:rgba(15,23,42,0.9);color:var(--ui-text-main);resize:none;font-size:13px;"></textarea>
-        <button onclick="submitReview('${type}', ${id})" style="width:100%;margin-top:8px;padding:10px;border-radius:999px;border:none;background:var(--btn-main-bg);color:var(--btn-main-text);font-weight:600;cursor:pointer;font-size:13px;">
-          Publier l'avis
-        </button>
-      </div>
-    </div>
-  `;
-  
-  document.getElementById("publish-modal-inner").innerHTML = html;
-  const backdrop = document.getElementById("publish-modal-backdrop");
-  if (backdrop) {
-    backdrop.setAttribute('data-auth-modal', 'true');
-    backdrop.style.display = "flex";
-    backdrop.style.paddingTop = "40px";
-    backdrop.style.paddingBottom = "40px";
-    backdrop.style.boxSizing = "border-box";
-    backdrop.style.paddingTop = "40px";
-    backdrop.style.paddingBottom = "40px";
-    backdrop.style.boxSizing = "border-box";
-  }
-  
-  // Stocker les données pour la pagination
-  window.reviewsData = { key, reviews, currentPage: 1, reviewsPerPage };
-  window.renderReviews = renderReviews;
-}
-
-function loadReviewPage(page) {
-  if (!window.reviewsData) return;
-  const { key, reviews, reviewsPerPage } = window.reviewsData;
-  window.reviewsData.currentPage = page;
-  window.renderReviews(page);
-}
-
-function showReplyForm(reviewId, type, id) {
-  const replyFormHtml = `
-    <div id="reply-form-${reviewId}" style="margin-top:8px;padding:8px;background:rgba(15,23,42,0.7);border-radius:8px;border:1px solid var(--ui-card-border);">
-      <textarea id="reply-text-${reviewId}" rows="2" placeholder="Votre réponse..." style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--ui-card-border);background:rgba(15,23,42,0.9);color:var(--ui-text-main);resize:none;font-size:12px;margin-bottom:6px;"></textarea>
-      <div style="display:flex;gap:6px;">
-        <button onclick="submitReply('${reviewId}', '${type}', ${id})" style="flex:1;padding:6px;border-radius:6px;border:none;background:var(--btn-main-bg);color:var(--btn-main-text);font-weight:600;cursor:pointer;font-size:12px;">
-          Envoyer
-        </button>
-        <button onclick="document.getElementById('reply-form-${reviewId}').remove()" style="padding:6px 12px;border-radius:6px;border:1px solid var(--ui-card-border);background:transparent;color:var(--ui-text-main);cursor:pointer;font-size:12px;">
-          Annuler
-        </button>
-      </div>
-    </div>
-  `;
-  
-  const existingForm = document.getElementById(`reply-form-${reviewId}`);
-  if (existingForm) {
-    existingForm.remove();
-  } else {
-    const reviewElement = document.querySelector(`[data-review-id="${reviewId}"]`);
-    if (reviewElement) {
-      reviewElement.insertAdjacentHTML('beforeend', replyFormHtml);
-    }
-  }
-}
-
-function submitReply(reviewId, type, id) {
-  const text = document.getElementById(`reply-text-${reviewId}`)?.value;
-  if (!text || !text.trim()) {
-    showNotification("⚠️ Veuillez écrire une réponse", "warning");
-    return;
-  }
-  
-  if (!currentUser || !currentUser.isLoggedIn) {
-    openLoginModal();
-    return;
-  }
-  
-  const key = `${type}:${id}`;
-  const reviews = currentUser.reviews[key] || [];
-  const review = reviews.find(r => r.id === reviewId);
-  
-  if (!review) return;
-  
-  if (!review.replies) review.replies = [];
-  
-  const avatarColors = ['#00ffc3', '#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444', '#22c55e'];
-  const avatarColors2 = ['#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444', '#22c55e', '#00ffc3'];
-  const colorIndex = Math.floor(Math.random() * avatarColors.length);
-  
-  review.replies.push({
-    id: Date.now(),
-    userId: currentUser.id,
-    userName: currentUser.name,
-    avatar: currentUser.avatar,
-    avatarColor: avatarColors[colorIndex],
-    avatarColor2: avatarColors2[colorIndex],
-    text: text.trim(),
-    date: new Date().toISOString()
-  });
-  
-  showNotification("✅ Réponse publiée !", "success");
-  openReviewModal(type, id); // Rafraîchir
-}
-
-let currentRating = 0;
-function setRating(n) {
-  currentRating = n;
-  document.querySelectorAll(".rating-star").forEach((star, i) => {
-    star.style.transform = i < n ? "scale(1.2)" : "scale(1)";
-    star.style.filter = i < n ? "none" : "grayscale(1)";
-  });
-}
-
-function submitReview(type, id) {
-  const text = document.getElementById("review-text")?.value;
-  if (!text || !text.trim() || currentRating === 0) {
-    showNotification("⚠️ Veuillez donner une note et écrire un avis", "warning");
-    return;
-  }
-  
-  if (!currentUser || !currentUser.isLoggedIn) {
-    openLoginModal();
-    return;
-  }
-  
-  const key = `${type}:${id}`;
-  if (!currentUser.reviews[key]) {
-    currentUser.reviews[key] = [];
-  }
-  
-  const avatarColors = ['#00ffc3', '#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444', '#22c55e'];
-  const avatarColors2 = ['#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444', '#22c55e', '#00ffc3'];
-  const colorIndex = Math.floor(Math.random() * avatarColors.length);
-  
-  const review = {
-    id: Date.now(),
-    userId: currentUser.id,
-    userName: currentUser.name,
-    avatar: currentUser.avatar,
-    avatarColor: avatarColors[colorIndex],
-    avatarColor2: avatarColors2[colorIndex],
-    rating: currentRating,
-    text: text.trim(),
-    date: new Date().toISOString(),
-    replies: []
-  };
-  
-  currentUser.reviews[key].unshift(review); // Ajouter au début
-  
-  // Mettre à jour le rating moyen de l'item
-  const data = type === "event" ? eventsData : type === "booking" ? bookingsData : servicesData;
-  const item = data.find(i => i.id === parseInt(id));
-  if (item) {
-    const allRatings = currentUser.reviews[key].map(r => r.rating).filter(r => r > 0);
-    if (allRatings.length > 0) {
-      item.rating = (allRatings.reduce((a, b) => a + b, 0) / allRatings.length).toFixed(1);
-    }
-  }
-  
-  showNotification("✅ Avis publié avec succès !", "success");
-  currentRating = 0;
-  openReviewModal(type, id); // Rafraîchir pour afficher le nouvel avis
-}
 
 async function openDiscussionModal(type, id) {
   // Échappement HTML sûr (au cas où escapeHtml n'est pas encore défini)
@@ -21616,12 +23781,12 @@ async function openDiscussionModal(type, id) {
     <div style="display:flex;flex-direction:column;height:100%;max-height:85vh;min-height:0;overflow:hidden;">
       <!-- En-tête -->
       <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid rgba(255,255,255,0.1);background:var(--ui-card-bg, #0f172a);flex-shrink:0;">
-        <button onclick="closeDiscussionAndReturnToPopup()" style="background:none;border:none;color:#b0b3b8;font-size:20px;cursor:pointer;padding:4px;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;transition:all 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.1)';this.style.color='#fff'" onmouseout="this.style.background='none';this.style.color='#b0b3b8'">←</button>
+        <button onclick="closeDiscussionAndReturnToPopup()" style="background:none;border:none;color:#b0b3b8;font-size:20px;cursor:pointer;padding:4px;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;transition:all 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.1)';this.style.color='#fff'" onmouseout="this.style.background='none';this.style.color='#b0b3b8'">\u2190</button>
         <div style="flex:1;min-width:0;">
           <div style="font-weight:600;font-size:15px;color:#e4e6eb;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Discussion</div>
           <div style="font-size:12px;color:#b0b3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(itemTitle)}</div>
         </div>
-        <button onclick="closeDiscussionAndReturnToPopup()" style="background:none;border:none;color:#b0b3b8;font-size:18px;cursor:pointer;padding:4px;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;transition:all 0.15s;" onmouseover="this.style.background='rgba(239,68,68,0.2)';this.style.color='#ef4444'" onmouseout="this.style.background='none';this.style.color='#b0b3b8'">✕</button>
+        <button onclick="closeDiscussionAndReturnToPopup()" style="background:none;border:none;color:#b0b3b8;font-size:18px;cursor:pointer;padding:4px;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;transition:all 0.15s;" onmouseover="this.style.background='rgba(239,68,68,0.2)';this.style.color='#ef4444'" onmouseout="this.style.background='none';this.style.color='#b0b3b8'">\u2715</button>
       </div>
       
       <!-- Zone de scroll avec posts -->
@@ -21710,7 +23875,7 @@ async function openDiscussionModal(type, id) {
 }
 
 // Fermer la discussion et retourner à la popup de l'événement
-function closeDiscussionAndReturnToPopup() {
+async function closeDiscussionAndReturnToPopup() {
   const type = window.currentDiscussionType;
   const id = window.currentDiscussionId;
   const openedInPopup = window.discussionOpenedInPopup;
@@ -21719,7 +23884,10 @@ function closeDiscussionAndReturnToPopup() {
     const item = getItemById(type, id);
     if (item) {
       let popupHtml = "";
-      if (type === "event") popupHtml = buildEventPopup(item);
+      if (type === "event") {
+        await ensureEventDetailsForPopup(item);
+        popupHtml = buildEventPopup(item);
+      }
       else if (type === "booking") popupHtml = buildBookingPopup(item);
       else if (type === "service") popupHtml = buildServicePopup(item);
       
@@ -22014,792 +24182,6 @@ window.togglePostLike = async function(type, id, postId) {
 };
 
 // ============================================
-// SYSTÈME D'AMIS - UI COMPLÈTE
-// ============================================
-
-function openFriendsModal() {
-  const esc = (typeof escapeHtml === 'function') ? escapeHtml : (s) => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  
-  if (!currentUser || !currentUser.isLoggedIn) {
-    openAuthModal('login');
-    return;
-  }
-  
-  const token = typeof getAuthToken === 'function' ? getAuthToken() : null;
-  const authHeaders = token ? { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' };
-  
-  let backdrop = document.getElementById('popup-modal-backdrop');
-  if (!backdrop) {
-    backdrop = document.createElement('div');
-    backdrop.id = 'popup-modal-backdrop';
-    backdrop.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;z-index:99999;backdrop-filter:blur(2px);';
-    document.body.appendChild(backdrop);
-  }
-  
-  backdrop.style.display = 'flex';
-  backdrop.innerHTML = `
-    <div id="popup-modal-content" style="background:#1e293b;border-radius:20px;width:90%;max-width:500px;max-height:85vh;overflow-y:auto;position:relative;">
-      <div style="padding:20px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
-          <h2 style="margin:0;font-size:20px;font-weight:700;color:#fff;">👥 Mes Amis</h2>
-          <button onclick="document.getElementById('popup-modal-backdrop').style.display='none'" style="background:none;border:none;color:#64748b;font-size:22px;cursor:pointer;">✕</button>
-        </div>
-        
-        <!-- Recherche d'amis -->
-        <div style="margin-bottom:20px;">
-            <div style="display:flex;gap:8px;">
-            <input id="friend-search-input" type="text" placeholder="Rechercher par nom ou email..." 
-              style="flex:1;padding:10px 14px;border-radius:12px;border:1px solid rgba(255,255,255,0.1);background:#0f172a;color:#e2e8f0;font-size:14px;"
-              oninput="searchFriends(this.value)" />
-          </div>
-          <div id="friend-search-results" style="margin-top:8px;"></div>
-        </div>
-        
-        <!-- Demandes reçues -->
-        <div id="friend-requests-section" style="margin-bottom:20px;">
-          <div style="font-size:13px;font-weight:600;color:#94a3b8;margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px;">Demandes reçues</div>
-          <div id="friend-requests-list" style="color:#64748b;font-size:13px;">Chargement...</div>
-        </div>
-        
-        <!-- Liste d'amis -->
-        <div>
-          <div style="font-size:13px;font-weight:600;color:#94a3b8;margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px;">Mes amis</div>
-          <div id="friends-list" style="color:#64748b;font-size:13px;">Chargement...</div>
-        </div>
-      </div>
-    </div>
-  `;
-  
-  backdrop.onclick = (e) => { if (e.target === backdrop) backdrop.style.display = 'none'; };
-  
-  // Charger les données
-  loadFriendRequests(authHeaders);
-  loadFriendsList(authHeaders);
-}
-
-window.searchFriends = async function(query) {
-  const resultsDiv = document.getElementById('friend-search-results');
-  if (!resultsDiv) return;
-  if (!query || query.length < 2) { resultsDiv.innerHTML = ''; return; }
-  
-  const token = typeof getAuthToken === 'function' ? getAuthToken() : null;
-  if (!token) { resultsDiv.innerHTML = '<div style="color:#ef4444;font-size:12px;">Connexion requise</div>'; return; }
-  
-  try {
-    const resp = await fetch(`${window.API_BASE_URL}/friends/search?q=${encodeURIComponent(query)}`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    if (!resp.ok) throw new Error('Erreur recherche');
-    const data = await resp.json();
-    
-    if (!data.users || data.users.length === 0) {
-      resultsDiv.innerHTML = '<div style="padding:8px;color:#64748b;font-size:13px;">Aucun utilisateur trouvé</div>';
-      return;
-    }
-    
-    resultsDiv.innerHTML = data.users.map(u => `
-      <div style="display:flex;align-items:center;gap:10px;padding:10px;border-radius:10px;background:rgba(15,23,42,0.5);margin-bottom:6px;">
-        <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#3b82f6,#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff;font-weight:700;flex-shrink:0;">
-          ${u.avatar ? `<img src="${u.avatar}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" onerror="this.outerHTML='👤'">` : (u.username||'U').charAt(0).toUpperCase()}
-        </div>
-        <div style="flex:1;min-width:0;">
-          <div style="font-weight:600;font-size:14px;color:#e2e8f0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(u.username || 'Utilisateur')}</div>
-        </div>
-        <button onclick="sendFriendRequest('${u.id}')" style="padding:6px 14px;border-radius:8px;border:none;background:#3b82f6;color:#fff;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">+ Ajouter</button>
-      </div>
-    `).join('');
-  } catch(e) {
-    resultsDiv.innerHTML = '<div style="color:#ef4444;font-size:12px;">Erreur de recherche</div>';
-  }
-};
-
-window.sendFriendRequest = async function(toUserId) {
-  const token = typeof getAuthToken === 'function' ? getAuthToken() : null;
-  if (!token) return;
-  
-  try {
-    const resp = await fetch(`${window.API_BASE_URL}/friends/request`, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ toUserId })
-    });
-    const data = await resp.json();
-    
-    if (data.status === 'accepted') {
-      showNotification('Vous etes maintenant amis !', 'success');
-      openFriendsModal(); // Rafraichir
-    } else if (data.status === 'pending') {
-      showNotification('Demande d\'ami envoyee !', 'success');
-    } else if (data.error) {
-      showNotification(data.error, 'warning');
-    }
-  } catch(e) {
-    showNotification('Erreur lors de l\'envoi', 'error');
-  }
-};
-
-async function loadFriendRequests(authHeaders) {
-  const div = document.getElementById('friend-requests-list');
-  if (!div) return;
-  
-  try {
-    const resp = await fetch(`${window.API_BASE_URL}/friends/requests`, { headers: authHeaders });
-    if (!resp.ok) throw new Error();
-    const data = await resp.json();
-    
-    if (!data.requests || data.requests.length === 0) {
-      div.innerHTML = '<div style="padding:8px;color:#64748b;font-size:13px;">Aucune demande en attente</div>';
-      // Cacher la section
-      const section = document.getElementById('friend-requests-section');
-      if (section) section.style.display = 'none';
-      return;
-    }
-    
-    div.innerHTML = data.requests.map(r => `
-      <div style="display:flex;align-items:center;gap:10px;padding:10px;border-radius:10px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.2);margin-bottom:6px;">
-        <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#3b82f6,#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff;font-weight:700;flex-shrink:0;">
-          ${(r.username||'U').charAt(0).toUpperCase()}
-              </div>
-              <div style="flex:1;">
-          <div style="font-weight:600;font-size:14px;color:#e2e8f0;">${escapeHtml(r.username)}</div>
-          <div style="font-size:11px;color:#64748b;">Demande d'ami</div>
-                  </div>
-        <button onclick="respondFriendRequest(${r.requestId},'accept')" style="padding:6px 12px;border-radius:8px;border:none;background:#22c55e;color:#fff;font-size:12px;font-weight:600;cursor:pointer;">Accepter</button>
-        <button onclick="respondFriendRequest(${r.requestId},'reject')" style="padding:6px 12px;border-radius:8px;border:none;background:#ef4444;color:#fff;font-size:12px;font-weight:600;cursor:pointer;">Refuser</button>
-                </div>
-    `).join('');
-  } catch(e) {
-    div.innerHTML = '<div style="color:#ef4444;font-size:12px;">Erreur chargement</div>';
-  }
-}
-
-window.respondFriendRequest = async function(requestId, action) {
-  const token = typeof getAuthToken === 'function' ? getAuthToken() : null;
-  if (!token) return;
-  
-  try {
-    await fetch(`${window.API_BASE_URL}/friends/respond`, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ requestId, action })
-    });
-    showNotification(action === 'accept' ? 'Ami accepte !' : 'Demande refusee', action === 'accept' ? 'success' : 'info');
-    openFriendsModal(); // Rafraichir
-  } catch(e) {
-    showNotification('Erreur', 'error');
-  }
-};
-
-async function loadFriendsList(authHeaders) {
-  const div = document.getElementById('friends-list');
-  if (!div) return;
-  
-  try {
-    const resp = await fetch(`${window.API_BASE_URL}/friends/list`, { headers: authHeaders });
-    if (!resp.ok) throw new Error();
-    const data = await resp.json();
-    
-    if (!data.friends || data.friends.length === 0) {
-      div.innerHTML = '<div style="text-align:center;padding:30px;"><div style="font-size:48px;margin-bottom:12px;opacity:0.5;">👥</div><div style="color:#64748b;font-size:14px;">Pas encore d\'amis</div><div style="color:#475569;font-size:12px;margin-top:4px;">Recherchez des utilisateurs ci-dessus !</div></div>';
-      return;
-    }
-    
-    // Stocker pour utiliser ailleurs (invitations)
-    window._friendsList = data.friends;
-    
-    div.innerHTML = data.friends.map(f => `
-      <div style="display:flex;align-items:center;gap:10px;padding:10px;border-radius:10px;background:rgba(15,23,42,0.5);margin-bottom:6px;">
-        <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#3b82f6,#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:16px;color:#fff;font-weight:700;flex-shrink:0;">
-          ${f.avatar ? `<img src="${f.avatar}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" onerror="this.outerHTML='${(f.username||'U').charAt(0).toUpperCase()}'">` : (f.username||'U').charAt(0).toUpperCase()}
-              </div>
-        <div style="flex:1;">
-          <div style="font-weight:600;font-size:14px;color:#e2e8f0;">${escapeHtml(f.username)}</div>
-          <div style="font-size:11px;color:#64748b;">Ami depuis ${f.since ? new Date(f.since).toLocaleDateString('fr-FR', {day:'numeric',month:'short',year:'numeric'}) : '...'}</div>
-            </div>
-        <button onclick="openPrivateChat('${f.id}','${escapeHtml(f.username)}')" style="padding:6px 10px;border-radius:8px;border:1px solid rgba(59,130,246,0.3);background:transparent;color:#3b82f6;font-size:12px;cursor:pointer;" title="Discuter">💬</button>
-        <button onclick="removeFriend('${f.id}')" style="padding:6px 10px;border-radius:8px;border:1px solid rgba(239,68,68,0.3);background:transparent;color:#ef4444;font-size:12px;cursor:pointer;" title="Retirer">✕</button>
-                </div>
-    `).join('');
-  } catch(e) {
-    div.innerHTML = '<div style="color:#ef4444;font-size:12px;">Erreur chargement</div>';
-  }
-}
-
-window.removeFriend = async function(friendId) {
-  if (!confirm('Retirer cet ami ?')) return;
-  const token = typeof getAuthToken === 'function' ? getAuthToken() : null;
-  if (!token) return;
-  
-  try {
-    await fetch(`${window.API_BASE_URL}/friends/remove`, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ friendId })
-    });
-    showNotification('Ami retire', 'info');
-    openFriendsModal();
-  } catch(e) {}
-};
-
-window.openPrivateChat = function(friendId, friendName) {
-  showNotification('Discussion privee avec ' + friendName + ' - bientot disponible !', 'info');
-};
-
-// ============================================
-// INVITER DES AMIS À UN EVENT
-// ============================================
-
-function openInviteFriendsModal(itemType, itemId, itemTitle) {
-  if (!currentUser || !currentUser.isLoggedIn) { openAuthModal('login'); return; }
-  
-  const token = typeof getAuthToken === 'function' ? getAuthToken() : null;
-  if (!token) return;
-  
-  // Créer le modal d'invitation
-  let modal = document.getElementById('invite-friends-modal');
-  if (modal) modal.remove();
-  
-  modal = document.createElement('div');
-  modal.id = 'invite-friends-modal';
-  modal.style.cssText = 'position:fixed;inset:0;z-index:100001;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);';
-  modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
-  
-  modal.innerHTML = `
-    <div style="background:#1e293b;border-radius:18px;width:90%;max-width:420px;max-height:80vh;overflow-y:auto;padding:20px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-        <div>
-          <div style="font-size:16px;font-weight:700;color:#fff;">Inviter des amis</div>
-          <div style="font-size:12px;color:#64748b;margin-top:2px;">${escapeHtml(itemTitle || '')}</div>
-                </div>
-        <button onclick="this.closest('#invite-friends-modal').remove()" style="background:none;border:none;color:#64748b;font-size:20px;cursor:pointer;">✕</button>
-              </div>
-      <input id="invite-search-input" type="text" placeholder="Chercher un ami..." 
-        style="width:100%;padding:10px 14px;border-radius:10px;border:1px solid rgba(255,255,255,0.1);background:#0f172a;color:#e2e8f0;font-size:14px;margin-bottom:12px;box-sizing:border-box;"
-        oninput="filterInviteList(this.value)" />
-      <div id="invite-friends-list" style="color:#64748b;">Chargement...</div>
-            </div>
-  `;
-  document.body.appendChild(modal);
-  
-  // Charger la liste d'amis
-  fetch(`${window.API_BASE_URL}/friends/list`, {
-    headers: { 'Authorization': `Bearer ${token}` }
-  }).then(r => r.json()).then(data => {
-    const listDiv = document.getElementById('invite-friends-list');
-    if (!listDiv) return;
-    
-    const friends = data.friends || [];
-    if (friends.length === 0) {
-      listDiv.innerHTML = '<div style="text-align:center;padding:20px;color:#64748b;">Pas encore d\'amis a inviter</div>';
-      return;
-    }
-    
-    window._inviteFriends = friends;
-    renderInviteList(friends, itemType, itemId);
-  }).catch(() => {
-    const listDiv = document.getElementById('invite-friends-list');
-    if (listDiv) listDiv.innerHTML = '<div style="color:#ef4444;">Erreur chargement</div>';
-  });
-}
-
-window.filterInviteList = function(query) {
-  if (!window._inviteFriends) return;
-  const filtered = query.length < 1 ? window._inviteFriends : window._inviteFriends.filter(f => 
-    (f.username||'').toLowerCase().includes(query.toLowerCase()) ||
-    (f.email||'').toLowerCase().includes(query.toLowerCase())
-  );
-  const itemType = window._currentInviteType || 'event';
-  const itemId = window._currentInviteId || 0;
-  renderInviteList(filtered, itemType, itemId);
-};
-
-function renderInviteList(friends, itemType, itemId) {
-  window._currentInviteType = itemType;
-  window._currentInviteId = itemId;
-  const listDiv = document.getElementById('invite-friends-list');
-  if (!listDiv) return;
-  
-  listDiv.innerHTML = friends.map(f => `
-    <div style="display:flex;align-items:center;gap:10px;padding:10px;border-radius:10px;background:rgba(15,23,42,0.5);margin-bottom:6px;">
-      <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#3b82f6,#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff;font-weight:700;flex-shrink:0;">
-        ${(f.username||'U').charAt(0).toUpperCase()}
-              </div>
-      <div style="flex:1;font-weight:600;font-size:14px;color:#e2e8f0;">${escapeHtml(f.username)}</div>
-      <button onclick="inviteFriendToEvent('${f.id}','${itemType}',${itemId})" style="padding:6px 14px;border-radius:8px;border:none;background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;font-size:12px;font-weight:600;cursor:pointer;">Inviter</button>
-    </div>
-  `).join('');
-}
-
-window.inviteFriendToEvent = async function(friendId, itemType, itemId) {
-  const token = typeof getAuthToken === 'function' ? getAuthToken() : null;
-  if (!token) return;
-  
-  try {
-    const resp = await fetch(`${window.API_BASE_URL}/friends/invite`, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ friendId, itemType, itemId })
-    });
-    if (resp.ok) {
-      showNotification('Invitation envoyee !', 'success');
-    } else {
-      const data = await resp.json();
-      showNotification(data.error || 'Erreur', 'error');
-    }
-  } catch(e) {
-    showNotification('Erreur d\'envoi', 'error');
-  }
-};
-
-window.openInviteFriendsModal = openInviteFriendsModal;
-window.openFriendsModal = openFriendsModal;
-
-// ============================================
-// NOTIFICATIONS - UI
-// ============================================
-
-async function openNotificationsModal() {
-  if (!currentUser || !currentUser.isLoggedIn) { openAuthModal('login'); return; }
-  
-  const token = typeof getAuthToken === 'function' ? getAuthToken() : null;
-  if (!token) return;
-  
-  let backdrop = document.getElementById('popup-modal-backdrop');
-  if (!backdrop) {
-    backdrop = document.createElement('div');
-    backdrop.id = 'popup-modal-backdrop';
-    backdrop.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;z-index:99999;backdrop-filter:blur(2px);';
-    document.body.appendChild(backdrop);
-  }
-  backdrop.style.display = 'flex';
-  backdrop.onclick = (e) => { if (e.target === backdrop) backdrop.style.display = 'none'; };
-  
-  backdrop.innerHTML = `
-    <div id="popup-modal-content" style="background:#1e293b;border-radius:20px;width:90%;max-width:500px;max-height:85vh;overflow-y:auto;padding:20px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
-        <h2 style="margin:0;font-size:20px;font-weight:700;color:#fff;">🔔 Notifications</h2>
-        <div style="display:flex;gap:8px;align-items:center;">
-          <button onclick="markAllNotificationsRead()" style="padding:6px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);background:transparent;color:#64748b;font-size:11px;cursor:pointer;">Tout lire</button>
-          <button onclick="document.getElementById('popup-modal-backdrop').style.display='none'" style="background:none;border:none;color:#64748b;font-size:22px;cursor:pointer;">✕</button>
-        </div>
-      </div>
-      <div id="notifications-list" style="color:#64748b;">Chargement...</div>
-          </div>
-        `;
-  
-  try {
-    const resp = await fetch(`${window.API_BASE_URL}/notifications`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    if (!resp.ok) throw new Error();
-    const data = await resp.json();
-    const listDiv = document.getElementById('notifications-list');
-    if (!listDiv) return;
-    
-    if (!data.notifications || data.notifications.length === 0) {
-      listDiv.innerHTML = '<div style="text-align:center;padding:40px;"><div style="font-size:48px;margin-bottom:12px;opacity:0.5;">🔔</div><div style="color:#64748b;">Aucune notification</div></div>';
-      return;
-    }
-    
-    const typeIcons = { 'friend_request': '👥', 'friend_accepted': '🤝', 'event_invite': '📅', 'social_like': '❤️', 'social_comment': '💬' };
-    const typeLabels = { 'friend_request': 'Demande d\'ami', 'friend_accepted': 'Ami accepte', 'event_invite': 'Invitation event', 'social_like': 'A aime votre post', 'social_comment': 'A commente' };
-    
-    listDiv.innerHTML = data.notifications.map(n => `
-      <div style="display:flex;gap:12px;padding:12px;border-radius:12px;background:${n.isRead ? 'transparent' : 'rgba(59,130,246,0.08)'};border:1px solid ${n.isRead ? 'rgba(255,255,255,0.05)' : 'rgba(59,130,246,0.15)'};margin-bottom:8px;cursor:pointer;" onclick="markNotificationRead(${n.id})">
-        <div style="width:40px;height:40px;border-radius:50%;background:rgba(59,130,246,0.15);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">
-          ${typeIcons[n.type] || '🔔'}
-        </div>
-        <div style="flex:1;">
-          <div style="font-size:14px;color:#e2e8f0;"><strong>${escapeHtml(n.fromUsername)}</strong> ${typeLabels[n.type] || n.message || ''}</div>
-          <div style="font-size:11px;color:#64748b;margin-top:4px;">${n.date ? new Date(n.date).toLocaleDateString('fr-FR', {day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}) : ''}</div>
-        </div>
-        ${!n.isRead ? '<div style="width:8px;height:8px;border-radius:50%;background:#3b82f6;flex-shrink:0;align-self:center;"></div>' : ''}
-      </div>
-    `).join('');
-  } catch(e) {
-    const listDiv = document.getElementById('notifications-list');
-    if (listDiv) listDiv.innerHTML = '<div style="color:#ef4444;">Erreur chargement notifications</div>';
-  }
-}
-
-window.markNotificationRead = async function(notifId) {
-  const token = typeof getAuthToken === 'function' ? getAuthToken() : null;
-  if (!token) return;
-  try {
-    await fetch(`${window.API_BASE_URL}/notifications/read`, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ notificationId: notifId })
-    });
-  } catch(e) {}
-};
-
-window.markAllNotificationsRead = async function() {
-  const token = typeof getAuthToken === 'function' ? getAuthToken() : null;
-  if (!token) return;
-  try {
-    await fetch(`${window.API_BASE_URL}/notifications/read`, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({})
-    });
-    showNotification('Toutes les notifications marquees comme lues', 'success');
-    openNotificationsModal();
-  } catch(e) {}
-};
-
-window.openNotificationsModal = openNotificationsModal;
-
-// ============================================
-// MAP FRIEND - FIL SOCIAL TYPE FACEBOOK
-// ============================================
-
-async function openMapFriendModal() {
-  if (!currentUser || !currentUser.isLoggedIn) { openAuthModal('login'); return; }
-  
-  const token = typeof getAuthToken === 'function' ? getAuthToken() : null;
-  if (!token) return;
-  
-  let backdrop = document.getElementById('popup-modal-backdrop');
-  if (!backdrop) {
-    backdrop = document.createElement('div');
-    backdrop.id = 'popup-modal-backdrop';
-    backdrop.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;z-index:99999;backdrop-filter:blur(2px);';
-    document.body.appendChild(backdrop);
-  }
-  backdrop.style.display = 'flex';
-  backdrop.onclick = (e) => { if (e.target === backdrop) backdrop.style.display = 'none'; };
-  
-  backdrop.innerHTML = `
-    <div id="popup-modal-content" style="background:var(--ui-card-bg, #0f172a);border-radius:20px;width:95%;max-width:550px;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;">
-      <!-- Header -->
-      <div style="padding:16px 20px;border-bottom:1px solid rgba(255,255,255,0.1);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
-        <div style="display:flex;align-items:center;gap:10px;">
-          <span style="font-size:22px;">🌐</span>
-          <span style="font-size:18px;font-weight:700;color:#e4e6eb;">Map Friend</span>
-        </div>
-        <button onclick="document.getElementById('popup-modal-backdrop').style.display='none'" style="background:none;border:none;color:#b0b3b8;font-size:22px;cursor:pointer;">✕</button>
-      </div>
-      
-      <!-- Zone de creation de post -->
-      <div style="padding:16px 20px;border-bottom:1px solid rgba(255,255,255,0.1);flex-shrink:0;">
-        <div style="display:flex;gap:10px;align-items:flex-start;">
-          <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#3b82f6,#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:16px;color:#fff;font-weight:700;flex-shrink:0;">
-            ${(currentUser.username||'U').charAt(0).toUpperCase()}
-              </div>
-              <div style="flex:1;">
-            <textarea id="social-post-input" placeholder="Quoi de neuf ? Partagez un event, un lien, un message..." 
-              style="width:100%;min-height:60px;max-height:150px;padding:10px 14px;border-radius:14px;border:none;background:#3a3b3c;color:#e4e6eb;font-size:15px;resize:none;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;box-sizing:border-box;"
-              oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,150)+'px';"></textarea>
-            <div style="display:flex;gap:8px;margin-top:8px;align-items:center;">
-              <button onclick="showShareEventPicker()" style="padding:6px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);background:transparent;color:#45bd62;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px;">📅 Event</button>
-              <button onclick="addLinkToPost()" style="padding:6px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);background:transparent;color:#3b82f6;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px;">🔗 Lien</button>
-              <div style="flex:1;"></div>
-              <button onclick="submitSocialPost()" style="padding:8px 20px;border-radius:10px;border:none;background:#1877f2;color:#fff;font-size:13px;font-weight:600;cursor:pointer;">Publier</button>
-              </div>
-            </div>
-                  </div>
-                  </div>
-      
-      <!-- Fil social -->
-      <div id="social-feed" style="flex:1;overflow-y:auto;padding:12px 20px;">
-        <div style="text-align:center;padding:20px;color:#b0b3b8;">Chargement du fil...</div>
-              </div>
-            </div>
-  `;
-  
-  // Charger le fil social
-  loadSocialFeed(token);
-}
-
-async function loadSocialFeed(token, page = 1) {
-  const feedDiv = document.getElementById('social-feed');
-  if (!feedDiv) return;
-  
-  try {
-    const resp = await fetch(`${window.API_BASE_URL}/social/feed?page=${page}`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    if (!resp.ok) throw new Error();
-    const data = await resp.json();
-    
-    if (!data.posts || data.posts.length === 0) {
-      feedDiv.innerHTML = `
-        <div style="text-align:center;padding:60px 20px;">
-          <div style="font-size:64px;margin-bottom:16px;opacity:0.5;">🌐</div>
-          <div style="font-size:18px;font-weight:700;color:#e4e6eb;margin-bottom:8px;">Bienvenue sur Map Friend !</div>
-          <div style="font-size:14px;color:#b0b3b8;max-width:300px;margin:0 auto;">Ajoutez des amis et partagez vos evenements, liens et messages. Tout le monde peut voir et repondre !</div>
-                </div>
-      `;
-      return;
-    }
-    
-    const userId = String(currentUser.id || '');
-    
-    feedDiv.innerHTML = data.posts.map(p => {
-      const isLiked = (p.likes || []).includes(userId);
-      const likesCount = (p.likes || []).length;
-      const isOwn = p.userId === userId;
-      const timeStr = p.date ? formatSocialTime(p.date) : '';
-      
-      // Contenu de l'event partagé si présent
-      const eventCard = p.eventId && p.eventTitle ? `
-        <div style="margin:8px 0;padding:12px;border-radius:12px;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.15);cursor:pointer;" onclick="openEventById(${p.eventId})">
-          <div style="font-size:14px;font-weight:600;color:#e4e6eb;">📅 ${escapeHtml(p.eventTitle)}</div>
-          ${p.eventDate ? `<div style="font-size:12px;color:#b0b3b8;margin-top:4px;">${p.eventDate}${p.eventCity ? ' - ' + escapeHtml(p.eventCity) : ''}</div>` : ''}
-                </div>
-      ` : '';
-      
-      const linkCard = p.linkUrl ? `
-        <div style="margin:8px 0;padding:12px;border-radius:12px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);">
-          <a href="${p.linkUrl}" target="_blank" rel="noopener" style="color:#3b82f6;font-size:13px;word-break:break-all;">${escapeHtml(p.linkTitle || p.linkUrl)}</a>
-              </div>
-      ` : '';
-      
-      return `
-        <div style="background:rgba(15,23,42,0.6);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:14px;margin-bottom:12px;">
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-            <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#3b82f6,#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:16px;color:#fff;font-weight:700;flex-shrink:0;">
-              ${p.avatar ? `<img src="${p.avatar}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" onerror="this.outerHTML='${(p.username||'U').charAt(0).toUpperCase()}'">` : (p.username||'U').charAt(0).toUpperCase()}
-            </div>
-            <div style="flex:1;">
-              <div style="font-weight:600;font-size:15px;color:#e4e6eb;">${escapeHtml(p.username)}</div>
-              <div style="font-size:12px;color:#b0b3b8;">${timeStr}</div>
-              </div>
-            ${isOwn ? `<button onclick="deleteSocialPost(${p.id})" style="background:none;border:none;color:#64748b;font-size:16px;cursor:pointer;" title="Supprimer">🗑️</button>` : ''}
-          </div>
-          ${p.content ? `<div style="font-size:15px;color:#e4e6eb;line-height:1.4;margin-bottom:8px;white-space:pre-wrap;word-break:break-word;">${escapeHtml(p.content)}</div>` : ''}
-          ${eventCard}
-          ${linkCard}
-          
-          <!-- Actions -->
-          <div style="display:flex;align-items:center;gap:4px;padding:4px 0;margin-top:4px;border-top:1px solid rgba(255,255,255,0.08);">
-            <button onclick="toggleSocialLike(${p.id})" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:none;border:none;color:${isLiked ? '#1877f2' : '#b0b3b8'};font-size:14px;font-weight:600;cursor:pointer;padding:8px;border-radius:6px;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='none'">
-              <span>👍</span> <span>J'aime${likesCount > 0 ? ' (' + likesCount + ')' : ''}</span>
-            </button>
-            <button onclick="openSocialComments(${p.id})" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:none;border:none;color:#b0b3b8;font-size:14px;font-weight:600;cursor:pointer;padding:8px;border-radius:6px;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='none'">
-              <span>💬</span> <span>Commenter${p.commentCount > 0 ? ' (' + p.commentCount + ')' : ''}</span>
-            </button>
-          </div>
-          
-          <!-- Zone commentaires (cachée par défaut) -->
-          <div id="social-comments-${p.id}" style="display:none;margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.05);"></div>
-          </div>
-        `;
-    }).join('');
-  } catch(e) {
-    feedDiv.innerHTML = '<div style="text-align:center;padding:20px;color:#ef4444;">Erreur de chargement du fil social</div>';
-  }
-}
-
-function formatSocialTime(dateStr) {
-  const date = new Date(dateStr);
-  const now = new Date();
-  const diff = now - date;
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'A l\'instant';
-  if (mins < 60) return `Il y a ${mins} min`;
-  const hours = Math.floor(diff / 3600000);
-  if (hours < 24) return `Il y a ${hours}h`;
-  const days = Math.floor(diff / 86400000);
-  if (days < 7) return `Il y a ${days}j`;
-  return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
-}
-
-window.submitSocialPost = async function() {
-  const input = document.getElementById('social-post-input');
-  if (!input || !input.value.trim()) { showNotification('Ecrivez quelque chose !', 'warning'); return; }
-  
-  const token = typeof getAuthToken === 'function' ? getAuthToken() : null;
-  if (!token) return;
-  
-  const content = input.value.trim();
-  const eventId = window._socialPostEventId || null;
-  const linkUrl = window._socialPostLinkUrl || null;
-  const linkTitle = window._socialPostLinkTitle || null;
-  
-  try {
-    const resp = await fetch(`${window.API_BASE_URL}/social/post`, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content, eventId, linkUrl, linkTitle, type: eventId ? 'event_share' : linkUrl ? 'link' : 'text' })
-    });
-    if (resp.ok) {
-      input.value = '';
-      window._socialPostEventId = null;
-      window._socialPostLinkUrl = null;
-      window._socialPostLinkTitle = null;
-      showNotification('Publication partagee !', 'success');
-      loadSocialFeed(token);
-    }
-  } catch(e) {
-    showNotification('Erreur de publication', 'error');
-  }
-};
-
-window.toggleSocialLike = async function(postId) {
-  const token = typeof getAuthToken === 'function' ? getAuthToken() : null;
-  if (!token) return;
-  
-  try {
-    await fetch(`${window.API_BASE_URL}/social/post/${postId}/like`, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    loadSocialFeed(token);
-  } catch(e) {}
-};
-
-window.deleteSocialPost = async function(postId) {
-  if (!confirm('Supprimer cette publication ?')) return;
-  const token = typeof getAuthToken === 'function' ? getAuthToken() : null;
-  if (!token) return;
-  
-  try {
-    await fetch(`${window.API_BASE_URL}/social/post/${postId}`, {
-      method: 'DELETE',
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    showNotification('Publication supprimee', 'info');
-    loadSocialFeed(token);
-  } catch(e) {}
-};
-
-window.openSocialComments = async function(postId) {
-  const commentsDiv = document.getElementById(`social-comments-${postId}`);
-  if (!commentsDiv) return;
-  
-  // Toggle visibilité
-  if (commentsDiv.style.display === 'block') {
-    commentsDiv.style.display = 'none';
-    return;
-  }
-  commentsDiv.style.display = 'block';
-  commentsDiv.innerHTML = '<div style="padding:8px;color:#64748b;font-size:13px;">Chargement...</div>';
-  
-  try {
-    const resp = await fetch(`${window.API_BASE_URL}/social/post/${postId}/comments`);
-    if (!resp.ok) throw new Error();
-    const data = await resp.json();
-    
-    const comments = data.comments || [];
-    const userId = String(currentUser.id || '');
-    
-    commentsDiv.innerHTML = `
-      ${comments.map(c => `
-        <div style="display:flex;gap:8px;margin-bottom:8px;">
-          <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#3b82f6,#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:12px;color:#fff;font-weight:700;flex-shrink:0;">
-            ${(c.username||'U').charAt(0).toUpperCase()}
-          </div>
-          <div style="flex:1;">
-            <div style="background:#3a3b3c;border-radius:14px;padding:8px 12px;">
-              <span style="font-weight:600;font-size:13px;color:#e4e6eb;">${escapeHtml(c.username)}</span>
-              <span style="font-size:13px;color:#e4e6eb;"> ${escapeHtml(c.content)}</span>
-            </div>
-            <div style="font-size:11px;color:#b0b3b8;margin-top:2px;margin-left:12px;">${c.date ? formatSocialTime(c.date) : ''}</div>
-          </div>
-        </div>
-      `).join('')}
-      <div style="display:flex;gap:8px;margin-top:8px;">
-        <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#3b82f6,#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:12px;color:#fff;font-weight:700;flex-shrink:0;">
-          ${(currentUser.username||'U').charAt(0).toUpperCase()}
-        </div>
-        <div style="flex:1;">
-          <textarea id="social-comment-input-${postId}" placeholder="Ecrire un commentaire..." 
-            style="width:100%;min-height:32px;padding:8px 12px;border-radius:18px;border:none;background:#3a3b3c;color:#e4e6eb;font-size:13px;resize:none;box-sizing:border-box;"
-            onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();submitSocialComment(${postId});}"></textarea>
-        </div>
-          </div>
-        `;
-  } catch(e) {
-    commentsDiv.innerHTML = '<div style="color:#ef4444;font-size:12px;">Erreur</div>';
-  }
-};
-
-window.submitSocialComment = async function(postId) {
-  const input = document.getElementById(`social-comment-input-${postId}`);
-  if (!input || !input.value.trim()) return;
-  
-  const token = typeof getAuthToken === 'function' ? getAuthToken() : null;
-  if (!token) return;
-  
-  try {
-    const resp = await fetch(`${window.API_BASE_URL}/social/post/${postId}/comment`, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content: input.value.trim() })
-    });
-    if (resp.ok) {
-      input.value = '';
-      openSocialComments(postId); // Rafraichir
-    }
-  } catch(e) {}
-};
-
-window.showShareEventPicker = function() {
-  // Afficher un mini-picker d'events de l'agenda
-  const agendaItems = (currentUser.agenda || []).map(key => {
-    const [type, id] = key.split(':');
-    if (type !== 'event') return null;
-    const ev = eventsData.find(e => e.id === parseInt(id));
-    return ev;
-  }).filter(Boolean);
-  
-  if (agendaItems.length === 0) {
-    showNotification('Ajoutez d\'abord des events a votre agenda !', 'info');
-    return;
-  }
-  
-  let picker = document.getElementById('event-share-picker');
-  if (picker) { picker.remove(); return; }
-  
-  picker = document.createElement('div');
-  picker.id = 'event-share-picker';
-  picker.style.cssText = 'position:fixed;bottom:200px;left:50%;transform:translateX(-50%);width:90%;max-width:400px;max-height:250px;overflow-y:auto;background:#2d2d30;border-radius:14px;border:1px solid rgba(255,255,255,0.1);z-index:100002;padding:8px;box-shadow:0 8px 32px rgba(0,0,0,0.5);';
-  
-  picker.innerHTML = `
-    <div style="font-size:12px;color:#94a3b8;padding:8px;font-weight:600;">Choisir un event a partager :</div>
-    ${agendaItems.map(ev => `
-      <div onclick="selectEventForShare(${ev.id},'${escapeHtml(ev.title||'')}')" style="padding:10px;border-radius:8px;cursor:pointer;color:#e4e6eb;font-size:13px;" onmouseover="this.style.background='rgba(59,130,246,0.1)'" onmouseout="this.style.background='none'">
-        📅 ${escapeHtml(ev.title || 'Sans titre')} ${ev.city ? '- ' + escapeHtml(ev.city) : ''}
-      </div>
-    `).join('')}
-  `;
-  document.body.appendChild(picker);
-};
-
-window.selectEventForShare = function(eventId, title) {
-  window._socialPostEventId = eventId;
-  const picker = document.getElementById('event-share-picker');
-  if (picker) picker.remove();
-  const input = document.getElementById('social-post-input');
-  if (input && !input.value.includes(title)) {
-    input.value = (input.value ? input.value + '\n' : '') + '📅 ' + title;
-  }
-  showNotification('Event ajoute au post !', 'success');
-};
-
-window.addLinkToPost = function() {
-  const url = prompt('Collez votre lien :');
-  if (!url) return;
-  window._socialPostLinkUrl = url;
-  window._socialPostLinkTitle = url;
-  const input = document.getElementById('social-post-input');
-  if (input && !input.value.includes(url)) {
-    input.value = (input.value ? input.value + '\n' : '') + '🔗 ' + url;
-  }
-  showNotification('Lien ajoute !', 'success');
-};
-
-window.openEventById = function(eventId) {
-  const ev = eventsData.find(e => e.id === eventId);
-  if (ev) {
-    const html = buildEventPopup(ev);
-    openPopupModal(html, ev);
-  }
-};
-
-window.openMapFriendModal = openMapFriendModal;
 
 function openReportModal(type, id, parentType = null, parentId = null) {
   // Déterminer le type d'affichage
@@ -22906,7 +24288,7 @@ async function submitReport(type, id, parentType = null, parentId = null) {
   
   const reason = document.querySelector('input[name="report-reason"]:checked');
   if (!reason) {
-    showNotification("⚠️ Veuillez sélectionner une raison", "warning");
+    showNotification("\u26A0️ Veuillez sélectionner une raison", "warning");
     return;
   }
   
@@ -22989,13 +24371,13 @@ function openPaymentModal(type, id, action) {
       
       <div style="display:grid;gap:10px;margin-bottom:16px;">
         <button onclick="processContactPayment('${type}', ${id})" style="padding:14px;border-radius:12px;border:2px solid #00ffc3;background:rgba(0,255,195,0.1);color:#00ffc3;font-weight:700;cursor:pointer;text-align:left;display:flex;justify-content:space-between;align-items:center;">
-          <span>💳 Payer CHF 1.–</span>
+          <span>💳 Payer CHF 1.\u2013</span>
           <span style="font-size:12px;color:var(--ui-text-muted);">Immédiat</span>
         </button>
         
         <button onclick="openSubscriptionModal()" style="padding:14px;border-radius:12px;border:2px solid #8b5cf6;background:rgba(139,92,246,0.1);color:#a78bfa;font-weight:700;cursor:pointer;text-align:left;display:flex;justify-content:space-between;align-items:center;">
-          <span>💎 Voir les abonnements</span>
-          <span style="font-size:12px;color:var(--ui-text-muted);">À partir de 5.–/mois</span>
+          <span>💎 Offres (bientôt)</span>
+          <span style="font-size:12px;color:var(--ui-text-muted);">À partir de 5.\u2013/mois</span>
         </button>
         
         <button onclick="addToCart('${type}', ${id})" style="padding:14px;border-radius:12px;border:2px solid #f59e0b;background:rgba(245,158,11,0.1);color:#f59e0b;font-weight:700;cursor:pointer;text-align:left;display:flex;justify-content:space-between;align-items:center;">
@@ -23042,7 +24424,7 @@ function addToCart(type, id) {
   
   // Vérifier si déjà dans le panier
   if (cart.some(item => item.key === key)) {
-    showNotification("⚠️ Déjà dans le panier", "warning");
+    showNotification("\u26A0️ Déjà dans le panier", "warning");
     return;
   }
   
@@ -23113,7 +24495,7 @@ function openCartModal() {
     <div style="padding:10px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
         <h2 style="margin:0;font-size:18px;">🛒 Mon Panier</h2>
-        <button onclick="closePublishModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--ui-text-muted);">✕</button>
+        <button onclick="closePublishModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--ui-text-muted);">\u2715</button>
       </div>
       
       <div style="max-height:300px;overflow-y:auto;margin-bottom:16px;">
@@ -23145,7 +24527,7 @@ function openCartModal() {
         </button>
         
         <button onclick="openSubscriptionModal()" style="width:100%;padding:12px;border-radius:999px;border:2px solid #8b5cf6;background:rgba(139,92,246,0.1);color:#a78bfa;font-weight:600;cursor:pointer;">
-          💎 Voir les abonnements (économisez !)
+          💎 Offres (bientôt)
         </button>
         
         <button onclick="openEcoMissionModal()" style="width:100%;padding:12px;border-radius:999px;border:2px solid #22c55e;background:rgba(34,197,94,0.1);color:#22c55e;font-weight:600;cursor:pointer;">
@@ -23225,11 +24607,11 @@ async function processCartCheckout() {
     const result = await stripe.redirectToCheckout({ sessionId });
     
     if (result.error) {
-      showNotification(`❌ Erreur : ${result.error.message}`, "error");
+      showNotification(`\u274C Erreur : ${result.error.message}`, "error");
     }
   } catch (error) {
     console.error('Erreur checkout:', error);
-    showNotification(`❌ Erreur lors du paiement : ${error.message}`, "error");
+    showNotification(`\u274C Erreur lors du paiement : ${error.message}`, "error");
   }
 }
 
@@ -23250,7 +24632,7 @@ function checkoutCart() {
     playPaymentSound();
     cart = [];
     updateCartCount();
-    showNotification(`✅ Paiement simulé (mode démo) : ${total.toFixed(2)} CHF`, "info");
+    showNotification(`\u2705 Paiement simulé (mode démo) : ${total.toFixed(2)} CHF`, "info");
     closePublishModal();
     refreshMarkers();
   });
@@ -23274,7 +24656,7 @@ async function processContactPayment(type, id) {
         paymentType: 'contact',
         itemType: type,
         itemId: id,
-        amount: 1.00, // CHF 1.–
+        amount: 1.00, // CHF 1.\u2013
         currency: 'CHF',
         email: currentUser.email
       })
@@ -23300,11 +24682,11 @@ async function processContactPayment(type, id) {
     const result = await stripe.redirectToCheckout({ sessionId });
     
     if (result.error) {
-      showNotification(`❌ Erreur : ${result.error.message}`, "error");
+      showNotification(`\u274C Erreur : ${result.error.message}`, "error");
     }
   } catch (error) {
     console.error('Erreur paiement:', error);
-    showNotification(`❌ Erreur lors du paiement : ${error.message}`, "error");
+    showNotification(`\u274C Erreur lors du paiement : ${error.message}`, "error");
   }
 }
 
@@ -23320,7 +24702,7 @@ function simulatePayment(type, id) {
       currentUser.agenda.push(key);
     }
     playPaymentSound();
-    showNotification("✅ Paiement simulé (mode démo)", "info");
+    showNotification("\u2705 Paiement simulé (mode démo)", "info");
     closePublishModal();
     refreshMarkers();
   });
@@ -23385,7 +24767,7 @@ async function showAgendaMiniWindow() {
       <div style="display:flex;align-items:center;justify-content:space-between;">
         <div style="font-size:16px;font-weight:700;">📅 Mon agenda (${agendaItems.length})</div>
         <div style="display:flex;gap:8px;">
-          <button onclick="hideAgendaMiniWindow()" style="padding:6px 12px;border-radius:8px;background:rgba(239,68,68,0.2);border:1px solid rgba(239,68,68,0.4);color:#ef4444;font-size:11px;cursor:pointer;">✕</button>
+          <button onclick="hideAgendaMiniWindow()" style="padding:6px 12px;border-radius:8px;background:rgba(239,68,68,0.2);border:1px solid rgba(239,68,68,0.4);color:#ef4444;font-size:11px;cursor:pointer;">\u2715</button>
         </div>
       </div>
     </div>
@@ -23406,7 +24788,7 @@ async function showAgendaMiniWindow() {
               <div style="font-weight:600;font-size:13px;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(item.title || item.name)}</div>
               <div style="font-size:11px;color:var(--ui-text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${item.startDate ? formatEventDateRange(item.startDate, item.endDate) : item.city}</div>
               ${item.type === 'event' ? `
-                <button onclick="event.stopPropagation();openAddAlarmModal('event', ${item.id})" style="margin-top:6px;padding:4px 8px;border-radius:6px;border:1px solid rgba(245,158,11,0.5);background:rgba(245,158,11,0.1);color:#f59e0b;cursor:pointer;font-size:10px;font-weight:600;">⏰ Alarme</button>
+                <button onclick="event.stopPropagation();openAddAlarmModal('event', ${item.id})" style="margin-top:6px;padding:4px 8px;border-radius:6px;border:1px solid rgba(245,158,11,0.5);background:rgba(245,158,11,0.1);color:#f59e0b;cursor:pointer;font-size:10px;font-weight:600;">\u23F0 Alarme</button>
               ` : ''}
             </div>
           </div>
@@ -23496,7 +24878,7 @@ window.handlePhotoUpload = function(event) {
   if (!file) return;
   
   if (!file.type.startsWith('image/')) {
-    showNotification("⚠️ Veuillez sélectionner une image", "warning");
+    showNotification("\u26A0️ Veuillez sélectionner une image", "warning");
     return;
   }
   
@@ -23515,7 +24897,7 @@ window.handlePhotoUpload = function(event) {
     });
     
     saveUser();
-    showNotification("✅ Photo ajoutée avec succès !", "success");
+    showNotification("\u2705 Photo ajoutée avec succès !", "success");
     openAccountModal(); // Rafraîchir le modal compte
   };
   reader.readAsDataURL(file);
@@ -23543,13 +24925,13 @@ function openAgendaModal() {
     <div style="padding:10px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
         <h2 style="margin:0;font-size:18px;">📅 ${window.t("my_agenda")}</h2>
-        <button onclick="closePublishModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--ui-text-muted);">${window.t("close") === "Fermer" ? "✕" : "×"}</button>
+        <button onclick="closePublishModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--ui-text-muted);">${window.t("close") === "Fermer" ? "\u2715" : "×"}</button>
       </div>
       
       ${agendaEvents.length > 0 ? `
         <!-- Bouton Ajouter Alarme -->
         <button onclick="closePublishModal();setTimeout(() => openAddAlarmModal('agenda'), 300);" style="width:100%;padding:12px;border-radius:12px;border:2px solid #f59e0b;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;font-weight:600;cursor:pointer;font-size:14px;transition:all 0.2s;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:16px;">
-          <span>⏰</span>
+          <span>\u23F0</span>
           <span>Ajouter alarme</span>
         </button>
       ` : ''}
@@ -23576,7 +24958,7 @@ function openAgendaModal() {
                 <div style="font-size:11px;color:var(--ui-text-muted);">${item.city}</div>
                 ${(currentUser.eventAlarms || []).some(a => a.eventId === item.id.toString() && item.type === 'event') ? `
                   <div style="margin-top:4px;display:flex;align-items:center;gap:4px;font-size:11px;color:#f59e0b;">
-                    <span>⏰</span>
+                    <span>\u23F0</span>
                     <span>${(currentUser.eventAlarms || []).filter(a => a.eventId === item.id.toString()).length} alarme${(currentUser.eventAlarms || []).filter(a => a.eventId === item.id.toString()).length > 1 ? 's' : ''}</span>
                   </div>
                 ` : ''}
@@ -23641,7 +25023,7 @@ function loadMoreAgendaItems() {
           <div style="font-size:11px;color:var(--ui-text-muted);">${item.city}</div>
           ${(currentUser.eventAlarms || []).some(a => a.eventId === item.id.toString() && item.type === 'event') ? `
             <div style="margin-top:4px;display:flex;align-items:center;gap:4px;font-size:11px;color:#f59e0b;">
-              <span>⏰</span>
+              <span>\u23F0</span>
               <span>${(currentUser.eventAlarms || []).filter(a => a.eventId === item.id.toString()).length} alarme${(currentUser.eventAlarms || []).filter(a => a.eventId === item.id.toString()).length > 1 ? 's' : ''}</span>
             </div>
           ` : ''}
@@ -23666,13 +25048,16 @@ function loadMoreAgendaItems() {
   }
 }
 
-function removeFromAgenda(type, id) {
+async function removeFromAgenda(type, id) {
   // Protection contre les erreurs TDZ
   const t = window.t || function(key) { return key; };
   
   const key = `${type}:${id}`;
-  currentUser.agenda = currentUser.agenda.filter(k => k !== key);
-  showNotification(`📅 ${window.t("removed_from_agenda")}`, "info");
+  if (currentUser.agenda.includes(key)) {
+    await toggleAgenda(type, id);
+  } else {
+    showNotification(`📅 ${t("removed_from_agenda")}`, "info");
+  }
   openAgendaModal(); // Rafraîchir
 }
 
@@ -23688,7 +25073,7 @@ if (!currentUser.eventAlarms) {
 // Ouvrir le modal pour ajouter une alarme
 function openAddAlarmModal(source, eventId = null) {
   if (!currentUser || !currentUser.isLoggedIn) {
-    showNotification("⚠️ Vous devez être connecté pour ajouter une alarme", "warning");
+    showNotification("\u26A0️ Vous devez être connecté pour ajouter une alarme", "warning");
     openLoginModal();
     return;
   }
@@ -23710,7 +25095,7 @@ function openAddAlarmModal(source, eventId = null) {
     });
     
     if (eventsToChoose.length === 0) {
-      showNotification("⚠️ Aucun événement disponible pour ajouter une alarme (limite de 2 alarmes atteinte)", "warning");
+      showNotification("\u26A0️ Aucun événement disponible pour ajouter une alarme (limite de 2 alarmes atteinte)", "warning");
       return;
     }
   }
@@ -23720,12 +25105,12 @@ function openAddAlarmModal(source, eventId = null) {
   if (eventId) {
     selectedEvent = eventsData.find(e => e.id === eventId);
     if (!selectedEvent) {
-      showNotification("⚠️ Événement introuvable", "error");
+      showNotification("\u26A0️ Événement introuvable", "error");
       return;
     }
     const alarms = (currentUser.eventAlarms || []).filter(a => a.eventId === eventId.toString());
     if (alarms.length >= 2) {
-      showNotification("⚠️ Limite de 2 alarmes atteinte pour cet événement", "warning");
+      showNotification("\u26A0️ Limite de 2 alarmes atteinte pour cet événement", "warning");
       return;
     }
   }
@@ -23733,14 +25118,14 @@ function openAddAlarmModal(source, eventId = null) {
   const html = `
     <div style="padding:24px;max-width:500px;margin:0 auto;max-height:85vh;overflow-y:auto;">
       <div style="text-align:center;margin-bottom:24px;">
-        <div style="font-size:48px;margin-bottom:12px;">⏰</div>
+        <div style="font-size:48px;margin-bottom:12px;">\u23F0</div>
         <h2 style="margin:0;font-size:22px;font-weight:700;color:#fff;">Ajouter une alarme</h2>
         <p style="color:var(--ui-text-muted);margin-top:8px;font-size:13px;">Recevez un rappel avant ou pendant l'événement</p>
         <div style="margin-top:12px;padding:12px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);border-radius:10px;font-size:12px;color:var(--ui-text-muted);line-height:1.6;">
           <div style="font-weight:600;color:#3b82f6;margin-bottom:6px;">📱 Comment ça fonctionne ?</div>
-          <div>• <strong>Notifications navigateur</strong> : Une notification apparaîtra sur votre écran (comme les notifications WhatsApp)</div>
-          <div>• <strong>Email</strong> : Vous recevrez un email à l'adresse enregistrée</div>
-          <div>• <strong>SMS</strong> : Si configuré, vous recevrez un SMS sur votre téléphone</div>
+          <div>\u2022 <strong>Notifications navigateur</strong> : Une notification apparaîtra sur votre écran (comme les notifications WhatsApp)</div>
+          <div>\u2022 <strong>Email</strong> : Vous recevrez un email à l'adresse enregistrée</div>
+          <div>\u2022 <strong>SMS</strong> : Si configuré, vous recevrez un SMS sur votre téléphone</div>
           <div style="margin-top:8px;font-size:11px;color:#00ffc3;">💡 Pour les notifications navigateur, autorisez-les quand le navigateur vous le demande</div>
         </div>
       </div>
@@ -23843,25 +25228,25 @@ function openAddAlarmModal(source, eventId = null) {
 window.openAddAlarmModal = openAddAlarmModal;
 
 // Sauvegarder une alarme
-function saveAlarm(eventId) {
+async function saveAlarm(eventId) {
   const eventSelect = document.getElementById("alarm-event-select");
   const finalEventId = eventId || (eventSelect ? parseInt(eventSelect.value) : null);
   
   if (!finalEventId) {
-    showNotification("⚠️ Veuillez sélectionner un événement", "warning");
+    showNotification("\u26A0️ Veuillez sélectionner un événement", "warning");
     return;
   }
   
   const event = eventsData.find(e => e.id === finalEventId);
   if (!event) {
-    showNotification("⚠️ Événement introuvable", "error");
+    showNotification("\u26A0️ Événement introuvable", "error");
     return;
   }
   
   // Vérifier la limite de 2 alarmes
   const existingAlarms = (currentUser.eventAlarms || []).filter(a => a.eventId === finalEventId.toString());
   if (existingAlarms.length >= 2) {
-    showNotification("⚠️ Limite de 2 alarmes atteinte pour cet événement", "warning");
+    showNotification("\u26A0️ Limite de 2 alarmes atteinte pour cet événement", "warning");
     return;
   }
   
@@ -23872,14 +25257,14 @@ function saveAlarm(eventId) {
   if (alarmType === 'during') {
     const timeInput = document.getElementById("alarm-time");
     if (!timeInput || !timeInput.value) {
-      showNotification("⚠️ Veuillez sélectionner une heure", "warning");
+      showNotification("\u26A0️ Veuillez sélectionner une heure", "warning");
       return;
     }
     alarmTime = timeInput.value;
   } else {
     const timingSelect = document.getElementById("alarm-timing");
     if (!timingSelect || !timingSelect.value) {
-      showNotification("⚠️ Veuillez sélectionner un moment", "warning");
+      showNotification("\u26A0️ Veuillez sélectionner un moment", "warning");
       return;
     }
     alarmTiming = timingSelect.value;
@@ -23888,7 +25273,7 @@ function saveAlarm(eventId) {
   // Calculer la date de déclenchement
   const startDate = event.startDate ? new Date(event.startDate) : null;
   if (!startDate) {
-    showNotification("⚠️ L'événement n'a pas de date de début", "error");
+    showNotification("\u26A0️ L'événement n'a pas de date de début", "error");
     return;
   }
   
@@ -23925,19 +25310,20 @@ function saveAlarm(eventId) {
   currentUser.eventAlarms.push(alarm);
   saveUser();
   
-  showNotification("✅ Alarme ajoutée avec succès !", "success");
+  showNotification("\u2705 Alarme ajoutée avec succès !", "success");
   closePublishModal();
   
   // Rafraîchir la popup si elle est ouverte
   if (currentPopupMarker) {
     const item = getItemById('event', finalEventId);
     if (item) {
+      await ensureEventDetailsForPopup(item);
       const popupContent = buildEventPopup(item);
       const backdrop = document.getElementById("popup-modal-backdrop");
       if (backdrop) {
         backdrop.innerHTML = `
-          <div id="popup-modal-content" style="position:relative;width:380px;max-height:85vh;overflow:hidden;background:var(--ui-card-bg);border-radius:16px;border:1px solid var(--ui-card-border);margin:20px;box-shadow:0 20px 60px rgba(0,0,0,0.5);display:flex;flex-direction:column;padding:0;box-sizing:border-box;pointer-events:auto;">
-            <button onclick="closePopupModal()" style="position:absolute;top:12px;right:12px;width:36px;height:36px;border-radius:50%;border:none;background:rgba(0,0,0,0.6);color:#fff;cursor:pointer;font-size:20px;z-index:1001;display:flex;align-items:center;justify-content:center;transition:all 0.2s;" onmouseover="this.style.background='rgba(239,68,68,0.8)'" onmouseout="this.style.background='rgba(0,0,0,0.6)'">✕</button>
+          <div id="popup-modal-content" style="position:relative;width:min(92vw,460px);max-height:85vh;overflow:hidden;background:#ffffff;border-radius:16px;border:1px solid #e2e8f0;margin:20px;box-shadow:0 20px 60px rgba(0,0,0,0.5);display:flex;flex-direction:column;padding:0;box-sizing:border-box;pointer-events:auto;">
+            <button onclick="closePopupModal()" style="position:absolute;top:12px;right:12px;width:36px;height:36px;border-radius:50%;border:none;background:rgba(0,0,0,0.6);color:#fff;cursor:pointer;font-size:20px;z-index:1001;display:flex;align-items:center;justify-content:center;transition:all 0.2s;" onmouseover="this.style.background='rgba(239,68,68,0.8)'" onmouseout="this.style.background='rgba(0,0,0,0.6)'">\u2715</button>
             <div id="popup-scroll-container" style="flex:1;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;-webkit-overflow-scrolling:touch;width:100%;margin:0;padding:0;box-sizing:border-box;touch-action:pan-y;overscroll-behavior:contain;">
               ${popupContent}
             </div>
@@ -23967,8 +25353,8 @@ function checkEventAlarms() {
     const event = eventsData.find(e => e.id === parseInt(alarm.eventId));
     if (event) {
       const message = alarm.type === 'during' 
-        ? `⏰ ${event.title || 'Événement'} commence maintenant !`
-        : `⏰ Rappel : ${event.title || 'Événement'} ${alarm.timing === 'hour' ? 'dans 1 heure' : alarm.timing === 'day' ? 'demain' : 'dans 1 semaine'}`;
+        ? `\u23F0 ${event.title || 'Événement'} commence maintenant !`
+        : `\u23F0 Rappel : ${event.title || 'Événement'} ${alarm.timing === 'hour' ? 'dans 1 heure' : alarm.timing === 'day' ? 'demain' : 'dans 1 semaine'}`;
       
       showNotification(message, "info");
       alarm.triggered = true;
@@ -23982,7 +25368,142 @@ function checkEventAlarms() {
 
 // Vérifier les alarmes toutes les minutes
 setInterval(checkEventAlarms, 60000);
-checkEventAlarms(); // Vérifier immédiatement au chargement
+checkEventAlarms();
+
+// ============================================
+// NOTIFICATIONS PUSH FAVORIS - EVENTS QUI APPROCHENT
+// ============================================
+
+function requestNotificationPermission() {
+  if (!('Notification' in window)) return;
+  if (Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
+}
+
+function _getFavNotifiedKey() {
+  return 'mapevent_fav_notified_' + (currentUser.id || 'anon');
+}
+
+function _getFavNotified() {
+  try {
+    return JSON.parse(localStorage.getItem(_getFavNotifiedKey()) || '{}');
+  } catch { return {}; }
+}
+
+function _setFavNotified(obj) {
+  try { localStorage.setItem(_getFavNotifiedKey(), JSON.stringify(obj)); } catch {}
+}
+
+function checkUpcomingFavorites() {
+  if (!currentUser || !currentUser.isLoggedIn) return;
+  const favs = currentUser.favorites || [];
+  if (favs.length === 0) return;
+
+  const now = new Date();
+  const notified = _getFavNotified();
+  let changed = false;
+  const upcoming = [];
+
+  favs.forEach(fav => {
+    if (fav.mode !== 'event' && fav.type !== 'event') return;
+    const ev = eventsData.find(e => e.id === parseInt(fav.id));
+    if (!ev || !ev.startDate) return;
+
+    const start = new Date(ev.startDate);
+    const diffMs = start.getTime() - now.getTime();
+    if (diffMs < 0) return;
+    const diffDays = diffMs / (1000 * 60 * 60 * 24);
+
+    const key = 'fav-' + ev.id;
+    const prev = notified[key] || {};
+
+    const thresholds = [
+      { tag: 'd7', days: 7, label: 'dans 1 semaine' },
+      { tag: 'd3', days: 3, label: 'dans 3 jours' },
+      { tag: 'd1', days: 1, label: 'demain' },
+      { tag: 'today', days: 0, label: "aujourd'hui" }
+    ];
+
+    thresholds.forEach(th => {
+      if (prev[th.tag]) return;
+      let match = false;
+      if (th.tag === 'today') {
+        match = diffDays < 1;
+      } else if (th.tag === 'd1') {
+        match = diffDays < 2 && diffDays >= 0;
+      } else if (th.tag === 'd3') {
+        match = diffDays < 4 && diffDays >= 0;
+      } else if (th.tag === 'd7') {
+        match = diffDays < 8 && diffDays >= 0;
+      }
+
+      if (match) {
+        prev[th.tag] = Date.now();
+        changed = true;
+        upcoming.push({
+          event: ev,
+          label: th.label,
+          tag: th.tag,
+          diffDays: diffDays
+        });
+      }
+    });
+
+    notified[key] = prev;
+  });
+
+  if (changed) {
+    _setFavNotified(notified);
+  }
+
+  upcoming.sort((a, b) => a.diffDays - b.diffDays);
+
+  upcoming.forEach(u => {
+    const title = u.event.title || 'Événement';
+    const city = u.event.city || '';
+    const dateStr = u.event.startDate ? formatEventDateRange(u.event.startDate, u.event.endDate) : '';
+    const body = `${title} ${u.label}\n${dateStr}\n📍 ${city}`;
+
+    showNotification(`\u2B50 ${title} \u2014 ${u.label} !`, 'info');
+
+    if ('Notification' in window && Notification.permission === 'granted') {
+      try {
+        const n = new Notification('\u2B50 Event favori approche !', {
+          body: body,
+          icon: '/favicon.ico',
+          badge: '/favicon.ico',
+          tag: `fav-upcoming-${u.event.id}-${u.tag}`,
+          data: { eventId: u.event.id, type: 'favorite_upcoming' },
+          requireInteraction: false
+        });
+        n.onclick = function() {
+          window.focus();
+          focusOnItem('event', u.event.id);
+          n.close();
+        };
+      } catch {}
+    }
+
+    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.controller.postMessage({
+        type: 'SHOW_NOTIFICATION',
+        title: '\u2B50 Event favori approche !',
+        body: body,
+        tag: `fav-upcoming-${u.event.id}-${u.tag}`,
+        data: { eventId: u.event.id, url: '/mapevent.html' }
+      });
+    }
+  });
+
+  if (upcoming.length > 0) {
+    updateProximityAlertsBadge();
+  }
+}
+
+var checkFavoriteReminders = checkUpcomingFavorites;
+
+setInterval(checkUpcomingFavorites, 30 * 60 * 1000);
 
 // ============================================
 // NETTOYAGE DES ÉVÉNEMENTS EXPIRÉS
@@ -24048,7 +25569,7 @@ function cleanExpiredEvents() {
         const organizerEventsRemaining = eventsData.filter(e => e.organizerEmail === email);
         if (organizerEventsRemaining.length > 30) {
           // Avertir l'organisateur (simulation - à implémenter avec notification réelle)
-          console.warn(`⚠️ Organisateur ${email} a ${organizerEventsRemaining.length} événements. Limite de 30 atteinte.`);
+          console.warn(`\u26A0️ Organisateur ${email} a ${organizerEventsRemaining.length} événements. Limite de 30 atteinte.`);
           // TODO: Envoyer une notification à l'organisateur pour qu'il supprime des événements
         }
       }
@@ -24067,23 +25588,10 @@ function cleanExpiredEvents() {
     }
   }
   
-  // Nettoyer aussi l'agenda des événements supprimés
-  if (isLoggedIn() && currentUser.agenda) {
-    const eventIds = new Set(eventsData.map(e => e.id.toString()));
-    const beforeAgendaCount = currentUser.agenda.length;
-    currentUser.agenda = currentUser.agenda.filter(key => {
-      const [type, id] = key.split(':');
-      if (type === 'event') {
-        return eventIds.has(id);
-      }
-      return true;
-    });
-    const afterAgendaCount = currentUser.agenda.length;
-    
-    if (beforeAgendaCount !== afterAgendaCount) {
-      saveUser();
-    }
-  }
+  // IMPORTANT: ne jamais supprimer des entrées agenda à partir de eventsData.
+  // eventsData peut être partiel (viewport, pagination, filtres), ce qui provoque
+  // des pertes visibles d'agenda. Les suppressions doivent rester manuelles
+  // (ou via logique métier explicite côté backend/date passée).
 }
 
 // Nettoyer les événements toutes les heures
@@ -24101,17 +25609,20 @@ function openItemFromAgenda(type, id) {
   }
   
   // Attendre que le mode soit chargé avant de chercher l'item
-  setTimeout(() => {
+  setTimeout(async () => {
     const data = type === "event" ? eventsData : type === "booking" ? bookingsData : servicesData;
     const item = data.find(i => i.id === parseInt(id));
     
     if (!item) {
-      showNotification("⚠️ Item introuvable", "error");
+      showNotification("\u26A0️ Item introuvable", "error");
       return;
     }
     
     const key = `${type}:${id}`;
     const marker = markerMap[key];
+    if (type === "event") {
+      await ensureEventDetailsForPopup(item);
+    }
     
     if (marker) {
       map.setView([item.lat, item.lng], Math.max(map.getZoom(), 13));
@@ -24169,10 +25680,38 @@ async function updateActiveUsersCount() {
 }
 
 function openSubscriptionModal() {
+  const subscriptionsEnabled = false; // Abonnements pas encore actifs en production
+  if (!subscriptionsEnabled) {
+    const htmlComingSoon = `
+      <div style="padding:18px;max-height:90vh;overflow-y:auto;">
+        <h2 style="margin:0 0 12px;font-size:18px;text-align:center;">💎 Offres MapEvent</h2>
+        <div style="padding:14px;border-radius:12px;border:1px solid rgba(139,92,246,0.45);background:rgba(139,92,246,0.08);">
+          <div style="font-size:13px;font-weight:700;color:#c4b5fd;margin-bottom:6px;">Abonnements bientôt disponibles</div>
+          <div style="font-size:12px;color:var(--ui-text-muted);line-height:1.6;">
+            Cette section n'est pas encore active. Vous pouvez déjà utiliser la publication standard et les boosts.
+          </div>
+        </div>
+        <button onclick="closePublishModal()" style="width:100%;margin-top:16px;padding:10px;border-radius:999px;border:1px solid var(--ui-card-border);background:transparent;color:var(--ui-text-main);cursor:pointer;">
+          Fermer
+        </button>
+      </div>
+    `;
+    document.getElementById("publish-modal-inner").innerHTML = htmlComingSoon;
+    const backdrop = document.getElementById("publish-modal-backdrop");
+    if (backdrop) {
+      backdrop.setAttribute('data-auth-modal', 'true');
+      backdrop.style.display = "flex";
+      backdrop.style.paddingTop = "40px";
+      backdrop.style.paddingBottom = "40px";
+      backdrop.style.boxSizing = "border-box";
+    }
+    return;
+  }
+
   const currentSub = currentUser.subscription || "free";
   const maxAgenda = getAgendaLimit();
   const maxAlerts = getAlertLimit();
-  const alertText = maxAlerts === Infinity ? "∞" : maxAlerts;
+  const alertText = maxAlerts === Infinity ? "\u221E" : maxAlerts;
   
   const html = `
     <div style="padding:10px;max-height:90vh;overflow-y:auto;">
@@ -24188,7 +25727,7 @@ function openSubscriptionModal() {
             ${currentSub === 'events-explorer' ? '<div style="position:absolute;top:0;right:0;background:#22c55e;color:#fff;padding:2px 10px;font-size:9px;font-weight:700;border-bottom-left-radius:8px;">ACTIF</div>' : '<div style="position:absolute;top:0;right:0;background:#22c55e;color:#fff;padding:2px 10px;font-size:9px;font-weight:700;border-bottom-left-radius:8px;">POPULAIRE</div>'}
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
               <span style="font-weight:700;font-size:14px;">🌱 Events Explorer</span>
-              <span style="color:#22c55e;font-weight:700;font-size:14px;">CHF 5.–/mois</span>
+              <span style="color:#22c55e;font-weight:700;font-size:14px;">CHF 5.\u2013/mois</span>
             </div>
             <ul style="margin:0;padding-left:18px;font-size:11px;color:var(--ui-text-muted);line-height:1.6;">
               <li><strong>10 alertes personnalisées/mois</strong></li>
@@ -24203,7 +25742,7 @@ function openSubscriptionModal() {
             ${currentSub === 'events-alerts-pro' ? '<div style="position:absolute;top:0;right:0;background:#3b82f6;color:#fff;padding:2px 10px;font-size:9px;font-weight:700;border-bottom-left-radius:8px;">ACTIF</div>' : '<div style="position:absolute;top:0;right:0;background:#3b82f6;color:#fff;padding:2px 10px;font-size:9px;font-weight:700;border-bottom-left-radius:8px;">ALERTES</div>'}
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
               <span style="font-weight:700;font-size:14px;">🔔 Events Alertes Pro</span>
-              <span style="color:#3b82f6;font-weight:700;font-size:14px;">CHF 10.–/mois</span>
+              <span style="color:#3b82f6;font-weight:700;font-size:14px;">CHF 10.\u2013/mois</span>
             </div>
             <ul style="margin:0;padding-left:18px;font-size:11px;color:var(--ui-text-muted);line-height:1.6;">
               <li><strong>Tout de Events Explorer +</strong></li>
@@ -24221,7 +25760,7 @@ function openSubscriptionModal() {
             ${currentSub === 'service-pro' ? '<div style="position:absolute;top:0;right:0;background:#8b5cf6;color:#fff;padding:2px 10px;font-size:9px;font-weight:700;border-bottom-left-radius:8px;">ACTIF</div>' : ''}
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
               <span style="font-weight:700;font-size:14px;">💼 Service Pro</span>
-              <span style="color:#8b5cf6;font-weight:700;font-size:14px;">CHF 10.–/mois</span>
+              <span style="color:#8b5cf6;font-weight:700;font-size:14px;">CHF 10.\u2013/mois</span>
             </div>
             <ul style="margin:0;padding-left:18px;font-size:11px;color:var(--ui-text-muted);line-height:1.6;">
               <li><strong>Tout de Events Explorer</strong></li>
@@ -24235,7 +25774,7 @@ function openSubscriptionModal() {
             ${currentSub === 'service-ultra' ? '<div style="position:absolute;top:0;right:0;background:#a78bfa;color:#fff;padding:2px 10px;font-size:9px;font-weight:700;border-bottom-left-radius:8px;">ACTIF</div>' : '<div style="position:absolute;top:0;right:0;background:#a78bfa;color:#fff;padding:2px 10px;font-size:9px;font-weight:700;border-bottom-left-radius:8px;">ULTRA</div>'}
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
               <span style="font-weight:700;font-size:14px;">🚀 Service Ultra</span>
-              <span style="color:#a78bfa;font-weight:700;font-size:14px;">CHF 18.–/mois</span>
+              <span style="color:#a78bfa;font-weight:700;font-size:14px;">CHF 18.\u2013/mois</span>
             </div>
             <ul style="margin:0;padding-left:18px;font-size:11px;color:var(--ui-text-muted);line-height:1.6;">
               <li>Tout de Pro +</li>
@@ -24251,12 +25790,12 @@ function openSubscriptionModal() {
       </div>
       
       <div style="margin-bottom:20px;">
-        <div style="font-size:13px;font-weight:600;color:#ffd700;margin-bottom:8px;text-align:center;">⭐ Tout compris</div>
+        <div style="font-size:13px;font-weight:600;color:#ffd700;margin-bottom:8px;text-align:center;">\u2B50 Tout compris</div>
         <div style="padding:16px;border-radius:12px;border:2px solid ${currentSub === 'full-premium' ? '#ffd700' : '#ffd700'};background:linear-gradient(135deg,rgba(255,215,0,0.15),rgba(255,215,0,0.05));cursor:pointer;position:relative;overflow:hidden;${currentSub === 'full-premium' ? 'box-shadow:0 0 20px rgba(255,215,0,0.4);' : ''}" onclick="selectPlan('full-premium')">
           ${currentSub === 'full-premium' ? '<div style="position:absolute;top:0;right:0;background:#ffd700;color:#000;padding:2px 12px;font-size:10px;font-weight:700;border-bottom-left-radius:8px;">ACTIF</div>' : '<div style="position:absolute;top:0;right:0;background:#ffd700;color:#000;padding:2px 12px;font-size:10px;font-weight:700;border-bottom-left-radius:8px;">TOP</div>'}
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
             <span style="font-weight:700;font-size:16px;">👑 Full Premium</span>
-            <span style="color:#ffd700;font-weight:700;font-size:16px;">CHF 25.–/mois</span>
+            <span style="color:#ffd700;font-weight:700;font-size:16px;">CHF 25.\u2013/mois</span>
           </div>
           <ul style="margin:0;padding-left:20px;font-size:12px;color:var(--ui-text-muted);line-height:1.8;">
             <li><strong>Tout de Events Alertes Pro, Tout de Service Ultra</strong></li>
@@ -24303,20 +25842,20 @@ function createAlert() {
   const city = document.getElementById("alert-city").value;
   
   if (!category) {
-    showNotification("⚠️ Veuillez sélectionner une catégorie", "warning");
+    showNotification("\u26A0️ Veuillez sélectionner une catégorie", "warning");
     return;
   }
   
   // Vérifier la limite selon l'abonnement
   const maxAlerts = getAlertLimit();
   if (maxAlerts === 0) {
-    showNotification("⚠️ Les alertes nécessitent un abonnement Events Explorer ou supérieur", "warning");
+    showNotification("\u26A0️ Les alertes nécessitent un abonnement Events Explorer ou supérieur", "warning");
     openSubscriptionModal();
     return;
   }
   
   if (maxAlerts !== Infinity && currentUser.alerts.length >= maxAlerts) {
-    showNotification(`⚠️ Limite atteinte (${maxAlerts} alertes) ! Passez à Events Alertes Pro pour des alertes illimitées.`, "warning");
+    showNotification(`\u26A0️ Limite atteinte (${maxAlerts} alertes) ! Passez à Events Alertes Pro pour des alertes illimitées.`, "warning");
     openSubscriptionModal();
     return;
   }
@@ -24335,7 +25874,7 @@ function removeAlert(index) {
 function selectPlan(plan) {
   if (plan === 'free') {
     currentUser.subscription = "free";
-    showNotification("✅ Plan gratuit actif", "info");
+    showNotification("\u2705 Plan gratuit actif", "info");
     updateSubscriptionBadge();
     openSubscriptionModal();
   } else if (plan === 'events-explorer') {
@@ -24365,7 +25904,7 @@ function openPremiumPaymentModal(plan = 'full-premium', price = 25) {
     'full': { emoji: '👑', name: 'Full Premium', color: '#ffd700', bg: 'rgba(255,215,0,0.2)' },
     explorer: { emoji: '🌱', name: 'Explorer', color: '#22c55e', bg: 'rgba(34,197,94,0.2)' },
     pro: { emoji: '💼', name: 'Pro', color: '#8b5cf6', bg: 'rgba(139,92,246,0.2)' },
-    premium: { emoji: '⭐', name: 'Premium', color: '#ffd700', bg: 'rgba(255,215,0,0.2)' }
+    premium: { emoji: '\u2B50', name: 'Premium', color: '#ffd700', bg: 'rgba(255,215,0,0.2)' }
   };
   
   const info = planInfo[plan] || planInfo.full;
@@ -24380,11 +25919,11 @@ function openPremiumPaymentModal(plan = 'full-premium', price = 25) {
       
       <div style="background:linear-gradient(135deg,${info.bg},transparent);border:2px solid ${info.color};border-radius:16px;padding:20px;margin-bottom:20px;">
         <div style="font-size:32px;font-weight:800;color:${info.color};">CHF ${price.toFixed(2)}</div>
-        <div style="font-size:12px;color:var(--ui-text-muted);">par mois • Sans engagement</div>
+        <div style="font-size:12px;color:var(--ui-text-muted);">par mois \u2022 Sans engagement</div>
       </div>
       
       <div style="background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.3);border-radius:12px;padding:12px;margin-bottom:20px;">
-        <div style="font-size:12px;font-weight:600;color:#22c55e;margin-bottom:4px;">🌍 70% → Mission Planète</div>
+        <div style="font-size:12px;font-weight:600;color:#22c55e;margin-bottom:4px;">🌍 70% \u2192 Mission Planète</div>
         <div style="font-size:11px;color:var(--ui-text-muted);">Votre contribution sauve la Terre</div>
       </div>
       
@@ -24455,11 +25994,11 @@ async function processSubscriptionPayment(plan = 'full-premium', price = 25) {
     const result = await stripe.redirectToCheckout({ sessionId });
     
     if (result.error) {
-      showNotification(`❌ Erreur : ${result.error.message}`, "error");
+      showNotification(`\u274C Erreur : ${result.error.message}`, "error");
     }
   } catch (error) {
     console.error('Erreur abonnement:', error);
-    showNotification(`❌ Erreur lors de l'abonnement : ${error.message}`, "error");
+    showNotification(`\u274C Erreur lors de l'abonnement : ${error.message}`, "error");
   }
 }
 
@@ -24484,7 +26023,7 @@ function simulatePremiumPayment(plan = 'full-premium', price = 25) {
       'full': '👑 Full Premium',
       explorer: '🌱 Explorer',
       pro: '💼 Pro',
-      premium: '⭐ Premium'
+      premium: '\u2B50 Premium'
     };
     
     const planName = planNames[plan] || 'Premium';
@@ -24526,7 +26065,7 @@ function openAboutModal() {
       <!-- État actuel -->
       <div style="background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.3);border-radius:16px;padding:16px;margin-bottom:20px;">
         <div style="font-size:14px;font-weight:700;color:#22c55e;margin-bottom:12px;display:flex;align-items:center;gap:8px;">
-          <span>✅</span> Fonctionnalités disponibles
+          <span>\u2705</span> Fonctionnalités disponibles
         </div>
         <ul style="margin:0;padding-left:20px;color:var(--ui-text-main);font-size:13px;line-height:1.8;">
           <li><strong>Carte interactive</strong> - 3 modes : Events, Booking, Services</li>
@@ -24549,11 +26088,8 @@ function openAboutModal() {
         </div>
         <ul style="margin:0;padding-left:20px;color:var(--ui-text-main);font-size:13px;line-height:1.8;">
           <li><strong>106 langues</strong> - Traduction automatique mondiale</li>
-          <li><strong>Safe Social</strong> - Réseau social sécurisé et bienveillant</li>
-          <li><strong>Messagerie</strong> - Discutez avec vos amis</li>
-          <li><strong>Groupes</strong> - Créez des groupes comme WhatsApp</li>
-          <li><strong>Invitations</strong> - Invitez vos amis aux événements</li>
-          <li><strong>Localisation live</strong> - Retrouvez vos amis sur place</li>
+          <li><strong>Favoris</strong> - Sauvegardez vos coups de coeur et recevez des alertes</li>
+          <li><strong>Alertes proximité</strong> - Soyez prévenu quand un favori est proche de vous</li>
           <li><strong>Last Minute Tickets</strong> - Revente de billets sécurisée</li>
           <li><strong>Transport partagé</strong> - Covoiturage vers les events</li>
           <li><strong>Quêtes & Gamification</strong> - Gagnez des récompenses</li>
@@ -24576,9 +26112,25 @@ function openAboutModal() {
         </div>
       `}
       
+      <!-- Mentions légales -->
+      <div style="background:rgba(148,163,184,0.08);border:1px solid rgba(148,163,184,0.28);border-radius:16px;padding:16px;margin-bottom:20px;">
+        <div style="font-size:14px;font-weight:700;color:#cbd5e1;margin-bottom:10px;display:flex;align-items:center;gap:8px;">
+          <span>⚖️</span> Mentions légales
+        </div>
+        <p style="margin:0 0 10px;font-size:12px;line-height:1.6;color:var(--ui-text-muted);">
+          Certaines informations publiées peuvent contenir des erreurs malgré nos contrôles. La vérification de la source officielle reste recommandée.
+        </p>
+        <p style="margin:0 0 12px;font-size:12px;line-height:1.6;color:var(--ui-text-muted);">
+          Les contenus, données et présentations MapEvent sont protégés. Toute copie, extraction ou réutilisation non autorisée est interdite.
+        </p>
+        <a href="/mentions-legales.html" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;gap:8px;padding:9px 12px;border-radius:10px;background:linear-gradient(135deg,rgba(0,255,195,0.16),rgba(59,130,246,0.16));border:1px solid rgba(0,255,195,0.35);color:#00ffc3;font-size:12px;font-weight:700;text-decoration:none;">
+          Ouvrir les mentions légales
+        </a>
+      </div>
+      
       <!-- Version -->
       <div style="text-align:center;color:var(--ui-text-muted);font-size:11px;margin-bottom:16px;">
-        Version 1.0.0 • Décembre 2024 • Made with ❤️ in Switzerland
+        Version 1.0.0 \u2022 Décembre 2024 \u2022 Made with \u2764️ in Switzerland
       </div>
       
       <!-- Bouton fermer -->
@@ -24628,414 +26180,13 @@ function initDemoUsers() {
 }
 
 // Ouvrir le modal des amis
-function openFriendsModal() {
-  if (!currentUser || !currentUser.isLoggedIn) {
-    openLoginModal();
-    return;
-  }
-  
-  initDemoUsers();
-  
-  const friendsList = currentUser.friends || [];
-  const friendRequests = currentUser.friendRequests || [];
-  
-  // Trouver les infos des amis
-  const friendsInfo = friendsList.map(friendId => {
-    return allUsers.find(u => u.id === friendId) || { id: friendId, name: 'Utilisateur', avatar: '👤' };
-  });
-  
-  const html = `
-    <div style="padding:20px;max-width:550px;margin:0 auto;max-height:85vh;overflow-y:auto;">
-      <div style="text-align:center;margin-bottom:20px;">
-        <div style="font-size:40px;margin-bottom:8px;">👥</div>
-        <h2 style="margin:0;font-size:22px;font-weight:700;color:#fff;">Mes Amis</h2>
-        <p style="color:var(--ui-text-muted);margin-top:6px;font-size:13px;">${friendsList.length} ami(s)</p>
-      </div>
-      
-      <!-- Demandes d'amis en attente -->
-      ${friendRequests.length > 0 ? `
-        <div style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:12px;padding:14px;margin-bottom:16px;">
-          <div style="font-size:13px;font-weight:600;color:#f59e0b;margin-bottom:10px;">📬 Demandes en attente (${friendRequests.length})</div>
-          ${friendRequests.map(req => `
-            <div style="display:flex;align-items:center;gap:10px;padding:10px;background:rgba(15,23,42,0.5);border-radius:10px;margin-bottom:8px;">
-              <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#00ffc3,#3b82f6);display:flex;align-items:center;justify-content:center;font-size:20px;">${req.fromUserAvatar || '👤'}</div>
-              <div style="flex:1;">
-                <div style="font-weight:600;font-size:14px;color:#fff;">${escapeHtml(req.fromUserName)}</div>
-                <div style="font-size:11px;color:var(--ui-text-muted);">${new Date(req.date).toLocaleDateString('fr-FR')}</div>
-              </div>
-              <button onclick="acceptFriendRequest('${req.fromUserId}')" style="padding:6px 12px;border-radius:8px;border:none;background:#22c55e;color:#fff;font-size:12px;font-weight:600;cursor:pointer;">✓</button>
-              <button onclick="declineFriendRequest('${req.fromUserId}')" style="padding:6px 12px;border-radius:8px;border:none;background:#ef4444;color:#fff;font-size:12px;font-weight:600;cursor:pointer;">✗</button>
-            </div>
-          `).join('')}
-        </div>
-      ` : ''}
-      
-      <!-- Rechercher des amis -->
-      <div style="margin-bottom:16px;">
-        <label style="display:block;font-size:13px;font-weight:600;color:#fff;margin-bottom:8px;">🔍 Rechercher des utilisateurs</label>
-        <input type="text" id="search-friends-input" placeholder="Nom d'utilisateur..." 
-               onkeyup="searchUsers(this.value)"
-               style="width:100%;padding:12px;border-radius:10px;border:1px solid var(--ui-card-border);background:rgba(15,23,42,0.9);color:var(--ui-text-main);font-size:14px;">
-        <div id="search-friends-results" style="margin-top:10px;"></div>
-      </div>
-      
-      <!-- Liste des amis -->
-      <div style="margin-bottom:20px;">
-        <div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:10px;">👫 Mes amis</div>
-        ${friendsInfo.length > 0 ? friendsInfo.map(friend => `
-          <div style="display:flex;align-items:center;gap:12px;padding:12px;background:rgba(15,23,42,0.5);border-radius:12px;margin-bottom:8px;border:1px solid var(--ui-card-border);">
-            <div style="position:relative;">
-              <div style="width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#00ffc3,#3b82f6);display:flex;align-items:center;justify-content:center;font-size:24px;">${friend.avatar}</div>
-              <div style="position:absolute;bottom:2px;right:2px;width:12px;height:12px;border-radius:50%;background:${friend.isOnline ? '#22c55e' : '#6b7280'};border:2px solid var(--ui-card-bg);"></div>
-            </div>
-            <div style="flex:1;">
-              <div style="font-weight:600;font-size:14px;color:#fff;">${escapeHtml(friend.name)}</div>
-              <div style="font-size:11px;color:var(--ui-text-muted);">${friend.avatarDescription || ''}</div>
-            </div>
-            <button onclick="openChatWith('${friend.id}')" style="padding:8px 14px;border-radius:8px;border:none;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;font-size:12px;font-weight:600;cursor:pointer;">💬 Chat</button>
-            <button onclick="removeFriend('${friend.id}')" style="padding:8px 10px;border-radius:8px;border:1px solid rgba(239,68,68,0.5);background:transparent;color:#ef4444;font-size:12px;cursor:pointer;">🗑️</button>
-          </div>
-        `).join('') : `
-          <div style="text-align:center;padding:30px;color:var(--ui-text-muted);">
-            <div style="font-size:32px;margin-bottom:8px;">🔍</div>
-            <p>Vous n'avez pas encore d'amis.<br>Recherchez des utilisateurs ci-dessus !</p>
-          </div>
-        `}
-      </div>
-      
-      <button onclick="closePublishModal()" style="width:100%;padding:12px;border-radius:999px;border:1px solid var(--ui-card-border);background:transparent;color:var(--ui-text-main);cursor:pointer;font-weight:600;">
-        Fermer
-      </button>
-    </div>
-  `;
-  
-  document.getElementById("publish-modal-inner").innerHTML = html;
-  const backdrop = document.getElementById("publish-modal-backdrop");
-  if (backdrop) {
-    backdrop.setAttribute('data-auth-modal', 'true');
-    backdrop.style.display = "flex";
-    backdrop.style.paddingTop = "40px";
-    backdrop.style.paddingBottom = "40px";
-    backdrop.style.boxSizing = "border-box";
-    backdrop.style.paddingTop = "40px";
-    backdrop.style.paddingBottom = "40px";
-    backdrop.style.boxSizing = "border-box";
-  }
-}
-
-// Ouvrir le modal des groupes
-function openGroupsModal() {
-  if (!currentUser || !currentUser.isLoggedIn) {
-    openLoginModal();
-    return;
-  }
-  
-  // Récupérer les groupes de l'utilisateur (simulation)
-  const userGroups = currentUser.groups || [];
-  const registeredCountry = currentUser.registeredCountry || "CH";
-  
-  const html = `
-    <div style="padding:20px;max-width:600px;margin:0 auto;max-height:85vh;overflow-y:auto;">
-      <div style="text-align:center;margin-bottom:20px;">
-        <div style="font-size:40px;margin-bottom:8px;">👥</div>
-        <h2 style="margin:0;font-size:22px;font-weight:700;color:#fff;">Groupes</h2>
-      </div>
-      
-      <!-- Sections principales -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;">
-        <!-- Canaux par pays -->
-        <div onclick="changeGroupCountry()" style="padding:20px;background:rgba(0,255,195,0.1);border:2px solid rgba(0,255,195,0.3);border-radius:12px;cursor:pointer;text-align:center;">
-          <div style="font-size:32px;margin-bottom:8px;">🌍</div>
-          <div style="font-weight:600;color:#00ffc3;margin-bottom:4px;">Par Pays</div>
-          <div style="font-size:12px;color:var(--ui-text-muted);">${registeredCountry}</div>
-        </div>
-        
-        <!-- Catégories MapEvent -->
-        <div onclick="openGroupChannel('category', 'events')" style="padding:20px;background:rgba(59,130,246,0.1);border:2px solid rgba(59,130,246,0.3);border-radius:12px;cursor:pointer;text-align:center;">
-          <div style="font-size:32px;margin-bottom:8px;">📅</div>
-          <div style="font-weight:600;color:#3b82f6;margin-bottom:4px;">Events</div>
-          <div style="font-size:12px;color:var(--ui-text-muted);">Discussion</div>
-        </div>
-      </div>
-      
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;">
-        <div onclick="openGroupChannel('category', 'booking')" style="padding:20px;background:rgba(139,92,246,0.1);border:2px solid rgba(139,92,246,0.3);border-radius:12px;cursor:pointer;text-align:center;">
-          <div style="font-size:32px;margin-bottom:8px;">🎵</div>
-          <div style="font-weight:600;color:#8b5cf6;margin-bottom:4px;">Booking</div>
-          <div style="font-size:12px;color:var(--ui-text-muted);">Discussion</div>
-        </div>
-        
-        <div onclick="openGroupChannel('category', 'services')" style="padding:20px;background:rgba(245,158,11,0.1);border:2px solid rgba(245,158,11,0.3);border-radius:12px;cursor:pointer;text-align:center;">
-          <div style="font-size:32px;margin-bottom:8px;">💼</div>
-          <div style="font-weight:600;color:#f59e0b;margin-bottom:4px;">Services</div>
-          <div style="font-size:12px;color:var(--ui-text-muted);">Discussion</div>
-        </div>
-      </div>
-      
-      <!-- Vos groupes -->
-        <div style="margin-bottom:20px;">
-        <div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:10px;">👥 Vos groupes</div>
-        ${userGroups.length > 0 ? userGroups.map(group => `
-          <div onclick="openGroupChannel('custom', '${group.id}')" style="display:flex;align-items:center;gap:12px;padding:12px;background:rgba(15,23,42,0.5);border-radius:12px;margin-bottom:8px;border:1px solid var(--ui-card-border);cursor:pointer;">
-              <div style="width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#00ffc3,#3b82f6);display:flex;align-items:center;justify-content:center;font-size:24px;">${group.emoji || '👥'}</div>
-              <div style="flex:1;">
-                <div style="font-weight:600;font-size:14px;color:#fff;">${escapeHtml(group.name)}</div>
-                <div style="font-size:11px;color:var(--ui-text-muted);">${group.memberCount || 0} membres</div>
-              </div>
-            </div>
-        `).join('') : `
-          <div style="text-align:center;padding:30px;color:var(--ui-text-muted);">
-            <div style="font-size:32px;margin-bottom:8px;">🔍</div>
-            <p>Vous n'avez pas encore de groupes.<br>Créez-en un ci-dessous !</p>
-        </div>
-        `}
-      </div>
-      
-      <!-- Créer un groupe -->
-      <div onclick="createGroup()" style="padding:20px;background:linear-gradient(135deg,rgba(0,255,195,0.2),rgba(59,130,246,0.2));border:2px dashed rgba(0,255,195,0.5);border-radius:12px;cursor:pointer;text-align:center;margin-bottom:20px;">
-        <div style="font-size:40px;margin-bottom:8px;">➕</div>
-        <div style="font-weight:700;color:#00ffc3;font-size:16px;">Créer un groupe</div>
-      </div>
-      
-      <button onclick="closePublishModal()" style="width:100%;padding:12px;border-radius:999px;border:1px solid var(--ui-card-border);background:transparent;color:var(--ui-text-main);cursor:pointer;font-weight:600;">
-        Fermer
-      </button>
-    </div>
-  `;
-  
-  document.getElementById("publish-modal-inner").innerHTML = html;
-  const backdrop = document.getElementById("publish-modal-backdrop");
-  if (backdrop) {
-    backdrop.setAttribute('data-auth-modal', 'true');
-    backdrop.style.display = "flex";
-    backdrop.style.paddingTop = "40px";
-    backdrop.style.paddingBottom = "40px";
-    backdrop.style.boxSizing = "border-box";
-    backdrop.style.paddingTop = "40px";
-    backdrop.style.paddingBottom = "40px";
-    backdrop.style.boxSizing = "border-box";
-  }
-}
-
-// Mettre à jour la fonction globale avec l'implémentation complète
-// Cette assignation remplace le stub défini plus tôt
-window.openGroupsModal = openGroupsModal;
-
-// Rechercher des utilisateurs
-function searchUsers(query) {
-  const resultsContainer = document.getElementById("search-friends-results");
-  if (!resultsContainer) return;
-  
-  if (!query || query.length < 2) {
-    resultsContainer.innerHTML = '';
-    return;
-  }
-  
-  initDemoUsers();
-  
-  const results = allUsers.filter(u => 
-    u.name.toLowerCase().includes(query.toLowerCase()) && 
-    u.id !== currentUser.id &&
-    !currentUser.friends.includes(u.id)
-  ).slice(0, 5);
-  
-  if (results.length === 0) {
-    resultsContainer.innerHTML = '<div style="color:var(--ui-text-muted);font-size:12px;padding:10px;">Aucun utilisateur trouvé</div>';
-    return;
-  }
-  
-  resultsContainer.innerHTML = results.map(user => `
-    <div style="display:flex;align-items:center;gap:10px;padding:10px;background:rgba(0,255,195,0.05);border-radius:10px;margin-bottom:6px;border:1px solid rgba(0,255,195,0.2);">
-      <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#00ffc3,#3b82f6);display:flex;align-items:center;justify-content:center;font-size:18px;">${user.avatar}</div>
-      <div style="flex:1;">
-        <div style="font-weight:600;font-size:13px;color:#fff;">${escapeHtml(user.name)}</div>
-        <div style="font-size:10px;color:var(--ui-text-muted);">${user.isOnline ? '🟢 En ligne' : '⚫ Hors ligne'}</div>
-      </div>
-      <button onclick="sendFriendRequest('${user.id}', '${escapeHtml(user.name)}', '${user.avatar}')" style="padding:6px 12px;border-radius:8px;border:none;background:#00ffc3;color:#000;font-size:11px;font-weight:600;cursor:pointer;">+ Ajouter</button>
-    </div>
-  `).join('');
-}
-
-// Envoyer une demande d'ami
-function sendFriendRequest(userId, userName, userAvatar) {
-  if (!currentUser || !currentUser.isLoggedIn) {
-    openLoginModal();
-    return;
-  }
-  
-  if (!currentUser.sentRequests) currentUser.sentRequests = [];
-  
-  if (currentUser.sentRequests.includes(userId)) {
-    showNotification("⏳ Demande déjà envoyée", "info");
-    return;
-  }
-  
-  if (currentUser.friends.includes(userId)) {
-    showNotification("✅ Déjà ami avec cet utilisateur", "info");
-    return;
-  }
-  
-  currentUser.sentRequests.push(userId);
-  
-  // Simuler l'ajout d'une demande côté destinataire (pour la démo, on accepte automatiquement)
-  setTimeout(() => {
-    if (!currentUser.friends.includes(userId)) {
-      currentUser.friends.push(userId);
-      currentUser.sentRequests = currentUser.sentRequests.filter(id => id !== userId);
-      showNotification(`🎉 ${userName} a accepté votre demande d'ami !`, "success");
-      saveUserData();
-    }
-  }, 2000);
-  
-  showNotification(`📤 Demande envoyée à ${userName}`, "success");
-  saveUserData();
-  openFriendsModal(); // Rafraîchir
-}
-
-// Accepter une demande d'ami
-function acceptFriendRequest(fromUserId) {
-  if (!currentUser.friendRequests) return;
-  
-  const request = currentUser.friendRequests.find(r => r.fromUserId === fromUserId);
-  if (!request) return;
-  
-  // Ajouter comme ami
-  if (!currentUser.friends.includes(fromUserId)) {
-    currentUser.friends.push(fromUserId);
-  }
-  
-  // Retirer de la liste des demandes
-  currentUser.friendRequests = currentUser.friendRequests.filter(r => r.fromUserId !== fromUserId);
-  
-  showNotification(`🎉 Vous êtes maintenant ami avec ${request.fromUserName} !`, "success");
-  saveUserData();
-  openFriendsModal(); // Rafraîchir
-}
-
-// Refuser une demande d'ami
-function declineFriendRequest(fromUserId) {
-  if (!currentUser.friendRequests) return;
-  
-  currentUser.friendRequests = currentUser.friendRequests.filter(r => r.fromUserId !== fromUserId);
-  
-  showNotification("❌ Demande refusée", "info");
-  saveUserData();
-  openFriendsModal(); // Rafraîchir
-}
-
-// Retirer un ami
-function removeFriend(friendId) {
-  if (!confirm("Voulez-vous vraiment retirer cet ami ?")) return;
-  
-  currentUser.friends = currentUser.friends.filter(id => id !== friendId);
-  
-  showNotification("👋 Ami retiré", "info");
-  saveUserData();
-  openFriendsModal(); // Rafraîchir
-}
-
-// Ouvrir le chat avec un ami
-function openChatWith(friendId) {
-  initDemoUsers();
-  const friend = allUsers.find(u => u.id === friendId) || { id: friendId, name: 'Utilisateur', avatar: '👤' };
-  
-  // Récupérer les messages existants
-  const conversationKey = [currentUser.id, friendId].sort().join(':');
-  if (!window.conversations) window.conversations = {};
-  if (!window.conversations[conversationKey]) {
-    window.conversations[conversationKey] = [
-      { from: friendId, text: "Salut ! 👋", time: new Date(Date.now() - 3600000).toISOString() },
-      { from: currentUser.id, text: "Hey ! Comment ça va ?", time: new Date(Date.now() - 3500000).toISOString() },
-      { from: friendId, text: "Super bien, tu vas à la soirée ce weekend ?", time: new Date(Date.now() - 3400000).toISOString() }
-    ];
-  }
-  
-  const messages = window.conversations[conversationKey] || [];
-  
-  const html = `
-    <div style="display:flex;flex-direction:column;height:70vh;max-width:500px;margin:0 auto;">
-      <!-- Header -->
-      <div style="display:flex;align-items:center;gap:12px;padding:16px;border-bottom:1px solid var(--ui-card-border);">
-        <button onclick="openFriendsModal()" style="width:36px;height:36px;border-radius:50%;border:none;background:rgba(15,23,42,0.9);color:#fff;cursor:pointer;font-size:16px;">←</button>
-        <div style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#00ffc3,#3b82f6);display:flex;align-items:center;justify-content:center;font-size:22px;">${friend.avatar}</div>
-        <div style="flex:1;">
-          <div style="font-weight:600;font-size:16px;color:#fff;">${escapeHtml(friend.name)}</div>
-          <div style="font-size:11px;color:${friend.isOnline ? '#22c55e' : 'var(--ui-text-muted)'};">${friend.isOnline ? '🟢 En ligne' : 'Hors ligne'}</div>
-        </div>
-        <button onclick="openReportModal('user', '${friendId}')" style="padding:8px;border-radius:8px;border:1px solid rgba(239,68,68,0.3);background:transparent;color:#ef4444;font-size:12px;cursor:pointer;">🚨</button>
-      </div>
-      
-      <!-- Messages -->
-      <div id="chat-messages" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px;">
-        ${messages.map(msg => `
-          <div style="display:flex;${msg.from === currentUser.id ? 'justify-content:flex-end;' : 'justify-content:flex-start;'}">
-            <div style="max-width:75%;padding:10px 14px;border-radius:16px;${msg.from === currentUser.id ? 'background:linear-gradient(135deg,#00ffc3,#3b82f6);color:#000;border-bottom-right-radius:4px;' : 'background:rgba(15,23,42,0.9);color:#fff;border-bottom-left-radius:4px;'}">
-              <div style="font-size:14px;">${escapeHtml(msg.text)}</div>
-              <div style="font-size:10px;opacity:0.7;margin-top:4px;text-align:right;">${new Date(msg.time).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</div>
-            </div>
-          </div>
-        `).join('')}
-      </div>
-      
-      <!-- Input -->
-      <div style="padding:16px;border-top:1px solid var(--ui-card-border);display:flex;gap:10px;">
-        <input type="text" id="chat-input" placeholder="Votre message..." 
-               onkeypress="if(event.key==='Enter')sendChatMessage('${friendId}')"
-               style="flex:1;padding:12px;border-radius:999px;border:1px solid var(--ui-card-border);background:rgba(15,23,42,0.9);color:var(--ui-text-main);font-size:14px;">
-        <button onclick="sendChatMessage('${friendId}')" style="width:48px;height:48px;border-radius:50%;border:none;background:linear-gradient(135deg,#00ffc3,#3b82f6);color:#000;cursor:pointer;font-size:20px;">➤</button>
-      </div>
-    </div>
-  `;
-  
-  document.getElementById("publish-modal-inner").innerHTML = html;
-  
-  // Scroll to bottom
-  setTimeout(() => {
-    const chatMessages = document.getElementById("chat-messages");
-    if (chatMessages) chatMessages.scrollTop = chatMessages.scrollHeight;
-  }, 100);
-}
-
-// Envoyer un message
-function sendChatMessage(friendId) {
-  const input = document.getElementById("chat-input");
-  if (!input || !input.value.trim()) return;
-  
-  const conversationKey = [currentUser.id, friendId].sort().join(':');
-  if (!window.conversations) window.conversations = {};
-  if (!window.conversations[conversationKey]) window.conversations[conversationKey] = [];
-  
-  window.conversations[conversationKey].push({
-    from: currentUser.id,
-    text: input.value.trim(),
-    time: new Date().toISOString()
-  });
-  
-  // Simuler une réponse automatique (pour la démo)
-  setTimeout(() => {
-    const autoResponses = [
-      "Super ! 🎉",
-      "Ah cool !",
-      "On se retrouve là-bas ?",
-      "J'ai hâte !",
-      "Trop bien 👍",
-      "À bientôt !"
-    ];
-    window.conversations[conversationKey].push({
-      from: friendId,
-      text: autoResponses[Math.floor(Math.random() * autoResponses.length)],
-      time: new Date().toISOString()
-    });
-    openChatWith(friendId); // Rafraîchir
-  }, 1500);
-  
-  openChatWith(friendId); // Rafraîchir immédiatement pour montrer notre message
-}
 
 // Sauvegarder les données utilisateur
 function saveUserData() {
   try {
-    localStorage.setItem('currentUser', JSON.stringify(currentUser));
+    normalizeCurrentUserCollections();
+    persistLikesBackups(currentUser.likes);
+    safeSetItem('currentUser', JSON.stringify(currentUser));
   } catch (e) {
     console.error('Erreur sauvegarde:', e);
   }
@@ -25044,82 +26195,8 @@ function saveUserData() {
 // Exposer saveUser globalement pour compatibilité
 window.saveUser = saveUserData;
 
-// Récupérer les amis qui participent à un événement
-function getFriendsParticipatingToEvent(eventId) {
-  if (!currentUser.isLoggedIn || !currentUser.friends || currentUser.friends.length === 0) {
-    return [];
-  }
-  
-  initDemoUsers();
-  
-  // Simuler que certains amis participent à des événements (pour la démo)
-  // Dans la vraie implémentation, cela viendrait du backend
-  const friendsParticipating = [];
-  
-  currentUser.friends.forEach(friendId => {
-    // Simuler une participation aléatoire basée sur l'ID de l'événement
-    const hashCode = (str) => {
-      let hash = 0;
-      for (let i = 0; i < str.length; i++) {
-        const char = str.charCodeAt(i);
-        hash = ((hash << 5) - hash) + char;
-        hash = hash & hash;
-      }
-      return Math.abs(hash);
-    };
-    
-    const combinedHash = hashCode(`${friendId}:${eventId}`);
-    const participates = combinedHash % 5 === 0; // ~20% de chance de participer
-    
-    if (participates) {
-      const friend = allUsers.find(u => u.id === friendId);
-      if (friend) {
-        friendsParticipating.push({
-          id: friend.id,
-          name: friend.name,
-          avatar: friend.avatar
-        });
-      }
-    }
-  });
-  
-  return friendsParticipating;
-}
-
 // Charger l'utilisateur sauvegardé au démarrage
 // REMOVED: loadSavedUser() est maintenant dans auth.js et exposé via window.loadSavedUser
-
-// Fonctions helper pour le modal compte
-function acceptFriendRequest(requestId) {
-  const request = currentUser.friendRequests?.find(r => r.id === requestId);
-  if (!request) return;
-  
-  // Ajouter aux amis
-  if (!currentUser.friends) currentUser.friends = [];
-  currentUser.friends.push({
-    id: request.fromUserId,
-    name: request.fromUserName,
-    avatar: request.fromUserAvatar,
-    username: request.username
-  });
-  
-  // Retirer de la liste des demandes
-  currentUser.friendRequests = currentUser.friendRequests.filter(r => r.id !== requestId);
-  
-  // Sauvegarder
-  localStorage.setItem('currentUser', JSON.stringify(currentUser));
-  showNotification(`✅ ${request.fromUserName} ajouté(e) à vos amis !`, 'success');
-  
-  // Rafraîchir le modal
-  showAccountModalTab('amis');
-}
-
-function rejectFriendRequest(requestId) {
-  currentUser.friendRequests = currentUser.friendRequests.filter(r => r.id !== requestId);
-  localStorage.setItem('currentUser', JSON.stringify(currentUser));
-  showNotification('Demande d\'ami refusée', 'info');
-  showAccountModalTab('amis');
-}
 
 function openUserProfile(userId) {
   showNotification('Profil utilisateur à venir', 'info');
@@ -25344,14 +26421,20 @@ function openAccountModal() {
   // Compter les données pour les blocs
   const agendaCount = currentUser.agenda ? currentUser.agenda.length : 0;
   const favCount = currentUser.favorites ? currentUser.favorites.length : 0;
-  const userEvents = eventsData.filter(e => e.creator_id && e.creator_id.toString() === (currentUser.id || '').toString());
-  const userBookings = bookingsData.filter(b => b.creator_id && b.creator_id.toString() === (currentUser.id || '').toString());
+  const _uid = currentUser.id ? currentUser.id.toString() : '';
+  const _csub = currentUser.cognitoSub || currentUser.sub || '';
+  const _matchUser = (item) => {
+    const cid = item.creator_id ? item.creator_id.toString() : '';
+    return (_uid && cid === _uid) || (_csub && cid === _csub);
+  };
+  const userEvents = eventsData.filter(_matchUser);
+  const userBookings = bookingsData.filter(_matchUser);
   const annoncesCount = userEvents.length + userBookings.length;
 
   const html = `
     <div style="padding:28px 24px;max-width:600px;margin:0 auto;position:relative;">
       <!-- Bouton X -->
-      <button onclick="closePublishModal()" style="position:absolute;top:12px;right:12px;background:none;border:none;color:var(--ui-text-muted);font-size:22px;cursor:pointer;padding:6px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:all 0.2s;z-index:10;" onmouseover="this.style.background='rgba(239,68,68,0.2)';this.style.color='#ef4444'" onmouseout="this.style.background='none';this.style.color='var(--ui-text-muted)'" title="Fermer">✕</button>
+      <button onclick="closePublishModal()" style="position:absolute;top:12px;right:12px;background:none;border:none;color:var(--ui-text-muted);font-size:22px;cursor:pointer;padding:6px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:all 0.2s;z-index:10;" onmouseover="this.style.background='rgba(239,68,68,0.2)';this.style.color='#ef4444'" onmouseout="this.style.background='none';this.style.color='var(--ui-text-muted)'" title="Fermer">\u2715</button>
       
       <!-- En-tête avec avatar et nom -->
       <div style="text-align:center;margin-bottom:24px;">
@@ -25362,14 +26445,6 @@ function openAccountModal() {
         <p style="margin:6px 0 0;font-size:12px;color:var(--ui-text-muted);">${currentUser.email || ''}</p>
       </div>
       
-      <!-- MAP FRIEND - Bloc pleine largeur, très visible -->
-      <div onclick="closePublishModal();setTimeout(() => openMapFriendModal(), 300);" style="padding:18px 20px;border-radius:14px;background:linear-gradient(135deg,rgba(59,130,246,0.15),rgba(139,92,246,0.1));border:2px solid rgba(59,130,246,0.4);cursor:pointer;transition:all 0.3s;margin-bottom:20px;display:flex;align-items:center;gap:16px;" onmouseover="this.style.borderColor='rgba(59,130,246,0.8)';this.style.background='linear-gradient(135deg,rgba(59,130,246,0.25),rgba(139,92,246,0.15))';this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 20px rgba(59,130,246,0.2)'" onmouseout="this.style.borderColor='rgba(59,130,246,0.4)';this.style.background='linear-gradient(135deg,rgba(59,130,246,0.15),rgba(139,92,246,0.1))';this.style.transform='translateY(0)';this.style.boxShadow='none'">
-        <div style="font-size:36px;flex-shrink:0;">🌐</div>
-        <div style="flex:1;text-align:left;">
-          <div style="font-weight:700;font-size:16px;color:#fff;">Map Friend</div>
-          <div style="font-size:12px;color:#93c5fd;margin-top:3px;">Fil social, partage d'events entre amis et messages</div>
-        </div>
-        <div style="font-size:18px;color:#60a5fa;flex-shrink:0;">→</div>
       </div>
       
       <!-- Blocs principaux avec descriptions -->
@@ -25377,23 +26452,24 @@ function openAccountModal() {
         <div onclick="closePublishModal();setTimeout(() => openAgendaModal(), 300);" style="padding:16px;border-radius:14px;background:rgba(15,23,42,0.5);border:1px solid rgba(255,255,255,0.1);cursor:pointer;transition:all 0.3s;text-align:center;" onmouseover="this.style.borderColor='rgba(0,255,195,0.5)';this.style.background='rgba(0,255,195,0.08)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.1)';this.style.background='rgba(15,23,42,0.5)';this.style.transform='translateY(0)'">
           <div style="font-size:28px;margin-bottom:6px;">📅</div>
           <div style="font-weight:600;font-size:13px;color:#fff;">Agenda</div>
-          <div style="font-size:11px;color:#94a3b8;margin-top:4px;">${agendaCount > 0 ? agendaCount + ' événement' + (agendaCount > 1 ? 's' : '') + ' sauvegardé' + (agendaCount > 1 ? 's' : '') : 'Sauvegardez des events depuis la carte'}</div>
+          <div style="font-size:11px;color:#94a3b8;margin-top:4px;">Vos events sauvegardés</div>
         </div>
         
-        <div onclick="openAccountWindow('amis')" style="padding:16px;border-radius:14px;background:rgba(15,23,42,0.5);border:1px solid rgba(255,255,255,0.1);cursor:pointer;transition:all 0.3s;text-align:center;" onmouseover="this.style.borderColor='rgba(0,255,195,0.5)';this.style.background='rgba(0,255,195,0.08)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.1)';this.style.background='rgba(15,23,42,0.5)';this.style.transform='translateY(0)'">
-          <div style="font-size:28px;margin-bottom:6px;">👥</div>
-          <div style="font-weight:600;font-size:13px;color:#fff;">Amis</div>
-          <div style="font-size:11px;color:#94a3b8;margin-top:4px;">Ajoutez des amis pour partager vos events</div>
+        <div onclick="closePublishModal();setTimeout(() => openFavoritesModal(), 300);" style="padding:16px;border-radius:14px;background:rgba(15,23,42,0.5);border:1px solid rgba(255,255,255,0.1);cursor:pointer;transition:all 0.3s;text-align:center;position:relative;" onmouseover="this.style.borderColor='rgba(245,158,11,0.5)';this.style.background='rgba(245,158,11,0.08)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.1)';this.style.background='rgba(15,23,42,0.5)';this.style.transform='translateY(0)'">
+          ${currentUser.favorites && currentUser.favorites.length > 0 ? `<div style="position:absolute;top:8px;right:8px;background:#f59e0b;color:#000;font-size:10px;font-weight:700;min-width:20px;height:20px;border-radius:10px;display:flex;align-items:center;justify-content:center;padding:0 5px;">${currentUser.favorites.length}</div>` : ''}
+          <div style="font-size:28px;margin-bottom:6px;">\u2B50</div>
+          <div style="font-weight:600;font-size:13px;color:#fff;">Favoris</div>
+          <div style="font-size:11px;color:#94a3b8;margin-top:4px;">Vos coups de coeur + alertes</div>
         </div>
         
-        <div onclick="openAccountWindow('notifications')" style="padding:16px;border-radius:14px;background:rgba(15,23,42,0.5);border:1px solid rgba(255,255,255,0.1);cursor:pointer;transition:all 0.3s;text-align:center;" onmouseover="this.style.borderColor='rgba(0,255,195,0.5)';this.style.background='rgba(0,255,195,0.08)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.1)';this.style.background='rgba(15,23,42,0.5)';this.style.transform='translateY(0)'">
+        <div onclick="openProximityAlertsView()" style="padding:16px;border-radius:14px;background:rgba(15,23,42,0.5);border:1px solid ${(currentUser.proximityAlerts?.length || 0) > 0 ? 'rgba(245,158,11,0.6)' : 'rgba(255,255,255,0.1)'};cursor:pointer;transition:all 0.3s;text-align:center;${(currentUser.proximityAlerts?.length || 0) > 0 ? 'animation:alertsGlow 2s ease-in-out infinite;' : ''}" onmouseover="this.style.borderColor='rgba(245,158,11,0.7)';this.style.background='rgba(245,158,11,0.08)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='${(currentUser.proximityAlerts?.length || 0) > 0 ? 'rgba(245,158,11,0.6)' : 'rgba(255,255,255,0.1)'}';this.style.background='rgba(15,23,42,0.5)';this.style.transform='translateY(0)'">
           <div style="font-size:28px;margin-bottom:6px;">🔔</div>
-          <div style="font-weight:600;font-size:13px;color:#fff;">Notifications</div>
-          <div style="font-size:11px;color:#94a3b8;margin-top:4px;">Invitations, rappels et mises à jour</div>
+          <div style="font-weight:600;font-size:13px;color:#fff;">Alertes${(currentUser.proximityAlerts?.length || 0) > 0 ? ' <span style="display:inline-block;min-width:18px;height:18px;line-height:18px;border-radius:50%;background:#ef4444;color:#fff;font-size:10px;text-align:center;font-weight:700;">' + currentUser.proximityAlerts.length + '</span>' : ''}</div>
+          <div style="font-size:11px;color:#94a3b8;margin-top:4px;">Alertes de proximité et rappels</div>
         </div>
         
         <div onclick="openAccountWindow('parametres')" style="padding:16px;border-radius:14px;background:rgba(15,23,42,0.5);border:1px solid rgba(255,255,255,0.1);cursor:pointer;transition:all 0.3s;text-align:center;" onmouseover="this.style.borderColor='rgba(0,255,195,0.5)';this.style.background='rgba(0,255,195,0.08)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.1)';this.style.background='rgba(15,23,42,0.5)';this.style.transform='translateY(0)'">
-          <div style="font-size:28px;margin-bottom:6px;">⚙️</div>
+          <div style="font-size:28px;margin-bottom:6px;">\u2699️</div>
           <div style="font-weight:600;font-size:13px;color:#fff;">Paramètres</div>
           <div style="font-size:11px;color:#94a3b8;margin-top:4px;">Langue, thème et préférences</div>
         </div>
@@ -25405,9 +26481,15 @@ function openAccountModal() {
         </div>
         
         <div onclick="event.stopPropagation(); openAccountWindow('modifier-profil')" style="padding:16px;border-radius:14px;background:rgba(15,23,42,0.5);border:1px solid rgba(255,255,255,0.1);cursor:pointer;transition:all 0.3s;text-align:center;" onmouseover="this.style.borderColor='rgba(0,255,195,0.5)';this.style.background='rgba(0,255,195,0.08)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.1)';this.style.background='rgba(15,23,42,0.5)';this.style.transform='translateY(0)'">
-          <div style="font-size:28px;margin-bottom:6px;">✏️</div>
+          <div style="font-size:28px;margin-bottom:6px;">\u270F️</div>
           <div style="font-weight:600;font-size:13px;color:#fff;">Modifier mon profil</div>
           <div style="font-size:11px;color:#94a3b8;margin-top:4px;">Photo, bio et infos personnelles</div>
+        </div>
+        
+        <div onclick="openEcoMissionModal()" style="padding:16px;border-radius:14px;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.35);cursor:pointer;transition:all 0.3s;text-align:center;" onmouseover="this.style.borderColor='rgba(34,197,94,0.6)';this.style.background='rgba(34,197,94,0.14)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='rgba(34,197,94,0.35)';this.style.background='rgba(34,197,94,0.08)';this.style.transform='translateY(0)'">
+          <div style="font-size:28px;margin-bottom:6px;">🌍</div>
+          <div style="font-weight:600;font-size:13px;color:#fff;">Sauver la Terre</div>
+          <div style="font-size:11px;color:#86efac;margin-top:4px;">Notre mission planète</div>
         </div>
       </div>
       
@@ -25418,7 +26500,7 @@ function openAccountModal() {
           <div style="font-weight:600;font-size:14px;color:#fff;">Mes annonces</div>
           <div style="font-size:11px;color:#a78bfa;margin-top:3px;">${annoncesCount > 0 ? annoncesCount + ' annonce' + (annoncesCount > 1 ? 's' : '') + ' publiée' + (annoncesCount > 1 ? 's' : '') : 'Publiez un event ou booking pour le voir apparaître ici'}</div>
         </div>
-        <div style="font-size:16px;color:#a78bfa;flex-shrink:0;">→</div>
+        <div style="font-size:16px;color:#a78bfa;flex-shrink:0;">\u2192</div>
       </div>
       
       <!-- Bouton Installation PWA (visible uniquement sur mobile) -->
@@ -25431,7 +26513,7 @@ function openAccountModal() {
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
           <button onclick="openSubscriptionView()" style="padding:10px;border-radius:10px;border:1px solid rgba(148,163,184,0.2);background:rgba(255,255,255,0.04);color:var(--ui-text-main);cursor:pointer;font-size:12px;display:flex;flex-direction:column;align-items:center;gap:3px;">
             <span style="font-size:16px;">💎</span>
-            <span>Abos</span>
+            <span>Offres</span>
           </button>
           <button onclick="openProximityAlertsView()" style="padding:10px;border-radius:10px;border:1px solid rgba(148,163,184,0.2);background:rgba(255,255,255,0.04);color:var(--ui-text-main);cursor:pointer;font-size:12px;display:flex;flex-direction:column;align-items:center;gap:3px;">
             <span style="font-size:16px;">🔔</span>
@@ -25487,7 +26569,7 @@ function openAccountModal() {
   backdrop.style.opacity = '1';
   backdrop.style.zIndex = '9999';
   
-  // ⚠️⚠️⚠️ CRITIQUE : Attacher les event listeners après injection HTML (CSP)
+  // \u26A0️\u26A0️\u26A0️ CRITIQUE : Attacher les event listeners après injection HTML (CSP)
   setTimeout(() => {
     const logoutBtn = document.getElementById('account-logout-btn');
     const deleteBtn = document.getElementById('account-delete-btn');
@@ -25531,7 +26613,7 @@ function openAccountModal() {
         updateRememberMeToggleUI(checked, rememberMeSlider, rememberMeKnob);
         console.log('[ACCOUNT MODAL] "Rester connecté" changé:', checked);
         if (typeof showNotification === 'function') {
-          showNotification(checked ? '✅ Vous serez reconnecté automatiquement' : 'ℹ️ Vous devrez vous reconnecter à la prochaine visite', 'info');
+          showNotification(checked ? '\u2705 Vous serez reconnecté automatiquement' : '\u2139️ Vous devrez vous reconnecter à la prochaine visite', 'info');
         }
       });
     }
@@ -25556,7 +26638,7 @@ function openAccountModal() {
         e.preventDefault();
         e.stopPropagation();
         console.log('[ACCOUNT MODAL] Bouton "Se déconnecter" cliqué');
-        // ⚠️⚠️⚠️ FLUX STANDARD : Déconnexion simple (sans demander "rester connecté")
+        // \u26A0️\u26A0️\u26A0️ FLUX STANDARD : Déconnexion simple (sans demander "rester connecté")
         // La valeur du toggle est déjà sauvegardée dans localStorage
         if (typeof window.logout === 'function') {
           window.logout();
@@ -25565,9 +26647,9 @@ function openAccountModal() {
           const rememberMeValue = rememberMeToggle ? rememberMeToggle.checked : false;
           console.log('[ACCOUNT MODAL] Déconnexion avec rememberMe:', rememberMeValue);
           
-          // ⚠️⚠️⚠️ DÉCONNEXION COMPLÈTE : Rafraîchir la page pour réinitialiser tout
+          // \u26A0️\u26A0️\u26A0️ DÉCONNEXION COMPLÈTE : Rafraîchir la page pour réinitialiser tout
           if (!rememberMeValue) {
-            console.log('[ACCOUNT MODAL] ✅ Déconnexion complète - Rafraîchissement de la page');
+            console.log('[ACCOUNT MODAL] \u2705 Déconnexion complète - Rafraîchissement de la page');
             window.performLogout(false);
             // Attendre un peu pour que la déconnexion se termine, puis rafraîchir
             setTimeout(() => {
@@ -25578,7 +26660,7 @@ function openAccountModal() {
             window.performLogout(true);
           }
         } else {
-          console.error('[ACCOUNT MODAL] ❌ Fonction logout non trouvée');
+          console.error('[ACCOUNT MODAL] \u274C Fonction logout non trouvée');
           alert('Erreur: fonction de déconnexion non disponible');
         }
       }, { capture: true });
@@ -25592,12 +26674,12 @@ function openAccountModal() {
         if (typeof showDeleteAccountConfirmation === 'function') {
           showDeleteAccountConfirmation();
         } else {
-          console.error('[ACCOUNT MODAL] ❌ Fonction showDeleteAccountConfirmation non trouvée');
+          console.error('[ACCOUNT MODAL] \u274C Fonction showDeleteAccountConfirmation non trouvée');
         }
       }, { capture: true });
     }
     
-    console.log('[ACCOUNT MODAL] ✅ Event listeners attachés', { logoutBtn: !!logoutBtn, deleteBtn: !!deleteBtn, rememberMeToggle: !!rememberMeToggle });
+    console.log('[ACCOUNT MODAL] \u2705 Event listeners attachés', { logoutBtn: !!logoutBtn, deleteBtn: !!deleteBtn, rememberMeToggle: !!rememberMeToggle });
   }, 100);
   
   console.log('[ACCOUNT MODAL] Modal affiché', {
@@ -25618,7 +26700,7 @@ function showDeleteAccountConfirmation() {
   
   const html = `
     <div style="padding:40px;max-width:500px;margin:0 auto;text-align:center;">
-      <div style="font-size:64px;margin-bottom:20px;">⚠️</div>
+      <div style="font-size:64px;margin-bottom:20px;">\u26A0️</div>
       <h2 style="margin:0 0 16px;font-size:24px;font-weight:700;color:#fff;">Supprimer mon compte</h2>
       <p style="margin:0 0 24px;font-size:14px;color:var(--ui-text-muted);line-height:1.6;">
         Cette action est <strong style="color:#ef4444;">irréversible</strong>. Toutes vos données seront définitivement supprimées :
@@ -25650,12 +26732,12 @@ function showDeleteAccountConfirmation() {
 // Fonction pour confirmer et exécuter la suppression du compte
 async function confirmDeleteAccount() {
   if (!currentUser || !currentUser.isLoggedIn) {
-    showNotification('❌ Vous devez être connecté pour supprimer votre compte', 'error');
+    showNotification('\u274C Vous devez être connecté pour supprimer votre compte', 'error');
     return;
   }
   
   // Demander une confirmation finale
-  const finalConfirm = confirm('⚠️ DERNIÈRE CONFIRMATION\n\nCette action supprimera définitivement votre compte et toutes vos données.\n\nCette action est IRRÉVERSIBLE.\n\nVoulez-vous vraiment continuer ?');
+  const finalConfirm = confirm('\u26A0️ DERNIÈRE CONFIRMATION\n\nCette action supprimera définitivement votre compte et toutes vos données.\n\nCette action est IRRÉVERSIBLE.\n\nVoulez-vous vraiment continuer ?');
   
   if (!finalConfirm) {
     return;
@@ -25666,7 +26748,7 @@ async function confirmDeleteAccount() {
     
     const token = localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken');
     if (!token) {
-      showNotification('❌ Token d\'authentification manquant', 'error');
+      showNotification('\u274C Token d\'authentification manquant', 'error');
       return;
     }
     
@@ -25685,15 +26767,15 @@ async function confirmDeleteAccount() {
     
     if (!response.ok) {
       if (result.code === 'CONFIRMATION_REQUIRED') {
-        showNotification('❌ Confirmation requise pour supprimer le compte', 'error');
+        showNotification('\u274C Confirmation requise pour supprimer le compte', 'error');
       } else {
-        showNotification(`❌ Erreur: ${result.error || 'Impossible de supprimer le compte'}`, 'error');
+        showNotification(`\u274C Erreur: ${result.error || 'Impossible de supprimer le compte'}`, 'error');
       }
       return;
     }
     
     // Suppression réussie - tout supprimer (compte n'existe plus)
-    showNotification('✅ Compte supprimé avec succès', 'success');
+    showNotification('\u2705 Compte supprimé avec succès', 'success');
     
     localStorage.removeItem('currentUser');
     sessionStorage.removeItem('currentUser');
@@ -25717,7 +26799,7 @@ async function confirmDeleteAccount() {
     
   } catch (error) {
     console.error('Erreur suppression compte:', error);
-    showNotification('❌ Erreur lors de la suppression du compte. Veuillez réessayer.', 'error');
+    showNotification('\u274C Erreur lors de la suppression du compte. Veuillez réessayer.', 'error');
   }
 }
 
@@ -25725,7 +26807,7 @@ async function confirmDeleteAccount() {
 function openAccountWindow(blockType) {
   console.log('[ACCOUNT WINDOW] Ouverture fenêtre pour:', blockType);
   
-  // ⚠️⚠️⚠️ CRITIQUE : Ne pas fermer le modal si c'est pour modifier-profil
+  // \u26A0️\u26A0️\u26A0️ CRITIQUE : Ne pas fermer le modal si c'est pour modifier-profil
   // Car openEditProfileModal a besoin que le modal soit ouvert
   if (blockType !== 'modifier-profil') {
     closePublishModal();
@@ -25761,14 +26843,11 @@ function openAccountWindow(blockType) {
       </body>
       </html>
     `;
-  } else if (blockType === 'amis') {
-    openFriendsModal();
-    return;
   } else if (blockType === 'notifications') {
-    openNotificationsModal();
+    openProximityAlertsView();
     return;
   } else if (blockType === 'modifier-profil') {
-    // ⚠️⚠️⚠️ CRITIQUE : Pour modifier-profil, afficher le formulaire dans le modal au lieu d'une nouvelle fenêtre
+    // \u26A0️\u26A0️\u26A0️ CRITIQUE : Pour modifier-profil, afficher le formulaire dans le modal au lieu d'une nouvelle fenêtre
     console.log('[ACCOUNT WINDOW] modifier-profil détecté - Affichage dans modal au lieu de nouvelle fenêtre');
     
     // Essayer d'abord showAccountBlockContent (affiche dans le modal)
@@ -25788,12 +26867,12 @@ function openAccountWindow(blockType) {
       openEditProfileModal();
       return;
     } else {
-      console.error('[ACCOUNT WINDOW] ❌ Aucune fonction disponible pour modifier-profil');
-      showNotification('⚠️ Fonctionnalité en cours de développement', 'info');
+      console.error('[ACCOUNT WINDOW] \u274C Aucune fonction disponible pour modifier-profil');
+      showNotification('\u26A0️ Fonctionnalité en cours de développement', 'info');
       return;
     }
   } else if (blockType === 'mes-annonces') {
-    // ✅ MES ANNONCES - Afficher dans un modal
+    // \u2705 MES ANNONCES - Afficher dans un modal
     console.log('[ACCOUNT WINDOW] mes-annonces détecté - Ouverture du modal Mes annonces');
     showMesAnnoncesModal();
     return;
@@ -25850,7 +26929,7 @@ function askRememberMeBeforeLogout() {
   const rememberMeHtml = `
     <div style="padding:40px;max-width:500px;margin:0 auto;text-align:center;position:relative;">
       <!-- Bouton X pour fermer -->
-      <button onclick="closePublishModal();" style="position:absolute;top:16px;right:16px;background:none;border:none;color:var(--ui-text-muted);font-size:24px;cursor:pointer;padding:8px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:all 0.2s;z-index:10;" onmouseover="this.style.background='rgba(239,68,68,0.2)';this.style.color='#ef4444';this.style.transform='scale(1.1)';" onmouseout="this.style.background='none';this.style.color='var(--ui-text-muted)';this.style.transform='scale(1)';" title="Fermer">✕</button>
+      <button onclick="closePublishModal();" style="position:absolute;top:16px;right:16px;background:none;border:none;color:var(--ui-text-muted);font-size:24px;cursor:pointer;padding:8px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:all 0.2s;z-index:10;" onmouseover="this.style.background='rgba(239,68,68,0.2)';this.style.color='#ef4444';this.style.transform='scale(1.1)';" onmouseout="this.style.background='none';this.style.color='var(--ui-text-muted)';this.style.transform='scale(1)';" title="Fermer">\u2715</button>
       
       <div style="font-size:48px;margin-bottom:24px;">👋</div>
       <h2 style="margin:0 0 16px;font-size:24px;font-weight:700;color:#fff;">Voulez-vous rester connecté ?</h2>
@@ -25901,18 +26980,18 @@ function askRememberMeBeforeLogout() {
       newYesBtn.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        console.log('[LOGOUT] ✅ Bouton "Oui" cliqué');
+        console.log('[LOGOUT] \u2705 Bouton "Oui" cliqué');
         if (typeof window.confirmLogoutWithRememberMe === 'function') {
           window.confirmLogoutWithRememberMe(true);
         } else if (typeof confirmLogoutWithRememberMe === 'function') {
           confirmLogoutWithRememberMe(true);
         } else {
-          console.error('[LOGOUT] ❌ confirmLogoutWithRememberMe non trouvé');
+          console.error('[LOGOUT] \u274C confirmLogoutWithRememberMe non trouvé');
         }
       });
-      console.log('[LOGOUT] ✅ Event listener attaché au bouton "Oui"');
+      console.log('[LOGOUT] \u2705 Event listener attaché au bouton "Oui"');
     } else {
-      console.error('[LOGOUT] ❌ Bouton "Oui" non trouvé dans le DOM');
+      console.error('[LOGOUT] \u274C Bouton "Oui" non trouvé dans le DOM');
     }
     
     if (noBtn) {
@@ -25922,21 +27001,21 @@ function askRememberMeBeforeLogout() {
       newNoBtn.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        console.log('[LOGOUT] ✅ Bouton "Non" cliqué');
+        console.log('[LOGOUT] \u2705 Bouton "Non" cliqué');
         if (typeof window.confirmLogoutWithRememberMe === 'function') {
           window.confirmLogoutWithRememberMe(false);
         } else if (typeof confirmLogoutWithRememberMe === 'function') {
           confirmLogoutWithRememberMe(false);
         } else {
-          console.error('[LOGOUT] ❌ confirmLogoutWithRememberMe non trouvé');
+          console.error('[LOGOUT] \u274C confirmLogoutWithRememberMe non trouvé');
         }
       });
-      console.log('[LOGOUT] ✅ Event listener attaché au bouton "Non"');
+      console.log('[LOGOUT] \u2705 Event listener attaché au bouton "Non"');
     } else {
-      console.error('[LOGOUT] ❌ Bouton "Non" non trouvé dans le DOM');
+      console.error('[LOGOUT] \u274C Bouton "Non" non trouvé dans le DOM');
     }
     
-    console.log('[LOGOUT] ✅ Modal "rester connecté" affiché, boutons attachés');
+    console.log('[LOGOUT] \u2705 Modal "rester connecté" affiché, boutons attachés');
   });
 }
 
@@ -26008,7 +27087,7 @@ window.openAccountWindow = openAccountWindow;
 window.askRememberMeBeforeLogout = askRememberMeBeforeLogout;
 window.confirmLogoutWithRememberMe = confirmLogoutWithRememberMe;
 
-// ✅ MODAL "MES ANNONCES" - Affiche les annonces de l'utilisateur (avec API backend)
+// \u2705 MODAL "MES ANNONCES" - Affiche les annonces de l'utilisateur (avec API backend)
 async function showMesAnnoncesModal() {
   const modal = document.getElementById('publish-modal-inner');
   const backdrop = document.getElementById('publish-modal-backdrop');
@@ -26019,7 +27098,7 @@ async function showMesAnnoncesModal() {
   }
   
   // Afficher le loader
-  modal.innerHTML = '<div style="padding:60px;text-align:center;"><div style="font-size:48px;margin-bottom:16px;">⏳</div><p style="color:var(--ui-text-muted);">Chargement...</p></div>';
+  modal.innerHTML = '<div style="padding:60px;text-align:center;"><div style="font-size:48px;margin-bottom:16px;">\u23F3</div><p style="color:var(--ui-text-muted);">Chargement...</p></div>';
   modal.style.display = 'block';
   modal.style.visibility = 'visible';
   backdrop.style.display = 'flex';
@@ -26034,21 +27113,46 @@ async function showMesAnnoncesModal() {
   // Charger depuis l'API backend
   if (token) {
     try {
-      const response = await fetch(window.API_BASE_URL + '/user/events', {
+      let response = await fetch(window.API_BASE_URL + '/user/events', {
         method: 'GET',
         headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }
       });
+      if (response.status === 401 && typeof getRefreshToken === 'function') {
+        const rt = getRefreshToken();
+        if (rt) {
+          try {
+            const refreshResp = await fetch(window.API_BASE_URL + '/auth/refresh', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ refreshToken: rt })
+            });
+            if (refreshResp.ok) {
+              const rd = await refreshResp.json();
+              if (rd.accessToken) {
+                if (typeof setAuthTokens === 'function') setAuthTokens(rd.accessToken, rd.refreshToken || rt, localStorage.getItem('rememberMe') === 'true');
+                response = await fetch(window.API_BASE_URL + '/user/events', {
+                  method: 'GET',
+                  headers: { 'Authorization': 'Bearer ' + rd.accessToken, 'Content-Type': 'application/json' }
+                });
+              }
+            }
+          } catch(refreshErr) { console.warn('[MES ANNONCES] Token refresh failed:', refreshErr); }
+        }
+      }
       if (response.ok) {
         const events = await response.json();
         events.forEach(e => {
           // Ajouter à userAnnonces pour l'affichage dans la modal
           userAnnonces.push({
             id: e.id, title: e.title, location: e.location, lat: e.latitude, lng: e.longitude,
-            date: e.date, status: e.status || 'active', type: 'event', emoji: '📅',
-            view_count: e.view_count || 0
+            date: e.date, end_date: e.end_date, time: e.time, end_time: e.end_time,
+            status: e.status || 'active', type: 'event', emoji: '📅',
+            view_count: e.view_count || 0,
+            likes_count: e.likes || 0, favorites_count: e.favorites || 0, participants_count: e.participations || 0,
+            categories: e.categories || [], source_url: e.source_url || '', image_url: e.image_url || ''
           });
           
-          // ⚠️ CRITIQUE : Ajouter aussi à eventsData si pas déjà présent
+          // \u26A0️ CRITIQUE : Ajouter aussi à eventsData si pas déjà présent
           // Cela permet à focusOnMapItem de trouver l'événement pour "Voir"
           if (!eventsData.find(ev => ev.id === e.id)) {
             eventsData.push({
@@ -26066,7 +27170,7 @@ async function showMesAnnoncesModal() {
               creator_id: e.creator_id,
               image_url: e.image_url,
               categories: e.categories || [],
-              boost: '1.-',
+              boost: normalizeBoostTier(e.boost),
               likes: 0,
               favorites: 0,
               participations: 0
@@ -26083,15 +27187,26 @@ async function showMesAnnoncesModal() {
   }
   
   // Chercher aussi dans les données locales (fallback + bookings/services)
-  eventsData.filter(e => e.userId === userId || e.createdBy === userId || e.creator_id === userId).forEach(e => {
+  const userIdStr = userId ? userId.toString() : '';
+  const cognitoSub = currentUser ? (currentUser.cognitoSub || currentUser.sub || '') : '';
+  const matchesUser = (item) => {
+    if (!userIdStr && !cognitoSub) return false;
+    const cid = item.creator_id ? item.creator_id.toString() : '';
+    const uid = item.userId ? item.userId.toString() : '';
+    const cb = item.createdBy ? item.createdBy.toString() : '';
+    return (userIdStr && (cid === userIdStr || uid === userIdStr || cb === userIdStr)) ||
+           (cognitoSub && (cid === cognitoSub || uid === cognitoSub || cb === cognitoSub));
+  };
+  console.log('[MES ANNONCES] userId:', userIdStr, 'cognitoSub:', cognitoSub, 'eventsData:', eventsData.length);
+  eventsData.filter(matchesUser).forEach(e => {
     if (!userAnnonces.find(a => a.id === e.id && a.type === 'event')) {
       userAnnonces.push({ id: e.id, title: e.title || e.name, location: e.location || e.address, lat: e.lat, lng: e.lng, status: e.status || 'active', type: 'event', emoji: '📅', view_count: 0 });
     }
   });
-  bookingsData.filter(b => b.userId === userId || b.createdBy === userId).forEach(b => {
+  bookingsData.filter(matchesUser).forEach(b => {
     userAnnonces.push({ id: b.id, title: b.title || b.name, location: b.location || b.address, lat: b.lat, lng: b.lng, status: 'active', type: 'booking', emoji: '🏨', view_count: 0 });
   });
-  servicesData.filter(s => s.userId === userId || s.createdBy === userId).forEach(s => {
+  servicesData.filter(matchesUser).forEach(s => {
     userAnnonces.push({ id: s.id, title: s.title || s.name, location: s.location || s.address, lat: s.lat, lng: s.lng, status: 'active', type: 'service', emoji: '🔧', view_count: 0 });
   });
   // Récupérer les vues popup pour les items sans view_count (bookings, services, events locaux)
@@ -26120,35 +27235,94 @@ async function showMesAnnoncesModal() {
     'postponed': { label: 'Reporté', color: '#f59e0b', bg: 'rgba(245,158,11,0.15)' }
   };
   
-  var html = '<div style="padding:24px;max-width:600px;margin:0 auto;position:relative;">' +
-    '<button id="mes-annonces-back-btn" style="position:absolute;top:16px;left:16px;background:rgba(255,255,255,0.1);border:none;color:#fff;font-size:14px;cursor:pointer;padding:8px 16px;border-radius:8px;">← Retour</button>' +
-    '<button id="mes-annonces-close-btn" style="position:absolute;top:16px;right:16px;background:none;border:none;color:var(--ui-text-muted);font-size:24px;cursor:pointer;">✕</button>' +
-    '<h2 style="text-align:center;margin:0 0 24px;font-size:24px;color:#fff;">📢 Mes annonces</h2>';
-  
+  // Récupérer les stats supplémentaires (likes, favoris, participants) depuis les données locales
+  userAnnonces.forEach(item => {
+    const allData = item.type === 'event' ? eventsData : item.type === 'booking' ? bookingsData : servicesData;
+    const full = allData.find(e => e.id === item.id);
+    if (full) {
+      if (!item.likes_count) item.likes_count = full.likes || 0;
+      if (!item.favorites_count) item.favorites_count = full.favorites || 0;
+      if (!item.participants_count) item.participants_count = full.participants || full.participations || 0;
+      if (!item.date) item.date = full.startDate || full.date;
+    }
+  });
+
+  var totalViews = userAnnonces.reduce((s, a) => s + (a.view_count || 0), 0);
+  var totalLikes = userAnnonces.reduce((s, a) => s + (a.likes_count || 0), 0);
+  var totalFavs = userAnnonces.reduce((s, a) => s + (a.favorites_count || 0), 0);
+  var totalParticipants = userAnnonces.reduce((s, a) => s + (a.participants_count || 0), 0);
+  var engagementRate = totalViews > 0 ? Math.round(((totalLikes + totalFavs + totalParticipants) / totalViews) * 100) : 0;
+  var bestAnnonce = userAnnonces.length > 0 ? userAnnonces.reduce((best, a) => (a.view_count || 0) > (best.view_count || 0) ? a : best, userAnnonces[0]) : null;
+  var upcomingCount = userAnnonces.filter(a => { if(!a.date) return false; return new Date(a.date) >= new Date(); }).length;
+
+  var html = '<div style="padding:20px;max-width:600px;margin:0 auto;position:relative;">' +
+    '<button id="mes-annonces-back-btn" style="position:absolute;top:16px;left:16px;background:rgba(255,255,255,0.1);border:none;color:#fff;font-size:14px;cursor:pointer;padding:8px 16px;border-radius:8px;">\u2190 Retour</button>' +
+    '<button id="mes-annonces-close-btn" style="position:absolute;top:16px;right:16px;background:none;border:none;color:var(--ui-text-muted);font-size:24px;cursor:pointer;">\u2715</button>' +
+    '<h2 style="text-align:center;margin:0 0 16px;font-size:22px;color:#fff;">📢 Mes annonces</h2>';
+
+  if (userAnnonces.length > 0) {
+    html += '<div style="display:flex;gap:12px;margin-bottom:14px;justify-content:center;flex-wrap:wrap;">' +
+      '<div style="text-align:center;padding:10px 16px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);border-radius:10px;min-width:70px;"><div style="font-size:20px;font-weight:700;color:#3b82f6;">' + totalViews + '</div><div style="font-size:10px;color:#94a3b8;">Vues</div></div>' +
+      '<div style="text-align:center;padding:10px 16px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:10px;min-width:70px;"><div style="font-size:20px;font-weight:700;color:#ef4444;">' + totalLikes + '</div><div style="font-size:10px;color:#94a3b8;">Likes</div></div>' +
+      '<div style="text-align:center;padding:10px 16px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:10px;min-width:70px;"><div style="font-size:20px;font-weight:700;color:#f59e0b;">' + totalFavs + '</div><div style="font-size:10px;color:#94a3b8;">Favoris</div></div>' +
+      '<div style="text-align:center;padding:10px 16px;background:rgba(139,92,246,0.1);border:1px solid rgba(139,92,246,0.3);border-radius:10px;min-width:70px;"><div style="font-size:20px;font-weight:700;color:#a78bfa;">' + userAnnonces.length + '</div><div style="font-size:10px;color:#94a3b8;">Annonces</div></div>' +
+    '</div>';
+    html += '<div style="display:flex;gap:12px;margin-bottom:14px;justify-content:center;flex-wrap:wrap;">' +
+      '<div style="text-align:center;padding:10px 16px;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.3);border-radius:10px;min-width:70px;"><div style="font-size:20px;font-weight:700;color:#22c55e;">' + totalParticipants + '</div><div style="font-size:10px;color:#94a3b8;">Participants</div></div>' +
+      '<div style="text-align:center;padding:10px 16px;background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.3);border-radius:10px;min-width:70px;"><div style="font-size:20px;font-weight:700;color:#06b6d4;">' + engagementRate + '%</div><div style="font-size:10px;color:#94a3b8;">Engagement</div></div>' +
+      '<div style="text-align:center;padding:10px 16px;background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);border-radius:10px;min-width:70px;"><div style="font-size:20px;font-weight:700;color:#10b981;">' + upcomingCount + '</div><div style="font-size:10px;color:#94a3b8;">À venir</div></div>' +
+    '</div>';
+    if (bestAnnonce && bestAnnonce.view_count > 0) {
+      html += '<div style="padding:8px 12px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);border-radius:8px;margin-bottom:14px;font-size:11px;color:#94a3b8;text-align:center;">' +
+        '🏆 <strong style="color:#f59e0b;">Meilleure annonce</strong> : ' + escapeHtml(bestAnnonce.title || '') + ' \u2014 <strong style="color:#3b82f6;">' + bestAnnonce.view_count + ' vues</strong>' +
+      '</div>';
+    }
+    html += '<div style="padding:10px 14px;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.2);border-radius:8px;margin-bottom:14px;font-size:11px;color:#94a3b8;line-height:1.6;text-align:left;">' +
+      '<div style="text-align:center;margin-bottom:6px;font-size:12px;font-weight:600;color:#3b82f6;">👁 Vues uniques par session</div>' +
+      '<div style="display:flex;flex-direction:column;gap:3px;">' +
+        '<div>\u2022 Ouvert au grand public \u2014 <strong style="color:#e2e8f0;">pas besoin de compte</strong> pour compter une vue</div>' +
+        '<div>\u2022 1 vue = 1 visiteur unique (IP + navigateur) par 24h</div>' +
+        '<div>\u2022 Rafraîchir la page <strong style="color:#e2e8f0;">ne recompte pas</strong></div>' +
+        '<div>\u2022 Même visiteur le lendemain = <strong style="color:#22c55e;">nouvelle vue</strong></div>' +
+      '</div>' +
+    '</div>';
+  }
+
   if (userAnnonces.length === 0) {
-    html += '<div style="text-align:center;padding:40px;color:var(--ui-text-muted);"><div style="font-size:48px;margin-bottom:16px;">📭</div><p>Vous n\'avez pas encore d\'annonces</p><button id="mes-annonces-publish-btn" style="margin-top:16px;padding:12px 24px;border-radius:12px;border:none;background:#00ffc3;color:#000;font-weight:600;cursor:pointer;">+ Publier une annonce</button></div>';
+    html += '<div style="text-align:center;padding:40px;color:var(--ui-text-muted);"><div style="font-size:48px;margin-bottom:16px;">📭</div><p>Vous n\'avez pas encore d\'annonces</p><p style="font-size:12px;margin-top:8px;">Publiez un event, booking ou service pour le voir ici !</p><button id="mes-annonces-publish-btn" style="margin-top:16px;padding:12px 24px;border-radius:12px;border:none;background:#00ffc3;color:#000;font-weight:600;cursor:pointer;">+ Publier une annonce</button></div>';
   } else {
-    html += '<div id="mes-annonces-list" style="display:flex;flex-direction:column;gap:16px;">';
+    html += '<div id="mes-annonces-list" style="display:flex;flex-direction:column;gap:12px;">';
     userAnnonces.forEach(item => {
       const st = statusLabels[item.status] || statusLabels['active'];
       const vc = item.view_count != null ? item.view_count : 0;
-      html += '<div class="annonce-item" data-type="' + item.type + '" data-id="' + item.id + '" data-status="' + item.status + '" style="padding:16px;border-radius:12px;background:rgba(15,23,42,0.5);border:1px solid rgba(255,255,255,0.1);">' +
-        '<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;cursor:pointer;" class="annonce-header">' +
+      const lk = item.likes_count || 0;
+      const fv = item.favorites_count || 0;
+      const pp = item.participants_count || 0;
+      html += '<div class="annonce-item" data-type="' + item.type + '" data-id="' + item.id + '" data-status="' + item.status + '" style="padding:14px;border-radius:12px;background:rgba(15,23,42,0.5);border:1px solid rgba(255,255,255,0.1);transition:all 0.2s;" onmouseover="this.style.borderColor=\'rgba(0,255,195,0.4)\'" onmouseout="this.style.borderColor=\'rgba(255,255,255,0.1)\'">' +
+        '<div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;cursor:pointer;" class="annonce-header">' +
           '<div style="font-size:28px;">' + item.emoji + '</div>' +
-          '<div style="flex:1;"><div style="font-weight:600;font-size:15px;color:#fff;">' + escapeHtml(item.title || 'Sans titre') + '</div><div style="font-size:12px;color:var(--ui-text-muted);">' + escapeHtml(item.location || '') + '</div><div style="font-size:11px;color:var(--ui-text-muted);margin-top:4px;">👁 ' + vc + ' vue' + (vc !== 1 ? 's' : '') + '</div></div>' +
-          '<span style="padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;background:' + st.bg + ';color:' + st.color + ';">' + st.label + '</span>' +
+          '<div style="flex:1;min-width:0;">' +
+            '<div style="font-weight:600;font-size:14px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(item.title || 'Sans titre') + '</div>' +
+            '<div style="font-size:11px;color:var(--ui-text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">📍 ' + escapeHtml(item.location || '') + '</div>' +
+            (item.date ? '<div style="font-size:11px;color:#60a5fa;margin-top:2px;">📅 ' + item.date + (item.end_date && item.end_date !== item.date ? ' \u2192 ' + item.end_date : '') + (function(){ if(!item.date) return ''; var d=new Date(item.date); var now=new Date(); var diff=Math.ceil((d-now)/(1000*60*60*24)); if(diff>0) return ' <span style="color:#22c55e;font-weight:600;">(dans '+diff+'j)</span>'; if(diff===0) return ' <span style="color:#f59e0b;font-weight:600;">(aujourd\'hui!)</span>'; return ' <span style="color:#ef4444;">(passé)</span>'; })() + '</div>' : '') +
+          '</div>' +
+          '<span style="padding:4px 10px;border-radius:20px;font-size:10px;font-weight:600;background:' + st.bg + ';color:' + st.color + ';flex-shrink:0;">' + st.label + '</span>' +
         '</div>' +
-        // Première ligne de boutons
-        '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">' +
-          '<button class="annonce-btn-view" data-id="' + item.id + '" data-type="' + item.type + '" style="flex:1;min-width:60px;padding:10px;border-radius:8px;border:1px solid rgba(0,255,195,0.4);background:rgba(0,255,195,0.1);color:#00ffc3;font-size:12px;font-weight:600;cursor:pointer;">📍 Voir</button>' +
-          '<button class="annonce-btn-edit" data-id="' + item.id + '" data-type="' + item.type + '" style="flex:1;min-width:60px;padding:10px;border-radius:8px;border:1px solid rgba(59,130,246,0.4);background:rgba(59,130,246,0.1);color:#3b82f6;font-size:12px;font-weight:600;cursor:pointer;">✏️ Modifier</button>' +
+        '<div style="display:flex;gap:12px;margin-bottom:10px;padding:8px 10px;background:rgba(15,23,42,0.4);border-radius:8px;font-size:11px;color:#94a3b8;">' +
+          '<span>👁 <strong style="color:#3b82f6;">' + vc + '</strong> vue' + (vc !== 1 ? 's' : '') + '</span>' +
+          '<span>\u2764️ <strong style="color:#ef4444;">' + lk + '</strong></span>' +
+          '<span>\u2B50 <strong style="color:#f59e0b;">' + fv + '</strong></span>' +
+          '<span>👥 <strong style="color:#8b5cf6;">' + pp + '</strong></span>' +
         '</div>' +
-        // Deuxième ligne - Statuts
-        '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
-          (item.status === 'active' ? '<button class="annonce-btn-cancel" data-id="' + item.id + '" data-type="' + item.type + '" style="flex:1;min-width:60px;padding:10px;border-radius:8px;border:1px solid rgba(239,68,68,0.4);background:rgba(239,68,68,0.1);color:#ef4444;font-size:12px;font-weight:600;cursor:pointer;">❌ Annuler</button>' : '') +
-          (item.status === 'active' ? '<button class="annonce-btn-postpone" data-id="' + item.id + '" data-type="' + item.type + '" style="flex:1;min-width:60px;padding:10px;border-radius:8px;border:1px solid rgba(245,158,11,0.4);background:rgba(245,158,11,0.1);color:#f59e0b;font-size:12px;font-weight:600;cursor:pointer;">⏸️ Reporter</button>' : '') +
-          (item.status === 'cancelled' || item.status === 'postponed' ? '<button class="annonce-btn-reactivate" data-id="' + item.id + '" data-type="' + item.type + '" style="flex:1;min-width:60px;padding:10px;border-radius:8px;border:1px solid rgba(34,197,94,0.4);background:rgba(34,197,94,0.1);color:#22c55e;font-size:12px;font-weight:600;cursor:pointer;">✅ Réactiver</button>' : '') +
-          '<button class="annonce-btn-delete" data-id="' + item.id + '" data-type="' + item.type + '" style="flex:1;min-width:60px;padding:10px;border-radius:8px;border:1px solid rgba(127,29,29,0.4);background:rgba(127,29,29,0.1);color:#dc2626;font-size:12px;font-weight:600;cursor:pointer;">🗑️ Supprimer</button>' +
+        '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px;">' +
+          '<button class="annonce-btn-view" data-id="' + item.id + '" data-type="' + item.type + '" style="flex:1;min-width:55px;padding:8px;border-radius:8px;border:1px solid rgba(0,255,195,0.4);background:rgba(0,255,195,0.1);color:#00ffc3;font-size:11px;font-weight:600;cursor:pointer;">📍 Voir</button>' +
+          '<button class="annonce-btn-edit" data-id="' + item.id + '" data-type="' + item.type + '" style="flex:1;min-width:55px;padding:8px;border-radius:8px;border:1px solid rgba(59,130,246,0.4);background:rgba(59,130,246,0.1);color:#3b82f6;font-size:11px;font-weight:600;cursor:pointer;">\u270F️ Modifier</button>' +
+        '</div>' +
+        '<div style="display:flex;gap:6px;flex-wrap:wrap;">' +
+          (item.status === 'active' ? '<button class="annonce-btn-cancel" data-id="' + item.id + '" data-type="' + item.type + '" style="flex:1;min-width:55px;padding:8px;border-radius:8px;border:1px solid rgba(239,68,68,0.4);background:rgba(239,68,68,0.1);color:#ef4444;font-size:11px;font-weight:600;cursor:pointer;">\u274C Annuler</button>' : '') +
+          (item.status === 'active' ? '<button class="annonce-btn-postpone" data-id="' + item.id + '" data-type="' + item.type + '" style="flex:1;min-width:55px;padding:8px;border-radius:8px;border:1px solid rgba(245,158,11,0.4);background:rgba(245,158,11,0.1);color:#f59e0b;font-size:11px;font-weight:600;cursor:pointer;">\u23F8️ Reporter</button>' : '') +
+          (item.status === 'cancelled' || item.status === 'postponed' ? '<button class="annonce-btn-reactivate" data-id="' + item.id + '" data-type="' + item.type + '" style="flex:1;min-width:55px;padding:8px;border-radius:8px;border:1px solid rgba(34,197,94,0.4);background:rgba(34,197,94,0.1);color:#22c55e;font-size:11px;font-weight:600;cursor:pointer;">\u2705 Réactiver</button>' : '') +
+          '<button class="annonce-btn-delete" data-id="' + item.id + '" data-type="' + item.type + '" style="flex:1;min-width:55px;padding:8px;border-radius:8px;border:1px solid rgba(127,29,29,0.4);background:rgba(127,29,29,0.1);color:#dc2626;font-size:11px;font-weight:600;cursor:pointer;">🗑️ Supprimer</button>' +
         '</div></div>';
     });
     html += '</div>';
@@ -26173,7 +27347,7 @@ async function showMesAnnoncesModal() {
 // Mettre à jour le statut d'un événement (annuler/reporter/réactiver)
 async function updateEventStatus(eventId, newStatus, itemType = 'event') {
   const token = typeof getAuthToken === 'function' ? getAuthToken() : localStorage.getItem('accessToken');
-  if (!token) { showNotification('❌ Vous devez être connecté', 'error'); return; }
+  if (!token) { showNotification('\u274C Vous devez être connecté', 'error'); return; }
   try {
     const endpoint = itemType === 'event' ? 'events' : itemType === 'booking' ? 'bookings' : 'services';
     const response = await fetch(window.API_BASE_URL + '/' + endpoint + '/' + eventId + '/status', {
@@ -26183,19 +27357,19 @@ async function updateEventStatus(eventId, newStatus, itemType = 'event') {
     });
     if (response.ok) {
       const messages = {
-        'cancelled': '❌ Annonce annulée',
-        'postponed': '⏸️ Annonce reportée',
-        'active': '✅ Annonce réactivée'
+        'cancelled': '\u274C Annonce annulée',
+        'postponed': '\u23F8️ Annonce reportée',
+        'active': '\u2705 Annonce réactivée'
       };
-      showNotification(messages[newStatus] || '✅ Statut mis à jour', 'success');
+      showNotification(messages[newStatus] || '\u2705 Statut mis à jour', 'success');
       await loadEventsFromBackend();
       showMesAnnoncesModal();
     } else {
       const err = await response.json();
-      showNotification('❌ ' + (err.error || 'Erreur'), 'error');
+      showNotification('\u274C ' + (err.error || 'Erreur'), 'error');
     }
   } catch (err) {
-    showNotification('❌ Erreur de connexion', 'error');
+    showNotification('\u274C Erreur de connexion', 'error');
   }
 }
 
@@ -26206,7 +27380,7 @@ function openEditEventModal(itemType, itemId) {
   const item = dataArray.find(i => i.id === parseInt(itemId));
   
   if (!item) {
-    showNotification('❌ Annonce introuvable', 'error');
+    showNotification('\u274C Annonce introuvable', 'error');
     return;
   }
   
@@ -26230,10 +27404,10 @@ function openEditEventModal(itemType, itemId) {
   // Construire le formulaire de modification
   const html = `
     <div style="padding:24px;max-width:550px;margin:0 auto;position:relative;">
-      <button id="edit-back-btn" style="position:absolute;top:16px;left:16px;background:rgba(255,255,255,0.1);border:none;color:#fff;font-size:14px;cursor:pointer;padding:8px 16px;border-radius:8px;">← Retour</button>
-      <button id="edit-close-btn" style="position:absolute;top:16px;right:16px;background:none;border:none;color:var(--ui-text-muted);font-size:24px;cursor:pointer;">✕</button>
+      <button id="edit-back-btn" style="position:absolute;top:16px;left:16px;background:rgba(255,255,255,0.1);border:none;color:#fff;font-size:14px;cursor:pointer;padding:8px 16px;border-radius:8px;">\u2190 Retour</button>
+      <button id="edit-close-btn" style="position:absolute;top:16px;right:16px;background:none;border:none;color:var(--ui-text-muted);font-size:24px;cursor:pointer;">\u2715</button>
       
-      <h2 style="text-align:center;margin:40px 0 24px;font-size:22px;color:#fff;">✏️ Modifier l'annonce</h2>
+      <h2 style="text-align:center;margin:40px 0 24px;font-size:22px;color:#fff;">\u270F️ Modifier l'annonce</h2>
       
       <!-- Informations de base -->
       <div style="margin-bottom:16px;">
@@ -26283,21 +27457,21 @@ function openEditEventModal(itemType, itemId) {
             <input type="radio" name="edit-status" value="active" ${currentStatus === 'active' ? 'checked' : ''} style="display:none;">
             <div class="status-option" style="padding:8px;border-radius:10px;border:2px solid ${currentStatus === 'active' ? '#22c55e' : 'transparent'};background:${currentStatus === 'active' ? 'rgba(34,197,94,0.1)' : 'rgba(0,0,0,0.2)'};">
               <img src="${statusImages.active}" alt="Actif" style="width:100%;height:60px;object-fit:cover;border-radius:6px;margin-bottom:6px;">
-              <div style="font-size:11px;font-weight:600;color:#22c55e;">✅ Actif</div>
+              <div style="font-size:11px;font-weight:600;color:#22c55e;">\u2705 Actif</div>
             </div>
           </label>
           <label style="cursor:pointer;text-align:center;">
             <input type="radio" name="edit-status" value="postponed" ${currentStatus === 'postponed' ? 'checked' : ''} style="display:none;">
             <div class="status-option" style="padding:8px;border-radius:10px;border:2px solid ${currentStatus === 'postponed' ? '#f59e0b' : 'transparent'};background:${currentStatus === 'postponed' ? 'rgba(245,158,11,0.1)' : 'rgba(0,0,0,0.2)'};">
               <img src="${statusImages.postponed}" alt="Reporté" style="width:100%;height:60px;object-fit:cover;border-radius:6px;margin-bottom:6px;">
-              <div style="font-size:11px;font-weight:600;color:#f59e0b;">⏸️ Reporté</div>
+              <div style="font-size:11px;font-weight:600;color:#f59e0b;">\u23F8️ Reporté</div>
             </div>
           </label>
           <label style="cursor:pointer;text-align:center;">
             <input type="radio" name="edit-status" value="cancelled" ${currentStatus === 'cancelled' ? 'checked' : ''} style="display:none;">
             <div class="status-option" style="padding:8px;border-radius:10px;border:2px solid ${currentStatus === 'cancelled' ? '#ef4444' : 'transparent'};background:${currentStatus === 'cancelled' ? 'rgba(239,68,68,0.1)' : 'rgba(0,0,0,0.2)'};">
               <img src="${statusImages.cancelled}" alt="Annulé" style="width:100%;height:60px;object-fit:cover;border-radius:6px;margin-bottom:6px;">
-              <div style="font-size:11px;font-weight:600;color:#ef4444;">❌ Annulé</div>
+              <div style="font-size:11px;font-weight:600;color:#ef4444;">\u274C Annulé</div>
             </div>
           </label>
         </div>
@@ -26355,11 +27529,11 @@ async function saveEditedEvent(itemType, itemId) {
   const newStatus = document.querySelector('input[name="edit-status"]:checked')?.value || 'active';
   
   if (!title || !address) {
-    showNotification('⚠️ Le titre et l\'adresse sont obligatoires', 'warning');
+    showNotification('\u26A0️ Le titre et l\'adresse sont obligatoires', 'warning');
     return;
   }
   
-  showNotification('⏳ Enregistrement...', 'info');
+  showNotification('\u23F3 Enregistrement...', 'info');
   
   try {
     const token = typeof getAuthToken === 'function' ? getAuthToken() : localStorage.getItem('accessToken');
@@ -26397,16 +27571,16 @@ async function saveEditedEvent(itemType, itemId) {
       window.editingItem = null;
       refreshMarkers();
       playPaymentSound();
-      showNotification('✅ Modifications enregistrées !', 'success');
+      showNotification('\u2705 Modifications enregistrées !', 'success');
       
       setTimeout(() => showMesAnnoncesModal(), 500);
     } else {
       const err = await response.json();
-      showNotification('❌ Erreur: ' + (err.error || 'Impossible de modifier'), 'error');
+      showNotification('\u274C Erreur: ' + (err.error || 'Impossible de modifier'), 'error');
     }
   } catch (error) {
     console.error('Erreur modification:', error);
-    showNotification('❌ Erreur de connexion', 'error');
+    showNotification('\u274C Erreur de connexion', 'error');
   }
 }
 
@@ -26434,7 +27608,7 @@ function confirmDeleteEvent(itemId, itemType) {
 // Supprimer une annonce
 async function deleteEvent(itemId, itemType) {
   const token = typeof getAuthToken === 'function' ? getAuthToken() : localStorage.getItem('accessToken');
-  if (!token) { showNotification('❌ Vous devez être connecté', 'error'); return; }
+  if (!token) { showNotification('\u274C Vous devez être connecté', 'error'); return; }
   
   try {
     const endpoint = itemType === 'event' ? 'events' : itemType === 'booking' ? 'bookings' : 'services';
@@ -26462,12 +27636,12 @@ async function deleteEvent(itemId, itemType) {
       showMesAnnoncesModal();
     } else {
       const err = await response.json();
-      showNotification('❌ ' + (err.error || 'Erreur de suppression'), 'error');
+      showNotification('\u274C ' + (err.error || 'Erreur de suppression'), 'error');
       showMesAnnoncesModal();
     }
   } catch (err) {
     console.error('Erreur suppression:', err);
-    showNotification('❌ Erreur de connexion', 'error');
+    showNotification('\u274C Erreur de connexion', 'error');
     showMesAnnoncesModal();
   }
 }
@@ -26497,7 +27671,7 @@ function focusOnMapItem(type, id) {
     
     showNotification('📍 ' + (item.title || item.name), 'info');
   } else {
-    showNotification('❌ Impossible de localiser cette annonce', 'error');
+    showNotification('\u274C Impossible de localiser cette annonce', 'error');
   }
 }
 
@@ -26505,7 +27679,7 @@ function focusOnMapItem(type, id) {
 function showAccountBlockContent(blockType) {
   console.log('[ACCOUNT BLOCK] showAccountBlockContent appelé avec blockType:', blockType);
   
-  // ⚠️⚠️⚠️ CRITIQUE : Pour modifier-profil, utiliser directement openEditProfileModal
+  // \u26A0️\u26A0️\u26A0️ CRITIQUE : Pour modifier-profil, utiliser directement openEditProfileModal
   if (blockType === 'modifier-profil') {
     console.log('[ACCOUNT BLOCK] modifier-profil détecté - Utilisation directe openEditProfileModal');
     if (typeof window.openEditProfileModal === 'function') {
@@ -26515,9 +27689,9 @@ function showAccountBlockContent(blockType) {
       openEditProfileModal();
       return;
     } else {
-      console.error('[ACCOUNT BLOCK] ❌ openEditProfileModal non disponible');
+      console.error('[ACCOUNT BLOCK] \u274C openEditProfileModal non disponible');
       if (typeof showNotification === 'function') {
-        showNotification('⚠️ Fonctionnalité en cours de développement', 'info');
+        showNotification('\u26A0️ Fonctionnalité en cours de développement', 'info');
       }
       return;
     }
@@ -26525,10 +27699,10 @@ function showAccountBlockContent(blockType) {
   
   const contentDiv = document.getElementById('account-block-content');
   if (!contentDiv) {
-    console.error('[ACCOUNT BLOCK] ❌ account-block-content non trouvé!');
+    console.error('[ACCOUNT BLOCK] \u274C account-block-content non trouvé!');
     return;
   }
-  console.log('[ACCOUNT BLOCK] ✅ account-block-content trouvé');
+  console.log('[ACCOUNT BLOCK] \u2705 account-block-content trouvé');
   
   let content = '';
   
@@ -26543,7 +27717,7 @@ function showAccountBlockContent(blockType) {
       <div style="padding:16px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
           <h3 style="margin:0;font-size:18px;font-weight:700;color:#fff;">📅 Mon Agenda</h3>
-          <button onclick="openAccountModal()" style="background:none;border:none;color:var(--ui-text-muted);font-size:20px;cursor:pointer;padding:4px;">✕</button>
+          <button onclick="openAccountModal()" style="background:none;border:none;color:var(--ui-text-muted);font-size:20px;cursor:pointer;padding:4px;">\u2715</button>
         </div>
         ${agendaItems.length === 0 ? `
           <div style="text-align:center;padding:40px;color:var(--ui-text-muted);">
@@ -26572,7 +27746,6 @@ function showAccountBlockContent(blockType) {
         `}
       </div>
     `;
-  } else if (blockType === 'amis') {
     const friends = currentUser.friends || [];
     const friendRequests = currentUser.friendRequests || [];
     
@@ -26580,7 +27753,7 @@ function showAccountBlockContent(blockType) {
       <div style="padding:16px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
           <h3 style="margin:0;font-size:18px;font-weight:700;color:#fff;">👥 Mes Amis</h3>
-          <button onclick="openAccountModal()" style="background:none;border:none;color:var(--ui-text-muted);font-size:20px;cursor:pointer;padding:4px;">✕</button>
+          <button onclick="openAccountModal()" style="background:none;border:none;color:var(--ui-text-muted);font-size:20px;cursor:pointer;padding:4px;">\u2715</button>
         </div>
         ${friendRequests.length > 0 ? `
           <div style="margin-bottom:20px;">
@@ -26594,8 +27767,8 @@ function showAccountBlockContent(blockType) {
                     <div style="font-size:11px;color:var(--ui-text-muted);">${req.username || ''}</div>
                   </div>
                   <div style="display:flex;gap:8px;">
-                    <button onclick="acceptFriendRequest(${req.id})" style="padding:6px 12px;border-radius:8px;border:none;background:#22c55e;color:#fff;font-size:12px;font-weight:600;cursor:pointer;">✓</button>
-                    <button onclick="rejectFriendRequest(${req.id})" style="padding:6px 12px;border-radius:8px;border:none;background:#ef4444;color:#fff;font-size:12px;font-weight:600;cursor:pointer;">✕</button>
+                    <button onclick="acceptFriendRequest(${req.id})" style="padding:6px 12px;border-radius:8px;border:none;background:#22c55e;color:#fff;font-size:12px;font-weight:600;cursor:pointer;">\u2713</button>
+                    <button onclick="rejectFriendRequest(${req.id})" style="padding:6px 12px;border-radius:8px;border:none;background:#ef4444;color:#fff;font-size:12px;font-weight:600;cursor:pointer;">\u2715</button>
                   </div>
                 </div>
               `).join('')}
@@ -26627,8 +27800,8 @@ function showAccountBlockContent(blockType) {
     content = `
       <div style="padding:16px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-          <h3 style="margin:0;font-size:18px;font-weight:700;color:#fff;">⚙️ Paramètres</h3>
-          <button onclick="openAccountModal()" style="background:none;border:none;color:var(--ui-text-muted);font-size:20px;cursor:pointer;padding:4px;">✕</button>
+          <h3 style="margin:0;font-size:18px;font-weight:700;color:#fff;">\u2699️ Paramètres</h3>
+          <button onclick="openAccountModal()" style="background:none;border:none;color:var(--ui-text-muted);font-size:20px;cursor:pointer;padding:4px;">\u2715</button>
         </div>
         <div style="display:flex;flex-direction:column;gap:12px;">
           <button onclick="openUserProfile()" style="padding:14px;border-radius:12px;border:2px solid rgba(255,255,255,0.1);background:rgba(15,23,42,0.5);color:#fff;font-weight:600;font-size:14px;cursor:pointer;text-align:left;transition:all 0.3s;" onmouseover="this.style.borderColor='rgba(0,255,195,0.5)';this.style.background='rgba(0,255,195,0.1)';" onmouseout="this.style.borderColor='rgba(255,255,255,0.1)';this.style.background='rgba(15,23,42,0.5)';">
@@ -26648,7 +27821,7 @@ function showAccountBlockContent(blockType) {
       <div style="padding:16px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
           <h3 style="margin:0;font-size:18px;font-weight:700;color:#fff;">👤 Mon Profil</h3>
-          <button onclick="openAccountModal()" style="background:none;border:none;color:var(--ui-text-muted);font-size:20px;cursor:pointer;padding:4px;">✕</button>
+          <button onclick="openAccountModal()" style="background:none;border:none;color:var(--ui-text-muted);font-size:20px;cursor:pointer;padding:4px;">\u2715</button>
         </div>
         <div style="display:flex;flex-direction:column;gap:16px;">
           <div>
@@ -26666,7 +27839,7 @@ function showAccountBlockContent(blockType) {
             </div>
           ` : ''}
           <button onclick="openUserProfile()" style="padding:14px;border-radius:12px;border:2px solid rgba(0,255,195,0.5);background:rgba(0,255,195,0.1);color:#00ffc3;font-weight:600;font-size:14px;cursor:pointer;transition:all 0.3s;" onmouseover="this.style.background='rgba(0,255,195,0.2)';" onmouseout="this.style.background='rgba(0,255,195,0.1)';">
-            ✏️ Modifier mon profil
+            \u270F️ Modifier mon profil
           </button>
         </div>
       </div>
@@ -26679,8 +27852,8 @@ function showAccountBlockContent(blockType) {
     content = `
       <div style="padding:16px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-          <h3 style="margin:0;font-size:18px;font-weight:700;color:#fff;">✏️ Modifier mon profil</h3>
-          <button onclick="openAccountModal()" style="background:none;border:none;color:var(--ui-text-muted);font-size:20px;cursor:pointer;padding:4px;">✕</button>
+          <h3 style="margin:0;font-size:18px;font-weight:700;color:#fff;">\u270F️ Modifier mon profil</h3>
+          <button onclick="openAccountModal()" style="background:none;border:none;color:var(--ui-text-muted);font-size:20px;cursor:pointer;padding:4px;">\u2715</button>
         </div>
         <div style="display:flex;flex-direction:column;gap:16px;">
           <div>
@@ -26718,7 +27891,7 @@ function showAccountBlockContent(blockType) {
             </div>
           ` : ''}
           <button onclick="if(typeof window.openEditProfileModal === 'function') { window.openEditProfileModal(); } else if(typeof openEditProfileModal === 'function') { openEditProfileModal(); } else { showNotification('Fonctionnalité à venir', 'info'); }" style="width:100%;padding:14px;border-radius:12px;border:2px solid rgba(0,255,195,0.5);background:rgba(0,255,195,0.1);color:#00ffc3;font-weight:600;font-size:14px;cursor:pointer;transition:all 0.3s;" onmouseover="this.style.background='rgba(0,255,195,0.2)';" onmouseout="this.style.background='rgba(0,255,195,0.1)';">
-            ✏️ Modifier mes informations
+            \u270F️ Modifier mes informations
           </button>
         </div>
       </div>
@@ -26754,11 +27927,11 @@ function showAccountModalTab(tab) {
   const activityScore = (currentUser.likes.length || 0) + (currentUser.agenda.length || 0) * 2 + (currentUser.participating.length || 0) * 3;
   const level = activityScore > 50 ? 'Expert' : activityScore > 20 ? 'Actif' : activityScore > 5 ? 'Découvreur' : 'Nouveau';
   const levelColor = activityScore > 50 ? '#ffd700' : activityScore > 20 ? '#8b5cf6' : activityScore > 5 ? '#3b82f6' : '#6b7280';
-  const levelEmoji = activityScore > 50 ? '🏆' : activityScore > 20 ? '⭐' : activityScore > 5 ? '🌱' : '👋';
+  const levelEmoji = activityScore > 50 ? '🏆' : activityScore > 20 ? '\u2B50' : activityScore > 5 ? '🌱' : '👋';
   
   // Badges gagnés
   const badges = [];
-  if ((currentUser.likes?.length || 0) >= 1) badges.push({ emoji: '❤️', name: 'Premier like' });
+  if ((currentUser.likes?.length || 0) >= 1) badges.push({ emoji: '\u2764️', name: 'Premier like' });
   if ((currentUser.agenda?.length || 0) >= 5) badges.push({ emoji: '📅', name: '5 événements' });
   if ((currentUser.participating?.length || 0) >= 1) badges.push({ emoji: '🎉', name: 'Participant' });
   if (currentUser.subscription !== 'free') badges.push({ emoji: '💎', name: 'Premium' });
@@ -26790,7 +27963,7 @@ function showAccountModalTab(tab) {
       const [type, id] = key.split(":");
       const data = type === "event" ? eventsData : type === "booking" ? bookingsData : servicesData;
       const item = data.find(i => i.id === parseInt(id));
-      // ⚠️ CRITIQUE : S'assurer que item.type est défini
+      // \u26A0️ CRITIQUE : S'assurer que item.type est défini
       if (item && !item.type) {
         item.type = type;
       }
@@ -26828,66 +28001,6 @@ function showAccountModalTab(tab) {
         `}
       </div>
     `;
-  } else if (tab === 'groupes') {
-    const groups = currentUser.groups || [];
-    tabContent = `
-      <div style="padding:16px;">
-        <h3 style="margin:0 0 16px;font-size:18px;font-weight:700;">👥 Mes Groupes</h3>
-        ${groups.length === 0 ? `
-          <div style="text-align:center;padding:40px;color:var(--ui-text-muted);">
-            <div style="font-size:48px;margin-bottom:16px;">👥</div>
-            <p>Vous n'êtes dans aucun groupe</p>
-            <button onclick="openGroupsModal()" style="margin-top:16px;padding:12px 24px;border-radius:999px;border:none;background:linear-gradient(135deg,#00ffc3,#3b82f6);color:#000;font-weight:700;cursor:pointer;">Créer un groupe</button>
-          </div>
-        ` : `
-          <div style="display:flex;flex-direction:column;gap:12px;">
-            ${groups.map(group => `
-              <div onclick="openGroupDetails(${group.id})" style="display:flex;gap:12px;padding:12px;border-radius:12px;background:rgba(15,23,42,0.5);border:1px solid var(--ui-card-border);cursor:pointer;">
-                <div style="width:60px;height:60px;border-radius:50%;background:linear-gradient(135deg,#00ffc3,#3b82f6);display:flex;align-items:center;justify-content:center;font-size:24px;">${group.emoji || '👥'}</div>
-                <div style="flex:1;">
-                  <div style="font-weight:600;font-size:14px;">${escapeHtml(group.name || 'Groupe sans nom')}</div>
-                  <div style="font-size:12px;color:var(--ui-text-muted);">${group.members?.length || 0} membres</div>
-                </div>
-              </div>
-            `).join('')}
-          </div>
-        `}
-      </div>
-    `;
-  } else if (tab === 'amis') {
-    // Chargement dynamique depuis l'API - afficher un placeholder, puis charger async
-    tabContent = `
-      <div style="padding:16px;" id="friends-tab-content">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-          <h3 style="margin:0;font-size:18px;font-weight:700;">Mes Amis</h3>
-                  </div>
-        
-        <!-- Recherche d'amis -->
-        <div style="margin-bottom:16px;">
-                  <div style="display:flex;gap:8px;">
-            <div style="flex:1;position:relative;">
-              <input id="friend-search-input" type="text" placeholder="Rechercher un utilisateur..." 
-                style="width:100%;padding:10px 12px;border-radius:12px;border:1px solid rgba(255,255,255,0.1);background:rgba(15,23,42,0.5);color:#e4e6eb;font-size:14px;" 
-                oninput="searchFriendsDebounced(this.value)">
-              <div id="friend-search-results" style="position:absolute;top:100%;left:0;right:0;z-index:100;background:#1e293b;border-radius:0 0 12px 12px;border:1px solid rgba(255,255,255,0.1);display:none;max-height:200px;overflow-y:auto;"></div>
-                  </div>
-                </div>
-            </div>
-        
-        <!-- Demandes en attente -->
-        <div id="friend-requests-section" style="display:none;margin-bottom:20px;">
-          <div style="font-size:12px;color:#94a3b8;margin-bottom:12px;font-weight:600;">Demandes en attente</div>
-          <div id="friend-requests-list" style="display:flex;flex-direction:column;gap:8px;"></div>
-          </div>
-        
-        <!-- Liste des amis -->
-        <div id="friends-list-section">
-          <div style="text-align:center;padding:20px;color:#94a3b8;">Chargement...</div>
-          </div>
-      </div>
-    `;
-    // Charger les amis après le rendu
-    setTimeout(() => loadFriendsTab(), 50);
   } else if (tab === 'notifications') {
     const notifications = [
       ...(currentUser.pendingStatusNotifications || []).map(n => ({...n, type: 'status'})),
@@ -26997,7 +28110,7 @@ function showAccountModalTab(tab) {
         
         <div style="padding:12px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:10px;margin-top:20px;">
           <div style="font-size:12px;color:var(--ui-text-muted);line-height:1.5;">
-            <strong style="color:#ef4444;">⚠️ Important :</strong> Votre email et votre adresse postale complète ne sont <strong>jamais</strong> affichés publiquement, même si vous activez ces options.
+            <strong style="color:#ef4444;">\u26A0️ Important :</strong> Votre email et votre adresse postale complète ne sont <strong>jamais</strong> affichés publiquement, même si vous activez ces options.
           </div>
         </div>
       </div>
@@ -27035,19 +28148,12 @@ function showAccountModalTab(tab) {
         <button onclick="closePublishModal();setTimeout(() => openAgendaModal(), 300);" style="flex:1;padding:14px;border:none;background:${tab === 'agenda' ? 'rgba(0,255,195,0.1)' : 'transparent'};color:${tab === 'agenda' ? '#00ffc3' : 'var(--ui-text-main)'};font-weight:${tab === 'agenda' ? '700' : '600'};font-size:13px;cursor:pointer;border-bottom:${tab === 'agenda' ? '3px solid #00ffc3' : 'none'};transition:all 0.2s;">
           📅 Agenda
         </button>
-        <button onclick="showAccountModalTab('groupes')" style="flex:1;padding:14px;border:none;background:${tab === 'groupes' ? 'rgba(0,255,195,0.1)' : 'transparent'};color:${tab === 'groupes' ? '#00ffc3' : 'var(--ui-text-main)'};font-weight:${tab === 'groupes' ? '700' : '600'};font-size:13px;cursor:pointer;border-bottom:${tab === 'groupes' ? '3px solid #00ffc3' : 'none'};transition:all 0.2s;">
-          👥 Groupes
-        </button>
-        <button onclick="showAccountModalTab('amis')" style="flex:1;padding:14px;border:none;background:${tab === 'amis' ? 'rgba(0,255,195,0.1)' : 'transparent'};color:${tab === 'amis' ? '#00ffc3' : 'var(--ui-text-main)'};font-weight:${tab === 'amis' ? '700' : '600'};font-size:13px;cursor:pointer;border-bottom:${tab === 'amis' ? '3px solid #00ffc3' : 'none'};transition:all 0.2s;position:relative;">
-          👥 Amis
-          ${(currentUser.friendRequests?.length || 0) > 0 ? `<span style="position:absolute;top:8px;right:8px;width:16px;height:16px;background:#ef4444;border-radius:50%;font-size:9px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;">${currentUser.friendRequests.length}</span>` : ''}
+        <button onclick="closePublishModal();setTimeout(() => openFavoritesModal(), 300);" style="flex:1;padding:14px;border:none;background:transparent;color:var(--ui-text-main);font-weight:600;font-size:13px;cursor:pointer;transition:all 0.2s;">
+          \u2B50 Favoris
         </button>
         <button onclick="showAccountModalTab('notifications')" style="flex:1;padding:14px;border:none;background:${tab === 'notifications' ? 'rgba(0,255,195,0.1)' : 'transparent'};color:${tab === 'notifications' ? '#00ffc3' : 'var(--ui-text-main)'};font-weight:${tab === 'notifications' ? '700' : '600'};font-size:13px;cursor:pointer;border-bottom:${tab === 'notifications' ? '3px solid #00ffc3' : 'none'};transition:all 0.2s;position:relative;">
-          🔔 Notifs
+          🔔 Alertes
           ${notificationsCount > 0 ? `<span style="position:absolute;top:8px;right:8px;width:16px;height:16px;background:#ef4444;border-radius:50%;font-size:9px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;">${notificationsCount}</span>` : ''}
-        </button>
-        <button onclick="showAccountModalTab('mapfriend')" style="flex:1;padding:14px;border:none;background:${tab === 'mapfriend' ? 'rgba(0,255,195,0.1)' : 'transparent'};color:${tab === 'mapfriend' ? '#00ffc3' : 'var(--ui-text-main)'};font-weight:${tab === 'mapfriend' ? '700' : '600'};font-size:13px;cursor:pointer;border-bottom:${tab === 'mapfriend' ? '3px solid #00ffc3' : 'none'};transition:all 0.2s;">
-          🌍 Map Friend
         </button>
         <button onclick="showAccountModalTab('privacy')" style="flex:1;padding:14px;border:none;background:${tab === 'privacy' ? 'rgba(0,255,195,0.1)' : 'transparent'};color:${tab === 'privacy' ? '#00ffc3' : 'var(--ui-text-main)'};font-weight:${tab === 'privacy' ? '700' : '600'};font-size:13px;cursor:pointer;border-bottom:${tab === 'privacy' ? '3px solid #00ffc3' : 'none'};transition:all 0.2s;">
           🔒 Confidentialité
@@ -27062,8 +28168,8 @@ function showAccountModalTab(tab) {
       <!-- Footer avec actions -->
       <div style="padding:12px 16px;background:var(--ui-card-bg);border-top:1px solid var(--ui-card-border);border-radius:0 0 16px 16px;display:flex;flex-direction:column;gap:8px;">
         <div style="display:flex;gap:8px;">
-          <button onclick="openEditProfileModal()" style="flex:1;padding:10px;border-radius:8px;border:1px solid rgba(0,255,195,0.3);background:rgba(0,255,195,0.1);color:#00ffc3;cursor:pointer;font-size:12px;font-weight:600;">✏️ Modifier profil</button>
-          <button onclick="openSettingsModal()" style="flex:1;padding:10px;border-radius:8px;border:1px solid var(--ui-card-border);background:transparent;color:var(--ui-text-main);cursor:pointer;font-size:12px;">⚙️ Paramètres</button>
+          <button onclick="openEditProfileModal()" style="flex:1;padding:10px;border-radius:8px;border:1px solid rgba(0,255,195,0.3);background:rgba(0,255,195,0.1);color:#00ffc3;cursor:pointer;font-size:12px;font-weight:600;">\u270F️ Modifier profil</button>
+          <button onclick="openSettingsModal()" style="flex:1;padding:10px;border-radius:8px;border:1px solid var(--ui-card-border);background:transparent;color:var(--ui-text-main);cursor:pointer;font-size:12px;">\u2699️ Paramètres</button>
         </div>
         <div style="display:flex;gap:8px;">
           <button onclick="logout()" style="flex:1;padding:10px;border-radius:8px;border:1px solid rgba(239,68,68,0.3);background:rgba(239,68,68,0.1);color:#ef4444;cursor:pointer;font-size:12px;">🚪 Déconnexion</button>
@@ -27092,8 +28198,8 @@ function openSettingsModal() {
   const html = `
     <div style="padding:20px;max-width:400px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-        <h2 style="margin:0;font-size:20px;display:flex;align-items:center;gap:10px;">⚙️ Paramètres</h2>
-        <button onclick="closePublishModal()" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--ui-text-muted);">✕</button>
+        <h2 style="margin:0;font-size:20px;display:flex;align-items:center;gap:10px;">\u2699️ Paramètres</h2>
+        <button onclick="closePublishModal()" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--ui-text-muted);">\u2715</button>
       </div>
       
       <!-- Notifications -->
@@ -27177,7 +28283,7 @@ function openSettingsModal() {
           
           <label style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:rgba(15,23,42,0.5);border-radius:8px;cursor:pointer;">
             <div style="display:flex;align-items:center;gap:8px;">
-              <span>❤️</span>
+              <span>\u2764️</span>
               <span style="font-size:13px;">Mes favoris</span>
             </div>
             <input type="checkbox" ${currentUser.privacySettings?.showFavorites !== false ? 'checked' : ''} onchange="togglePrivacy('showFavorites')" style="width:18px;height:18px;accent-color:#00ffc3;">
@@ -27197,14 +28303,6 @@ function openSettingsModal() {
               <span style="font-size:13px;">Mes participations</span>
             </div>
             <input type="checkbox" ${currentUser.privacySettings?.showParticipating !== false ? 'checked' : ''} onchange="togglePrivacy('showParticipating')" style="width:18px;height:18px;accent-color:#00ffc3;">
-          </label>
-          
-          <label style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:rgba(15,23,42,0.5);border-radius:8px;cursor:pointer;">
-            <div style="display:flex;align-items:center;gap:8px;">
-              <span>👥</span>
-              <span style="font-size:13px;">Mes amis</span>
-            </div>
-            <input type="checkbox" ${currentUser.privacySettings?.showFriends !== false ? 'checked' : ''} onchange="togglePrivacy('showFriends')" style="width:18px;height:18px;accent-color:#00ffc3;">
           </label>
           
           <label style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:rgba(15,23,42,0.5);border-radius:8px;cursor:pointer;">
@@ -27234,7 +28332,7 @@ function openSettingsModal() {
       </div>
       
       <button onclick="openAccountModal()" style="width:100%;padding:12px;border-radius:999px;border:1px solid var(--ui-card-border);background:transparent;color:var(--ui-text-main);cursor:pointer;">
-        ← Retour au compte
+        \u2190 Retour au compte
       </button>
     </div>
   `;
@@ -27277,9 +28375,9 @@ function openEditProfileModal() {
     <div style="padding:24px;max-width:500px;margin:0 auto;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
         <h2 style="margin:0;font-size:22px;font-weight:800;color:#fff;display:flex;align-items:center;gap:10px;">
-          <span>✏️</span> Modifier mon profil
+          <span>\u270F️</span> Modifier mon profil
         </h2>
-        <button onclick="openAccountModal()" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--ui-text-muted);transition:color 0.2s;" onmouseover="this.style.color='#fff';" onmouseout="this.style.color='var(--ui-text-muted)';">✕</button>
+        <button onclick="openAccountModal()" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--ui-text-muted);transition:color 0.2s;" onmouseover="this.style.color='#fff';" onmouseout="this.style.color='var(--ui-text-muted)';">\u2715</button>
       </div>
       
       <!-- Photo de profil -->
@@ -27329,14 +28427,14 @@ function openEditProfileModal() {
     </div>
   `;
   
-  // ⚠️⚠️⚠️ CRITIQUE : S'assurer que le modal est ouvert avant d'injecter le HTML
+  // \u26A0️\u26A0️\u26A0️ CRITIQUE : S'assurer que le modal est ouvert avant d'injecter le HTML
   const modal = document.getElementById("publish-modal-inner");
   const backdrop = document.getElementById("publish-modal-backdrop");
   
   if (!modal || !backdrop) {
-    console.error('[EDIT PROFILE] ❌ Modal non trouvé');
+    console.error('[EDIT PROFILE] \u274C Modal non trouvé');
     if (typeof showNotification === 'function') {
-      showNotification('⚠️ Erreur: Modal non trouvé', 'error');
+      showNotification('\u26A0️ Erreur: Modal non trouvé', 'error');
     }
     return;
   }
@@ -27353,9 +28451,9 @@ function openEditProfileModal() {
   // Injecter le HTML
   modal.innerHTML = html;
   
-  console.log('[EDIT PROFILE] ✅ Formulaire de modification affiché');
+  console.log('[EDIT PROFILE] \u2705 Formulaire de modification affiché');
   
-  // ⚠️⚠️⚠️ CRITIQUE : Empêcher la fermeture du modal pendant l'injection
+  // \u26A0️\u26A0️\u26A0️ CRITIQUE : Empêcher la fermeture du modal pendant l'injection
   // Attendre un peu pour que le HTML soit complètement injecté
   setTimeout(() => {
     // Réattacher les event listeners après l'injection
@@ -27376,7 +28474,7 @@ function handleEditProfilePhoto(event) {
   if (!file) return;
   
   if (!file.type.startsWith('image/')) {
-    showNotification("⚠️ Veuillez sélectionner une image", "warning");
+    showNotification("\u26A0️ Veuillez sélectionner une image", "warning");
     return;
   }
   
@@ -27400,7 +28498,7 @@ async function saveProfileChanges() {
   const photo = window.tempProfilePhoto || currentUser.profile_photo_url || currentUser.profilePhoto;
   
   if (!username || username.length < 3) {
-    showNotification("⚠️ Le nom d'utilisateur doit contenir au moins 3 caractères", "warning");
+    showNotification("\u26A0️ Le nom d'utilisateur doit contenir au moins 3 caractères", "warning");
     return;
   }
   
@@ -27421,13 +28519,13 @@ function showProfileVerificationChoice() {
   const modal = document.getElementById('publish-modal-inner');
   
   if (!backdrop || !modal) {
-    showNotification("⚠️ Erreur d'affichage", "warning");
+    showNotification("\u26A0️ Erreur d'affichage", "warning");
     return;
   }
   
   modal.innerHTML = `
     <div style="padding:40px;max-width:500px;margin:0 auto;text-align:center;position:relative;">
-      <button onclick="openEditProfileModal()" style="position:absolute;top:16px;right:16px;background:none;border:none;color:var(--ui-text-muted);font-size:24px;cursor:pointer;padding:8px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:all 0.2s;z-index:10;" onmouseover="this.style.background='rgba(239,68,68,0.2)';this.style.color='#ef4444';this.style.transform='scale(1.1)';" onmouseout="this.style.background='none';this.style.color='var(--ui-text-muted)';this.style.transform='scale(1)';" title="Fermer">✕</button>
+      <button onclick="openEditProfileModal()" style="position:absolute;top:16px;right:16px;background:none;border:none;color:var(--ui-text-muted);font-size:24px;cursor:pointer;padding:8px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:all 0.2s;z-index:10;" onmouseover="this.style.background='rgba(239,68,68,0.2)';this.style.color='#ef4444';this.style.transform='scale(1.1)';" onmouseout="this.style.background='none';this.style.color='var(--ui-text-muted)';this.style.transform='scale(1)';" title="Fermer">\u2715</button>
       
       <div style="margin-bottom:32px;">
         <div style="font-size:64px;margin-bottom:16px;">🔐</div>
@@ -27450,7 +28548,7 @@ function showProfileVerificationChoice() {
 // Confirmer les modifications avec Google
 async function confirmProfileChangesWithGoogle() {
   if (!window.pendingProfileChanges) {
-    showNotification("⚠️ Aucune modification en attente", "warning");
+    showNotification("\u26A0️ Aucune modification en attente", "warning");
     return;
   }
   
@@ -27459,14 +28557,14 @@ async function confirmProfileChangesWithGoogle() {
     window.isUpdatingProfile = true;
     window.startGoogleLogin();
   } else {
-    showNotification("⚠️ Erreur de connexion Google", "warning");
+    showNotification("\u26A0️ Erreur de connexion Google", "warning");
   }
 }
 
 // Confirmer les modifications avec Email
 async function confirmProfileChangesWithEmail() {
   if (!window.pendingProfileChanges) {
-    showNotification("⚠️ Aucune modification en attente", "warning");
+    showNotification("\u26A0️ Aucune modification en attente", "warning");
     return;
   }
   
@@ -27482,14 +28580,14 @@ async function confirmProfileChangesWithEmail() {
     });
     
     if (response.ok) {
-      showNotification("✅ Email de vérification envoyé ! Vérifiez votre boîte mail.", "success");
+      showNotification("\u2705 Email de vérification envoyé ! Vérifiez votre boîte mail.", "success");
       openAccountModal();
     } else {
-      showNotification("⚠️ Erreur lors de l'envoi de l'email", "warning");
+      showNotification("\u26A0️ Erreur lors de l'envoi de l'email", "warning");
     }
   } catch (error) {
     console.error('Erreur envoi email:', error);
-    showNotification("⚠️ Erreur lors de l'envoi de l'email", "warning");
+    showNotification("\u26A0️ Erreur lors de l'envoi de l'email", "warning");
   }
 }
 
@@ -27551,7 +28649,7 @@ async function applyProfileChanges() {
   window.pendingProfileChanges = null;
   window.isUpdatingProfile = false;
   
-  showNotification("✅ Profil modifié avec succès !", "success");
+  showNotification("\u2705 Profil modifié avec succès !", "success");
   openAccountModal();
   
   // Mettre à jour l'affichage
@@ -27567,7 +28665,7 @@ window.handleEditProfilePhoto = handleEditProfilePhoto;
 window.saveProfileChanges = saveProfileChanges;
 
 // Vérifier que les fonctions sont bien exposées
-console.log('✅ Fonctions profil exposées:', {
+console.log('\u2705 Fonctions profil exposées:', {
   openEditProfileModal: typeof window.openEditProfileModal,
   handleEditProfilePhoto: typeof window.handleEditProfilePhoto,
   saveProfileChanges: typeof window.saveProfileChanges
@@ -27612,54 +28710,68 @@ function togglePrivacy(setting) {
 window.togglePrivacy = togglePrivacy;
 
 function openFavoritesModal() {
-  // Utiliser currentUser.favorites au lieu de currentUser.likes
+  if (!currentUser || !currentUser.favorites) {
+    currentUser.favorites = [];
+  }
   const favorites = currentUser.favorites.map(fav => {
     const type = fav.mode || fav.type;
     const id = parseInt(fav.id);
     const data = type === "event" ? eventsData : type === "booking" ? bookingsData : servicesData;
     const item = data.find(i => i.id === id);
-    if (item) {
-      return { ...item, favoriteId: fav.id };
-    }
+    if (item) return { ...item, favoriteId: fav.id, favMode: type };
     return null;
   }).filter(Boolean);
 
+  const buildFavCard = (item) => {
+    const imgTag = buildMainImageTag(item, item.title || item.name || "");
+    const dateStr = item.startDate ? formatEventDateRange(item.startDate, item.endDate) : '';
+    const typeLabel = item.type === 'event' ? '📅' : item.type === 'booking' ? '🎵' : '🛠️';
+    return `
+      <div style="display:flex;gap:12px;padding:12px;border-radius:12px;margin-bottom:8px;background:rgba(15,23,42,0.5);border:1px solid var(--ui-card-border);cursor:pointer;transition:all 0.2s;" onclick="focusOnItem('${item.type}', ${item.id})" onmouseover="this.style.background='rgba(245,158,11,0.1)';this.style.borderColor='rgba(245,158,11,0.5)';this.style.transform='translateY(-1px)'" onmouseout="this.style.background='rgba(15,23,42,0.5)';this.style.borderColor='var(--ui-card-border)';this.style.transform='translateY(0)'">
+        <div style="width:60px;height:60px;border-radius:8px;overflow:hidden;flex-shrink:0;">
+          ${imgTag}
+        </div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:600;font-size:13px;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${typeLabel} ${escapeHtml(item.title || item.name)}</div>
+          ${dateStr ? `<div style="font-size:11px;color:#f59e0b;margin-bottom:2px;">${dateStr}</div>` : ''}
+          <div style="font-size:11px;color:var(--ui-text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">📍 ${escapeHtml(item.city || '')}</div>
+        </div>
+        <button onclick="event.stopPropagation();removeFromFavorites('${item.favMode || item.type}', ${item.id})" style="width:32px;height:32px;border-radius:8px;border:1px solid rgba(239,68,68,0.3);background:rgba(239,68,68,0.1);color:#ef4444;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;align-self:center;transition:all 0.2s;" onmouseover="this.style.background='rgba(239,68,68,0.3)'" onmouseout="this.style.background='rgba(239,68,68,0.1)'" title="Retirer des favoris">\u2715</button>
+      </div>
+    `;
+  };
+
   const html = `
-    <div style="padding:10px;">
+    <div style="padding:14px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-        <h2 style="margin:0;font-size:18px;">❤️ Mes Favoris</h2>
-        <button onclick="closePublishModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--ui-text-muted);">✕</button>
+        <div>
+          <h2 style="margin:0;font-size:20px;">\u2B50 ${window.t ? window.t("my_favorites") : "Mes favoris"}</h2>
+          ${favorites.length > 0 ? `<div style="font-size:12px;color:var(--ui-text-muted);margin-top:4px;">${favorites.length} ${favorites.length === 1 ? 'favori' : 'favoris'}</div>` : ''}
+        </div>
+        <button onclick="closePublishModal()" style="width:36px;height:36px;border-radius:10px;border:1px solid var(--ui-card-border);background:rgba(15,23,42,0.5);font-size:18px;cursor:pointer;color:var(--ui-text-muted);display:flex;align-items:center;justify-content:center;transition:all 0.2s;" onmouseover="this.style.borderColor='rgba(239,68,68,0.5)';this.style.color='#ef4444'" onmouseout="this.style.borderColor='var(--ui-card-border)';this.style.color='var(--ui-text-muted)'">\u2715</button>
       </div>
       
+      <div style="margin-bottom:14px;padding:12px 14px;background:linear-gradient(135deg,rgba(245,158,11,0.08),rgba(59,130,246,0.08));border:1px solid rgba(245,158,11,0.25);border-radius:12px;">
+        <div style="font-size:12px;color:#f59e0b;line-height:1.6;">
+          <strong>🔔 Alertes activées</strong><br>
+          Chaque favori active une <strong>alerte de proximité</strong> : vous êtes notifié(e) quand cet event, booking ou service se trouve à moins de <strong>70 km</strong> de vos adresses enregistrées. Les alertes apparaissent dans le bloc <strong>🔔 Alertes</strong> de votre compte et par email.
+        </div>
+      </div>
+
       ${favorites.length === 0 ? `
-        <div style="text-align:center;padding:40px;color:var(--ui-text-muted);">
-          <div style="font-size:48px;margin-bottom:16px;">💔</div>
-          <p>Aucun favori pour le moment</p>
+        <div style="text-align:center;padding:40px 20px;color:var(--ui-text-muted);">
+          <div style="font-size:56px;margin-bottom:16px;">\u2B50</div>
+          <p style="font-size:15px;font-weight:600;margin-bottom:8px;">Aucun favori pour le moment</p>
+          <p style="font-size:12px;line-height:1.5;">Cliquez sur l'étoile <span style="font-size:16px;">\u2606</span> dans la popup d'un event pour l'ajouter à vos favoris et recevoir des alertes !</p>
         </div>
       ` : `
-        <div style="margin-bottom:12px;font-size:12px;color:var(--ui-text-muted);text-align:center;">
-          ${favorites.length} ${favorites.length === 1 ? 'favori' : 'favoris'}
-        </div>
-        <div id="favorites-list-container" style="max-height:calc(80vh - 180px);overflow-y:auto;">
-          ${favorites.slice(0, 20).map(item => `
-            <div style="display:flex;gap:12px;padding:12px;border-radius:12px;margin-bottom:8px;background:rgba(15,23,42,0.5);border:1px solid var(--ui-card-border);cursor:pointer;" onclick="focusOnItem('${item.type}', ${item.id})">
-              <div style="width:60px;height:60px;border-radius:8px;background:linear-gradient(135deg,#ef4444,#f97316);display:flex;align-items:center;justify-content:center;font-size:24px;">
-                ${getCategoryEmoji(item)}
-              </div>
-              <div style="flex:1;">
-                <div style="font-weight:600;margin-bottom:4px;">${escapeHtml(item.title || item.name)}</div>
-                <div style="font-size:12px;color:var(--ui-text-muted);">${item.city}</div>
-              </div>
-            </div>
-          `).join('')}
+        <div id="favorites-list-container" style="max-height:calc(80vh - 220px);overflow-y:auto;padding-right:4px;">
+          ${favorites.slice(0, 20).map(item => buildFavCard(item)).join('')}
         </div>
         ${favorites.length > 20 ? `
-          <div style="text-align:center;margin-top:12px;padding:12px;background:rgba(15,23,42,0.5);border-radius:8px;border:1px solid var(--ui-card-border);">
-            <div style="font-size:12px;color:var(--ui-text-muted);margin-bottom:8px;">
-              Affichage de 20 sur ${favorites.length} favoris
-            </div>
-            <button onclick="loadMoreFavorites()" style="padding:8px 16px;border-radius:8px;border:1px solid var(--ui-card-border);background:transparent;color:var(--ui-text-main);cursor:pointer;font-size:12px;">
-              Afficher plus (${Math.min(20, favorites.length - 20)} suivants)
+          <div style="text-align:center;margin-top:12px;">
+            <button id="load-more-favs-btn" onclick="loadMoreFavorites()" style="padding:10px 24px;border-radius:10px;border:1px solid rgba(245,158,11,0.3);background:rgba(245,158,11,0.08);color:#f59e0b;cursor:pointer;font-size:12px;font-weight:600;transition:all 0.2s;" onmouseover="this.style.background='rgba(245,158,11,0.2)'" onmouseout="this.style.background='rgba(245,158,11,0.08)'">
+              Voir plus (${Math.min(20, favorites.length - 20)} suivants)
             </button>
           </div>
         ` : ''}
@@ -27675,15 +28787,17 @@ function openFavoritesModal() {
     backdrop.style.paddingTop = "40px";
     backdrop.style.paddingBottom = "40px";
     backdrop.style.boxSizing = "border-box";
-    backdrop.style.paddingTop = "40px";
-    backdrop.style.paddingBottom = "40px";
-    backdrop.style.boxSizing = "border-box";
   }
   
-  // Stocker les favoris complets pour la pagination
   window.favoritesFull = favorites;
   window.favoritesDisplayed = 20;
+  window._buildFavCard = buildFavCard;
 }
+
+window.removeFromFavorites = async function(type, id) {
+  await toggleFavorite(type, id);
+  setTimeout(() => openFavoritesModal(), 200);
+};
 
 function loadMoreFavorites() {
   if (!window.favoritesFull) return;
@@ -27695,14 +28809,14 @@ function loadMoreFavorites() {
   const newItems = window.favoritesFull.slice(start, end);
   
   newItems.forEach(item => {
-    const itemHtml = `
-      <div style="display:flex;gap:12px;padding:12px;border-radius:12px;margin-bottom:8px;background:rgba(15,23,42,0.5);border:1px solid var(--ui-card-border);cursor:pointer;" onclick="focusOnItem('${item.type}', ${item.id})">
-        <div style="width:60px;height:60px;border-radius:8px;background:linear-gradient(135deg,#ef4444,#f97316);display:flex;align-items:center;justify-content:center;font-size:24px;">
-          ${getCategoryEmoji(item)}
+    const itemHtml = window._buildFavCard ? window._buildFavCard(item) : `
+      <div style="display:flex;gap:12px;padding:12px;border-radius:12px;margin-bottom:8px;background:rgba(15,23,42,0.5);border:1px solid var(--ui-card-border);cursor:pointer;transition:all 0.2s;" onclick="focusOnItem('${item.type}', ${item.id})" onmouseover="this.style.background='rgba(245,158,11,0.1)';this.style.borderColor='rgba(245,158,11,0.5)'" onmouseout="this.style.background='rgba(15,23,42,0.5)';this.style.borderColor='var(--ui-card-border)'">
+        <div style="width:60px;height:60px;border-radius:8px;overflow:hidden;flex-shrink:0;">
+          ${buildMainImageTag(item, item.title || item.name || "")}
         </div>
-        <div style="flex:1;">
-          <div style="font-weight:600;margin-bottom:4px;">${escapeHtml(item.title || item.name)}</div>
-          <div style="font-size:12px;color:var(--ui-text-muted);">${item.city}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:600;font-size:13px;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(item.title || item.name)}</div>
+          <div style="font-size:11px;color:var(--ui-text-muted);">📍 ${escapeHtml(item.city || '')}</div>
         </div>
       </div>
     `;
@@ -27725,12 +28839,33 @@ function loadMoreFavorites() {
 
 function focusOnItem(type, id) {
   closePublishModal();
-  const key = `${type}:${id}`;
-  const marker = markerMap[key];
-  if (marker && map) {
-    map.setView(marker.getLatLng(), 14);
-    setTimeout(() => marker.openPopup(), 300);
+  
+  if (currentMode !== type) {
+    switchMode(type);
   }
+  
+  setTimeout(async () => {
+    const data = type === "event" ? eventsData : type === "booking" ? bookingsData : servicesData;
+    const item = data.find(i => i.id === parseInt(id));
+    
+    if (!item) {
+      showNotification("\u26A0️ Élément introuvable", "error");
+      return;
+    }
+    
+    const key = `${type}:${id}`;
+    const marker = markerMap[key];
+    if (type === "event") {
+      await ensureEventDetailsForPopup(item);
+    }
+    
+    map.setView([item.lat, item.lng], Math.max(map.getZoom(), 13));
+    setTimeout(() => {
+      if (marker) currentPopupMarker = marker;
+      const popupContent = buildPopupHtml(item);
+      openPopupModal(popupContent, item);
+    }, 300);
+  }, 500);
 }
 
 // REMOVED: logout() est maintenant dans auth.js et exposé via window.logout
@@ -27750,17 +28885,17 @@ function formatEventDateRange(startIso, endIso, isScraped = false) {
   const sd = s.toLocaleDateString("fr-CH", optD);
   const ed = e.toLocaleDateString("fr-CH", optD);
   
-  // Pour les événements scrapés, on affiche --:-- à la place de l'heure
+  // Pour les événements scrapés, on n'affiche pas l'heure (date uniquement)
   if (isScraped) {
-    if (sd === ed) return `${sd} --:-- – --:--`;
-    return `${sd} --:-- – ${ed} --:--`;
+    if (sd === ed) return `${sd}`;
+    return `${sd} \u2013 ${ed}`;
   }
   
   const st = s.toLocaleTimeString("fr-CH", optT);
   const et = e.toLocaleTimeString("fr-CH", optT);
 
-  if (sd === ed) return `${sd} ${st}–${et}`;
-  return `${sd} ${st} – ${ed} ${et}`;
+  if (sd === ed) return `${sd} ${st}\u2013${et}`;
+  return `${sd} ${st} \u2013 ${ed} ${et}`;
 }
 
 function escapeHtml(str) {
@@ -27777,7 +28912,7 @@ function stripPhoneNumbers(text) {
   if (!text) return "";
   return String(text)
     .replace(/📞\s*[^\n|]*/g, '')
-    .replace(/☎\s*[^\n|]*/g, '')
+    .replace(/\u260E\s*[^\n|]*/g, '')
     .replace(/📱\s*[^\n|]*[\d\s\.\-\(\)]{7,}[^\n|]*/g, '')
     .replace(/(?:Tel|Tél|Téléphone|Phone|Tel\.|Tél\.)\s*[:.]?\s*[\+]?[\d\s\.\-\(\)]{7,}/gi, '')
     .replace(/(?:Mobile|Portable|Cell)\s*[:.]?\s*[\+]?[\d\s\.\-\(\)]{7,}/gi, '')
@@ -27949,7 +29084,7 @@ window.cycleUITheme = cycleUITheme;
 window.cycleMapTheme = cycleMapTheme;
 window.onSearchCity = onSearchCity;
 // Exposer les fonctions de validation et d'affichage
-// ⚠️⚠️⚠️ validateProField est déjà exposée ligne 13013, ne pas réexposer ici si elle n'existe pas encore
+// \u26A0️\u26A0️\u26A0️ validateProField est déjà exposée ligne 13013, ne pas réexposer ici si elle n'existe pas encore
 if (typeof validateProField !== 'undefined') {
   window.validateProField = validateProField;
 }
@@ -27994,9 +29129,6 @@ window.hideAgendaMiniWindow = hideAgendaMiniWindow;
 // REMOVED: performRegister est maintenant dans auth.js et exposé via window.performRegister
 window.simulateLogin = simulateLogin;
 // REMOVED: performLogin est maintenant dans auth.js et exposé via window.performLogin
-window.openReviewModal = openReviewModal;
-window.setRating = setRating;
-window.submitReview = submitReview;
 window.openDiscussionModal = openDiscussionModal;
 window.openEventDiscussion = window.openEventDiscussion || function(type, id) {
   if (typeof window.openDiscussionModal === 'function') {
@@ -28012,7 +29144,6 @@ window.showReplyForm = window.showReplyForm || function(commentId) {
 window.submitReply = window.submitReply || function(type, id, commentId) {
   // Déjà défini plus haut dans le code
 };
-window.loadReviewPage = loadReviewPage;
 window.validateStep2 = validateStep2;
 window.showRegisterStep1 = showRegisterStep1;
 window.showRegisterStep2 = showRegisterStep2;
@@ -28071,7 +29202,6 @@ window.simulatePremiumPayment = simulatePremiumPayment;
 window.openAboutModal = openAboutModal;
 window.selectAvatar = selectAvatar;
 window.openFavoritesModal = openFavoritesModal;
-window.openFriendsModal = openFriendsModal;
 // openGroupsModal est déjà exposé immédiatement après sa définition (ligne 10436)
 // window.openGroupsModal = openGroupsModal; // DÉJÀ EXPOSÉ
 // openSocialAlertsModal sera exposé après sa définition
@@ -28099,19 +29229,6 @@ function changeGroupCountry() {
   showNotification('Fonctionnalité en cours de développement', 'info');
 }
 window.changeGroupCountry = changeGroupCountry;
-// Fonction stub pour sendGroupMessage (à implémenter si nécessaire)
-function sendGroupMessage() {
-  console.warn('sendGroupMessage appelé mais non implémenté');
-  showNotification('Fonctionnalité en cours de développement', 'info');
-}
-window.sendGroupMessage = sendGroupMessage;
-// Fonction stub pour inviteFriendFromPopup (à implémenter si nécessaire)
-function inviteFriendFromPopup() {
-  console.warn('inviteFriendFromPopup appelé mais non implémenté');
-  showNotification('Fonctionnalité en cours de développement', 'info');
-}
-window.inviteFriendFromPopup = inviteFriendFromPopup;
-window.inviteFriendsToEvent = inviteFriendsToEvent;
 // sharePopup est déjà exposé après sa définition (ligne 7060)
 // window.sharePopup = sharePopup; // DÉJÀ EXPOSÉ
 // Fonction stub pour viewEventAttendees (à implémenter si nécessaire)
@@ -28126,12 +29243,6 @@ function shareToGroup() {
   showNotification('Fonctionnalité en cours de développement', 'info');
 }
 window.shareToGroup = shareToGroup;
-// Fonction stub pour shareToFriend (à implémenter si nécessaire)
-function shareToFriend() {
-  console.warn('shareToFriend appelé mais non implémenté');
-  showNotification('Fonctionnalité en cours de développement', 'info');
-}
-window.shareToFriend = shareToFriend;
 // copyShareLink est déjà défini ailleurs (ligne 7375)
 // window.copyShareLink = copyShareLink;
 // Fonction stub pour shareEventToChannel (à implémenter si nécessaire)
@@ -28163,21 +29274,6 @@ function shareGroupChannel() {
   showNotification('Fonctionnalité en cours de développement', 'info');
 }
 window.shareGroupChannel = shareGroupChannel;
-// Fonction stub pour handleSocialAlert (à implémenter si nécessaire)
-function handleSocialAlert() {
-  console.warn('handleSocialAlert appelé mais non implémenté');
-  showNotification('Fonctionnalité en cours de développement', 'info');
-}
-window.handleSocialAlert = handleSocialAlert;
-// Fonction stub pour updateSocialAlertsCount (à implémenter si nécessaire)
-function updateSocialAlertsCount() {
-  console.warn('updateSocialAlertsCount appelé mais non implémenté');
-  // Ne rien faire pour l'instant
-}
-window.updateSocialAlertsCount = updateSocialAlertsCount;
-window.inviteFriendsToEvent = inviteFriendsToEvent;
-window.filterInviteFriends = filterInviteFriends;
-window.sendInvitationToFriend = sendInvitationToFriend;
 window.openUserProfile = openUserProfile;
 window.editProfile = editProfile;
 window.saveProfile = saveProfile;
@@ -28188,455 +29284,19 @@ window.viewVideo = viewVideo;
 // INTÉGRATION BACKEND ET WEBSOCKET
 // ============================================
 
-// Connexion WebSocket pour notifications temps réel
-let socket = null;
-let socketConnected = false;
 
-function initWebSocket() {
-  if (!currentUser || !currentUser.isLoggedIn) return;
-  
-  try {
-    // Pour Lambda/API Gateway, WebSocket nécessite un endpoint séparé
-    // Pour l'instant, on simule avec polling
-    // En production, utiliser: const wsUrl = 'wss://your-websocket-api.execute-api.region.amazonaws.com/production';
-    
-    // Simulation avec polling toutes les 5 secondes
-    if (window.socketInterval) clearInterval(window.socketInterval);
-    
-    window.socketInterval = setInterval(() => {
-      checkForNewNotifications();
-      checkForNewMessages();
-    }, 5000);
-    
-    socketConnected = true;
-    console.log('✅ WebSocket simulé activé (polling)');
-  } catch (error) {
-    console.error('Erreur connexion WebSocket:', error);
-    socketConnected = false;
-  }
-}
 
-// Vérifier les nouvelles notifications
-// DÉSACTIVÉ TEMPORAIREMENT - route /api/social/alerts pas encore créée
-async function checkForNewNotifications() {
-  // Route pas encore implémentée côté backend - évite le spam de 404
-  return;
-}
 
-// Vérifier les nouveaux messages dans les groupes actifs
-async function checkForNewMessages() {
-  if (!currentUser.isLoggedIn || !window.activeGroupChannels) return;
-  
-  for (const groupId of window.activeGroupChannels) {
-    try {
-      const response = await fetch(`${window.API_BASE_URL}/social/groups/${groupId}/messages?userId=${currentUser.id}&limit=1`);
-      if (response.ok) {
-        const data = await response.json();
-        if (data.messages && data.messages.length > 0) {
-          const latestMessage = data.messages[0];
-          // Vérifier si c'est un nouveau message
-          if (!window.groupChannels[groupId] || 
-              !window.groupChannels[groupId].find(m => m.id === latestMessage.id)) {
-            // Ajouter le nouveau message
-            if (!window.groupChannels[groupId]) window.groupChannels[groupId] = [];
-            window.groupChannels[groupId].unshift({
-              id: latestMessage.id,
-              from: latestMessage.userId,
-              fromName: latestMessage.username,
-              fromAvatar: currentUser.avatar,
-              text: latestMessage.message,
-              attachments: latestMessage.attachments || [],
-              reactions: latestMessage.reactions || {},
-              time: latestMessage.createdAt,
-              status: latestMessage.status,
-              type: 'user'
-            });
-            
-            // Rafraîchir la vue si le canal est ouvert
-            if (document.getElementById(`group-messages-${groupId}`)) {
-              openGroupChannel(groupId, '', '', '');
-            }
-          }
-        }
-      }
-    } catch (error) {
-      console.error(`Erreur vérification messages groupe ${groupId}:`, error);
-    }
-  }
-}
 
-// Modérer une image avant upload
-async function moderateImageBeforeUpload(imageUrl) {
-  try {
-    const response = await fetch(`${window.API_BASE_URL}/social/moderation/image`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        imageUrl: imageUrl,
-        userId: currentUser.id
-      })
-    });
-    
-    if (response.ok) {
-      const data = await response.json();
-      return data.isSafe;
-    }
-    return true; // En cas d'erreur, on accepte (sera modéré manuellement)
-  } catch (error) {
-    console.error('Erreur modération image:', error);
-    return true; // En cas d'erreur, on accepte
-  }
-}
-
-// Envoyer un message avec intégration backend
-async function sendGroupMessageBackend(channelId, channelName, messageText) {
-  if (!currentUser || !currentUser.isLoggedIn) {
-    openLoginModal();
-    return;
-  }
-  
-  try {
-    const response = await fetch(`${window.API_BASE_URL}/social/groups/${channelId}/messages`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        userId: currentUser.id,
-        message: messageText,
-        attachments: []
-      })
-    });
-    
-    if (response.ok) {
-      const data = await response.json();
-      
-      // Ajouter le message localement
-      if (!window.groupChannels) window.groupChannels = {};
-      if (!window.groupChannels[channelId]) window.groupChannels[channelId] = [];
-      
-      window.groupChannels[channelId].push({
-        id: data.messageId,
-        from: currentUser.id,
-        fromName: currentUser.name,
-        fromAvatar: currentUser.avatar,
-        text: messageText,
-        time: data.createdAt,
-        status: data.status,
-        type: 'user'
-      });
-      
-      // Si en attente de modération, afficher un message
-      if (data.status === 'pending_moderation') {
-        showNotification("⚠️ Votre message est en attente de modération", "warning");
-      }
-      
-      // Rafraîchir la vue
-      openGroupChannel(channelId, channelName, '', '');
-      
-      // Simuler l'envoi via WebSocket
-      if (socketConnected) {
-        // En production, utiliser socket.emit('send_message', {...})
-        console.log('Message envoyé via backend');
-      }
-    } else {
-      const error = await response.json();
-      showNotification(`Erreur: ${error.error}`, "error");
-    }
-  } catch (error) {
-    console.error('Erreur envoi message:', error);
-    showNotification("Erreur lors de l'envoi du message", "error");
-  }
-}
-
-// Ajouter une réaction à un message
-async function addMessageReaction(messageId, emoji) {
-  if (!currentUser || !currentUser.isLoggedIn) return;
-  
-  try {
-    const response = await fetch(`${window.API_BASE_URL}/social/messages/${messageId}/reaction`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        userId: currentUser.id,
-        emoji: emoji
-      })
-    });
-    
-    if (response.ok) {
-      const data = await response.json();
-      return data.reactions;
-    }
-  } catch (error) {
-    console.error('Erreur ajout réaction:', error);
-  }
-  return null;
-}
-
-// Mettre à jour la fonction sendGroupMessage pour utiliser le backend
-const originalSendGroupMessage = sendGroupMessage;
-sendGroupMessage = function(channelId, channelName) {
-  const input = document.getElementById(`group-input-${channelId}`);
-  if (!input || !input.value.trim()) return;
-  
-  const messageText = input.value.trim();
-  input.value = '';
-  
-  // Utiliser le backend
-  sendGroupMessageBackend(channelId, channelName, messageText);
-};
-
-// Mettre à jour saveProfile pour modérer les images
-const originalSaveProfile = saveProfile;
-saveProfile = async function() {
-  const bio = document.getElementById("edit-profile-bio")?.value.trim() || '';
-  const photosText = document.getElementById("edit-profile-photos")?.value.trim() || '';
-  const photos = photosText.split('\n').filter(url => url.trim() && url.startsWith('http'));
-  
-  // Modérer chaque photo
-  const photosFiltered = [];
-  for (const photo of photos) {
-    const isSafe = await moderateImageBeforeUpload(photo);
-    if (isSafe) {
-      photosFiltered.push(photo);
-    } else {
-      showNotification(`⚠️ Photo rejetée (contenu inapproprié): ${photo.substring(0, 50)}...`, "warning");
-    }
-  }
-  
-  // Sauvegarder via backend
-  try {
-    const response = await fetch(`${window.API_BASE_URL}/social/profile`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        userId: currentUser.id,
-        bio: bio,
-        profilePhotos: photosFiltered,
-        profileVideos: currentUser.profileVideos || [],
-        profileLinks: currentUser.profileLinks || []
-      })
-    });
-    
-    if (response.ok) {
-      const data = await response.json();
-      currentUser.bio = bio;
-      currentUser.profilePhotos = photosFiltered;
-      
-      saveUserData();
-      showNotification(`✅ Profil mis à jour ! ${data.photosAccepted} photos acceptées, ${data.photosRejected} rejetées`, "success");
-      openUserProfile();
-    } else {
-      const error = await response.json();
-      showNotification(`Erreur: ${error.error}`, "error");
-    }
-  } catch (error) {
-    console.error('Erreur sauvegarde profil:', error);
-    showNotification("Erreur lors de la sauvegarde", "error");
-  }
-};
-
-// Initialiser WebSocket au login - wrapper autour de performLogin existante
-(function() {
-  const originalPerformLogin = window.performLogin;
-  window.performLogin = async function() {
-    await originalPerformLogin();
-    if (currentUser && currentUser.isLoggedIn) {
-      initWebSocket();
-    }
-  };
-})();
-
-// Mettre à jour openGroupChannel pour charger les messages depuis le backend
-const originalOpenGroupChannel = openGroupChannel;
-openGroupChannel = async function(channelId, channelName, channelType, channelCategory) {
-  if (!currentUser || !currentUser.isLoggedIn) {
-    openLoginModal();
-    return;
-  }
-  
-  // Marquer le canal comme actif
-  if (!window.activeGroupChannels) window.activeGroupChannels = [];
-  if (!window.activeGroupChannels.includes(channelId)) {
-    window.activeGroupChannels.push(channelId);
-  }
-  
-  // Charger les messages depuis le backend
-  try {
-    const response = await fetch(`${window.API_BASE_URL}/social/groups/${channelId}/messages?userId=${currentUser.id}&limit=50`);
-    if (response.ok) {
-      const data = await response.json();
-      
-      // Convertir les messages du backend au format local
-      if (!window.groupChannels) window.groupChannels = {};
-      window.groupChannels[channelId] = data.messages.map(msg => ({
-        id: msg.id,
-        from: msg.userId,
-        fromName: msg.username,
-        fromAvatar: currentUser.avatar,
-        text: msg.message,
-        attachments: msg.attachments || [],
-        reactions: msg.reactions || {},
-        time: msg.createdAt,
-        status: msg.status,
-        type: 'user'
-      })).reverse(); // Inverser pour avoir les plus anciens en premier
-      
-      // Ajouter un message système si vide
-      if (window.groupChannels[channelId].length === 0) {
-        window.groupChannels[channelId] = [{
-          from: 'system',
-          fromName: 'Système',
-          text: `Bienvenue dans le canal "${channelName}" ! 👋`,
-          time: new Date().toISOString(),
-          type: 'system'
-        }];
-      }
-    }
-  } catch (error) {
-    console.error('Erreur chargement messages:', error);
-    // Utiliser les messages locaux en fallback
-    if (!window.groupChannels) window.groupChannels = {};
-    if (!window.groupChannels[channelId]) {
-      window.groupChannels[channelId] = [{
-        from: 'system',
-        fromName: 'Système',
-        text: `Bienvenue dans le canal "${channelName}" ! 👋`,
-        time: new Date().toISOString(),
-        type: 'system'
-      }];
-    }
-  }
-  
-  // Appeler la fonction originale
-  originalOpenGroupChannel(channelId, channelName, channelType, channelCategory);
-};
 
 // Améliorer l'affichage des messages avec réactions
-function renderMessageWithReactions(msg, idx, channelId) {
-  if (msg.type === 'system') return '';
-  
-  const reactions = msg.reactions || {};
-  const hasReactions = Object.keys(reactions).length > 0;
-  const userReacted = hasReactions && Object.values(reactions).some(userIds => 
-    Array.isArray(userIds) && userIds.includes(currentUser.id)
-  );
-  
-  const reactionsHtml = hasReactions ? `
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;">
-      ${Object.entries(reactions).map(([emoji, userIds]) => {
-        const count = Array.isArray(userIds) ? userIds.length : (typeof userIds === 'number' ? userIds : 0);
-        const userHasReacted = Array.isArray(userIds) && userIds.includes(currentUser.id);
-        return `
-          <button onclick="toggleReaction('${channelId}', ${idx}, '${emoji}')" 
-                  style="display:flex;align-items:center;gap:4px;padding:4px 8px;border-radius:999px;border:1px solid ${userHasReacted ? 'rgba(0,255,195,0.5)' : 'var(--ui-card-border)'};background:${userHasReacted ? 'rgba(0,255,195,0.2)' : 'rgba(15,23,42,0.5)'};color:${userHasReacted ? '#00ffc3' : 'var(--ui-text-muted)'};font-size:12px;cursor:pointer;transition:all 0.2s;"
-                  onmouseover="this.style.background='rgba(0,255,195,0.3)'"
-                  onmouseout="this.style.background='${userHasReacted ? 'rgba(0,255,195,0.2)' : 'rgba(15,23,42,0.5)'}'">
-            <span>${emoji}</span>
-            <span>${count}</span>
-          </button>
-        `;
-      }).join('')}
-      <button onclick="showReactionPicker('${channelId}', ${idx})" 
-              style="padding:4px 8px;border-radius:999px;border:1px solid var(--ui-card-border);background:transparent;color:var(--ui-text-muted);font-size:12px;cursor:pointer;transition:all 0.2s;"
-              onmouseover="this.style.background='rgba(0,255,195,0.1)'"
-              onmouseout="this.style.background='transparent'">
-        ➕
-      </button>
-    </div>
-  ` : `
-    <button onclick="showReactionPicker('${channelId}', ${idx})" 
-            style="margin-top:8px;padding:4px 8px;border-radius:999px;border:1px solid var(--ui-card-border);background:transparent;color:var(--ui-text-muted);font-size:12px;cursor:pointer;transition:all 0.2s;"
-            onmouseover="this.style.background='rgba(0,255,195,0.1)'"
-            onmouseout="this.style.background='transparent'">
-      ➕ Réagir
-    </button>
-  `;
-  
-  return reactionsHtml;
-}
 
 // Afficher le sélecteur de réactions
-function showReactionPicker(channelId, messageIndex) {
-  const emojis = ['👍', '❤️', '😂', '😮', '😢', '🔥', '🎉', '👏'];
-  
-  const html = `
-    <div style="padding:16px;max-width:300px;margin:0 auto;">
-      <h3 style="margin:0 0 16px 0;font-size:18px;font-weight:600;color:#fff;">Réagir</h3>
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
-        ${emojis.map(emoji => `
-          <button onclick="addReactionToMessage('${channelId}', ${messageIndex}, '${emoji}');closePublishModal();" 
-                  style="padding:12px;border-radius:12px;border:1px solid var(--ui-card-border);background:rgba(15,23,42,0.5);font-size:24px;cursor:pointer;transition:all 0.2s;"
-                  onmouseover="this.style.background='rgba(0,255,195,0.2)';this.style.transform='scale(1.1)'"
-                  onmouseout="this.style.background='rgba(15,23,42,0.5)';this.style.transform='scale(1)'">
-            ${emoji}
-          </button>
-        `).join('')}
-      </div>
-      <button onclick="closePublishModal()" style="width:100%;margin-top:16px;padding:10px;border-radius:999px;border:1px solid var(--ui-card-border);background:transparent;color:var(--ui-text-main);cursor:pointer;font-weight:600;">
-        Annuler
-      </button>
-    </div>
-  `;
-  
-  document.getElementById("publish-modal-inner").innerHTML = html;
-  const backdrop = document.getElementById("publish-modal-backdrop");
-  if (backdrop) {
-    backdrop.setAttribute('data-auth-modal', 'true');
-    backdrop.style.display = "flex";
-    backdrop.style.paddingTop = "40px";
-    backdrop.style.paddingBottom = "40px";
-    backdrop.style.boxSizing = "border-box";
-    backdrop.style.paddingTop = "40px";
-    backdrop.style.paddingBottom = "40px";
-    backdrop.style.boxSizing = "border-box";
-  }
-}
 
 // Ajouter une réaction à un message
-async function addReactionToMessage(channelId, messageIndex, emoji) {
-  const messages = window.groupChannels[channelId];
-  if (!messages || messageIndex >= messages.length) return;
-  
-  const message = messages[messageIndex];
-  if (!message.id) {
-    showNotification("⚠️ Impossible de réagir à ce message", "warning");
-    return;
-  }
-  
-  const reactions = await addMessageReaction(message.id, emoji);
-  if (reactions) {
-    message.reactions = reactions;
-    // Rafraîchir uniquement la vue sans recharger depuis le backend
-    const messagesDiv = document.getElementById(`group-messages-${channelId}`);
-    if (messagesDiv) {
-      // Trouver le message dans le DOM et mettre à jour les réactions
-      const messageElement = messagesDiv.children[messageIndex];
-      if (messageElement) {
-        const reactionsContainer = messageElement.querySelector('.message-reactions');
-        if (reactionsContainer) {
-          reactionsContainer.outerHTML = renderMessageWithReactions(message, messageIndex, channelId);
-        }
-      }
-    }
-  }
-}
 
 // Toggle une réaction
-async function toggleReaction(channelId, messageIndex, emoji) {
-  await addReactionToMessage(channelId, messageIndex, emoji);
-}
 
-window.initWebSocket = initWebSocket;
-window.addReactionToMessage = addReactionToMessage;
-window.toggleReaction = toggleReaction;
-window.showReactionPicker = showReactionPicker;
-window.moderateImageBeforeUpload = moderateImageBeforeUpload;
-window.searchUsers = searchUsers;
-window.sendFriendRequest = sendFriendRequest;
-window.acceptFriendRequest = acceptFriendRequest;
-window.declineFriendRequest = declineFriendRequest;
-window.removeFriend = removeFriend;
-window.openChatWith = openChatWith;
-window.sendChatMessage = sendChatMessage;
 window.focusOnItem = focusOnItem;
 // REMOVED: logout est maintenant dans auth.js et exposé via window.logout
 window.playPreview = function(bookingId, trackIndex) {
@@ -28676,72 +29336,72 @@ window.openEventFromAlert = openEventFromAlert;
 // 📋 STRATÉGIE COMPLÈTE POUR DEVENIR #1 MONDIAL :
 //
 // 1. COUVERTURE LINGUISTIQUE MAXIMALE
-//    ✅ Phase 1 (ACTUELLE) : 5 langues principales (FR, EN, ES, ZH, HI)
-//       → Couvre ~70% de la population mondiale
+//    \u2705 Phase 1 (ACTUELLE) : 5 langues principales (FR, EN, ES, ZH, HI)
+//       \u2192 Couvre ~70% de la population mondiale
 //    🔄 Phase 2 : Ajouter 10 langues supplémentaires
-//       → Arabe (AR), Portugais (PT), Russe (RU), Japonais (JA), 
+//       \u2192 Arabe (AR), Portugais (PT), Russe (RU), Japonais (JA), 
 //         Allemand (DE), Italien (IT), Coréen (KO), Turc (TR), 
 //         Polonais (PL), Néerlandais (NL)
-//       → Couvre ~85% de la population mondiale
+//       \u2192 Couvre ~85% de la population mondiale
 //    🚀 Phase 3 : Support de 50+ langues (via compte utilisateur)
-//       → Toutes les langues majeures + langues régionales
-//       → Couvre ~95% de la population mondiale
+//       \u2192 Toutes les langues majeures + langues régionales
+//       \u2192 Couvre ~95% de la population mondiale
 //
 // 2. SYSTÈME DE TRADUCTION HYBRIDE (QUALITÉ MAXIMALE)
 //    A. TRADUCTIONS MANUELLES (Priorité #1 - Meilleure qualité)
-//       → Lors de la publication, l'utilisateur peut ajouter des traductions
-//       → Système de validation par la communauté
-//       → Traductions certifiées par des traducteurs professionnels
-//       → Stockage : item.translations = { en: "...", es: "...", etc. }
+//       \u2192 Lors de la publication, l'utilisateur peut ajouter des traductions
+//       \u2192 Système de validation par la communauté
+//       \u2192 Traductions certifiées par des traducteurs professionnels
+//       \u2192 Stockage : item.translations = { en: "...", es: "...", etc. }
 //
 //    B. TRADUCTION AUTOMATIQUE (Fallback - Qualité acceptable)
-//       → API Google Translate (meilleure qualité, payant)
-//       → API DeepL (excellente qualité, payant)
-//       → API LibreTranslate (gratuit, qualité moyenne)
-//       → Cache agressif pour éviter les coûts
+//       \u2192 API Google Translate (meilleure qualité, payant)
+//       \u2192 API DeepL (excellente qualité, payant)
+//       \u2192 API LibreTranslate (gratuit, qualité moyenne)
+//       \u2192 Cache agressif pour éviter les coûts
 //
 //    C. DÉTECTION AUTOMATIQUE DE LA LANGUE
-//       → Détecter la langue du contenu source (titre, description)
-//       → Utiliser la bonne traduction selon la langue de l'utilisateur
+//       \u2192 Détecter la langue du contenu source (titre, description)
+//       \u2192 Utiliser la bonne traduction selon la langue de l'utilisateur
 //
 // 3. TRADUCTION EN TEMPS RÉEL
-//    ✅ Interface utilisateur : Traduite instantanément (dictionnaire)
-//    ✅ Contenu événements : Traduit à la volée (cache + API)
-//    ✅ Commentaires : Traduction à la demande (bouton "Traduire")
-//    ✅ Catégories : Dictionnaire multilingue complet
-//    ✅ Messages système : Tous traduits
+//    \u2705 Interface utilisateur : Traduite instantanément (dictionnaire)
+//    \u2705 Contenu événements : Traduit à la volée (cache + API)
+//    \u2705 Commentaires : Traduction à la demande (bouton "Traduire")
+//    \u2705 Catégories : Dictionnaire multilingue complet
+//    \u2705 Messages système : Tous traduits
 //
 // 4. EXPÉRIENCE UTILISATEUR OPTIMALE
-//    ✅ Détection automatique de la langue du navigateur
-//    ✅ Changement de langue en 1 clic (sans rechargement)
-//    ✅ Sauvegarde de la préférence (localStorage + compte)
-//    ✅ Traduction contextuelle (selon le contenu)
-//    ✅ Support RTL (arabe, hébreu) pour l'interface
+//    \u2705 Détection automatique de la langue du navigateur
+//    \u2705 Changement de langue en 1 clic (sans rechargement)
+//    \u2705 Sauvegarde de la préférence (localStorage + compte)
+//    \u2705 Traduction contextuelle (selon le contenu)
+//    \u2705 Support RTL (arabe, hébreu) pour l'interface
 //
 // 5. OPTIMISATIONS PERFORMANCE
-//    ✅ Cache local (localStorage) pour les traductions fréquentes
-//    ✅ Cache serveur (base de données) pour éviter les appels API
-//    ✅ Lazy loading : Traduire seulement ce qui est visible
-//    ✅ Préchargement : Traductions des événements populaires
-//    ✅ CDN : Servir les traductions depuis un CDN
+//    \u2705 Cache local (localStorage) pour les traductions fréquentes
+//    \u2705 Cache serveur (base de données) pour éviter les appels API
+//    \u2705 Lazy loading : Traduire seulement ce qui est visible
+//    \u2705 Préchargement : Traductions des événements populaires
+//    \u2705 CDN : Servir les traductions depuis un CDN
 //
 // 6. QUALITÉ DES TRADUCTIONS
-//    ✅ Système de notation des traductions (utilisateurs)
-//    ✅ Suggestions d'amélioration (crowdsourcing)
-//    ✅ Traductions professionnelles pour les événements premium
-//    ✅ Vérification par IA (détecter les erreurs)
+//    \u2705 Système de notation des traductions (utilisateurs)
+//    \u2705 Suggestions d'amélioration (crowdsourcing)
+//    \u2705 Traductions professionnelles pour les événements premium
+//    \u2705 Vérification par IA (détecter les erreurs)
 //
 // 7. MONÉTISATION
-//    ✅ Traductions gratuites pour les utilisateurs
-//    ✅ Traductions premium pour les organisateurs (meilleure visibilité)
-//    ✅ Service de traduction professionnelle (option payante)
-//    ✅ API de traduction pour les partenaires
+//    \u2705 Traductions gratuites pour les utilisateurs
+//    \u2705 Traductions premium pour les organisateurs (meilleure visibilité)
+//    \u2705 Service de traduction professionnelle (option payante)
+//    \u2705 API de traduction pour les partenaires
 //
 // 8. AVANTAGE CONCURRENTIEL
-//    ✅ Aucune plateforme événementielle n'offre un multilinguisme aussi complet
-//    ✅ Accessible à 95% de la population mondiale
-//    ✅ Expérience native dans la langue de l'utilisateur
-//    ✅ Communauté mondiale unie
+//    \u2705 Aucune plateforme événementielle n'offre un multilinguisme aussi complet
+//    \u2705 Accessible à 95% de la population mondiale
+//    \u2705 Expérience native dans la langue de l'utilisateur
+//    \u2705 Communauté mondiale unie
 //
 // 📊 MÉTRIQUES DE SUCCÈS :
 //    - Nombre de langues supportées : 50+
@@ -28761,14 +29421,14 @@ window.openEventFromAlert = openEventFromAlert;
 // 2. CONTENU DES ÉVÉNEMENTS (Events/Booking/Service) :
 //    - Titres, descriptions, catégories, adresses
 //    - Solution A : API de traduction (Google Translate, DeepL, etc.)
-//      → Traduction automatique à la volée lors de l'affichage
-//      → Cache des traductions pour éviter les appels répétés
+//      \u2192 Traduction automatique à la volée lors de l'affichage
+//      \u2192 Cache des traductions pour éviter les appels répétés
 //    - Solution B : Base de données multilingue
-//      → Chaque événement stocke ses traductions dans plusieurs langues
-//      → Lors de la publication, l'utilisateur peut ajouter des traductions
+//      \u2192 Chaque événement stocke ses traductions dans plusieurs langues
+//      \u2192 Lors de la publication, l'utilisateur peut ajouter des traductions
 //    - Solution C : Hybrid (recommandé)
-//      → Traductions manuelles prioritaires (meilleure qualité)
-//      → Fallback sur traduction automatique si manquant
+//      \u2192 Traductions manuelles prioritaires (meilleure qualité)
+//      \u2192 Fallback sur traduction automatique si manquant
 //
 // 3. IMPLÉMENTATION TECHNIQUE :
 //    - Frontend : Fonction `translateContent(item, lang)` qui :
@@ -28826,8 +29486,8 @@ if (typeof window !== 'undefined') {
 // 1. GOOGLE CLOUD TRANSLATE API (RECOMMANDÉ - Meilleure qualité)
 //    📍 Lien : https://cloud.google.com/translate/docs/setup
 //    💰 Prix : 20$/million de caractères (gratuit jusqu'à 500k/mois)
-//    ✅ Avantages : Meilleure qualité, support 100+ langues, très rapide
-//    ✅ Paiement : Carte bancaire, Twint via Stripe
+//    \u2705 Avantages : Meilleure qualité, support 100+ langues, très rapide
+//    \u2705 Paiement : Carte bancaire, Twint via Stripe
 //    📝 Documentation : https://cloud.google.com/translate/docs/reference/rest/v2/translate
 //
 // 2. DEEPL API (EXCELLENTE QUALITÉ - Spécialisé européen)
@@ -28840,36 +29500,36 @@ if (typeof window !== 'undefined') {
 // 1. GOOGLE CLOUD TRANSLATE API (RECOMMANDÉ - Meilleure qualité)
 //    📍 Lien : https://cloud.google.com/translate/docs/setup
 //    💰 Prix : 20$/million de caractères (gratuit jusqu'à 500k/mois)
-//    ✅ Avantages : Meilleure qualité, support 100+ langues, très rapide
-//    ✅ Paiement : Carte bancaire, Twint via Stripe
+//    \u2705 Avantages : Meilleure qualité, support 100+ langues, très rapide
+//    \u2705 Paiement : Carte bancaire, Twint via Stripe
 //    📝 Documentation : https://cloud.google.com/translate/docs/reference/rest/v2/translate
 //
 // 2. DEEPL API (EXCELLENTE QUALITÉ - Spécialisé européen)
 //    📍 Lien : https://www.deepl.com/fr/pro-api
-//    💰 Prix : 25€/million de caractères (gratuit jusqu'à 500k/mois)
-//    ✅ Avantages : Meilleure qualité pour langues européennes, très naturel
-//    ✅ Paiement : Carte bancaire, PayPal, Twint via Stripe
+//    💰 Prix : 25\u20AC/million de caractères (gratuit jusqu'à 500k/mois)
+//    \u2705 Avantages : Meilleure qualité pour langues européennes, très naturel
+//    \u2705 Paiement : Carte bancaire, PayPal, Twint via Stripe
 //    📝 Documentation : https://www.deepl.com/fr/docs-api
 //
 // 3. AZURE TRANSLATOR (Microsoft - Bon compromis)
 //    📍 Lien : https://azure.microsoft.com/fr-fr/services/cognitive-services/translator/
 //    💰 Prix : 10$/million de caractères (gratuit jusqu'à 2M/mois)
-//    ✅ Avantages : Bon prix, bonne qualité, intégration facile
-//    ✅ Paiement : Carte bancaire, Twint via Stripe
+//    \u2705 Avantages : Bon prix, bonne qualité, intégration facile
+//    \u2705 Paiement : Carte bancaire, Twint via Stripe
 //    📝 Documentation : https://docs.microsoft.com/fr-fr/azure/cognitive-services/translator/
 //
 // 4. LIBRETRANSLATE (GRATUIT - Open Source)
 //    📍 Lien : https://libretranslate.com/
 //    💰 Prix : GRATUIT (ou self-hosted)
-//    ⚠️ Avantages : Gratuit, open source
-//    ⚠️ Inconvénients : Qualité moindre, limité en langues
+//    \u26A0️ Avantages : Gratuit, open source
+//    \u26A0️ Inconvénients : Qualité moindre, limité en langues
 //    📝 Documentation : https://github.com/LibreTranslate/LibreTranslate
 //
 // 💡 RECOMMANDATION : Utiliser GOOGLE CLOUD TRANSLATE pour la production
-//    → Meilleure qualité mondiale
-//    → Support de toutes les langues
-//    → Très fiable et rapide
-//    → Paiement flexible (Twint via Stripe)
+//    \u2192 Meilleure qualité mondiale
+//    \u2192 Support de toutes les langues
+//    \u2192 Très fiable et rapide
+//    \u2192 Paiement flexible (Twint via Stripe)
 //
 // 🔧 CONFIGURATION :
 //    1. Créer un compte Google Cloud : https://console.cloud.google.com/
@@ -28935,39 +29595,39 @@ const TRANSLATION_PROVIDERS = {
   }
 };
 
-// Mapping intelligent région/langue → provider optimal
+// Mapping intelligent région/langue \u2192 provider optimal
 const INTELLIGENT_PROVIDER_MAPPING = {
-  // Europe → DeepL (meilleure qualité) ou Google (fallback)
+  // Europe \u2192 DeepL (meilleure qualité) ou Google (fallback)
   "europe": {
     primary: "deepl",
     fallback: "google",
     languages: ["fr", "en", "de", "es", "it", "pt", "ru", "pl", "nl", "cs", "sk", "hu", "ro", "bg", "hr", "sl", "et", "lv", "lt", "fi", "sv", "da", "no", "is", "ga", "mt", "el"]
   },
-  // Amériques → Google (meilleure couverture) ou DeepL
+  // Amériques \u2192 Google (meilleure couverture) ou DeepL
   "americas": {
     primary: "google",
     fallback: "deepl",
     languages: ["en", "es", "pt", "fr"]
   },
-  // Asie → Google (meilleure couverture langues asiatiques)
+  // Asie \u2192 Google (meilleure couverture langues asiatiques)
   "asia": {
     primary: "google",
     fallback: "azure",
     languages: ["zh", "ja", "ko", "hi", "th", "vi", "id", "ms", "tl", "my", "km", "lo"]
   },
-  // Afrique → Google (meilleure couverture)
+  // Afrique \u2192 Google (meilleure couverture)
   "africa": {
     primary: "google",
     fallback: "azure",
     languages: ["ar", "sw", "am", "zu", "xh", "af", "yo", "ig", "ha", "fr", "en", "pt"]
   },
-  // Moyen-Orient → Google (meilleure couverture arabe)
+  // Moyen-Orient \u2192 Google (meilleure couverture arabe)
   "middle_east": {
     primary: "google",
     fallback: "azure",
     languages: ["ar", "he", "fa", "tr", "ku"]
   },
-  // Océanie → Google ou DeepL
+  // Océanie \u2192 Google ou DeepL
   "oceania": {
     primary: "google",
     fallback: "deepl",
@@ -28997,15 +29657,15 @@ function getBestProviderForTranslation(sourceLang, targetLang, region = null) {
   // Détection automatique de la région selon la langue
   let detectedRegion = "global";
   
-  // Langues européennes → Europe
+  // Langues européennes \u2192 Europe
   if (["fr", "de", "es", "it", "pt", "ru", "pl", "nl", "cs", "sk", "hu", "ro", "bg", "hr", "sl", "et", "lv", "lt", "fi", "sv", "da", "no"].includes(targetLang)) {
     detectedRegion = "europe";
   }
-  // Langues asiatiques → Asie
+  // Langues asiatiques \u2192 Asie
   else if (["zh", "ja", "ko", "hi", "th", "vi", "id", "ms", "tl", "my", "km", "lo"].includes(targetLang)) {
     detectedRegion = "asia";
   }
-  // Langues arabes → Moyen-Orient
+  // Langues arabes \u2192 Moyen-Orient
   else if (["ar", "he", "fa"].includes(targetLang)) {
     detectedRegion = "middle_east";
   }
@@ -29128,7 +29788,7 @@ async function translateContent(text, sourceLang = "auto", targetLang = currentL
   const provider = getBestProviderForTranslation(sourceLang, targetLang, region);
   
   if (!provider) {
-    console.warn("⚠️ Aucun provider de traduction disponible. Retour du texte original.");
+    console.warn("\u26A0️ Aucun provider de traduction disponible. Retour du texte original.");
     return text;
   }
   
@@ -29156,7 +29816,7 @@ async function translateContent(text, sourceLang = "auto", targetLang = currentL
       }
     } catch (error) {
       lastError = error;
-      console.warn(`⚠️ Erreur avec ${provider}, tentative fallback...`, error);
+      console.warn(`\u26A0️ Erreur avec ${provider}, tentative fallback...`, error);
       
       // Fallback automatique : essayer les autres providers
       const fallbackProviders = ["google", "azure", "libretranslate"].filter(p => p !== provider);
@@ -29178,10 +29838,10 @@ async function translateContent(text, sourceLang = "auto", targetLang = currentL
               break;
           }
           
-          console.log(`✅ Traduction réussie avec fallback ${fallbackProvider}`);
+          console.log(`\u2705 Traduction réussie avec fallback ${fallbackProvider}`);
           break; // Succès avec le fallback
         } catch (fallbackError) {
-          console.warn(`❌ Fallback ${fallbackProvider} échoué`, fallbackError);
+          console.warn(`\u274C Fallback ${fallbackProvider} échoué`, fallbackError);
           continue; // Essayer le suivant
         }
       }
@@ -29204,7 +29864,7 @@ async function translateContent(text, sourceLang = "auto", targetLang = currentL
     
     return translated;
   } catch (error) {
-    console.error("❌ Erreur traduction finale:", error);
+    console.error("\u274C Erreur traduction finale:", error);
     return text; // Retourner le texte original en cas d'erreur
   }
 }
@@ -29323,7 +29983,7 @@ async function translateWithLibreTranslate(text, sourceLang, targetLang) {
 //
 async function translateItemForAI(item, targetLanguages = ["fr", "en", "es", "zh", "hi"]) {
   if (!item || !TRANSLATION_API_CONFIG.apiKey) {
-    console.warn("⚠️ Impossible de traduire : clé API manquante");
+    console.warn("\u26A0️ Impossible de traduire : clé API manquante");
     return item;
   }
   
@@ -29364,9 +30024,9 @@ async function translateItemForAI(item, targetLanguages = ["fr", "en", "es", "zh
         }
       }
       
-      console.log(`✅ Traduit en ${targetLang.toUpperCase()}: ${item.title || item.name}`);
+      console.log(`\u2705 Traduit en ${targetLang.toUpperCase()}: ${item.title || item.name}`);
     } catch (error) {
-      console.error(`❌ Erreur traduction en ${targetLang}:`, error);
+      console.error(`\u274C Erreur traduction en ${targetLang}:`, error);
     }
   }
   
@@ -29484,7 +30144,7 @@ function setLanguage(lang) {
   // Re-traduire l'interface (à implémenter complètement plus tard)
   updateUITranslations();
   
-  showNotification(`🌍 Langue changée : ${LANG_FLAGS[lang] || "🌍"} ${LANG_CODES[lang] || lang.toUpperCase()}`, "success");
+  showNotification(`🌍 ${window.t("language_changed")} : ${LANG_FLAGS[lang] || "🌍"} ${LANG_CODES[lang] || lang.toUpperCase()}`, "success");
 }
 
 // Fonction pour mettre à jour les traductions de l'UI (TOUT LE SITE)
@@ -29515,11 +30175,11 @@ function updateUITranslations() {
   const alertsBtn = document.querySelector('button[onclick="openSubscriptionModal()"]');
   const alertsLabel = document.getElementById("subscription-label");
   if (alertsLabel) {
-    alertsLabel.textContent = "ABOS";
-    alertsLabel.innerHTML = "ABOS"; // Double vérification avec innerHTML
+    alertsLabel.textContent = "OFFRES";
+    alertsLabel.innerHTML = "OFFRES"; // Double vérification avec innerHTML
   }
   
-  // ⚠️ Ne pas écraser le contenu du bouton compte - mettre à jour seulement le span account-name
+  // \u26A0️ Ne pas écraser le contenu du bouton compte - mettre à jour seulement le span account-name
   const accountNameSpan = document.getElementById("account-name");
   if (accountNameSpan) {
     accountNameSpan.textContent = window.t("account");
@@ -29532,10 +30192,26 @@ function updateUITranslations() {
     if (count) cartBtn.appendChild(count);
   }
   
-  // 3. Champ de recherche de ville (IMPORTANT!)
+  // 3. Champ de recherche (ville / point / lieu)
   const searchInput = document.getElementById("map-search-input");
   if (searchInput) {
-    searchInput.placeholder = window.t("search_city");
+    const translated = window.t("search_city");
+    // Étend l'intention sans casser les traductions existantes.
+    if (typeof translated === "string" && translated.trim()) {
+      searchInput.placeholder = translated.replace(/city|ville|ciudad|stadt|città|cidade|город/gi, match => {
+        const lower = match.toLowerCase();
+        if (lower === "city") return "city, place, point";
+        if (lower === "ville") return "ville, point, lieu";
+        if (lower === "ciudad") return "ciudad, punto, lugar";
+        if (lower === "stadt") return "stadt, ort, punkt";
+        if (lower === "città") return "città, punto, luogo";
+        if (lower === "cidade") return "cidade, ponto, local";
+        if (lower === "город") return "город, место, точка";
+        return match;
+      });
+    } else {
+      searchInput.placeholder = "Rechercher ville, point, lieu...";
+    }
   }
   
   // 4. Bouton Publier
@@ -29551,7 +30227,7 @@ function updateUITranslations() {
         d.textContent.includes("Filtrer par date") || d.textContent.includes("Filter by date")
       );
       if (dateFilterText) {
-        dateFilterText.textContent = `📅 ${window.t("filter_by_date")} (${window.t("cumulative") || "cumulable"})`;
+        dateFilterText.textContent = `📅 ${window.t("filter_by_date")}`;
       }
       
       // Traduire "Ou sélectionner une période"
@@ -29592,7 +30268,7 @@ function updateUITranslations() {
     }
   }
   
-  console.log(`✅ Traduction complète terminée en ${currentLanguage.toUpperCase()}`);
+  console.log(`\u2705 Traduction complète terminée en ${currentLanguage.toUpperCase()}`);
 }
 
 // Fonction pour ouvrir/fermer le menu de langue
@@ -29620,12 +30296,30 @@ function toggleLanguageMenu() {
 function detectUserLanguage() {
   const saved = localStorage.getItem("mapEventLanguage");
   if (saved && SUPPORTED_LANGUAGES.includes(saved)) return saved;
-  const nav = (typeof navigator !== 'undefined' && (navigator.language || navigator.userLanguage)) ? (navigator.language || navigator.userLanguage) : "";
-  const browser = nav.split("-")[0].toLowerCase();
-  if (SUPPORTED_LANGUAGES.includes(browser)) return browser;
-  // Correspondances courantes (navigator peut renvoyer pt-BR, zh-CN, etc.)
-  const map = { "pt": "pt", "zh": "zh", "nb": "no", "nn": "no", "he": "he", "uk": "uk", "el": "el", "sv": "sv", "da": "da", "fi": "fi", "ro": "ro", "cs": "cs", "hu": "hu", "sk": "sk", "pl": "pl", "tr": "tr", "ru": "ru", "ar": "ar", "ja": "ja", "ko": "ko", "th": "th", "vi": "vi", "id": "id", "ms": "ms", "nl": "nl", "de": "de", "it": "it", "es": "es", "fr": "fr", "en": "en", "hi": "hi", "bg": "bg", "hr": "hr", "sr": "sr", "lt": "lt", "lv": "lv", "et": "et", "sl": "sl", "ta": "ta", "bn": "bn", "ur": "ur", "fa": "fa", "mr": "mr", "sw": "sw", "am": "am", "af": "af", "ca": "ca", "pa": "pa", "tl": "tl", "my": "my", "ne": "ne", "is": "is", "sq": "sq", "mk": "mk", "bs": "bs", "gl": "gl", "cy": "cy", "ka": "ka", "hy": "hy", "az": "az", "kk": "kk", "uz": "uz", "ml": "ml", "te": "te", "gu": "gu", "kn": "kn", "si": "si", "eu": "eu", "mn": "mn", "ga": "ga", "lb": "lb", "mt": "mt", "yo": "yo", "ha": "ha", "ig": "ig", "so": "so", "rw": "rw", "mg": "mg", "wo": "wo", "st": "st", "tn": "tn", "xh": "xh", "zu": "zu", "km": "km", "lo": "lo", "sd": "sd", "ps": "ps", "ky": "ky", "tk": "tk", "tg": "tg", "br": "br", "gd": "gd", "fy": "fy", "ku": "ku", "ckb": "ckb", "kmr": "kmr", "ht": "ht", "jv": "jv", "su": "su", "ny": "ny", "om": "om", "ti": "ti", "dv": "dv", "bo": "bo", "dz": "dz", "or": "or", "as": "as" };
-  return map[browser] || "en";
+  const navCandidates = [];
+  if (typeof navigator !== 'undefined') {
+    if (Array.isArray(navigator.languages)) {
+      navigator.languages.forEach(l => navCandidates.push(String(l || "")));
+    }
+    navCandidates.push(String(navigator.language || navigator.userLanguage || ""));
+  }
+  for (const nav of navCandidates) {
+    const browser = nav.split("-")[0].toLowerCase();
+    if (SUPPORTED_LANGUAGES.includes(browser)) return browser;
+  }
+  // Correspondances régionales utiles (pt-BR, nb-NO, etc.) limitées au Top20.
+  const map = {
+    "pt": "pt", "zh": "zh", "nb": "no", "nn": "no", "sv": "sv", "uk": "uk",
+    "pl": "pl", "tr": "tr", "ru": "ru", "ar": "ar", "ja": "ja", "ko": "ko",
+    "th": "th", "id": "id", "nl": "nl", "de": "de", "it": "it", "es": "es",
+    "fr": "fr", "en": "en", "hi": "hi"
+  };
+  for (const nav of navCandidates) {
+    const browser = nav.split("-")[0].toLowerCase();
+    const normalized = map[browser];
+    if (normalized && SUPPORTED_LANGUAGES.includes(normalized)) return normalized;
+  }
+  return "en";
 }
 
 // Charger la langue sauvegardée ou détectée au démarrage (smartphone + desktop)
@@ -29661,7 +30355,7 @@ function updateSubscriptionBadge() {
     const badge = document.getElementById("subscription-badge");
     if (badge) {
       const label = document.getElementById("subscription-label");
-      if (label) label.textContent = "ABOS";
+      if (label) label.textContent = "OFFRES";
     }
     return;
   }
@@ -29672,9 +30366,9 @@ function updateSubscriptionBadge() {
   
   const sub = currentUser.subscription || "free";
   
-  // TOUJOURS afficher "ABOS" peu importe l'abonnement - FORCER IMMÉDIATEMENT
-  label.textContent = "ABOS";
-  label.innerHTML = "ABOS"; // Double vérification avec innerHTML
+  // TOUJOURS afficher "OFFRES" peu importe l'abonnement - FORCER IMMÉDIATEMENT
+  label.textContent = "OFFRES";
+  label.innerHTML = "OFFRES"; // Double vérification avec innerHTML
   
   // Plans Full Premium
   if (sub === "full-premium" || sub === "full") {
@@ -29739,12 +30433,12 @@ function openEcoMissionModal() {
       <div style="background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.3);border-radius:12px;padding:16px;margin-bottom:20px;text-align:left;">
         <div style="font-size:14px;font-weight:600;color:#22c55e;margin-bottom:12px;">💚 Où vont vos contributions ?</div>
         <ul style="margin:0;padding-left:20px;font-size:13px;color:var(--ui-text-main);line-height:1.8;">
-          <li><strong>🌳 Achat de terrains forestiers</strong> – Protection des écosystèmes</li>
-          <li><strong>🏭 Filtres CO2 pour entreprises</strong> – Offerts aux plus gros pollueurs</li>
-          <li><strong>🌊 Nettoyage des océans</strong> – Partenariats avec Ocean Cleanup</li>
-          <li><strong>☀️ Énergie renouvelable</strong> – Financement de projets solaires</li>
-          <li><strong>🐝 Protection de la biodiversité</strong> – Ruches urbaines & réserves</li>
-          <li><strong>🎓 Éducation environnementale</strong> – Sensibilisation des jeunes</li>
+          <li><strong>🌳 Achat de terrains forestiers</strong> \u2013 Protection des écosystèmes</li>
+          <li><strong>🏭 Filtres CO2 pour entreprises</strong> \u2013 Offerts aux plus gros pollueurs</li>
+          <li><strong>🌊 Nettoyage des océans</strong> \u2013 Partenariats avec Ocean Cleanup</li>
+          <li><strong>\u2600️ Énergie renouvelable</strong> \u2013 Financement de projets solaires</li>
+          <li><strong>🐝 Protection de la biodiversité</strong> \u2013 Ruches urbaines & réserves</li>
+          <li><strong>🎓 Éducation environnementale</strong> \u2013 Sensibilisation des jeunes</li>
         </ul>
       </div>
       
@@ -29864,12 +30558,14 @@ async function loadCurrentUserFromAPI() {
       const avatarUrl = user.profile_photo_url || user.profilePhoto || user.avatarUrl || user.avatar || null;
       
       // Mettre à jour currentUser avec les données du serveur (source de vérité)
-      // Exclure agenda du spread car il sera chargé séparément par loadAgendaFromBackend()
-      const { agenda: _apiAgenda, ...userWithoutAgenda } = user;
+      // Préserver collections locales si le payload backend est partiel.
+      const { agenda: _apiAgenda, likes: _apiLikes, favorites: _apiFavorites, ...userWithoutCollections } = user;
+      const existingLikes = Array.isArray(currentUser?.likes) ? currentUser.likes : [];
+      const existingFavorites = Array.isArray(currentUser?.favorites) ? currentUser.favorites : [];
       const existingAgenda = currentUser?.agenda || [];
       
       currentUser = {
-        ...userWithoutAgenda,
+        ...userWithoutCollections,
         isLoggedIn: true,
         accessToken: accessToken,
         refreshToken: refreshToken,
@@ -29878,9 +30574,12 @@ async function loadCurrentUserFromAPI() {
         profilePhoto: avatarUrl, // Alias
         profile_photo_url: avatarUrl, // Alias
         avatar: avatarUrl || '👤', // Fallback emoji
+        likes: (Array.isArray(_apiLikes) && _apiLikes.length > 0) ? _apiLikes : existingLikes,
+        favorites: (Array.isArray(_apiFavorites) && _apiFavorites.length > 0) ? _apiFavorites : existingFavorites,
         // Préserver l'agenda existant en attendant le chargement complet par loadAgendaFromBackend()
         agenda: (_apiAgenda && Array.isArray(_apiAgenda) && _apiAgenda.length > 0) ? _apiAgenda : existingAgenda
       };
+      normalizeCurrentUserCollections();
       
       window.currentUser = currentUser;
       
@@ -29948,12 +30647,14 @@ async function loadCurrentUserFromAPI() {
           // IMPORTANT: Normaliser avatar avec priorité claire
           const avatarUrl = user.profile_photo_url || user.profilePhoto || user.avatarUrl || user.avatar || null;
           
-          // Exclure agenda du spread car chargé séparément par loadAgendaFromBackend()
-          const { agenda: _retryAgenda, ...retryUserWithoutAgenda } = user;
+          // Préserver collections locales si le payload backend est partiel.
+          const { agenda: _retryAgenda, likes: _retryLikes, favorites: _retryFavorites, ...retryUserWithoutCollections } = user;
+          const retryExistingLikes = Array.isArray(currentUser?.likes) ? currentUser.likes : [];
+          const retryExistingFavorites = Array.isArray(currentUser?.favorites) ? currentUser.favorites : [];
           const retryExistingAgenda = currentUser?.agenda || [];
           
           currentUser = {
-            ...retryUserWithoutAgenda,
+            ...retryUserWithoutCollections,
             isLoggedIn: true,
             accessToken: newAccessToken,
             refreshToken: refreshToken,
@@ -29961,8 +30662,11 @@ async function loadCurrentUserFromAPI() {
             profilePhoto: avatarUrl, // Alias
             profile_photo_url: avatarUrl, // Alias
             avatar: avatarUrl || '👤', // Fallback emoji
+            likes: (Array.isArray(_retryLikes) && _retryLikes.length > 0) ? _retryLikes : retryExistingLikes,
+            favorites: (Array.isArray(_retryFavorites) && _retryFavorites.length > 0) ? _retryFavorites : retryExistingFavorites,
             agenda: (_retryAgenda && Array.isArray(_retryAgenda) && _retryAgenda.length > 0) ? _retryAgenda : retryExistingAgenda
           };
+          normalizeCurrentUserCollections();
           
           window.currentUser = currentUser;
           console.log('[AUTH] Utilisateur charge apres refresh:', user.email);
@@ -30006,29 +30710,29 @@ let stripePublicKey = null;
 // Initialiser Stripe (sera fait après récupération de la clé publique)
 function initStripe(publicKey) {
   if (!publicKey) {
-    console.warn('⚠️ Clé publique Stripe manquante');
+    console.warn('\u26A0️ Clé publique Stripe manquante');
     return;
   }
   
   // Charger Stripe.js à la demande si pas encore chargé
   if (typeof Stripe === 'undefined') {
-    console.log('⏳ Chargement de Stripe.js à la demande...');
+    console.log('\u23F3 Chargement de Stripe.js à la demande...');
     if (typeof window.loadStripe === 'function') {
       window.loadStripe().then(() => {
       if (typeof Stripe !== 'undefined') {
           try {
         stripe = Stripe(publicKey);
         stripePublicKey = publicKey;
-            console.log('✅ Stripe initialisé (chargé à la demande)');
+            console.log('\u2705 Stripe initialisé (chargé à la demande)');
           } catch (error) {
-            console.error('❌ Erreur initialisation Stripe:', error);
+            console.error('\u274C Erreur initialisation Stripe:', error);
           }
       } else {
-          console.error('❌ Stripe.js toujours non disponible après chargement');
+          console.error('\u274C Stripe.js toujours non disponible après chargement');
       }
       });
     } else {
-      console.error('❌ loadStripe non disponible');
+      console.error('\u274C loadStripe non disponible');
     }
     return;
   }
@@ -30036,9 +30740,9 @@ function initStripe(publicKey) {
   try {
     stripe = Stripe(publicKey);
     stripePublicKey = publicKey;
-    console.log('✅ Stripe initialisé avec succès');
+    console.log('\u2705 Stripe initialisé avec succès');
   } catch (error) {
-    console.error('❌ Erreur initialisation Stripe:', error);
+    console.error('\u274C Erreur initialisation Stripe:', error);
   }
 }
 
@@ -30097,7 +30801,7 @@ async function checkFavoritesInNewEvents(newEvents) {
         );
 
         if (!alertExists) {
-          // ✅ NOUVEAU : Vérifier la distance entre l'utilisateur et l'événement
+          // \u2705 NOUVEAU : Vérifier la distance entre l'utilisateur et l'événement
           // L'alerte n'est créée que si l'événement est à moins de 75 km d'au moins une adresse de l'utilisateur
           if (!event.lat || !event.lng) {
             // Si l'événement n'a pas de coordonnées, on ne peut pas calculer la distance
@@ -30108,7 +30812,7 @@ async function checkFavoritesInNewEvents(newEvents) {
           // Vérifier si l'utilisateur a au moins une adresse définie
           if (!currentUser.addresses || currentUser.addresses.length === 0) {
             // Si l'utilisateur n'a pas d'adresse, on ne crée pas l'alerte
-            console.log('⚠️ Aucune adresse utilisateur définie - alerte non créée');
+            console.log('\u26A0️ Aucune adresse utilisateur définie - alerte non créée');
             return;
           }
 
@@ -30133,9 +30837,9 @@ async function checkFavoritesInNewEvents(newEvents) {
             }
           }
 
-          // ✅ Condition : L'alerte n'est créée que si l'événement est à moins de 75 km d'au moins une adresse
+          // \u2705 Condition : L'alerte n'est créée que si l'événement est à moins de 75 km d'au moins une adresse
           if (distanceToUser === null || distanceToUser > 75) {
-            console.log(`⚠️ Événement trop loin (${distanceToUser ? distanceToUser + ' km' : 'distance inconnue'} > 75 km) - alerte non créée`);
+            console.log(`\u26A0️ Événement trop loin (${distanceToUser ? distanceToUser + ' km' : 'distance inconnue'} > 75 km) - alerte non créée`);
             return;
           }
 
@@ -30163,7 +30867,7 @@ async function checkFavoritesInNewEvents(newEvents) {
             distanceToUser: distanceToUser, // Distance entre utilisateur et événement
             closestAddress: closestAddress ? (closestAddress.address || closestAddress.city) : null,
             status: 'new',
-            isBlurred: isBlurred, // ✅ Alerte floutée si limite atteinte
+            isBlurred: isBlurred, // \u2705 Alerte floutée si limite atteinte
             creationDate: new Date().toISOString(),
             eventTitle: event.title,
             eventDate: event.startDate || event.date
@@ -30336,8 +31040,8 @@ function showStatusChangeNotifications() {
   }
   
   const statusEmoji = notification.status === 'REPORTÉ' || notification.status === 'REPORTE' ? '📅' :
-                     notification.status === 'ANNULE' || notification.status === 'ANNULÉ' ? '❌' :
-                     notification.status === 'COMPLET' || notification.status === 'SOLDOUT' ? '🔒' : '⚠️';
+                     notification.status === 'ANNULE' || notification.status === 'ANNULÉ' ? '\u274C' :
+                     notification.status === 'COMPLET' || notification.status === 'SOLDOUT' ? '🔒' : '\u26A0️';
   
   const statusColor = notification.status === 'REPORTÉ' || notification.status === 'REPORTE' ? '#3b82f6' :
                       notification.status === 'ANNULE' || notification.status === 'ANNULÉ' ? '#ef4444' :
@@ -30345,7 +31049,7 @@ function showStatusChangeNotifications() {
   
   backdrop.innerHTML = `
     <div style="position:relative;width:100%;max-width:500px;background:linear-gradient(135deg,#0f172a,#1e293b);border-radius:20px;border:2px solid ${statusColor};box-shadow:0 20px 60px rgba(0,0,0,0.5);overflow:hidden;">
-      <button onclick="closeStatusChangeNotification(${notification.eventId})" style="position:absolute;top:12px;right:12px;width:36px;height:36px;border-radius:50%;border:none;background:rgba(255,255,255,0.1);color:#fff;cursor:pointer;font-size:20px;z-index:1001;display:flex;align-items:center;justify-content:center;transition:all 0.2s;" onmouseover="this.style.background='rgba(239,68,68,0.8)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'">✕</button>
+      <button onclick="closeStatusChangeNotification(${notification.eventId})" style="position:absolute;top:12px;right:12px;width:36px;height:36px;border-radius:50%;border:none;background:rgba(255,255,255,0.1);color:#fff;cursor:pointer;font-size:20px;z-index:1001;display:flex;align-items:center;justify-content:center;transition:all 0.2s;" onmouseover="this.style.background='rgba(239,68,68,0.8)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'">\u2715</button>
       
       <div style="background:linear-gradient(135deg,${statusColor},${statusColor}dd);padding:20px;text-align:center;">
         <div style="font-size:48px;margin-bottom:8px;">${statusEmoji}</div>
@@ -30358,14 +31062,14 @@ function showStatusChangeNotifications() {
           <div style="font-size:18px;font-weight:700;color:#fff;margin-bottom:8px;">${escapeHtml(event.title)}</div>
           <div style="font-size:14px;color:var(--ui-text-muted);margin-bottom:12px;">${escapeHtml(event.address || '')}</div>
           <div style="padding:8px 12px;background:rgba(239,68,68,0.2);border-radius:8px;display:inline-block;">
-            <span style="font-size:13px;font-weight:600;color:#ef4444;">⚠️ Événement ${notification.statusText}</span>
+            <span style="font-size:13px;font-weight:600;color:#ef4444;">\u26A0️ Événement ${notification.statusText}</span>
           </div>
         </div>
         
         <div style="background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);border-radius:12px;padding:16px;margin-bottom:20px;">
           <div style="font-size:13px;font-weight:600;color:#3b82f6;margin-bottom:8px;">💡 Que souhaitez-vous faire ?</div>
           <div style="font-size:12px;color:var(--ui-text-muted);line-height:1.6;">
-            Vous pouvez ajouter cette annonce dans le bloc <strong style="color:#3b82f6;">ABOS</strong> pour recevoir des alertes sur les changements futurs.
+            Vous pouvez ajouter cette annonce dans le bloc <strong style="color:#3b82f6;">OFFRES</strong> pour recevoir des alertes sur les changements futurs.
           </div>
         </div>
         
@@ -30405,12 +31109,12 @@ function closeStatusChangeNotification(eventId) {
 function addEventAlert(eventId) {
   const event = eventsData.find(e => e.id === eventId);
   if (!event) {
-    showNotification("⚠️ Événement introuvable", "warning");
+    showNotification("\u26A0️ Événement introuvable", "warning");
     return;
   }
   
   if (!currentUser || !currentUser.isLoggedIn) {
-    showNotification("⚠️ Vous devez être connecté pour ajouter des alertes", "warning");
+    showNotification("\u26A0️ Vous devez être connecté pour ajouter des alertes", "warning");
     openLoginModal();
     return;
   }
@@ -30418,13 +31122,13 @@ function addEventAlert(eventId) {
   // Vérifier la limite d'alertes
   const maxAlerts = getAlertLimit();
   if (maxAlerts === 0) {
-    showNotification("⚠️ Les alertes nécessitent un abonnement Events Explorer ou supérieur", "warning");
+    showNotification("\u26A0️ Les alertes nécessitent un abonnement Events Explorer ou supérieur", "warning");
     openSubscriptionModal();
     return;
   }
   
   if (currentUser.alerts && currentUser.alerts.length >= maxAlerts) {
-    showNotification(`⚠️ Limite atteinte (${maxAlerts} alertes) ! Passez à Events Alertes Pro pour des alertes illimitées.`, "warning");
+    showNotification(`\u26A0️ Limite atteinte (${maxAlerts} alertes) ! Passez à Events Alertes Pro pour des alertes illimitées.`, "warning");
     openSubscriptionModal();
     return;
   }
@@ -30432,7 +31136,7 @@ function addEventAlert(eventId) {
   // Vérifier si l'alerte existe déjà
   const existingAlert = currentUser.alerts?.find(a => a.eventId === eventId && a.status !== 'deleted');
   if (existingAlert) {
-    showNotification("ℹ️ Cet événement est déjà dans vos alertes", "info");
+    showNotification("\u2139️ Cet événement est déjà dans vos alertes", "info");
     return;
   }
   
@@ -30449,7 +31153,7 @@ function addEventAlert(eventId) {
   });
   
   saveUser();
-  showNotification(`✅ Alerte ajoutée pour "${event.title}"`, "success");
+  showNotification(`\u2705 Alerte ajoutée pour "${event.title}"`, "success");
   
   // Rafraîchir la vue agenda si elle est ouverte
   if (agendaMiniWindowOpen) {
@@ -30466,7 +31170,7 @@ function addEventToAlertsFromNotification(eventId) {
   closeStatusChangeNotification(eventId);
   setTimeout(() => {
     openSubscriptionModal();
-    showNotification("💡 Vous pouvez créer une alerte dans le bloc ABOS pour cet événement", "info");
+    showNotification("💡 Vous pouvez créer une alerte dans le bloc OFFRES pour cet événement", "info");
   }, 300);
 }
 
@@ -30474,10 +31178,10 @@ function getFavoriteEmoji(mode) {
   const emojis = {
     'event': '🎉',
     'booking': '🎤',
-    'service': '⚙️',
+    'service': '\u2699️',
     'avatar': '👤'
   };
-  return emojis[mode] || '⭐';
+  return emojis[mode] || '\u2B50';
 }
 
 // ============================================
@@ -30658,7 +31362,7 @@ function checkProximityAlerts() {
   saveUser();
 }
 
-// Mettre à jour le badge de notifications
+// Mettre à jour le badge de notifications + effet glow
 function updateProximityAlertsBadge() {
   const alertsCount = currentUser.proximityAlerts?.length || 0;
   const badge = document.getElementById("alerts-count");
@@ -30670,12 +31374,32 @@ function updateProximityAlertsBadge() {
       badge.style.display = 'none';
     }
   }
+  // Effet glow sur le bouton alertes du compte et le bloc alertes
+  if (!document.getElementById('alerts-glow-style')) {
+    const style = document.createElement('style');
+    style.id = 'alerts-glow-style';
+    style.textContent = `
+      @keyframes alertsGlow {
+        0%, 100% { box-shadow: 0 0 5px rgba(245,158,11,0.4), 0 0 10px rgba(245,158,11,0.2); }
+        50% { box-shadow: 0 0 12px rgba(245,158,11,0.7), 0 0 24px rgba(245,158,11,0.35); }
+      }
+      .alerts-glow-active { animation: alertsGlow 2s ease-in-out infinite; border-color: rgba(245,158,11,0.6) !important; }
+    `;
+    document.head.appendChild(style);
+  }
+  document.querySelectorAll('[data-alerts-glow]').forEach(el => {
+    if (alertsCount > 0) {
+      el.classList.add('alerts-glow-active');
+    } else {
+      el.classList.remove('alerts-glow-active');
+    }
+  });
 }
 
 // Fonction pour ouvrir les alertes sociales (alertes de proximité)
 function openSocialAlertsModal() {
   if (!currentUser || !currentUser.isLoggedIn) {
-    showNotification("⚠️ Vous devez être connecté pour voir vos alertes", "warning");
+    showNotification("\u26A0️ Vous devez être connecté pour voir vos alertes", "warning");
     openLoginModal();
     return;
   }
@@ -30691,7 +31415,7 @@ function openProximityAlertsView() {
   
   // Si pas d'alertes, expliquer comment ça marche
   if (!currentUser || !currentUser.isLoggedIn) {
-    showNotification("⚠️ Vous devez être connecté pour recevoir des alertes", "warning");
+    showNotification("\u26A0️ Vous devez être connecté pour recevoir des alertes", "warning");
     openLoginModal();
     proximityAlertsViewOpen = false;
     return;
@@ -30733,7 +31457,7 @@ function refreshProximityAlertsView() {
             <h2 style="margin:0;font-size:24px;font-weight:700;color:#fff;">🔔 Alertes de proximité</h2>
             <p style="margin:4px 0 0;font-size:13px;color:rgba(255,255,255,0.7);">${alerts.length} alerte${alerts.length > 1 ? 's' : ''} dans un rayon de 70 km</p>
           </div>
-          <button onclick="closeProximityAlertsView()" style="width:40px;height:40px;border-radius:50%;border:none;background:rgba(255,255,255,0.1);color:#fff;cursor:pointer;font-size:20px;display:flex;align-items:center;justify-content:center;">✕</button>
+          <button onclick="closeProximityAlertsView()" style="width:40px;height:40px;border-radius:50%;border:none;background:rgba(255,255,255,0.1);color:#fff;cursor:pointer;font-size:20px;display:flex;align-items:center;justify-content:center;">\u2715</button>
         </div>
         
         <div style="background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);border-radius:10px;padding:12px;">
@@ -30784,7 +31508,7 @@ function refreshProximityAlertsView() {
                   📍 ${escapeHtml(alert.itemCity)}
                 </div>
                 <button onclick="event.stopPropagation();removeProximityAlert('${alert.id}')" style="margin-top:12px;width:100%;padding:8px;border-radius:8px;border:1px solid rgba(239,68,68,0.5);background:rgba(239,68,68,0.1);color:#ef4444;cursor:pointer;font-size:12px;font-weight:600;">
-                  ✕ Marquer comme lue
+                  \u2715 Marquer comme lue
                 </button>
               </div>
             `).join('')}
@@ -30860,7 +31584,7 @@ function refreshAlertsView() {
   // Afficher un message si limite atteinte
   const limitMessage = alertLimit !== Infinity && visibleAlerts.length >= alertLimit
     ? `<div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:12px;padding:12px;margin-bottom:16px;text-align:center;">
-         <div style="font-weight:700;font-size:14px;color:#ef4444;margin-bottom:4px;">⚠️ Limite atteinte (${visibleAlerts.length}/${alertLimit})</div>
+         <div style="font-weight:700;font-size:14px;color:#ef4444;margin-bottom:4px;">\u26A0️ Limite atteinte (${visibleAlerts.length}/${alertLimit})</div>
          <div style="font-size:12px;color:rgba(255,255,255,0.7);">Les nouvelles alertes seront floutées. Effacez une alerte pour en afficher une nouvelle.</div>
        </div>`
     : '';
@@ -30873,14 +31597,14 @@ function refreshAlertsView() {
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
           <div>
             <h2 style="margin:0;font-size:24px;font-weight:700;color:#fff;">🔔 Mes Alertes</h2>
-            <p style="margin:4px 0 0;font-size:13px;color:rgba(255,255,255,0.7);">${visibleAlerts.length} visible${visibleAlerts.length > 1 ? 's' : ''}${blurredAlerts.length > 0 ? ` • ${blurredAlerts.length} floutée${blurredAlerts.length > 1 ? 's' : ''}` : ''}</p>
+            <p style="margin:4px 0 0;font-size:13px;color:rgba(255,255,255,0.7);">${visibleAlerts.length} visible${visibleAlerts.length > 1 ? 's' : ''}${blurredAlerts.length > 0 ? ` \u2022 ${blurredAlerts.length} floutée${blurredAlerts.length > 1 ? 's' : ''}` : ''}</p>
           </div>
-          <button onclick="closeAlertsView()" style="width:40px;height:40px;border-radius:50%;border:none;background:rgba(255,255,255,0.1);color:#fff;cursor:pointer;font-size:20px;display:flex;align-items:center;justify-content:center;">✕</button>
+          <button onclick="closeAlertsView()" style="width:40px;height:40px;border-radius:50%;border:none;background:rgba(255,255,255,0.1);color:#fff;cursor:pointer;font-size:20px;display:flex;align-items:center;justify-content:center;">\u2715</button>
         </div>
         
         <!-- Bouton Ajouter Alarme -->
         <button onclick="openAddAlarmModal('alerts')" style="width:100%;padding:12px;border-radius:12px;border:2px solid #3b82f6;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;font-weight:600;cursor:pointer;font-size:14px;transition:all 0.2s;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:12px;">
-          <span>⏰</span>
+          <span>\u23F0</span>
           <span>Ajouter alarme</span>
         </button>
         
@@ -30968,7 +31692,7 @@ function buildAlertCard(alert, index) {
     " ${!isBlurred ? `onclick="openEventFromAlert('${alert.eventId}', '${alert.id}')"` : ''}>
       ${isNew && !isBlurred ? '<div style="position:absolute;top:8px;right:8px;width:12px;height:12px;border-radius:50%;background:#3b82f6;box-shadow:0 0 8px rgba(59,130,246,0.8);"></div>' : ''}
       ${isBlurred ? '<div style="position:absolute;top:8px;right:8px;width:32px;height:32px;border-radius:50%;background:rgba(239,68,68,0.9);display:flex;align-items:center;justify-content:center;font-size:16px;color:#fff;box-shadow:0 2px 8px rgba(239,68,68,0.4);">🔒</div>' : ''}
-      ${hasAlarm && !isBlurred ? '<div style="position:absolute;top:8px;left:8px;width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#f59e0b,#d97706);display:flex;align-items:center;justify-content:center;font-size:16px;box-shadow:0 2px 8px rgba(245,158,11,0.4);">⏰</div>' : ''}
+      ${hasAlarm && !isBlurred ? '<div style="position:absolute;top:8px;left:8px;width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#f59e0b,#d97706);display:flex;align-items:center;justify-content:center;font-size:16px;box-shadow:0 2px 8px rgba(245,158,11,0.4);">\u23F0</div>' : ''}
       
       <div style="padding:16px;position:relative;">
         ${isBlurred ? `
@@ -31030,7 +31754,7 @@ function openEventFromAlert(eventId, alertId) {
   // Trouver l'événement
   const event = eventsData.find(e => e.id.toString() === eventId);
   if (!event) {
-    showNotification("⚠️ Événement introuvable", "error");
+    showNotification("\u26A0️ Événement introuvable", "error");
     return;
   }
   
@@ -31085,7 +31809,7 @@ function deleteAlertWithWarning(alertId) {
   
   // Avertissement si alerte floutée
   if (isBlurred) {
-    const confirmMessage = `⚠️ Attention : Cette alerte est floutée.\n\n` +
+    const confirmMessage = `\u26A0️ Attention : Cette alerte est floutée.\n\n` +
       `Limite atteinte (${activeAlerts.length}/${alertLimit}).\n\n` +
       `Notez bien les informations avant d'effacer, car vous ne pourrez plus les voir !\n\n` +
       `Voulez-vous vraiment supprimer cette alerte ?`;
@@ -31118,12 +31842,12 @@ function deleteAlertWithWarning(alertId) {
       // Déflouter la première alerte floutée
       const toUnblur = remainingBlurred[0];
       toUnblur.isBlurred = false;
-      showNotification(`✅ Alerte "${toUnblur.eventTitle}" est maintenant visible !`, "success");
+      showNotification(`\u2705 Alerte "${toUnblur.eventTitle}" est maintenant visible !`, "success");
     }
   }
   
   refreshAlertsView();
-  showNotification("✅ Alerte supprimée", "success");
+  showNotification("\u2705 Alerte supprimée", "success");
 }
 
 // ============================================
@@ -31151,7 +31875,7 @@ function openAddAlarmModal(context) {
       }).filter(Boolean);
 
   if (items.length === 0) {
-    showNotification("⚠️ Aucun élément disponible pour ajouter une alarme", "warning");
+    showNotification("\u26A0️ Aucun élément disponible pour ajouter une alarme", "warning");
     return;
   }
 
@@ -31161,7 +31885,7 @@ function openAddAlarmModal(context) {
   const html = `
     <div style="position:relative;width:100%;max-width:600px;background:linear-gradient(135deg,#0f172a,#1e293b);border-radius:20px;border:2px solid #f59e0b;box-shadow:0 20px 60px rgba(245,158,11,0.3);overflow:hidden;">
       <div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:20px;text-align:center;">
-        <div style="font-size:32px;margin-bottom:8px;">⏰</div>
+        <div style="font-size:32px;margin-bottom:8px;">\u23F0</div>
         <h2 style="margin:0;font-size:22px;font-weight:700;color:#fff;">Ajouter une alarme</h2>
         <p style="margin:8px 0 0;font-size:14px;color:rgba(255,255,255,0.9);">Sélectionnez jusqu'à ${maxSelections} élément${maxSelections > 1 ? 's' : ''}</p>
       </div>
@@ -31185,7 +31909,7 @@ function openAddAlarmModal(context) {
                 gap:12px;
               ">
                 <div style="width:24px;height:24px;border-radius:50%;border:2px solid ${isSelected ? '#f59e0b' : 'rgba(255,255,255,0.3)'};background:${isSelected ? '#f59e0b' : 'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                  ${isSelected ? '✓' : ''}
+                  ${isSelected ? '\u2713' : ''}
                 </div>
                 <div style="flex:1;">
                   <div style="font-weight:600;font-size:14px;color:#fff;">
@@ -31263,7 +31987,7 @@ function toggleAlarmItemSelection(itemId, context) {
     selectedItems.splice(index, 1);
   } else {
     if (selectedItems.length >= maxSelections) {
-      showNotification(`⚠️ Maximum ${maxSelections} sélections autorisées`, "warning");
+      showNotification(`\u26A0️ Maximum ${maxSelections} sélections autorisées`, "warning");
       return;
     }
     selectedItems.push(itemId);
@@ -31281,7 +32005,7 @@ function toggleAlarmItemSelection(itemId, context) {
     if (checkbox) {
       checkbox.style.border = `2px solid ${isSelected ? '#f59e0b' : 'rgba(255,255,255,0.3)'}`;
       checkbox.style.background = isSelected ? '#f59e0b' : 'transparent';
-      checkbox.innerHTML = isSelected ? '✓' : '';
+      checkbox.innerHTML = isSelected ? '\u2713' : '';
     }
   }
   
@@ -31300,7 +32024,7 @@ function saveAlarm(context) {
   
   const selectedItems = JSON.parse(backdrop.dataset.selectedItems || '[]');
   if (selectedItems.length === 0) {
-    showNotification("⚠️ Veuillez sélectionner au moins un élément", "warning");
+    showNotification("\u26A0️ Veuillez sélectionner au moins un élément", "warning");
     return;
   }
   
@@ -31330,11 +32054,11 @@ function saveAlarm(context) {
   selectedItems.forEach(itemId => {
     const item = items.find(i => (i.id || `item-${i.eventId}`) === itemId);
     if (item) {
-      // ✅ Vérifier si l'alerte correspondante est floutée (pour les alertes)
+      // \u2705 Vérifier si l'alerte correspondante est floutée (pour les alertes)
       if (context === 'alerts') {
         const alert = currentUser.alerts.find(a => a.id === (item.id || item.alertId));
         if (alert && alert.isBlurred) {
-          showNotification("⚠️ Impossible d'ajouter une alarme à une alerte floutée. Effacez une alerte pour la rendre visible.", "warning");
+          showNotification("\u26A0️ Impossible d'ajouter une alarme à une alerte floutée. Effacez une alerte pour la rendre visible.", "warning");
           return;
         }
       }
@@ -31364,7 +32088,7 @@ function saveAlarm(context) {
     }
   });
   
-  showNotification(`✅ ${selectedItems.length} alarme${selectedItems.length > 1 ? 's' : ''} ajoutée${selectedItems.length > 1 ? 's' : ''} !`, "success");
+  showNotification(`\u2705 ${selectedItems.length} alarme${selectedItems.length > 1 ? 's' : ''} ajoutée${selectedItems.length > 1 ? 's' : ''} !`, "success");
   closeAddAlarmModal();
   
   if (context === 'alerts') {
@@ -31462,7 +32186,7 @@ function triggerAlarm(alarm, event) {
   const { value, unit } = alarm.timeBefore || { value: 1, unit: 'days' };
   const unitText = unit === 'hours' ? 'heure(s)' : unit === 'days' ? 'jour(s)' : 'semaine(s)';
   
-  const message = `⏰ Alarme : ${favoriteName} apparaît dans "${eventTitle}"\n\n` +
+  const message = `\u23F0 Alarme : ${favoriteName} apparaît dans "${eventTitle}"\n\n` +
     `📅 Date : ${dateStr}\n` +
     `📍 Lieu : ${event.location || event.city || 'Lieu à confirmer'}\n\n` +
     `Cette alarme a été configurée pour ${value} ${unitText} avant l'événement.`;
@@ -31481,7 +32205,7 @@ function triggerAlarm(alarm, event) {
     } else {
       // Si limite SMS atteinte, envoyer par email à la place
       if (!currentUser.notificationPreferences.email) {
-        showNotification(`⚠️ Limite SMS atteinte. Alarme envoyée par email.`, "warning");
+        showNotification(`\u26A0️ Limite SMS atteinte. Alarme envoyée par email.`, "warning");
       }
       sendEmailNotification(currentUser.email, `Alarme MapEventAI : ${eventTitle}`, message);
       currentUser.emailNotifications++;
@@ -31489,11 +32213,11 @@ function triggerAlarm(alarm, event) {
   }
   
   // Afficher une notification dans l'interface
-  showNotification(`⏰ Alarme : ${eventTitle} dans ${value} ${unitText} !`, "info");
+  showNotification(`\u23F0 Alarme : ${eventTitle} dans ${value} ${unitText} !`, "info");
   
   // Notification push pour smartphone (si l'utilisateur a autorisé)
   if ('Notification' in window && Notification.permission === 'granted') {
-    new Notification(`⏰ Alarme MapEvent`, {
+    new Notification(`\u23F0 Alarme MapEvent`, {
       body: `${favoriteName} apparaît dans "${eventTitle}"\n${dateStr}\n📍 ${event.location || event.city || 'Lieu à confirmer'}`,
       icon: '/favicon.ico',
       badge: '/favicon.ico',
@@ -31505,7 +32229,7 @@ function triggerAlarm(alarm, event) {
     // Demander la permission pour les notifications push
     Notification.requestPermission().then(permission => {
       if (permission === 'granted') {
-        new Notification(`⏰ Alarme MapEvent`, {
+        new Notification(`\u23F0 Alarme MapEvent`, {
           body: `${favoriteName} apparaît dans "${eventTitle}"\n${dateStr}\n📍 ${event.location || event.city || 'Lieu à confirmer'}`,
           icon: '/favicon.ico',
           badge: '/favicon.ico',
@@ -31562,7 +32286,7 @@ function updateSmsCount() {
     // Désactiver les notifications SMS si la limite est atteinte
     if (currentUser.notificationPreferences.sms) {
       currentUser.notificationPreferences.sms = false;
-      showNotification(`⚠️ Limite SMS mensuelle atteinte (${limit}). Les alarmes seront envoyées par email uniquement.`, "warning");
+      showNotification(`\u26A0️ Limite SMS mensuelle atteinte (${limit}). Les alarmes seront envoyées par email uniquement.`, "warning");
     }
   }
   
@@ -31640,12 +32364,38 @@ async function loadFavoritesFromBackend() {
     if (response.ok) {
       const data = await response.json();
       if (data.success && data.favorites) {
-        currentUser.favorites = data.favorites;
+        currentUser.favorites = normalizeFavoritesCollection(data.favorites);
+        if (typeof saveUserData === 'function') saveUserData();
       }
     }
   } catch (error) {
     console.error('Erreur chargement favoris:', error);
   }
+}
+
+// Charger les likes depuis le backend (si endpoint GET dispo), sinon fallback local.
+async function loadLikesFromBackend() {
+  if (!currentUser || !currentUser.isLoggedIn) return;
+  const localLikes = normalizeLikesKeys(currentUser.likes);
+  const backupLikes = readLikesFromBackups(currentUser);
+  try {
+    const response = await fetch(`${window.API_BASE_URL}/user/likes?userId=${currentUser.id}`);
+    if (response.ok) {
+      const data = await response.json();
+      if (Array.isArray(data?.likes)) {
+        // Merge backend + local + backup pour empêcher toute perte de likes.
+        currentUser.likes = mergeLikeSources(data.likes, localLikes, backupLikes);
+        persistLikesBackups(currentUser.likes);
+        if (typeof saveUserData === 'function') saveUserData();
+        return;
+      }
+    }
+  } catch (error) {
+    console.warn('[LIKES] GET backend indisponible, fallback local:', error);
+  }
+  currentUser.likes = mergeLikeSources(localLikes, backupLikes);
+  persistLikesBackups(currentUser.likes);
+  if (typeof saveUserData === 'function') saveUserData();
 }
 
 // Charger les alertes depuis le backend
@@ -31668,6 +32418,8 @@ async function loadAlertsFromBackend() {
 // Charger l'agenda depuis le backend (persistant en base)
 async function loadAgendaFromBackend() {
   if (!currentUser || !currentUser.isLoggedIn) return;
+  const localAgenda = normalizeAgendaKeys(currentUser.agenda);
+  const backupAgenda = readAgendaFromBackups(currentUser);
   
   try {
     // Utiliser le token JWT pour identifier l'utilisateur de manière fiable
@@ -31679,32 +32431,22 @@ async function loadAgendaFromBackend() {
     if (response.ok) {
       const data = await response.json();
       if (data.agenda && Array.isArray(data.agenda)) {
-        currentUser.agenda = data.agenda;
-        // Sauvegarder aussi en localStorage comme backup
-        try { localStorage.setItem('user_agenda_backup', JSON.stringify(data.agenda)); } catch(e) {}
-        console.log('[AGENDA] ' + data.agenda.length + ' elements charges depuis la base');
+        // Fusion non destructive: backend + état local + backups.
+        currentUser.agenda = normalizeAgendaKeys([...(data.agenda || []), ...localAgenda, ...backupAgenda]);
+        persistAgendaBackups(currentUser.agenda, currentUser);
+        if (typeof saveUserData === 'function') saveUserData();
+        console.log('[AGENDA] ' + currentUser.agenda.length + ' elements charges depuis la base');
       }
     } else {
       console.warn('[AGENDA] API retourne', response.status, '- tentative localStorage');
-      // Fallback localStorage
-      try {
-        const backup = localStorage.getItem('user_agenda_backup');
-        if (backup) {
-          currentUser.agenda = JSON.parse(backup);
-          console.log('[AGENDA] ' + currentUser.agenda.length + ' elements restaures depuis localStorage');
-        }
-      } catch(e) {}
+      currentUser.agenda = normalizeAgendaKeys([...localAgenda, ...backupAgenda]);
+      persistAgendaBackups(currentUser.agenda, currentUser);
     }
   } catch (error) {
     console.error('[AGENDA] Erreur chargement:', error);
-    // Fallback localStorage
-    try {
-      const backup = localStorage.getItem('user_agenda_backup');
-      if (backup) {
-        currentUser.agenda = JSON.parse(backup);
-        console.log('[AGENDA] Fallback localStorage:', currentUser.agenda.length, 'elements');
-      }
-    } catch(e) {}
+    currentUser.agenda = normalizeAgendaKeys([...localAgenda, ...backupAgenda]);
+    persistAgendaBackups(currentUser.agenda, currentUser);
+    console.log('[AGENDA] Fallback local/backup:', currentUser.agenda.length, 'elements');
   }
 }
 
@@ -31717,7 +32459,41 @@ function onViewportChange() {
   clearTimeout(viewportFetchTimeout);
   viewportFetchTimeout = setTimeout(() => {
     loadViewportData();
-  }, 400); // 400ms debounce pour éviter les appels en rafale
+  }, 250);
+}
+
+function scheduleListViewRefresh(delayMs = 300) {
+  if (typeof refreshListView !== 'function') return;
+  clearTimeout(listRefreshTimeout);
+  listRefreshTimeout = setTimeout(() => {
+    // Ne recalculer la liste que si elle est visible.
+    if (typeof listViewOpen !== 'undefined' && !listViewOpen) return;
+    refreshListView();
+  }, Math.max(80, Number(delayMs) || 300));
+}
+
+function pruneMarkersOutsideViewport(bounds, paddingRatio = 0.35) {
+  if (!markersLayer || !bounds || !markerMap) return;
+  const padded = bounds.pad(Math.max(0, Number(paddingRatio) || 0));
+  let removed = 0;
+  for (const key in markerMap) {
+    if (!Object.prototype.hasOwnProperty.call(markerMap, key)) continue;
+    if (!key.startsWith('event:')) continue;
+    const marker = markerMap[key];
+    if (!marker || typeof marker.getLatLng !== 'function') continue;
+    const latlng = marker.getLatLng();
+    if (!latlng || padded.contains(latlng)) continue;
+    try {
+      if (markersLayer.hasLayer(marker)) {
+        markersLayer.removeLayer(marker);
+      }
+    } catch (_) {}
+    delete markerMap[key];
+    removed++;
+  }
+  if (removed > 0) {
+    console.log(`[VIEWPORT] 🧹 ${removed} marqueurs hors écran supprimés`);
+  }
 }
 
 // Charger les données adaptées au zoom et viewport actuels
@@ -31738,9 +32514,23 @@ async function loadViewportData() {
   const east = bounds.getEast();
   
   // Clé unique pour ce viewport (évite les re-fetch inutiles)
-  const viewportKey = `${zoom}-${south.toFixed(2)}-${north.toFixed(2)}-${west.toFixed(2)}-${east.toFixed(2)}`;
-  if (viewportKey === lastViewportKey) return;
-  lastViewportKey = viewportKey;
+  // Clé plus précise: évite les faux "même viewport" quand on dézoome/repan rapidement.
+  // Inclut aussi l'état de filtre pour forcer un rechargement cohérent des clusters/events.
+  const filterKey = (
+    `${(selectedCategories && selectedCategories.length) || 0}|` +
+    `${timeFilter ? 1 : 0}|${dateRangeStart || ''}|${dateRangeEnd || ''}|` +
+    `${(selectedDates && selectedDates.length) || 0}`
+  );
+  const viewportKey = `${zoom}-${south.toFixed(4)}-${north.toFixed(4)}-${west.toFixed(4)}-${east.toFixed(4)}-${filterKey}`;
+  if (viewportKey === lastViewportKey || viewportKey === pendingViewportKey) return;
+  pendingViewportKey = viewportKey;
+  
+  // Annuler la requête précédente pour éviter les courses async pendant le zoom/pan.
+  try {
+    if (viewportAbortController) viewportAbortController.abort();
+  } catch (_) {}
+  viewportAbortController = new AbortController();
+  const reqSeq = ++viewportRequestSeq;
   
   const params = new URLSearchParams({
     zoom: zoom,
@@ -31751,12 +32541,16 @@ async function loadViewportData() {
   });
   
   try {
-    const response = await fetch(`${window.API_BASE_URL}/events/viewport?${params}`);
+    const response = await fetch(`${window.API_BASE_URL}/events/viewport?${params}`, {
+      signal: viewportAbortController.signal
+    });
+    if (reqSeq !== viewportRequestSeq) return;
     if (!response.ok) {
       console.warn('[VIEWPORT] Erreur API:', response.status);
       return;
     }
     const data = await response.json();
+    if (reqSeq !== viewportRequestSeq) return;
     
     // RE-VÉRIFIER le mode après le fetch async (l'utilisateur a pu changer de mode pendant le fetch)
     if (typeof currentMode !== 'undefined' && currentMode !== 'event') {
@@ -31764,41 +32558,29 @@ async function loadViewportData() {
       return;
     }
     
-    // Vérifier si un filtre est actif côté client
-    const hasActiveFilter = (selectedCategories && selectedCategories.length > 0) || 
-                            timeFilter || dateRangeStart || dateRangeEnd || 
-                            (selectedDates && selectedDates.length > 0);
-    
     if (data.type === 'clusters') {
-      if (hasActiveFilter) {
-        // FILTRE ACTIF + ZOOM FAIBLE : ne PAS afficher les clusters serveur (ils ignorent le filtre)
-        // Garder markersLayer visible - le MarkerClusterGroup de Leaflet regroupera
-        // automatiquement les marqueurs filtrés avec les bons chiffres
-        geoCirclesLayer.clearLayers();
-        if (markersLayer && !map.hasLayer(markersLayer)) {
-          markersLayer.addTo(map);
-        }
-        console.log('[VIEWPORT] Filtre actif → clusters serveur ignorés, MarkerClusterGroup utilisé');
-      } else {
-        // PAS DE FILTRE : comportement normal - afficher les cercles de comptage serveur
-        showGeoClusters(data.data);
-        // Cacher le layer de marqueurs individuels
-        if (markersLayer && map.hasLayer(markersLayer)) {
-          map.removeLayer(markersLayer);
-        }
+      // Comportement robuste global: toujours afficher les clusters serveur aux zooms faibles
+      // pour garantir la navigation monde entier sans "zone vide".
+      showGeoClusters(data.data || []);
+      if (markersLayer && map.hasLayer(markersLayer)) {
+        map.removeLayer(markersLayer);
       }
     } else if (data.type === 'events') {
-      // MODE DÉTAILLÉ: afficher les events réels
       geoCirclesLayer.clearLayers();
-      // Afficher le layer de marqueurs
       if (markersLayer && !map.hasLayer(markersLayer)) {
         markersLayer.addTo(map);
       }
-      // Ajouter les nouveaux events (sans dupliquer)
+      pruneMarkersOutsideViewport(bounds, 0.25);
       addViewportEvents(data);
     }
-      } catch (e) {
+    lastViewportKey = viewportKey;
+  } catch (e) {
+    if (e && (e.name === 'AbortError' || String(e).includes('aborted'))) {
+      return;
+    }
     console.warn('[VIEWPORT] Erreur:', e);
+  } finally {
+    if (pendingViewportKey === viewportKey) pendingViewportKey = '';
   }
 }
 
@@ -31889,35 +32671,54 @@ function addViewportEvents(data) {
       }
     }
     
-    // Skip si déjà chargé
-    if (loadedEventIds.has(obj.id)) return;
-    loadedEventIds.add(obj.id);
+    const markerKey = `event:${obj.id}`;
+    const existingMarker = markerMap[markerKey];
+    const existingEvent = (eventsData || []).find(e => String(e?.id) === String(obj.id)) || null;
     
     // Construire l'objet event complet
-    const event = {
+    const normalizedCoords = normalizeLatLng(obj.latitude, obj.longitude, obj.location);
+    if (!normalizedCoords) return;
+    const event = existingEvent || {
       ...obj,
       type: 'event',
-      lat: obj.latitude,
-      lng: obj.longitude,
+      lat: normalizedCoords.lat,
+      lng: normalizedCoords.lng,
       startDate: obj.date ? new Date(obj.date + (obj.time ? 'T' + obj.time : '')) : null,
       endDate: obj.end_date ? new Date(obj.end_date) : null,
       address: obj.location || '',
-      boost: '1.-',
+      boost: normalizeBoostTier(obj.boost),
       likes: 0,
       favorites: 0,
       participations: 0
     };
+    // Synchroniser les champs dynamiques avec la réponse viewport courante
+    event.lat = normalizedCoords.lat;
+    event.lng = normalizedCoords.lng;
+    event.address = obj.location || event.address || '';
+    event.location = obj.location || event.location || '';
+    event.boost = normalizeBoostTier(obj.boost || event.boost);
+    event.platinumBid = Number(obj.platinumBid ?? event.platinumBid ?? 0);
+    event.date = obj.date || event.date;
+    event.end_date = obj.end_date || event.end_date;
+    event.status = obj.status || event.status || 'active';
+    event.validation_status = obj.validation_status || event.validation_status;
+    sanitizeEventCategoriesForMusicContext(event);
     
     // Vérifier lat/lng valides
     if (typeof event.lat !== 'number' || typeof event.lng !== 'number' || isNaN(event.lat) || isNaN(event.lng)) return;
+    if (isEventRangeTooLong(event, 14) && isScrapedEvent(event)) return;
+    if (!validateEventQuality(event)) return;
     
-    // Ajouter à eventsData (pour la recherche, les filtres, etc.)
-    eventsData.push(event);
+    // Ajouter à eventsData (pour la recherche, les filtres, etc.) uniquement si absent
+    if (!existingEvent) {
+      eventsData.push(event);
+    }
+    loadedEventIds.add(obj.id);
     
     // Vérifier si cet event passe le filtre actif avant de créer un marqueur
     let shouldAddMarker = true;
     if (selectedCategories && selectedCategories.length > 0) {
-      // Filtre catégories actif → vérifier si l'event match
+      // Filtre catégories actif \u2192 vérifier si l'event match
       const lowerCats = selectedCategories.map(c => c.toLowerCase());
       const itemCatParts = getEffectiveCategoryParts(event);
       
@@ -31937,20 +32738,52 @@ function addViewportEvents(data) {
       shouldAddMarker = Array.from(itemCatParts).some(cat => allowed.has(cat));
     }
     
+    // Si marqueur déjà connu, s'assurer qu'il reste visible après zoom/changement de layer.
+    if (existingMarker) {
+      try {
+        existingMarker.setLatLng([event.lat, event.lng]);
+        // IMPORTANT: garder les métadonnées cluster à jour pour TOUS les événements futurs.
+        // Si le boost/prix change (ex: passage en platinum), le cluster doit recalculer le lead premium.
+        existingMarker._mapEventItem = event;
+        existingMarker._markerVisualItem = event;
+        // Mettre à jour aussi l'icône du marqueur individuel avec les nouvelles infos boost.
+        if (typeof existingMarker.setIcon === 'function') {
+          existingMarker.setIcon(buildMarkerIcon(event));
+        }
+        if (shouldAddMarker) {
+          if (markersLayer && typeof markersLayer.hasLayer === 'function' && !markersLayer.hasLayer(existingMarker)) {
+            markersLayer.addLayer(existingMarker);
+          }
+        } else if (markersLayer && typeof markersLayer.hasLayer === 'function' && markersLayer.hasLayer(existingMarker)) {
+          markersLayer.removeLayer(existingMarker);
+        }
+      } catch (_) {}
+      return;
+    }
+
     // Créer et ajouter le marqueur directement (incrémental, sans refreshMarkers)
     if (shouldAddMarker) {
       try {
         const icon = buildMarkerIcon(event);
         const marker = L.marker([event.lat, event.lng], { icon });
+        // Métadonnées utilisées par l'icône de cluster pour hériter du meilleur boost du groupe
+        marker._mapEventItem = event;
+        marker._markerVisualItem = event;
         marker.bindPopup('', { maxWidth: 360 });
-        marker.on('popupopen', function() {
+        marker.on('popupopen', async function() {
           marker.closePopup();
           currentPopupMarker = marker;
+          if (event.type === "event") {
+            await ensureEventDetailsForPopup(event);
+            if (typeof event.lat === 'number' && typeof event.lng === 'number') {
+              marker.setLatLng([event.lat, event.lng]);
+            }
+          }
           const popupContent = buildPopupHtml(event);
           openPopupModal(popupContent, event);
         });
         markersLayer.addLayer(marker);
-        markerMap[`event:${event.id}`] = marker;
+        markerMap[markerKey] = marker;
         newCount++;
       } catch (err) {
         // Silencieux - erreur de marqueur individuel
@@ -31961,7 +32794,7 @@ function addViewportEvents(data) {
   if (newCount > 0) {
     window.eventsData = eventsData;
     buildSameLocationMap(getActiveData());
-    if (typeof refreshListView === 'function') refreshListView();
+    scheduleListViewRefresh(350);
     console.log(`[VIEWPORT] 📍 +${newCount} events ajoutés sur carte (total eventsData: ${eventsData.length})`);
   }
 }
@@ -31971,7 +32804,7 @@ async function loadEventsFromBackend() {
   // MODE VIEWPORT PROGRESSIF: déléguer au chargement par viewport
   // Cette fonction est gardée pour compatibilité (appelée après login, changement de statut, etc.)
   // Elle force un rechargement du viewport actuel
-  console.log('[EVENTS] 🔄 loadEventsFromBackend → rechargement viewport');
+  console.log('[EVENTS] 🔄 loadEventsFromBackend \u2192 rechargement viewport');
   lastViewportKey = ''; // Forcer le re-fetch
   await loadViewportData();
 }
@@ -32038,16 +32871,17 @@ async function loadBookingsFromBackend() {
       
       const desc = b.description || '';
       
-      // Extraire les URLs audio depuis la description (format: "🔊 Audio: https://...")
+      // Extraire les URLs audio depuis la description
+      // Supporte: "🔊 Audio: https://..." ET "🔊 https://..."
       let audioUrls = [];
-      const audioMatches = desc.matchAll(/🔊\s*Audio:\s*(https?:\/\/[^\s|]+)/g);
+      const audioMatches = desc.matchAll(/🔊\s*(?:Audio:\s*)?(https?:\/\/[^\s|]+)/g);
       for (const m of audioMatches) {
         audioUrls.push(m[1]);
       }
       
       // Extraire le lien source (publication originale) depuis la description
       let sourceUrl = b.source_url || null;
-      const sourceMatch = desc.match(/🔗\s*Source:\s*(https?:\/\/[^\s|]+)/);
+      const sourceMatch = desc.match(/🔗\s*(?:Source:\s*)?(https?:\/\/[^\s|]+)/);
       if (sourceMatch) sourceUrl = sourceMatch[1];
       
       // Extraire les URLs cover depuis la description (format: "🖼️ Cover: https://...")
@@ -32059,12 +32893,12 @@ async function loadBookingsFromBackend() {
       
       // Nettoyer la description (retirer les URLs audio/cover/source + numéros de téléphone)
       let cleanDesc = desc
-        .replace(/\s*\|\s*🔊\s*Audio:\s*https?:\/\/[^\s|]+/g, '')
+        .replace(/\s*\|\s*🔊\s*(?:Audio:\s*)?https?:\/\/[^\s|]+/g, '')
         .replace(/\s*\|\s*🖼️\s*Cover:\s*https?:\/\/[^\s|]+/g, '')
-        .replace(/\s*\|\s*🔗\s*Source:\s*https?:\/\/[^\s|]+/g, '')
+        .replace(/\s*\|\s*🔗\s*(?:Source:\s*)?https?:\/\/[^\s|]+/g, '')
         // Supprimer les numéros de téléphone (formats: +41 xx xxx xx xx, 0xx xxx xx xx, 07x.xxx.xx.xx, etc.)
         .replace(/📞\s*[^|\n]*/g, '')
-        .replace(/☎\s*[^|\n]*/g, '')
+        .replace(/\u260E\s*[^|\n]*/g, '')
         .replace(/(?:Tel|Tél|Téléphone|Phone|Tel\.|Tél\.)\s*[:.]?\s*[\+]?[\d\s\.\-\(\)]{7,}/gi, '')
         .replace(/(?:\+\d{1,3}[\s\.\-]?)?\(?\d{2,4}\)?[\s\.\-]?\d{2,4}[\s\.\-]?\d{2,4}[\s\.\-]?\d{0,4}/g, (match) => {
           // Ne supprimer que si ça ressemble vraiment à un numéro de téléphone (min 10 chiffres)
@@ -32091,6 +32925,17 @@ async function loadBookingsFromBackend() {
         categoryImage = '/assets/category_images/event/music.jpg';
       }
       
+      const mergedAudioLinks = collectBookingAudioLinks({
+        soundLinks: audioUrls.length > 0 ? audioUrls : (b.sound_links || []),
+        audioLinks: b.audio_links || b.audioLinks || [],
+        description: desc
+      });
+
+      const normalizedCoords = normalizeLatLng(
+        b.latitude ?? b.lat,
+        b.longitude ?? b.lng,
+        b.location || b.address || b.city
+      );
       return {
         id: b.id,
         type: 'booking',
@@ -32099,15 +32944,15 @@ async function loadBookingsFromBackend() {
         description: cleanDesc,
         city: b.city || '',
         address: b.location || b.address || '',
-        lat: parseFloat(b.latitude) || parseFloat(b.lat) || null,
-        lng: parseFloat(b.longitude) || parseFloat(b.lng) || null,
+        lat: normalizedCoords ? normalizedCoords.lat : null,
+        lng: normalizedCoords ? normalizedCoords.lng : null,
         categories: cats,
         mainCategory: cats[0] || 'Musique',
         categoryImage: null,
         // Image: cover Audius ou image par catégorie
         imageUrl: coverUrl || categoryImage,
-        boost: b.boost || 'basic',
-        soundLinks: audioUrls.length > 0 ? audioUrls : (b.sound_links || []),
+        boost: normalizeBoostTier(b.boost),
+        soundLinks: mergedAudioLinks,
         email: b.email || '',
         website: b.website || '',
         sourceUrl: sourceUrl,
@@ -32119,9 +32964,9 @@ async function loadBookingsFromBackend() {
         rating: b.rating || '0'
       };
     }).filter(b => {
-      // Filtrer : GPS valide ET au moins un son
+      // Filtrer uniquement sur GPS valide.
+      // Un booking sans audio doit quand même s'afficher.
       if (!b.lat || !b.lng || isNaN(b.lat) || isNaN(b.lng)) return false;
-      if (!b.soundLinks || b.soundLinks.length === 0) return false;
       return true;
     });
     
@@ -32132,7 +32977,7 @@ async function loadBookingsFromBackend() {
     if (newBookings.length > 0) {
       bookingsData.push(...newBookings);
       window.bookingsData = bookingsData;
-      console.log(`✅ ${newBookings.length} bookings chargés (avec audio, marqueurs orange)`);
+      console.log(`\u2705 ${newBookings.length} bookings chargés (avec audio, marqueurs orange)`);
       
       // Rafraîchir si on est en mode booking
       if (currentMode === 'booking') {
@@ -32170,6 +33015,11 @@ async function loadServicesFromBackend() {
       }
       if (!Array.isArray(cats)) cats = [cats];
       
+      const normalizedCoords = normalizeLatLng(
+        s.latitude ?? s.lat,
+        s.longitude ?? s.lng,
+        s.location || s.address || s.city
+      );
       return {
         id: s.id,
         type: 'service',
@@ -32178,11 +33028,11 @@ async function loadServicesFromBackend() {
         description: s.description || '',
         address: s.location || '',
         location: s.location || '',
-        lat: parseFloat(s.latitude) || parseFloat(s.lat) || null,
-        lng: parseFloat(s.longitude) || parseFloat(s.lng) || null,
+        lat: normalizedCoords ? normalizedCoords.lat : null,
+        lng: normalizedCoords ? normalizedCoords.lng : null,
         categories: cats,
         mainCategory: cats[0] || 'Prestataires & Logistique',
-        boost: '1.-',
+        boost: normalizeBoostTier(s.boost),
         likes: s.likes_count || 0,
         favorites: s.favorites_count || 0,
         isAI: false,
@@ -32198,7 +33048,7 @@ async function loadServicesFromBackend() {
     if (newServices.length > 0) {
       servicesData.push(...newServices);
       window.servicesData = servicesData;
-      console.log(`✅ ${newServices.length} services chargés depuis le backend`);
+      console.log(`\u2705 ${newServices.length} services chargés depuis le backend`);
       
       // Rafraîchir si on est en mode service
       if (currentMode === 'service') {
@@ -32270,6 +33120,7 @@ async function loadUserDataOnLogin() {
   
   // Charger agenda, favoris, alertes depuis la base (persistant)
   if (currentUser && currentUser.isLoggedIn) {
+    await loadLikesFromBackend();
     await loadAgendaFromBackend();
     await loadFavoritesFromBackend();
     await loadAlertsFromBackend();
@@ -32410,7 +33261,7 @@ async function requestUserLocation() {
     showNotification('📍 Position obtenue avec succès', 'success');
     return location;
   } catch (error) {
-    showNotification('⚠️ Impossible d\'obtenir votre position. Vous pouvez la définir manuellement dans les paramètres.', 'warning');
+    showNotification('\u26A0️ Impossible d\'obtenir votre position. Vous pouvez la définir manuellement dans les paramètres.', 'warning');
     return null;
   }
 }
@@ -32439,21 +33290,21 @@ async function requestUserLocation() {
   // REMOVED: Les fonctions AUTH sont maintenant dans auth.js et exposées globalement
   // Vérification que les fonctions sont bien chargées depuis auth.js
   if (typeof window.openAuthModal === 'function') {
-    console.log('[AUTH] ✅ openAuthModal chargée depuis auth.js');
+    console.log('[AUTH] \u2705 openAuthModal chargée depuis auth.js');
   } else {
-    console.error('[AUTH] ❌ ERREUR: window.openAuthModal n\'est pas disponible (auth.js non chargé ?)');
+    console.error('[AUTH] \u274C ERREUR: window.openAuthModal n\'est pas disponible (auth.js non chargé ?)');
   }
   
   if (typeof window.openLoginModal === 'function') {
-    console.log('[AUTH] ✅ openLoginModal chargée depuis auth.js');
+    console.log('[AUTH] \u2705 openLoginModal chargée depuis auth.js');
   } else {
-    console.warn('[AUTH] ⚠️ window.openLoginModal non disponible (utilisera wrapper local)');
+    console.warn('[AUTH] \u26A0️ window.openLoginModal non disponible (utilisera wrapper local)');
   }
   
   if (typeof window.openRegisterModal === 'function') {
-    console.log('[AUTH] ✅ openRegisterModal chargée depuis auth.js');
+    console.log('[AUTH] \u2705 openRegisterModal chargée depuis auth.js');
   } else {
-    console.warn('[AUTH] ⚠️ window.openRegisterModal non disponible (utilisera wrapper local)');
+    console.warn('[AUTH] \u26A0️ window.openRegisterModal non disponible (utilisera wrapper local)');
   }
   
   // showRegisterStep1 peut rester ici si elle n'est pas dans auth.js
@@ -32462,7 +33313,7 @@ async function requestUserLocation() {
     window.showRegisterStep1 = showRegisterStep1;
     console.log('[AUTH] showRegisterStep1 expose globalement (local)');
   } else if (typeof window.showRegisterStep1 === 'function') {
-    console.log('[AUTH] ✅ showRegisterStep1 déjà chargée');
+    console.log('[AUTH] \u2705 showRegisterStep1 déjà chargée');
   } else {
     // Créer une fonction de fallback seulement si elle n'existe pas
     if (typeof window.showRegisterStep1 !== 'function') {
@@ -32485,7 +33336,7 @@ async function requestUserLocation() {
     window.startOnboarding = startOnboardingIfNeeded; // Alias
     console.log('[ONBOARDING] startOnboardingIfNeeded expose globalement');
   } else if (typeof window.startOnboardingIfNeeded === 'function') {
-    console.log('[ONBOARDING] ✅ startOnboardingIfNeeded déjà chargée');
+    console.log('[ONBOARDING] \u2705 startOnboardingIfNeeded déjà chargée');
   } else {
     console.warn('[ONBOARDING] startOnboardingIfNeeded non disponible');
   }
@@ -32494,7 +33345,7 @@ async function requestUserLocation() {
     window.openOnboardingModal = openOnboardingModal;
     console.log('[ONBOARDING] openOnboardingModal expose globalement');
   } else if (typeof window.openOnboardingModal === 'function') {
-    console.log('[ONBOARDING] ✅ openOnboardingModal déjà chargée');
+    console.log('[ONBOARDING] \u2705 openOnboardingModal déjà chargée');
   } else {
     console.warn('[ONBOARDING] openOnboardingModal non disponible');
   }
@@ -32503,7 +33354,7 @@ async function requestUserLocation() {
     window.checkProfileCompleteness = checkProfileCompleteness;
     console.log('[ONBOARDING] checkProfileCompleteness expose globalement');
   } else if (typeof window.checkProfileCompleteness === 'function') {
-    console.log('[ONBOARDING] ✅ checkProfileCompleteness déjà chargée');
+    console.log('[ONBOARDING] \u2705 checkProfileCompleteness déjà chargée');
   } else {
     console.warn('[ONBOARDING] checkProfileCompleteness non disponible');
   }

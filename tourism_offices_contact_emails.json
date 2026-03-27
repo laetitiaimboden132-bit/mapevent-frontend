@@ -1,0 +1,26 @@
+[
+  {
+    "city": "Rochefort",
+    "email": "contact@rochefort-ocean.com",
+    "source_url": "https://www.rochefort-ocean.com/mentions-legales",
+    "org": "Office de Tourisme Rochefort Océan"
+  },
+  {
+    "city": "Niort",
+    "email": "contact@niortmaraispoitevin.com",
+    "source_url": "https://www.niortmaraispoitevin.com/preparer-son-sejour/infos-pratiques/nos-accueils-touristiques/",
+    "org": "Office de Tourisme Niort Marais Poitevin"
+  },
+  {
+    "city": "Cherbourg",
+    "email": "contact@cotentin-tourisme.com",
+    "source_url": "https://www.cotentin-tourisme-normandie.fr/contact/",
+    "org": "Cotentin Tourisme (Office de tourisme Cherbourg-en-Cotentin)"
+  },
+  {
+    "city": "Antibes / Juan-les-Pins",
+    "email": "accueil@antibesjuanlespins.com",
+    "source_url": "https://www.antibesjuanlespins.com/antibes-pratique/l-office-du-tourisme-et-des-congres",
+    "org": "Office de Tourisme et des Congrès d'Antibes Juan-les-Pins"
+  }
+]

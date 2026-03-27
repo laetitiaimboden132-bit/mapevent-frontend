@@ -1,0 +1,252 @@
+{
+  "billetterie@jazzcontreband.com": {
+    "sent_at": "2026-02-24T11:17:58Z",
+    "script": "send_correction_followup_50.py",
+    "context": "JAZZCONTREBAND : FLOATING - YARON HERMAN, EMILE PARISIEN, PRABHU EDOUARD, JOE SA"
+  },
+  "agathe@jazzcontreband.com": {
+    "sent_at": "2026-02-24T11:18:03Z",
+    "script": "send_correction_followup_50.py",
+    "context": "JAZZCONTREBAND : FLOATING - YARON HERMAN, EMILE PARISIEN, PRABHU EDOUARD, JOE SA"
+  },
+  "a.meyer@lancy.ch": {
+    "sent_at": "2026-02-24T11:18:08Z",
+    "script": "send_correction_followup_50.py",
+    "context": "Qui a peur des fantômes?"
+  },
+  "biblio.meg@geneve.ch": {
+    "sent_at": "2026-02-24T11:18:14Z",
+    "script": "send_correction_followup_50.py",
+    "context": "Un objet, un son, une histoire : dansons avec Hinatea"
+  },
+  "biblio.meg@ville-ge.ch": {
+    "sent_at": "2026-02-24T11:18:19Z",
+    "script": "send_correction_followup_50.py",
+    "context": "Un objet, un son, une histoire : dansons avec Hinatea"
+  },
+  "info@mmfestival.ch": {
+    "sent_at": "2026-02-24T11:18:24Z",
+    "script": "send_correction_followup_50.py",
+    "context": "YIANNIS PLOUTARCHOS & KATERINA KAKOSEOU"
+  },
+  "info@genevagreeks.ch": {
+    "sent_at": "2026-02-24T11:18:30Z",
+    "script": "send_correction_followup_50.py",
+    "context": "YIANNIS PLOUTARCHOS & KATERINA KAKOSEOU"
+  },
+  "musee@carouge.ch": {
+    "sent_at": "2026-02-24T11:18:35Z",
+    "script": "send_correction_followup_50.py",
+    "context": "Ateliers de dessin « Illustrer Carouge autrement »"
+  },
+  "communication.hem@hesge.ch": {
+    "sent_at": "2026-02-24T11:18:43Z",
+    "script": "send_correction_followup_50.py",
+    "context": "Balades oniriques"
+  },
+  "infoseniors@lancy.ch": {
+    "sent_at": "2026-02-24T11:18:48Z",
+    "script": "send_correction_followup_50.py",
+    "context": "Conférence - Intelligence Artificielle: amie ou ennemie?"
+  },
+  "communication.web@ville-ge.ch": {
+    "sent_at": "2026-02-24T11:18:54Z",
+    "script": "send_correction_followup_50.py",
+    "context": "Convention de jeux à la Ferme Golay"
+  },
+  "adp-mah@geneve.ch": {
+    "sent_at": "2026-02-24T11:18:59Z",
+    "script": "send_correction_followup_50.py",
+    "context": "Armleder sur le bout des doigts"
+  },
+  "adp-mah@ville-ge.ch": {
+    "sent_at": "2026-02-24T11:19:05Z",
+    "script": "send_correction_followup_50.py",
+    "context": "Armleder sur le bout des doigts"
+  },
+  "info@impro-geneve.ch": {
+    "sent_at": "2026-02-24T11:19:10Z",
+    "script": "send_correction_followup_50.py",
+    "context": "Match d'impro : Finale du Championnat Majeur"
+  },
+  "cmg@cmg.ch": {
+    "sent_at": "2026-02-24T11:19:16Z",
+    "script": "send_correction_followup_50.py",
+    "context": "Geneva International String Academy"
+  },
+  "nclaire@tour-makers.net": {
+    "sent_at": "2026-02-24T11:19:21Z",
+    "script": "send_correction_followup_50.py",
+    "context": "Kolinga"
+  },
+  "tickets@latfro.com": {
+    "sent_at": "2026-02-24T11:19:27Z",
+    "script": "send_correction_followup_50.py",
+    "context": "MOBB DEEP feat. HAVOC ALONG WITH BIG NOYD & DJ L.E.S."
+  },
+  "ludopetitsaconnex@bluewin.ch": {
+    "sent_at": "2026-02-24T11:19:33Z",
+    "script": "send_correction_followup_50.py",
+    "context": "Soirée jeux"
+  },
+  "info@pachamamaconnexion.com": {
+    "sent_at": "2026-02-24T11:19:39Z",
+    "script": "send_correction_followup_50.py",
+    "context": "ALBOROSIE & SHENGEN CLAN"
+  },
+  "nfo@pachamamaconnexion.com": {
+    "sent_at": "2026-02-24T11:19:46Z",
+    "script": "send_correction_followup_50.py",
+    "context": "ALBOROSIE & SHENGEN CLAN"
+  },
+  "info@wellnessonlygeneva.ch": {
+    "sent_at": "2026-02-24T11:19:52Z",
+    "script": "send_correction_followup_50.py",
+    "context": "Pilates face aux œuvres : Une respiration en milieu de journée"
+  },
+  "info@amstramgram.ch": {
+    "sent_at": "2026-02-24T11:19:58Z",
+    "script": "send_correction_followup_50.py",
+    "context": "Cléopâtre"
+  },
+  "info@opus-one.ch": {
+    "sent_at": "2026-02-24T11:20:04Z",
+    "script": "send_correction_followup_50.py",
+    "context": "LEVI.SCT"
+  },
+  "nack@nack.ch": {
+    "sent_at": "2026-02-24T11:20:11Z",
+    "script": "send_correction_followup_50.py",
+    "context": "Table ronde «Création & Phob.IA»"
+  },
+  "amj@amj.ch": {
+    "sent_at": "2026-02-24T11:20:17Z",
+    "script": "send_correction_followup_50.py",
+    "context": "DI GENFE KAPELYE"
+  },
+  "reservation@galpon.ch": {
+    "sent_at": "2026-02-24T11:20:23Z",
+    "script": "send_correction_followup_50.py",
+    "context": "Pas de deux"
+  },
+  "scmbilletterie@migrosgeneve.ch": {
+    "sent_at": "2026-02-24T11:20:29Z",
+    "script": "send_correction_followup_50.py",
+    "context": "ICELAND SYMPHONY ORCHESTRA"
+  },
+  "scc@vernier.ch": {
+    "sent_at": "2026-02-24T11:20:35Z",
+    "script": "send_correction_followup_50.py",
+    "context": "Les Petits Parapluies"
+  },
+  "organisateur@finishers.com": {
+    "sent_at": "2026-02-24T11:20:41Z",
+    "script": "send_correction_followup_50.py",
+    "context": "Run Evasion Rhône 2026"
+  },
+  "contact@finishers.com": {
+    "sent_at": "2026-02-24T11:20:46Z",
+    "script": "send_correction_followup_50.py",
+    "context": "Run Evasion Rhône 2026"
+  },
+  "hello@support.finishers.com": {
+    "sent_at": "2026-02-24T11:20:52Z",
+    "script": "send_correction_followup_50.py",
+    "context": "Run Evasion Rhône 2026"
+  },
+  "info@fetedelatulipe.ch": {
+    "sent_at": "2026-02-24T11:20:58Z",
+    "script": "send_correction_followup_50.py",
+    "context": "Fête de la Tulipe Morges 2026"
+  },
+  "bewerbungen@openairgampel.ch": {
+    "sent_at": "2026-02-24T11:21:04Z",
+    "script": "send_correction_followup_50.py",
+    "context": "Open Air Gampel 2026"
+  },
+  "amis@verbierfestival.com": {
+    "sent_at": "2026-02-24T11:21:09Z",
+    "script": "send_correction_followup_50.py",
+    "context": "Verbier Festival 2026"
+  },
+  "alessandra.cossu@verbierfestival.com": {
+    "sent_at": "2026-02-24T11:21:14Z",
+    "script": "send_correction_followup_50.py",
+    "context": "Verbier Festival 2026"
+  },
+  "ticketing@verbierfestival.com": {
+    "sent_at": "2026-02-24T11:21:20Z",
+    "script": "send_correction_followup_50.py",
+    "context": "Verbier Festival 2026"
+  },
+  "contact@batie.ch": {
+    "sent_at": "2026-02-24T11:21:25Z",
+    "script": "send_correction_followup_50.py",
+    "context": "La Bâtie-Festival de Genève 2026"
+  },
+  "prod@asmv.ch": {
+    "sent_at": "2026-02-24T11:21:31Z",
+    "script": "send_correction_followup_50.py",
+    "context": "Les dimanches de Cité Seniors"
+  },
+  "nicolas.h@ema.school": {
+    "sent_at": "2026-02-24T11:21:37Z",
+    "script": "send_correction_followup_50.py",
+    "context": "Un week-end qui donne la frite !"
+  },
+  "alce.ginebra@educacion.gob.es": {
+    "sent_at": "2026-02-24T11:21:43Z",
+    "script": "send_correction_followup_50.py",
+    "context": "Bachibouzouk"
+  },
+  "billetterie@voixdefete.com": {
+    "sent_at": "2026-02-24T11:21:49Z",
+    "script": "send_correction_followup_50.py",
+    "context": "Bachibouzouk"
+  },
+  "matthias@asmv.ch": {
+    "sent_at": "2026-02-24T11:21:54Z",
+    "script": "send_correction_followup_50.py",
+    "context": "Bachibouzouk"
+  },
+  "billetterie@antigel.ch": {
+    "sent_at": "2026-02-24T11:22:00Z",
+    "script": "send_correction_followup_50.py",
+    "context": "Silver Power – Des Romandes fières de leurs cheveux gris"
+  },
+  "info@sini-yiri.org": {
+    "sent_at": "2026-02-24T11:22:06Z",
+    "script": "send_correction_followup_50.py",
+    "context": "Genève (Suisse) : Randonnées pédestres gratuites au Salève."
+  },
+  "publics.meg@ville-ge.chavec": {
+    "sent_at": "2026-02-24T11:22:11Z",
+    "script": "send_correction_followup_50.py",
+    "context": "Genève (Suisse) : Randonnées pédestres gratuites au Salève."
+  },
+  "publics.meg@geneve.ch": {
+    "sent_at": "2026-02-24T11:22:17Z",
+    "script": "send_correction_followup_50.py",
+    "context": "Genève (Suisse) : Randonnées pédestres gratuites au Salève."
+  },
+  "bonjour@lesgenevois.com": {
+    "sent_at": "2026-02-24T11:22:22Z",
+    "script": "send_correction_followup_50.py",
+    "context": "Quattro (Quatre)"
+  },
+  "casanova@monthey.ch": {
+    "sent_at": "2026-02-24T11:22:27Z",
+    "script": "send_correction_followup_50.py",
+    "context": "Le sentier illuminé d'Olaf"
+  },
+  "integration@sierre.ch": {
+    "sent_at": "2026-02-24T11:22:33Z",
+    "script": "send_correction_followup_50.py",
+    "context": "Déjeuner du monde - Voyage au Togo"
+  },
+  "info@festivalcite.ch": {
+    "sent_at": "2026-02-24T11:22:38Z",
+    "script": "send_correction_followup_50.py",
+    "context": "Festival de la Cité"
+  }
+}

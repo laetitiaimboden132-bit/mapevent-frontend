@@ -3,106 +3,127 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mentions Légales - MapEventAI</title>
+    <title>Mentions légales - MapEvent</title>
+    <meta name="description" content="Mentions légales MapEvent : sources, responsabilité, propriété intellectuelle, réutilisation des données et contact.">
+    <link rel="canonical" href="https://mapevent.world/mentions-legales.html">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://mapevent.world/mentions-legales.html">
+    <meta property="og:title" content="Mentions légales - MapEvent">
+    <meta property="og:description" content="Cadre légal d'utilisation de la plateforme MapEvent.">
+    <meta property="og:site_name" content="MapEvent">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="Mentions légales - MapEvent">
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
     <style>
+        :root {
+            --bg: #020617;
+            --card: #0f172a;
+            --text: #e2e8f0;
+            --muted: #94a3b8;
+            --accent: #00ffc3;
+            --accent2: #3b82f6;
+            --border: rgba(148, 163, 184, 0.25);
+        }
+        * { box-sizing: border-box; }
         body {
-            font-family: system-ui, -apple-system, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 40px 20px;
-            line-height: 1.6;
-            color: #1f2937;
-            background: #f9fafb;
+            margin: 0;
+            font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+            background: linear-gradient(180deg, #020617 0%, #0b1220 100%);
+            color: var(--text);
+            line-height: 1.65;
         }
-        h1 { color: #00ffc3; }
-        h2 { color: #3b82f6; margin-top: 30px; }
-        a { color: #3b82f6; text-decoration: none; }
+        .container {
+            width: min(920px, 92%);
+            margin: 36px auto;
+        }
+        .hero {
+            background: linear-gradient(135deg, rgba(0,255,195,0.14), rgba(59,130,246,0.14));
+            border: 1px solid rgba(0,255,195,0.35);
+            border-radius: 18px;
+            padding: 22px;
+            margin-bottom: 18px;
+        }
+        h1 {
+            margin: 0 0 8px;
+            font-size: 28px;
+            line-height: 1.2;
+        }
+        h2 {
+            margin: 0 0 10px;
+            font-size: 18px;
+            color: #cbd5e1;
+        }
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 18px;
+            margin-bottom: 14px;
+        }
+        p { margin: 0 0 10px; }
+        ul {
+            margin: 8px 0 0;
+            padding-left: 20px;
+        }
+        li { margin: 6px 0; }
+        .muted { color: var(--muted); font-size: 13px; }
+        a { color: var(--accent); text-decoration: none; }
         a:hover { text-decoration: underline; }
-        .source-list {
-            background: white;
-            padding: 20px;
-            border-radius: 12px;
-            margin: 20px 0;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        }
-        .source-item {
+        .warning {
+            border-left: 4px solid #f59e0b;
+            background: rgba(245,158,11,0.08);
             padding: 12px;
-            margin: 8px 0;
-            border-left: 4px solid #3b82f6;
-            background: #f9fafb;
+            border-radius: 10px;
+            margin-top: 8px;
         }
-        .badge {
-            display: inline-block;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 12px;
-            font-weight: 600;
-            margin-left: 8px;
-        }
-        .badge-public { background: #22c55e; color: white; }
-        .badge-official { background: #3b82f6; color: white; }
     </style>
 </head>
 <body>
-    <h1>📋 Mentions Légales</h1>
-    
-    <h2>Attribution et Liens Sources</h2>
-    <p>
-        Tous les événements affichés incluent :
-    </p>
-    <ul>
-        <li>✅ Un lien direct vers la source originale</li>
-        <li>✅ Une mention claire de la source dans chaque popup</li>
-        <li>✅ Le respect du <code>robots.txt</code> de chaque site</li>
-    </ul>
-    
-    <h2>Valeur Ajoutée</h2>
-    <p>
-        MapEventAI ajoute de la valeur aux données sources en fournissant :
-    </p>
-    <ul>
-        <li>🗺️ Géolocalisation précise (coordonnées exactes)</li>
-        <li>🏷️ Catégorisation automatique par IA</li>
-        <li>📍 Agrégation multi-sources sur une seule carte</li>
-        <li>🔍 Filtres avancés par catégorie, date, localisation</li>
-        <li>📱 Interface cartographique interactive</li>
-    </ul>
-    
-    <h2>Respect des Données</h2>
-    <p>
-        Nous nous engageons à :
-    </p>
-    <ul>
-        <li>✅ Respecter le <code>robots.txt</code> de chaque site (délai de 10 secondes pour leprogramme.ch)</li>
-        <li>✅ Ne pas surcharger les serveurs sources</li>
-        <li>✅ Conserver les liens sources originaux</li>
-        <li>✅ Retirer immédiatement les données si une source le demande</li>
-    </ul>
-    
-    <h2>Politique de Retrait</h2>
-    <p>
-        Si une source souhaite que nous retirions ses données :
-    </p>
-    <ol>
-        <li>Nous retirerons immédiatement les données concernées</li>
-        <li>Nous bloquerons la source dans notre scraper</li>
-        <li>Nous documenterons la demande</li>
-    </ol>
-    
-    <h2>Contact</h2>
-    <p>
-        Pour toute question ou réclamation concernant l'utilisation des données :
-    </p>
-    <p>
-        <strong>Email :</strong> [Votre email]<br>
-        <strong>Site :</strong> <a href="/">MapEventAI</a>
-    </p>
-    
-    <hr style="margin: 40px 0; border: none; border-top: 1px solid #e5e7eb;">
-    
-    <p style="text-align: center; color: #6b7280; font-size: 14px;">
-        Dernière mise à jour : Décembre 2025
-    </p>
+    <main class="container">
+        <section class="hero">
+            <h1>Mentions légales MapEvent</h1>
+            <p>La plateforme MapEvent agrège des informations événementielles issues de sources publiques, ouvertes ou déclarées par les organisateurs.</p>
+            <p class="muted">Dernière mise à jour : février 2026</p>
+        </section>
+
+        <section class="card">
+            <h2>1) Sources et attribution</h2>
+            <ul>
+                <li>MapEvent conserve un lien vers la publication source lorsqu'il est disponible.</li>
+                <li>Les événements peuvent provenir de données ouvertes, flux publics ou contributions volontaires d'organisateurs.</li>
+                <li>Les marques, logos et contenus de tiers restent la propriété de leurs ayants droit respectifs.</li>
+            </ul>
+        </section>
+
+        <section class="card">
+            <h2>2) Exactitude des informations</h2>
+            <p>MapEvent met en oeuvre des contrôles techniques et éditoriaux, mais ne garantit pas l'absence totale d'erreurs, retards ou omissions.</p>
+            <div class="warning">
+                Les informations affichées peuvent contenir des erreurs. Pour toute décision importante (horaire, lieu, conditions d'accès), l'utilisateur doit vérifier la source officielle.
+            </div>
+        </section>
+
+        <section class="card">
+            <h2>3) Propriété intellectuelle et réutilisation</h2>
+            <p>La structure de la plateforme, ses présentations, enrichissements, classements, interfaces, scripts et contenus éditoriaux MapEvent sont protégés.</p>
+            <ul>
+                <li>Copie, extraction massive, republication ou revente non autorisée des contenus MapEvent : interdites.</li>
+                <li>Scraping, duplication automatisée ou constitution de base concurrente à partir de MapEvent : interdits sans accord écrit préalable.</li>
+                <li>Toute réutilisation autorisée doit conserver les crédits et liens source exigés.</li>
+            </ul>
+        </section>
+
+        <section class="card">
+            <h2>4) Demande de retrait / correction</h2>
+            <p>Pour demander la correction ou le retrait d'un contenu : contacter MapEvent avec l'URL concernée et le motif.</p>
+            <p>Les demandes légitimes sont traitées dans les meilleurs délais.</p>
+        </section>
+
+        <section class="card">
+            <h2>5) Contact</h2>
+            <p>Email : <a href="mailto:mapeventworld@gmail.com">mapeventworld@gmail.com</a></p>
+            <p>Site : <a href="https://mapevent.world">https://mapevent.world</a></p>
+        </section>
+    </main>
 </body>
 </html>
-

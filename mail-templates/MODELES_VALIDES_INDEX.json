@@ -1,0 +1,15 @@
+{
+  "active_templates": {
+    "widget_city_if_threshold_met": "MODELE_VALIDE_WIDGET_VILLE_V1"
+  },
+  "templates": [
+    {
+      "id": "MODELE_VALIDE_WIDGET_VILLE_V1",
+      "path": "mail-templates/MODELE_VALIDE_WIDGET_VILLE_V1.md",
+      "status": "active",
+      "locked": true,
+      "usage_rule": "A utiliser pour les villes respectant le bareme events/habitants.",
+      "notes": "Ne rien modifier sans demande explicite de l'utilisateur."
+    }
+  ]
+}

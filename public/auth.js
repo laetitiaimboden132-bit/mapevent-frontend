@@ -4,35 +4,14 @@
  */
 
 // ===============================
-// PROTECTION LOCALSTORAGE MINIMALE
+// GARDE STORAGE (SANS BLOQUER currentUser)
 // ===============================
-// On bloque SEULEMENT currentUser (cause du quota), on garde TOUT le reste
+// La persistance de currentUser est gérée par safeSetItem/saveUserData.
 (function() {
   'use strict';
   if (window.__storageProtected) return;
   window.__storageProtected = true;
-  
-  // Supprimer UNIQUEMENT currentUser (c'est lui qui cause le quota exceeded)
-  try { localStorage.removeItem('currentUser'); } catch(e) {}
-  try { sessionStorage.removeItem('currentUser'); } catch(e) {}
-  
-  // Surcharger setItem pour bloquer UNIQUEMENT currentUser
-  const origSet = localStorage.setItem.bind(localStorage);
-  localStorage.setItem = function(key, value) {
-    if (key === 'currentUser') {
-      // Ignorer silencieusement - currentUser est en mémoire
-      return;
-    }
-    try {
-      origSet(key, value);
-    } catch(e) {
-      // Si erreur quota, supprimer currentUser et réessayer
-      try { localStorage.removeItem('currentUser'); } catch(e2) {}
-      try { origSet(key, value); } catch(e3) {}
-    }
-  };
-  
-  console.log('[AUTH] Protection currentUser activée');
+  console.log('[AUTH] Storage guard actif (persistance currentUser autorisée)');
 })();
 
 /**
@@ -686,8 +665,17 @@ function hideGoogleLoginLoading() {
 function centerModalBackdrop() {
   const backdrop = document.getElementById('publish-modal-backdrop');
   if (backdrop) {
-    backdrop.style.paddingTop = '40px';
-    backdrop.style.paddingBottom = '40px';
+    // Centrage robuste sur la map, quelle que soit la taille d'écran.
+    backdrop.style.position = 'fixed';
+    backdrop.style.inset = '0';
+    backdrop.style.display = 'flex';
+    backdrop.style.alignItems = 'center';
+    backdrop.style.justifyContent = 'center';
+    backdrop.style.paddingTop = '16px';
+    backdrop.style.paddingBottom = '16px';
+    backdrop.style.paddingLeft = '12px';
+    backdrop.style.paddingRight = '12px';
+    backdrop.style.overflowY = 'auto';
     backdrop.style.boxSizing = 'border-box';
   }
 }
@@ -785,6 +773,15 @@ function safeSetItem(key, value) {
         if (key === 'currentUser') {
           try {
             const userObj = JSON.parse(value);
+            const compactAgenda = Array.isArray(userObj.agenda)
+              ? userObj.agenda.slice(0, 600)
+              : [];
+            const compactFavorites = Array.isArray(userObj.favorites)
+              ? userObj.favorites.slice(0, 300)
+              : [];
+            const compactLikes = Array.isArray(userObj.likes)
+              ? userObj.likes.slice(0, 1000)
+              : [];
             // GARDER UNIQUEMENT les champs absolument essentiels
             const minimalUser = {
               id: userObj.id || null,
@@ -803,10 +800,10 @@ function safeSetItem(key, value) {
               postalAddress: userObj.postalAddress || '',
               provider: userObj.provider || null,
               googleValidated: userObj.googleValidated || false,
-              // Initialiser les tableaux vides (pas de données)
-              agenda: [],
-              favorites: [],
-              likes: [],
+              // Conserver les collections essentielles pour éviter toute perte locale.
+              agenda: compactAgenda,
+              favorites: compactFavorites,
+              likes: compactLikes,
               participating: [],
               alerts: [],
               statusAlerts: [],
@@ -1956,13 +1953,12 @@ function openAuthModal(mode = 'login') {
   modalBackdrop.style.visibility = 'visible';
   modalBackdrop.style.opacity = '1';
   modalBackdrop.style.zIndex = '99999';
-  modalBackdrop.style.paddingTop = '40px';
-  modalBackdrop.style.paddingBottom = '40px';
-  modalBackdrop.style.boxSizing = 'border-box';
+  centerModalBackdrop();
   modalBackdrop.setAttribute('data-auth-modal', 'true');
   modalInner.style.display = 'block';
   modalInner.style.visibility = 'visible';
   modalInner.style.opacity = '1';
+  modalInner.style.margin = '0 auto';
   
   // SOLUTION ULTRA-ROBUSTE : Créer une fonction nommée pour pouvoir la supprimer si elle existe déjà
   // Supprimer l'ancien event listener si il existe
@@ -2063,10 +2059,12 @@ function openAuthModal(mode = 'login') {
   modalBackdrop.style.visibility = 'visible';
   modalBackdrop.style.opacity = '1';
   modalBackdrop.style.zIndex = '99999';
+  centerModalBackdrop();
   modalBackdrop.setAttribute('data-auth-modal', 'true');
   modalInner.style.display = 'block';
   modalInner.style.visibility = 'visible';
   modalInner.style.opacity = '1';
+  modalInner.style.margin = '0 auto';
   
   // Attacher l'event listener avec useCapture=true pour s'exécuter AVANT tout le monde
   console.log('[AUTH] Attachement de l\'event listener...');
@@ -2085,6 +2083,7 @@ function openAuthModal(mode = 'login') {
       publishModalCurrent.style.visibility = 'visible';
       publishModalCurrent.style.opacity = '1';
       publishModalCurrent.style.position = 'relative';
+      publishModalCurrent.style.margin = '0 auto';
       publishModalCurrent.style.maxWidth = '500px';
       publishModalCurrent.style.width = '90%';
       publishModalCurrent.style.maxHeight = '90vh';
@@ -2907,9 +2906,16 @@ async function performRegister() {
   const lastName = document.getElementById("pro-lastname")?.value.trim() || '';
   const password = document.getElementById("pro-password")?.value || document.getElementById("register-password")?.value;
   const passwordConfirm = document.getElementById("pro-password-confirm")?.value || document.getElementById("register-password-confirm")?.value;
-  const photoInput = document.getElementById("pro-photo");
-  const photoLater = document.getElementById("register-photo-later")?.checked || document.getElementById("pro-photo-later")?.checked;
-  const addressLater = document.getElementById("register-address-later")?.checked || document.getElementById("pro-address-later")?.checked;
+  const photoInput =
+    document.getElementById("pro-photo") ||
+    document.getElementById("pro-photo-input");
+  const photoLater =
+    document.getElementById("register-photo-later")?.checked ||
+    document.getElementById("pro-photo-later")?.checked;
+  const addressLater =
+    document.getElementById("register-address-later")?.checked ||
+    document.getElementById("pro-address-later")?.checked ||
+    document.getElementById("pro-skip-address")?.checked;
   
   // Validation des champs obligatoires
   if (!email || !username || !password || !passwordConfirm) {
@@ -3000,9 +3006,9 @@ async function performRegister() {
     return;
   }
   
-  if (password.length < 8) {
+  if (password.length < 12) {
     if (typeof showNotification === 'function') {
-      showNotification("⚠️ Le mot de passe doit contenir au moins 8 caractères", "warning");
+      showNotification("⚠️ Le mot de passe doit contenir au moins 12 caractères", "warning");
     }
     return;
   }
@@ -4900,11 +4906,11 @@ function validateRegisterPassword(password) {
   let isValid = true;
   
   // Règles de validation
-  if (password.length < 8) {
-    rules.push('❌ Au moins 8 caractères');
+  if (password.length < 12) {
+    rules.push('❌ Au moins 12 caractères');
     isValid = false;
   } else {
-    rules.push('✅ Au moins 8 caractères');
+    rules.push('✅ Au moins 12 caractères');
   }
   
   if (!/[A-Z]/.test(password)) {
@@ -5096,6 +5102,9 @@ window.openRegisterModal = openRegisterModal;
 window.performLogin = performLogin;
 window.performRegister = performRegister;
 window.verifyEmailCodeAfterRegister = verifyEmailCodeAfterRegister;
+window.showVerificationChoice = showVerificationChoice;
+window.handleVerificationChoice = handleVerificationChoice;
+window.createAccountAndSendVerificationEmail = createAccountAndSendVerificationEmail;
 window.handleCognitoCallbackIfPresent = handleCognitoCallbackIfPresent;
 window.getAuthToken = getAuthToken;
 window.getRefreshToken = getRefreshToken;
@@ -5435,14 +5444,10 @@ function connectUser(user, tokens, rememberMe) {
   
   console.log('[CONNECT] ✅✅✅ Connexion terminée - UI mise à jour');
   
-  // Si pas "rester connecté", marquer pour suppression après F5
-  if (!rememberMe) {
-    window.isTestAccount = true;
-    window.testAccountUserId = user.id;
-  } else {
-    window.isTestAccount = false;
-    window.testAccountUserId = null;
-  }
+  // Désactiver toute auto-suppression de compte/session au reload.
+  // Un paiement Stripe implique toujours un aller-retour de page: la session doit survivre.
+  window.isTestAccount = false;
+  window.testAccountUserId = null;
   
   // Nettoyer les flags d'inscription
   window.isRegisteringWithGoogle = false;
@@ -5457,6 +5462,54 @@ function connectUser(user, tokens, rememberMe) {
 // ===============================
 // CHOIX DE VÉRIFICATION APRÈS FORMULAIRE
 // ===============================
+
+function backToRegisterInformations() {
+  const pendingData = window.pendingRegisterData || {};
+  // Reset explicite du verrou de soumission pour éviter un état bloqué
+  // après un aller-retour Vérification -> Informations.
+  window.isSubmittingProRegister = false;
+  if (typeof window.registerData !== 'object' || !window.registerData) {
+    window.registerData = {};
+  }
+
+  // Restaurer les données déjà saisies pour éviter toute ressaisie.
+  window.registerData = {
+    ...window.registerData,
+    email: pendingData.email || window.registerData.email || '',
+    username: pendingData.username || window.registerData.username || '',
+    password: pendingData.password || window.registerData.password || '',
+    firstName: pendingData.firstName || window.registerData.firstName || '',
+    lastName: pendingData.lastName || window.registerData.lastName || '',
+    avatarId: pendingData.avatarId || window.registerData.avatarId || 1,
+    photoData: pendingData.photoData || window.registerData.photoData || '',
+    profilePhoto: pendingData.photoData || window.registerData.profilePhoto || '',
+    postalAddress: window.registerData.postalAddress || ''
+  };
+
+  if (pendingData.selectedAddress) {
+    window.registerSelectedAddress = pendingData.selectedAddress;
+    if (!window.registerData.postalAddress) {
+      window.registerData.postalAddress =
+        pendingData.selectedAddress.label ||
+        pendingData.selectedAddress.display_name ||
+        '';
+    }
+  }
+
+  window.registerStep = 1;
+
+  if (typeof window.showProRegisterForm === 'function') {
+    window.showProRegisterForm();
+    return;
+  }
+  if (typeof showProRegisterForm === 'function') {
+    showProRegisterForm();
+    return;
+  }
+  console.error('[VERIFY] Impossible de revenir au formulaire: showProRegisterForm introuvable');
+}
+
+window.backToRegisterInformations = backToRegisterInformations;
 
 function showVerificationChoice() {
   console.log('[VERIFY] ⚠️⚠️⚠️ VERSION DU CODE: 20260115-124053 - showVerificationChoice appelée');
@@ -5528,6 +5581,10 @@ function showVerificationChoice() {
     <div id="authModal" data-mode="verify" style="padding:40px;max-width:500px;margin:0 auto;text-align:center;position:relative;">
       <!-- Bouton X (croix) pour fermer -->
       <button onclick="closeAuthModal()" style="position:absolute;top:16px;right:16px;background:none;border:none;color:var(--ui-text-muted);font-size:24px;cursor:pointer;padding:8px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:all 0.2s;z-index:10;" onmouseover="this.style.background='rgba(239,68,68,0.2)';this.style.color='#ef4444';this.style.transform='scale(1.1)';" onmouseout="this.style.background='none';this.style.color='var(--ui-text-muted)';this.style.transform='scale(1)';" title="Fermer">✕</button>
+      <button type="button" onclick="if(typeof window.backToRegisterInformations==='function'){window.backToRegisterInformations();}" style="position:absolute;top:16px;left:16px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.2);color:var(--ui-text-main);font-size:13px;cursor:pointer;padding:8px 12px;border-radius:999px;display:flex;align-items:center;gap:6px;transition:all 0.2s;z-index:10;" onmouseover="this.style.background='rgba(255,255,255,0.16)'" onmouseout="this.style.background='rgba(255,255,255,0.08)'" title="Revenir aux informations">
+        <span style="font-size:16px;line-height:1;">←</span>
+        <span>Informations</span>
+      </button>
       
       <!-- Progress Indicator - ÉTAPE 2 ACTIVE -->
       <div class="registration-progress" style="display:flex;justify-content:space-between;margin-bottom:24px;padding:0 8px;">
@@ -5553,8 +5610,8 @@ function showVerificationChoice() {
       </div>
       
       <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:20px;">
-        <!-- Google (1er choix, fonctionnel) - Utilise addEventListener pour CSP -->
-        <button id="verify-google-btn" style="width: 100%; padding: 16px; border-radius: 12px; border: 2px solid rgba(0, 255, 195, 0.3); background: linear-gradient(135deg, rgba(0, 255, 195, 0.1), rgba(59, 130, 246, 0.1)); color: var(--ui-text-main); font-weight: 600; font-size: 15px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 12px; transition: 0.3s;">
+        <!-- Google -->
+        <button type="button" id="verify-google-btn" onclick="if(typeof window.handleVerificationChoice==='function'){window.handleVerificationChoice('google');}" style="width: 100%; padding: 16px; border-radius: 12px; border: 2px solid rgba(0, 255, 195, 0.3); background: linear-gradient(135deg, rgba(0, 255, 195, 0.1), rgba(59, 130, 246, 0.1)); color: var(--ui-text-main); font-weight: 600; font-size: 15px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 12px; transition: 0.3s;">
           <span style="font-size:20px;">🔵</span>
           <span>Vérifier avec Google</span>
         </button>
@@ -5565,16 +5622,10 @@ function showVerificationChoice() {
           <span>Facebook (bientôt disponible)</span>
         </button>
         
-        <!-- Email (dernier choix) - Utilise addEventListener pour CSP -->
-        <button id="verify-email-btn" style="width: 100%; padding: 16px; border-radius: 12px; border: 2px solid rgba(255, 255, 255, 0.2); background: rgba(255, 255, 255, 0.05); color: var(--ui-text-main); font-weight: 600; font-size: 15px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 12px; transition: 0.3s;">
+        <!-- Email -->
+        <button type="button" id="verify-email-btn" onclick="if(typeof window.handleVerificationChoice==='function'){window.handleVerificationChoice('email');}" style="width: 100%; padding: 16px; border-radius: 12px; border: 2px solid rgba(255, 255, 255, 0.2); background: rgba(255, 255, 255, 0.05); color: var(--ui-text-main); font-weight: 600; font-size: 15px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 12px; transition: 0.3s;">
           <span style="font-size:20px;">📧</span>
           <span>Vérifier par email</span>
-        </button>
-        
-        <!-- Continuer sans vérifier (TEMPORAIRE POUR TESTS) - Même résultat que Google -->
-        <button id="verify-skip-btn" style="width:100%;padding:16px;border-radius:12px;border:2px solid rgba(255,193,7,0.5);background:linear-gradient(135deg,rgba(255,193,7,0.2),rgba(255,152,0,0.2));color:var(--ui-text-main);font-weight:700;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:12px;transition:all 0.3s;margin-top:8px;">
-          <span style="font-size:20px;">⚡</span>
-          <span>Continuer sans vérifier (test)</span>
         </button>
       </div>
       
@@ -5584,8 +5635,7 @@ function showVerificationChoice() {
   
   // ⚠️⚠️⚠️ INJECTER le HTML
   console.log('[VERIFY] ⚠️⚠️⚠️ Injection HTML dans modal, longueur:', modalHTML.length);
-  console.log('[VERIFY] ⚠️⚠️⚠️ VÉRIFICATION AVANT injection: Le HTML contient "verify-skip-btn"?', modalHTML.includes('verify-skip-btn'));
-  console.log('[VERIFY] ⚠️⚠️⚠️ VÉRIFICATION AVANT injection: Le HTML contient "Continuer sans vérifier"?', modalHTML.includes('Continuer sans vérifier'));
+  console.log('[VERIFY] VÉRIFICATION AVANT injection: boutons Google/Email présents');
   
   try {
     modal.innerHTML = modalHTML;
@@ -5618,67 +5668,19 @@ function showVerificationChoice() {
   console.log('[VERIFY] Modal HTML injecté avec succès');
   console.log('[VERIFY] ⚠️⚠️⚠️ DÉBUT setTimeout pour ajout bouton skip');
   
-  // ⚠️⚠️⚠️ AJOUTER LE BOUTON "Continuer sans vérifier" APRÈS injection HTML
+  // Attacher les styles hover et sécuriser le fallback événementiel.
   setTimeout(() => {
-    console.log('[VERIFY] ⚠️⚠️⚠️ setTimeout EXÉCUTÉ - Recherche du bouton...');
+    console.log('[VERIFY] setTimeout EXÉCUTÉ - Binding boutons vérification');
     
     const authModalDiv = document.getElementById('authModal');
     if (!authModalDiv) {
       console.error('[VERIFY] ❌ authModal non trouvé après injection');
       return;
     }
-    
-    // Vérifier si le bouton existe déjà
-    let skipButton = document.getElementById('verify-skip-btn');
-    
-    if (!skipButton) {
-      console.log('[VERIFY] ⚠️⚠️⚠️ Bouton "Continuer sans vérifier" NON TROUVÉ - AJOUT MANUEL');
-      
-      // Trouver le conteneur des boutons
-      const buttonsContainer = authModalDiv.querySelector('div[style*="flex-direction:column"]');
-      if (!buttonsContainer) {
-        console.error('[VERIFY] ❌ Conteneur des boutons non trouvé');
-        console.log('[VERIFY] Structure du modal:', authModalDiv.innerHTML.substring(0, 500));
-        return;
-      }
-      
-      console.log('[VERIFY] ✅ Conteneur des boutons trouvé, création du bouton...');
-      
-      // Créer le bouton
-      skipButton = document.createElement('button');
-      skipButton.id = 'verify-skip-btn';
-      skipButton.style.cssText = 'width:100%;padding:16px;border-radius:12px;border:2px solid rgba(255,193,7,0.5);background:linear-gradient(135deg,rgba(255,193,7,0.2),rgba(255,152,0,0.2));color:var(--ui-text-main);font-weight:700;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:12px;transition:all 0.3s;margin-top:8px;';
-      skipButton.innerHTML = '<span style="font-size:20px;">⚡</span><span>Continuer sans vérifier (test)</span>';
-      
-      // Ajouter le bouton au conteneur
-      buttonsContainer.appendChild(skipButton);
-      console.log('[VERIFY] ✅✅✅ Bouton "Continuer sans vérifier" AJOUTÉ MANUELLEMENT!');
-    } else {
-      console.log('[VERIFY] ✅✅✅ Bouton "Continuer sans vérifier" TROUVÉ dans le HTML!');
-    }
-    
-    // ⚠️⚠️⚠️ CRITIQUE : Attacher les event listeners pour TOUS les boutons (Google, Email, Skip)
+
     // Bouton Google
     const googleButton = document.getElementById('verify-google-btn');
     if (googleButton) {
-      googleButton.addEventListener('click', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        e.stopImmediatePropagation();
-        if (e.cancelBubble !== undefined) {
-          e.cancelBubble = true;
-        }
-        console.log('[VERIFY] 🔵🔵🔵 CLIC sur bouton "Vérifier avec Google"');
-        if (typeof handleVerificationChoice === 'function') {
-          handleVerificationChoice('google');
-        } else if (typeof window.handleVerificationChoice === 'function') {
-          window.handleVerificationChoice('google');
-        } else {
-          console.error('[VERIFY] ❌ handleVerificationChoice non trouvé!');
-        }
-        return false;
-      }, true);
-      
       // Styles hover pour Google
       googleButton.addEventListener('mouseenter', function() {
         this.style.borderColor = 'rgba(0,255,195,0.6)';
@@ -5688,30 +5690,12 @@ function showVerificationChoice() {
         this.style.borderColor = 'rgba(0,255,195,0.3)';
         this.style.background = 'linear-gradient(135deg,rgba(0,255,195,0.1),rgba(59,130,246,0.1))';
       });
-      console.log('[VERIFY] ✅ Event listeners attachés au bouton Google');
+      console.log('[VERIFY] ✅ Styles hover attachés au bouton Google');
     }
     
     // Bouton Email
     const emailButton = document.getElementById('verify-email-btn');
     if (emailButton) {
-      emailButton.addEventListener('click', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        e.stopImmediatePropagation();
-        if (e.cancelBubble !== undefined) {
-          e.cancelBubble = true;
-        }
-        console.log('[VERIFY] 📧📧📧 CLIC sur bouton "Vérifier par email"');
-        if (typeof handleVerificationChoice === 'function') {
-          handleVerificationChoice('email');
-        } else if (typeof window.handleVerificationChoice === 'function') {
-          window.handleVerificationChoice('email');
-        } else {
-          console.error('[VERIFY] ❌ handleVerificationChoice non trouvé!');
-        }
-        return false;
-      }, true);
-      
       // Styles hover pour Email
       emailButton.addEventListener('mouseenter', function() {
         this.style.borderColor = 'rgba(255,255,255,0.4)';
@@ -5721,40 +5705,10 @@ function showVerificationChoice() {
         this.style.borderColor = 'rgba(255,255,255,0.2)';
         this.style.background = 'rgba(255,255,255,0.05)';
       });
-      console.log('[VERIFY] ✅ Event listeners attachés au bouton Email');
+      console.log('[VERIFY] ✅ Styles hover attachés au bouton Email');
     }
-    
-    // Bouton Skip (Continuer sans vérifier)
-    skipButton.addEventListener('click', function(e) {
-      e.preventDefault();
-      e.stopPropagation();
-      e.stopImmediatePropagation(); // ⚠️ CRITIQUE : Empêcher les autres listeners de se déclencher
-      if (e.cancelBubble !== undefined) {
-        e.cancelBubble = true;
-      }
-      console.log('[VERIFY] ⚡⚡⚡ CLIC sur bouton "Continuer sans vérifier"');
-      console.log('[VERIFY] ⚠️ Propagation stoppée pour éviter fermeture du modal');
-      if (typeof handleVerificationChoice === 'function') {
-        handleVerificationChoice('skip');
-      } else if (typeof window.handleVerificationChoice === 'function') {
-        window.handleVerificationChoice('skip');
-      } else {
-        console.error('[VERIFY] ❌ handleVerificationChoice non trouvé!');
-      }
-      return false; // Empêcher toute action par défaut
-    }, true); // ⚠️ CRITIQUE : useCapture=true pour capturer AVANT les autres listeners
-    
-    // Styles hover pour Skip
-    skipButton.addEventListener('mouseenter', function() {
-      this.style.borderColor = 'rgba(255,193,7,0.8)';
-      this.style.background = 'linear-gradient(135deg,rgba(255,193,7,0.3),rgba(255,152,0,0.3))';
-    });
-    skipButton.addEventListener('mouseleave', function() {
-      this.style.borderColor = 'rgba(255,193,7,0.5)';
-      this.style.background = 'linear-gradient(135deg,rgba(255,193,7,0.2),rgba(255,152,0,0.2))';
-    });
-    
-    console.log('[VERIFY] ✅✅✅ Event listeners attachés à tous les boutons (Google, Email, Skip)');
+
+    console.log('[VERIFY] ✅ Boutons Google/Email prêts');
   }, 100);
   
 }
@@ -5763,6 +5717,9 @@ async function handleVerificationChoice(method) {
   const pendingData = window.pendingRegisterData;
   if (!pendingData) {
     console.error('[VERIFY] Pas de données d\'inscription');
+    if (typeof showNotification === 'function') {
+      showNotification('⚠️ Session d’inscription expirée. Recommencez le formulaire.', "warning");
+    }
     return;
   }
   
@@ -5811,24 +5768,35 @@ async function handleVerificationChoice(method) {
     // Créer le compte puis envoyer email de vérification
     console.log('[VERIFY] Vérification email choisie');
     await createAccountAndSendVerificationEmail(pendingData);
-  } else if (method === 'skip') {
-    // ⚠️ TEMPORAIRE : Faire exactement la même chose que Google (pour tests)
-    console.log('[VERIFY] ⚠️⚠️⚠️ CONTINUER SANS VÉRIFIER (MODE TEST) - Utilisation du flux Google');
-    // Utiliser le même flux que Google pour créer le compte et connecter
-    if (typeof startGoogleLogin === 'function') {
-      // Marquer que c'est pour l'inscription
-      window.isRegisteringWithGoogle = true;
-      window.pendingRegisterData = pendingData;
-      // Simuler le flux Google mais sans ouvrir la popup
-      // Créer directement le compte comme Google le ferait
-      await createAccountWithoutVerification(pendingData);
-    } else {
-      await createAccountWithoutVerification(pendingData);
+  } else {
+    if (typeof showNotification === 'function') {
+      showNotification('⚠️ Méthode de vérification non valide.', "error");
     }
   }
 }
 
 async function createAccountAndSendVerificationEmail(pendingData) {
+  const readApiError = async (response, fallback = 'Erreur inconnue') => {
+    try {
+      const rawText = await response.text();
+      if (!rawText) return fallback;
+      try {
+        const parsed = JSON.parse(rawText);
+        if (parsed && typeof parsed.error === 'string' && parsed.error.trim()) {
+          return parsed.error.trim();
+        }
+        if (parsed && typeof parsed.message === 'string' && parsed.message.trim()) {
+          return parsed.message.trim();
+        }
+      } catch (_) {
+        // Réponse non JSON: on retourne le texte brut (tronqué pour l'UI)
+      }
+      return rawText.trim().slice(0, 400) || fallback;
+    } catch (_) {
+      return fallback;
+    }
+  };
+
   try {
     // Chercher le modal dans publish-modal-inner ou authModal
     let modal = document.getElementById('authModal');
@@ -5885,7 +5853,8 @@ async function createAccountAndSendVerificationEmail(pendingData) {
       return;
     }
     
-    // ⚠️⚠️⚠️ CRITIQUE : Vérifier si l'email existe déjà AVANT de créer le compte
+    // Vérification indicative: ne plus bloquer ici.
+    // Le backend décide désormais si l'email est réinscriptible (non vérifié) ou non.
     try {
       const emailCheckResponse = await fetch(`${API_BASE_URL}/user/exists?email=${encodeURIComponent(pendingData.email.trim())}`, {
         method: 'GET',
@@ -5897,27 +5866,10 @@ async function createAccountAndSendVerificationEmail(pendingData) {
       if (emailCheckResponse.ok) {
         const emailCheckData = await emailCheckResponse.json();
         if (emailCheckData.exists === true) {
-          // Email existe déjà - empêcher la création du compte
-          console.error('[VERIFY] ❌ Email existe déjà:', pendingData.email);
+          console.warn('[VERIFY] Email existe déjà côté check préalable, on laisse le backend trancher:', pendingData.email);
           if (typeof showNotification === 'function') {
-            showNotification("❌ Ce mail existe déjà. Veuillez utiliser un autre email ou vous connecter.", "error");
+            showNotification("ℹ️ Vérification en cours de votre email existant...", "info");
           }
-          
-          // Afficher l'erreur dans le formulaire si on peut le trouver
-          const emailInput = document.getElementById("pro-email") || document.getElementById("register-email");
-          if (emailInput) {
-            emailInput.style.borderColor = '#ef4444';
-            const emailError = document.getElementById("pro-email-error") || document.getElementById("register-email-error");
-            if (emailError) {
-              emailError.textContent = '❌ Ce mail existe déjà. Veuillez utiliser un autre email ou vous connecter.';
-              emailError.style.color = '#ef4444';
-              emailError.style.display = 'block';
-            }
-          }
-          
-          // Revenir au choix de vérification (ou au formulaire)
-          showVerificationChoice();
-          return; // Empêcher la création du compte
         }
       }
     } catch (error) {
@@ -5930,8 +5882,7 @@ async function createAccountAndSendVerificationEmail(pendingData) {
       username: pendingData.username.trim(), // ⚠️⚠️⚠️ CRITIQUE : Utiliser le username du formulaire
       password: pendingData.password, // Ne pas trimmer le password (peut contenir des espaces intentionnels)
       firstName: pendingData.firstName?.trim() || '',
-      lastName: pendingData.lastName?.trim() || '',
-      photoData: pendingData.photoData || null // ⚠️⚠️⚠️ CRITIQUE : Inclure photoData si disponible
+      lastName: pendingData.lastName?.trim() || ''
     };
     
     // Ajouter la photo si fournie (pour compatibilité)
@@ -5986,9 +5937,56 @@ async function createAccountAndSendVerificationEmail(pendingData) {
     });
     
     if (!registerResponse.ok) {
-      const errorData = await registerResponse.json().catch(() => ({ error: 'Erreur inconnue' }));
+      const backendError = await readApiError(registerResponse, 'Erreur inconnue');
+      const errorData = { error: backendError };
       console.error('[VERIFY] ❌ Erreur création compte:', errorData);
       console.error('[VERIFY] ❌ Données envoyées:', registerDataObj);
+
+      const rawError = (errorData?.error || '').toString();
+      const lowerError = rawError.toLowerCase();
+      const isEmailAlreadyExists =
+        lowerError.includes('email') &&
+        (lowerError.includes('exists') || lowerError.includes('existe') || lowerError.includes('already'));
+
+      // Cas critique UX: compte déjà créé mais non validé -> renvoyer le lien de vérification
+      // au lieu de bloquer l'utilisateur sur "email existe déjà".
+      if (isEmailAlreadyExists) {
+        try {
+          const resendResponse = await fetch(`${API_BASE_URL}/user/send-verification-link`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email: pendingData.email,
+              username: pendingData.username || 'Utilisateur'
+            })
+          });
+          const resendData = await resendResponse.json().catch(() => ({}));
+          if (resendResponse.ok && resendData.email_sent === true) {
+            if (typeof showNotification === 'function') {
+              showNotification('✅ Compte déjà existant: email de vérification renvoyé.', 'success');
+            }
+            // Réutiliser l'affichage standard "email envoyé"
+            if (modal) {
+              modal.innerHTML = `
+                <div id="authModal" data-mode="email-sent" style="padding:40px;max-width:500px;margin:0 auto;text-align:center;position:relative;">
+                  <button onclick="closeAuthModal()" style="position:absolute;top:16px;right:16px;background:none;border:none;color:var(--ui-text-muted);font-size:24px;cursor:pointer;padding:8px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:all 0.2s;z-index:10;" title="Fermer">✕</button>
+                  <div style="margin-bottom:24px;">
+                    <div style="font-size:56px;margin-bottom:12px;">📧</div>
+                    <h2 style="margin:0 0 8px;font-size:26px;font-weight:800;color:#fff;">Email de vérification renvoyé</h2>
+                    <p style="margin:0;font-size:14px;color:var(--ui-text-muted);">Un email a été envoyé à <strong>${pendingData.email}</strong></p>
+                  </div>
+                  <p style="color:var(--ui-text-muted);font-size:13px;margin-bottom:20px;">Votre compte existe déjà, il faut juste le valider via le lien reçu par email.</p>
+                  <button onclick="closeAuthModal()" style="width:100%;padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#00ffc3,#3b82f6);color:#000;font-weight:600;font-size:14px;cursor:pointer;">Fermer</button>
+                </div>
+              `;
+            }
+            return;
+          }
+        } catch (resendErr) {
+          console.error('[VERIFY] ❌ Erreur renvoi lien pour compte existant:', resendErr);
+        }
+      }
+
       if (typeof showNotification === 'function') {
         showNotification(`⚠️ Erreur: ${errorData.error || 'Erreur lors de la création du compte'}`, "error");
       }
@@ -5998,6 +5996,32 @@ async function createAccountAndSendVerificationEmail(pendingData) {
     
     const registerResult = await registerResponse.json().catch(() => ({}));
     console.log('[VERIFY] ✅ Compte créé avec succès:', registerResult);
+
+    // Upload photo APRÈS création pour éviter les 413 (payload trop gros) sur /user/register.
+    // La photo reste persistée en base via /user/upload-photo.
+    if (
+      pendingData.photoData &&
+      typeof pendingData.photoData === 'string' &&
+      registerResult.accessToken
+    ) {
+      try {
+        const photoUploadResponse = await fetch(`${API_BASE_URL}/user/upload-photo`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${registerResult.accessToken}`
+          },
+          body: JSON.stringify({ photoData: pendingData.photoData })
+        });
+        if (!photoUploadResponse.ok) {
+          console.warn('[VERIFY] ⚠️ Upload photo post-register échoué:', photoUploadResponse.status);
+        } else {
+          console.log('[VERIFY] ✅ Photo uploadée après création de compte');
+        }
+      } catch (photoUploadError) {
+        console.warn('[VERIFY] ⚠️ Erreur upload photo post-register:', photoUploadError);
+      }
+    }
     
     // Sauvegarder les données pour pouvoir renvoyer l'email si nécessaire
     if (!window.pendingRegisterData) {
@@ -6017,6 +6041,22 @@ async function createAccountAndSendVerificationEmail(pendingData) {
     
     const emailData = await emailResponse.json().catch(() => ({ error: 'Erreur lors de la lecture de la réponse' }));
     console.log('[VERIFY] 📧 Réponse envoi email:', emailData);
+
+    // Neutraliser les anciens messages backend mentionnant SendGrid (legacy / stale deploy).
+    const normalizeEmailErrorMessage = (rawError) => {
+      const fallbackMessage = "Impossible d'envoyer l'email pour le moment. Veuillez reessayer dans quelques minutes.";
+      if (!rawError || typeof rawError !== 'string') return fallbackMessage;
+
+      const normalized = rawError.toLowerCase();
+      if (
+        normalized.includes('sendgrid') ||
+        normalized.includes('vã©rifiez votre configuration') ||
+        normalized.includes('configuration sendgrid')
+      ) {
+        return fallbackMessage;
+      }
+      return rawError;
+    };
     
     if (emailResponse.ok && emailData.email_sent === true) {
       // Email envoyé avec succès
@@ -6060,7 +6100,7 @@ async function createAccountAndSendVerificationEmail(pendingData) {
       console.error('[VERIFY] Détails:', emailData);
       
       // Email non envoyé ou erreur - afficher un message d'erreur
-      const errorMessage = emailData.error || 'Impossible d\'envoyer l\'email. Vérifiez votre configuration SendGrid.';
+      const errorMessage = normalizeEmailErrorMessage(emailData.error);
       console.error('[VERIFY] ❌ Email non envoyé:', errorMessage);
       if (typeof showNotification === 'function') {
         showNotification(`⚠️ Erreur: ${errorMessage}`, "error");
@@ -6096,7 +6136,7 @@ async function createAccountAndSendVerificationEmail(pendingData) {
   } catch (error) {
     console.error('[VERIFY] Erreur:', error);
     if (typeof showNotification === 'function') {
-      showNotification('⚠️ Erreur lors de la création du compte', "error");
+      showNotification(`⚠️ Erreur lors de la création du compte: ${error?.message || 'inconnue'}`, "error");
     }
     showVerificationChoice();
   }
@@ -6178,8 +6218,7 @@ async function createAccountWithoutVerification(pendingData) {
       username: pendingData.username, // ⚠️⚠️⚠️ CRITIQUE : Utiliser le username du formulaire
       password: pendingData.password,
       firstName: pendingData.firstName,
-      lastName: pendingData.lastName,
-      photoData: pendingData.photoData || null // ⚠️⚠️⚠️ CRITIQUE : Inclure photoData si disponible
+      lastName: pendingData.lastName
     };
     
     // Ajouter l'adresse si fournie
@@ -6232,6 +6271,31 @@ async function createAccountWithoutVerification(pendingData) {
     console.log('[VERIFY] 🔍 userId présent?', registerData.userId ? `✅ ${registerData.userId}` : '❌ Absent');
     console.log('[VERIFY] 🔍 id présent?', registerData.id ? `✅ ${registerData.id}` : '❌ Absent');
     console.log('[VERIFY] 🔍 Toutes les clés:', Object.keys(registerData));
+
+    // Upload photo APRÈS création pour éviter les 413 sur /user/register.
+    if (
+      pendingData.photoData &&
+      typeof pendingData.photoData === 'string' &&
+      registerData.accessToken
+    ) {
+      try {
+        const photoUploadResponse = await fetch(`${API_BASE_URL}/user/upload-photo`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${registerData.accessToken}`
+          },
+          body: JSON.stringify({ photoData: pendingData.photoData })
+        });
+        if (!photoUploadResponse.ok) {
+          console.warn('[VERIFY] ⚠️ Upload photo post-register (sans vérif) échoué:', photoUploadResponse.status);
+        } else {
+          console.log('[VERIFY] ✅ Photo uploadée après création (sans vérif)');
+        }
+      } catch (photoUploadError) {
+        console.warn('[VERIFY] ⚠️ Erreur upload photo post-register (sans vérif):', photoUploadError);
+      }
+    }
     
     // ⚠️⚠️⚠️ CRITIQUE : Connecter automatiquement l'utilisateur SANS demander "rester connecté"
     // L'utilisateur est connecté directement, le bloc compte se transforme automatiquement
@@ -6301,6 +6365,9 @@ window.updatePostalAddressRequired = updatePostalAddressRequired;
 // ===============================
 
 async function handleEmailVerificationCallback() {
+  if (window.__emailVerifyDone || window.__emailVerifyInProgress) {
+    return;
+  }
   const url = new URL(window.location.href);
   const token = url.searchParams.get('token');
   const refresh = url.searchParams.get('refresh');
@@ -6308,6 +6375,7 @@ async function handleEmailVerificationCallback() {
   
   // Si on a un token et un email dans l'URL (comme Google OAuth avec code et state)
   if (token && email) {
+      window.__emailVerifyInProgress = true;
       console.log('[EMAIL VERIFY] Callback détecté, vérification...');
       console.log('[EMAIL VERIFY] Token brut depuis URL:', token);
       console.log('[EMAIL VERIFY] Token longueur:', token.length);
@@ -6451,6 +6519,9 @@ async function handleEmailVerificationCallback() {
         if (typeof showNotification === 'function') {
           showNotification('⚠️ Erreur lors de la vérification', 'error');
         }
+      } finally {
+        window.__emailVerifyInProgress = false;
+        window.__emailVerifyDone = true;
       }
   }
 }
@@ -6460,6 +6531,9 @@ async function handleEmailVerificationCallback() {
 // ===============================
 
 function checkAndCleanTestAccount() {
+  if (window.allowAutoTestAccountCleanup !== true) {
+    return;
+  }
   const rememberMe = localStorage.getItem('rememberMe') === 'true' || sessionStorage.getItem('rememberMe') === 'true';
   
   // Si pas "rester connecté" et qu'on a un compte test, le supprimer
@@ -6499,11 +6573,6 @@ function checkAndCleanTestAccount() {
 
 // Appeler au chargement de la page
 if (typeof window !== 'undefined') {
-  // Appeler handleEmailVerificationCallback au chargement si on est sur la page de vérification
-  if (window.location.pathname.includes('verify-email') || window.location.search.includes('token=')) {
-    handleEmailVerificationCallback();
-  }
-
   window.addEventListener('DOMContentLoaded', () => {
     handleEmailVerificationCallback();
     checkAndCleanTestAccount();
@@ -6833,11 +6902,19 @@ function setupProFormValidation() {
         return;
       }
       
-      if (password.length < 8) {
+      if (password.length < 12) {
         this.style.borderColor = '#ef4444';
         this.setAttribute('aria-invalid', 'true');
         if (passwordError) {
-          passwordError.textContent = '❌ Le mot de passe doit contenir au moins 8 caractères';
+          passwordError.textContent = '❌ Minimum 12 caractères + majuscule, minuscule, chiffre, spécial';
+          passwordError.style.color = '#ef4444';
+          passwordError.style.display = 'block';
+        }
+      } else if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password) || !/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
+        this.style.borderColor = '#ef4444';
+        this.setAttribute('aria-invalid', 'true');
+        if (passwordError) {
+          passwordError.textContent = '❌ Minimum 12 caractères + majuscule, minuscule, chiffre, spécial';
           passwordError.style.color = '#ef4444';
           passwordError.style.display = 'block';
         }
@@ -6897,14 +6974,19 @@ function showProRegisterForm() {
   }
   
   const html = `
-    <div id="pro-register-container" style="padding:40px;max-width:600px;margin:0 auto;">
+    <div id="pro-register-container" style="padding:18px 18px 14px;max-width:560px;margin:0 auto;">
       <button onclick="closeAuthModal()" style="position:absolute;top:16px;right:16px;background:none;border:none;color:var(--ui-text-muted);font-size:24px;cursor:pointer;padding:8px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:all 0.2s;z-index:10;" onmouseover="this.style.background='rgba(239,68,68,0.2)';this.style.color='#ef4444';" onmouseout="this.style.background='none';this.style.color='var(--ui-text-muted)';" title="Fermer">✕</button>
       
-      <div style="text-align:center;margin-bottom:32px;">
-        <div style="font-size:64px;margin-bottom:16px;">🌍</div>
-        <h2 style="margin:0 0 8px;font-size:28px;font-weight:800;color:#fff;background:linear-gradient(135deg,#00ffc3,#3b82f6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">Créer un compte</h2>
-        <p style="margin:0;font-size:14px;color:var(--ui-text-muted);">Remplissez tous les champs obligatoires</p>
+      <div style="text-align:center;margin-bottom:10px;">
+        <div style="font-size:36px;margin-bottom:4px;line-height:1;">🌍</div>
+        <h2 style="margin:0 0 3px;font-size:22px;font-weight:800;color:#fff;background:linear-gradient(135deg,#00ffc3,#3b82f6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">Créer un compte</h2>
+        <p style="margin:0;font-size:12px;color:var(--ui-text-muted);">Remplissez les champs obligatoires</p>
       </div>
+      <style>
+        #pro-register-form > div { margin-bottom: 12px !important; }
+        #pro-register-form label { margin-bottom: 6px !important; }
+        #pro-register-form input { padding: 10px 14px !important; }
+      </style>
       
       <form id="pro-register-form" onsubmit="event.preventDefault(); if(typeof performRegister==='function')performRegister();">
         <!-- Email avec validation en temps réel -->
@@ -6945,9 +7027,9 @@ function showProRegisterForm() {
         <!-- Mot de passe avec validation en temps réel -->
         <div style="margin-bottom:20px;">
           <label style="display:block;font-size:13px;font-weight:600;color:var(--ui-text-main);margin-bottom:8px;">🔒 Mot de passe <span style="color:#ef4444;">*</span></label>
-          <input type="password" id="pro-password" name="password" placeholder="Minimum 8 caractères" required
+          <input type="password" id="pro-password" name="password" placeholder="Minimum 12 caractères" required
                  style="width:100%;padding:12px 16px;border-radius:10px;border:2px solid rgba(255,255,255,0.1);background:rgba(15,23,42,0.5);color:var(--ui-text-main);font-size:14px;transition:all 0.3s;box-sizing:border-box;"
-                 oninput="const p=this.value;const e=document.getElementById('pro-password-error');this.style.borderColor='';if(e){e.textContent='';e.style.display='none';}if(p.length>=8){this.style.borderColor='#22c55e';if(e){e.textContent='✅ Mot de passe valide';e.style.color='#22c55e';e.style.display='block';}}else if(p.length>0){this.style.borderColor='#ef4444';if(e){e.textContent='❌ Minimum 8 caractères';e.style.color='#ef4444';e.style.display='block';}}">
+                 oninput="const p=this.value;const e=document.getElementById('pro-password-error');const ok=p.length>=12&&/[A-Z]/.test(p)&&/[a-z]/.test(p)&&/[0-9]/.test(p)&&/[!@#$%^&*(),.?&quot;:{}|<>]/.test(p);this.style.borderColor='';if(e){e.textContent='';e.style.display='none';}if(ok){this.style.borderColor='#22c55e';if(e){e.textContent='✅ Mot de passe valide';e.style.color='#22c55e';e.style.display='block';}}else if(p.length>0){this.style.borderColor='#ef4444';if(e){e.textContent='❌ Minimum 12 caractères + majuscule, minuscule, chiffre, spécial';e.style.color='#ef4444';e.style.display='block';}}">
           <div id="pro-password-error" style="display:none;font-size:12px;margin-top:6px;"></div>
         </div>
         
@@ -6980,11 +7062,12 @@ function showProRegisterForm() {
   backdrop.style.display = 'flex';
   backdrop.style.visibility = 'visible';
   backdrop.style.opacity = '1';
-  backdrop.style.paddingTop = '40px';
-  backdrop.style.paddingBottom = '40px';
-  backdrop.style.boxSizing = 'border-box';
+  centerModalBackdrop();
   modal.innerHTML = html;
   modal.style.display = 'block';
+  modal.style.maxHeight = '92vh';
+  modal.style.overflowY = 'auto';
+  modal.style.margin = '0 auto';
   
   // ⚠️⚠️⚠️ CRITIQUE : Valider immédiatement l'email si pré-rempli
   setTimeout(() => {

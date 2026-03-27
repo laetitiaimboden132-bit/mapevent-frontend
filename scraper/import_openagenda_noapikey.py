@@ -13,12 +13,128 @@ import requests
 import json
 import re
 import time
+import os
 from datetime import date
 from urllib.parse import urlparse
+from pathlib import Path
 
 API = "https://ctp67u5hgni2rbfr3kp4p74kxa0gxycf.lambda-url.eu-west-1.on.aws"
 TODAY = date.today().isoformat()
 HEADERS = {"User-Agent": "MapEventAI-Bot/1.0 (https://mapevent.world)"}
+BLACKLIST_PATH = Path("frontend/scraper/opendata_event_blacklist.json")
+SOURCE_REGISTRY_PATH = Path("frontend/scraper/import_source_registry.json")
+LEGAL_SOURCE_HOSTS = {"openagenda.com", "www.openagenda.com"}
+MIN_RESCAN_DAYS = int(os.getenv("MIN_SOURCE_RESCAN_DAYS", "90"))
+FORCE_RESCAN = os.getenv("FORCE_RESCAN", "0") == "1"
+
+# Sous-sources OpenAgenda explicitement exclues (catalogues d'hebergements / non-evenementiels).
+BLOCKED_AGENDA_SLUGS = {
+    "centre-de-vacances-loisirs-provence-mediterranee-baratier",
+    "catalogue-departemental-des-structures-daccueil-et-dhebergement-hautes-alpes",
+    "la-part-citoyenne",
+    "ville-de-roques",
+}
+
+RECRUITMENT_EXCLUDE_RE = re.compile(
+    r"(recrut|emploi|poste\b|cdi\b|cdd\b|offre d[' ]emploi|job dating|insertion professionnelle)",
+    re.IGNORECASE
+)
+RENTAL_EXCLUDE_RE = re.compile(
+    r"(\bà\s+louer\b|\ba\s+louer\b|location saisonni[èe]re|appartement|immobilier|annonce immobili[èe]re)",
+    re.IGNORECASE
+)
+ACCOMMODATION_TERMS_RE = re.compile(
+    r"(\bg[iî]te\b|auberge|h[ôo]tel|chalet|r[ée]sidence|centre de vacances|h[ée]bergement)",
+    re.IGNORECASE
+)
+ACCOMMODATION_CONTEXT_RE = re.compile(
+    r"(catalogue|capacit[ée]|nuit[ée]e?s?|couchage|pension|dortoir|camping|r[ée]servation|se loger)",
+    re.IGNORECASE
+)
+
+
+def is_non_event_content(title, description):
+    text = f"{title} {description}".lower()
+    if RECRUITMENT_EXCLUDE_RE.search(text):
+        return True
+    if RENTAL_EXCLUDE_RE.search(text):
+        return True
+    # Les mots comme "chalet" / "résidence" peuvent aussi être culturels.
+    # On exclut seulement s'il y a un contexte d'hébergement explicite.
+    if ACCOMMODATION_TERMS_RE.search(text) and ACCOMMODATION_CONTEXT_RE.search(text):
+        return True
+    return False
+
+
+def normalize_url(url):
+    if not url:
+        return ""
+    return str(url).strip().lower().rstrip("/")
+
+
+def is_legal_source_url(url):
+    """
+    Sources légales et sûres uniquement:
+    - schéma HTTPS
+    - host whitelisté
+    """
+    try:
+        parsed = urlparse(url)
+        host = (parsed.netloc or "").lower()
+        return parsed.scheme == "https" and host in LEGAL_SOURCE_HOSTS
+    except Exception:
+        return False
+
+
+def load_blacklist_data():
+    blocked_urls = set()
+    blocked_slugs = set(BLOCKED_AGENDA_SLUGS)
+    if not BLACKLIST_PATH.exists():
+        return blocked_urls, blocked_slugs
+    try:
+        data = json.loads(BLACKLIST_PATH.read_text(encoding="utf-8"))
+        for it in data.get("items", []):
+            u = normalize_url(it.get("source_url"))
+            if u:
+                blocked_urls.add(u)
+                if "openagenda.com/" in u:
+                    slug = u.split("openagenda.com/", 1)[1].split("/events", 1)[0]
+                    if slug:
+                        blocked_slugs.add(slug)
+    except Exception:
+        pass
+    return blocked_urls, blocked_slugs
+
+
+def load_source_registry():
+    if not SOURCE_REGISTRY_PATH.exists():
+        return {"agendas": {}}
+    try:
+        return json.loads(SOURCE_REGISTRY_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        return {"agendas": {}}
+
+
+def save_source_registry(registry):
+    SOURCE_REGISTRY_PATH.write_text(json.dumps(registry, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def days_since(date_str):
+    try:
+        y, m, d = [int(x) for x in str(date_str).split("-")]
+        old = date(y, m, d)
+        return (date.today() - old).days
+    except Exception:
+        return 9999
+
+
+def should_scan_slug(slug, registry):
+    if FORCE_RESCAN:
+        return True
+    last_scan = (registry.get("agendas", {}) or {}).get(slug, {}).get("last_scan_date")
+    if not last_scan:
+        return True
+    return days_since(last_scan) >= MIN_RESCAN_DAYS
 
 
 def extract_agenda_data(slug, page=1):
@@ -72,8 +188,17 @@ def categorize_oa_event(title, description, tags=None):
     text = f"{title} {description} {' '.join(tags or [])}".lower()
     cats = []
     
-    if any(w in text for w in ["techno", "electronic", "electro", "house music", "trance", "dj set", "rave"]):
+    electro_music_signal = any(
+        w in text for w in ["dj set", "soirée", "soiree", "concert", "festival", "club", "music", "musique", "live", "rave"]
+    )
+    techno_context = any(
+        w in text for w in ["atelier numérique", "electronique", "technologie", "robotique", "arduino", "coding", "programmation"]
+    )
+    if any(w in text for w in ["techno", "electronic", "electro", "house music", "trance", "dj set", "rave"]) and electro_music_signal and not techno_context:
         cats.append("Music > Electronic")
+    elif any(w in text for w in ["piano", "guitare", "guitar", "violon", "violoncelle", "flûte", "flute", "saxophone", "trompette", "percussion", "harpe", "instrumental"]):
+        if not any(w in text for w in ["jazz", "rock", "metal", "rap", "hip hop", "hip-hop", "classique", "classical", "folk", "pop"]):
+            cats.append("Music")
     elif any(w in text for w in ["concert", "musique", "musik", "music", "live", "orchest", "récital"]):
         if any(w in text for w in ["jazz", "swing"]): cats.append("Music > Jazz / Soul / Funk")
         elif any(w in text for w in ["rock", "punk", "metal"]): cats.append("Music > Rock / Metal")
@@ -83,16 +208,17 @@ def categorize_oa_event(title, description, tags=None):
         elif any(w in text for w in ["chorale", "chœur", "choeur"]): cats.append("Music > Classique")
         else: cats.append("Music > Pop / Variété")
     
-    if any(w in text for w in ["exposition", "exhibition", "galerie", "vernissage", "musée", "museum"]):
-        cats.append("Culture > Expositions")
-    elif any(w in text for w in ["théâtre", "theater", "theatre", "comédie", "tragédie"]):
+    # Priorité au théâtre/récit scénique avant "musée/exposition"
+    if any(w in text for w in ["théâtre", "theater", "theatre", "comédie", "tragédie", "spectacle", "mise en scène", "récit", "temoignage", "témoignage", "compagnie"]):
         cats.append("Arts Vivants > Théâtre")
+    elif any(w in text for w in ["exposition", "exhibition", "galerie", "vernissage", "musée", "museum"]):
+        cats.append("Culture > Expositions")
     elif any(w in text for w in ["cinéma", "cinema", "film", "projection", "avant-première"]):
         cats.append("Culture > Cinéma & Projections")
     elif any(w in text for w in ["conférence", "conference", "débat", "rencontre", "table ronde"]):
         cats.append("Culture > Conférences & Rencontres")
     elif any(w in text for w in ["atelier", "workshop", "stage", "masterclass"]):
-        cats.append("Culture > Workshops")
+        cats.append("Culture > Ateliers")
     elif any(w in text for w in ["lecture", "conte", "littéra", "dédicace", "poésie", "slam"]):
         cats.append("Culture > Littérature & Conte")
     elif any(w in text for w in ["humour", "humor", "stand-up", "one-man", "one man"]):
@@ -120,8 +246,11 @@ def categorize_oa_event(title, description, tags=None):
     return cats[:3]
 
 
-def parse_oa_events(events, agenda_slug, existing_urls):
+def parse_oa_events(events, agenda_slug, existing_urls, blocked_urls):
     """Parse OpenAgenda events into our format."""
+    if agenda_slug in BLOCKED_AGENDA_SLUGS:
+        return []
+
     parsed = []
     
     for ev in events:
@@ -141,6 +270,10 @@ def parse_oa_events(events, agenda_slug, existing_urls):
         else:
             desc = str(desc_dict) if desc_dict else ""
         desc = re.sub(r'<[^>]+>', '', desc).strip()
+
+        # Filtre qualite: rejeter les contenus non-evenementiels.
+        if is_non_event_content(title, desc):
+            continue
         
         # Location
         location = ev.get("location", {}) or {}
@@ -159,7 +292,14 @@ def parse_oa_events(events, agenda_slug, existing_urls):
         uid_ev = ev.get("uid", "")
         source_url = f"https://openagenda.com/fr/{agenda_slug}/events/{slug_ev or uid_ev}"
         
-        if source_url.lower().strip().rstrip("/") in existing_urls:
+        normalized_source = normalize_url(source_url)
+        if normalized_source in existing_urls:
+            continue
+        # Liste noire globale: ne jamais reposer ces events.
+        if normalized_source in blocked_urls:
+            continue
+        # Sources légales seulement
+        if not is_legal_source_url(source_url):
             continue
         
         # Timings
@@ -308,7 +448,7 @@ def discover_agendas():
     return valid_agendas
 
 
-def fetch_all_events_from_agenda(slug, existing_urls, max_pages=50):
+def fetch_all_events_from_agenda(slug, existing_urls, blocked_urls, max_pages=50):
     """Fetch all events from an agenda, handling pagination."""
     all_events = []
     page = 1
@@ -322,7 +462,7 @@ def fetch_all_events_from_agenda(slug, existing_urls, max_pages=50):
         if not events:
             break
         
-        parsed = parse_oa_events(events, slug, existing_urls)
+        parsed = parse_oa_events(events, slug, existing_urls, blocked_urls)
         all_events.extend(parsed)
         
         # Check if we've got all
@@ -354,12 +494,22 @@ if __name__ == "__main__":
     for ev in events:
         url = ev.get("source_url", "")
         if url:
-            existing_urls.add(url.lower().strip().rstrip("/"))
+            existing_urls.add(normalize_url(url))
     print(f"  {len(existing_urls)} URLs existantes")
+
+    # Charger blacklist permanente
+    blocked_urls, blocked_slugs = load_blacklist_data()
+    print(f"  {len(blocked_urls)} URLs blacklistées")
+    print(f"  {len(blocked_slugs)} agendas blacklistés")
+
+    # Charger registre de sources déjà scannées récemment
+    source_registry = load_source_registry()
     
     # Discover agendas
     agendas = discover_agendas()
-    print(f"\n  {len(agendas)} agendas valides trouvés")
+    print(f"\n  {len(agendas)} agendas valides trouvés (avant filtres)")
+    agendas = [a for a in agendas if a["slug"] not in blocked_slugs and should_scan_slug(a["slug"], source_registry)]
+    print(f"  {len(agendas)} agendas retenus (légaux + nouveaux)")
     
     # Fetch events from each agenda
     total_new = 0
@@ -371,7 +521,7 @@ if __name__ == "__main__":
         ag_total = ag["total"]
         
         print(f"\n--- {title} ({ag_total} events) ---")
-        events = fetch_all_events_from_agenda(slug, existing_urls)
+        events = fetch_all_events_from_agenda(slug, existing_urls, blocked_urls)
         
         if events:
             print(f"  {len(events)} nouveaux events")
@@ -381,9 +531,15 @@ if __name__ == "__main__":
             
             # Add new URLs to existing set
             for ev in events:
-                existing_urls.add(ev["source_url"].lower().strip().rstrip("/"))
+                existing_urls.add(normalize_url(ev["source_url"]))
         else:
             print(f"  0 nouveaux events")
+
+        # Marquer la source comme scannée aujourd'hui pour éviter retri immédiat
+        source_registry.setdefault("agendas", {}).setdefault(slug, {})
+        source_registry["agendas"][slug]["last_scan_date"] = TODAY
+        source_registry["agendas"][slug]["title"] = title
+        save_source_registry(source_registry)
         
         total_new += len(events)
     

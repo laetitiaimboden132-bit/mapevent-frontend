@@ -1,0 +1,263 @@
+{
+  "total_imported": 355,
+  "cities": [
+    {
+      "city": "Antibes",
+      "country": "FR",
+      "prepared": 357,
+      "imported": 276
+    },
+    {
+      "city": "Toulon",
+      "country": "FR",
+      "prepared": 0,
+      "imported": 0
+    },
+    {
+      "city": "Hyeres",
+      "country": "FR",
+      "prepared": 0,
+      "imported": 0
+    },
+    {
+      "city": "Troyes",
+      "country": "FR",
+      "prepared": 0,
+      "imported": 0
+    },
+    {
+      "city": "Colmar",
+      "country": "FR",
+      "prepared": 0,
+      "imported": 0
+    },
+    {
+      "city": "Cannes",
+      "country": "FR",
+      "prepared": 0,
+      "imported": 0
+    },
+    {
+      "city": "Auxerre",
+      "country": "FR",
+      "prepared": 0,
+      "imported": 0
+    },
+    {
+      "city": "Ajaccio",
+      "country": "FR",
+      "prepared": 0,
+      "imported": 0
+    },
+    {
+      "city": "Cherbourg",
+      "country": "FR",
+      "prepared": 0,
+      "imported": 0
+    },
+    {
+      "city": "Macon",
+      "country": "FR",
+      "prepared": 0,
+      "imported": 0
+    },
+    {
+      "city": "Chalon-sur-Saone",
+      "country": "FR",
+      "prepared": 0,
+      "imported": 0
+    },
+    {
+      "city": "Niort",
+      "country": "FR",
+      "prepared": 0,
+      "imported": 0
+    },
+    {
+      "city": "Grasse",
+      "country": "FR",
+      "prepared": 0,
+      "imported": 0
+    },
+    {
+      "city": "Beziers",
+      "country": "FR",
+      "prepared": 0,
+      "imported": 0
+    },
+    {
+      "city": "Vannes",
+      "country": "FR",
+      "prepared": 0,
+      "imported": 0
+    },
+    {
+      "city": "Lorient",
+      "country": "FR",
+      "prepared": 0,
+      "imported": 0
+    },
+    {
+      "city": "Bayonne",
+      "country": "FR",
+      "prepared": 0,
+      "imported": 0
+    },
+    {
+      "city": "Biarritz",
+      "country": "FR",
+      "prepared": 0,
+      "imported": 0
+    },
+    {
+      "city": "Reims",
+      "country": "FR",
+      "prepared": 0,
+      "imported": 0
+    },
+    {
+      "city": "Dunkerque",
+      "country": "FR",
+      "prepared": 0,
+      "imported": 0
+    },
+    {
+      "city": "Senlis",
+      "country": "FR",
+      "prepared": 0,
+      "imported": 0
+    },
+    {
+      "city": "Montreux",
+      "country": "CH",
+      "prepared": 289,
+      "imported": 76
+    },
+    {
+      "city": "Vevey",
+      "country": "CH",
+      "prepared": 0,
+      "imported": 0
+    },
+    {
+      "city": "Yverdon",
+      "country": "CH",
+      "prepared": 0,
+      "imported": 0
+    },
+    {
+      "city": "Monthey",
+      "country": "CH",
+      "prepared": 0,
+      "imported": 0
+    },
+    {
+      "city": "Neuchatel",
+      "country": "CH",
+      "prepared": 0,
+      "imported": 0
+    },
+    {
+      "city": "Morges",
+      "country": "CH",
+      "prepared": 0,
+      "imported": 0
+    },
+    {
+      "city": "Winterthur",
+      "country": "CH",
+      "prepared": 0,
+      "imported": 0
+    },
+    {
+      "city": "Thun",
+      "country": "CH",
+      "prepared": 0,
+      "imported": 0
+    },
+    {
+      "city": "Aarau",
+      "country": "CH",
+      "prepared": 0,
+      "imported": 0
+    },
+    {
+      "city": "Biel",
+      "country": "CH",
+      "prepared": 0,
+      "imported": 0
+    },
+    {
+      "city": "Schaffhausen",
+      "country": "CH",
+      "prepared": 0,
+      "imported": 0
+    },
+    {
+      "city": "Davos",
+      "country": "CH",
+      "prepared": 0,
+      "imported": 0
+    },
+    {
+      "city": "Lugano",
+      "country": "CH",
+      "prepared": 0,
+      "imported": 0
+    },
+    {
+      "city": "Luzern",
+      "country": "CH",
+      "prepared": 0,
+      "imported": 0
+    },
+    {
+      "city": "St. Gallen",
+      "country": "CH",
+      "prepared": 0,
+      "imported": 0
+    },
+    {
+      "city": "Fribourg",
+      "country": "CH",
+      "prepared": 0,
+      "imported": 0
+    },
+    {
+      "city": "Interlaken",
+      "country": "CH",
+      "prepared": 0,
+      "imported": 0
+    },
+    {
+      "city": "Solothurn",
+      "country": "CH",
+      "prepared": 0,
+      "imported": 0
+    },
+    {
+      "city": "Zug",
+      "country": "CH",
+      "prepared": 0,
+      "imported": 0
+    },
+    {
+      "city": "Basel",
+      "country": "CH",
+      "prepared": 0,
+      "imported": 0
+    },
+    {
+      "city": "Antwerpen",
+      "country": "BE",
+      "prepared": 6,
+      "imported": 3
+    },
+    {
+      "city": "Gent",
+      "country": "BE",
+      "prepared": 0,
+      "imported": 0
+    }
+  ]
+}

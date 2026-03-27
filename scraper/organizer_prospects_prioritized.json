@@ -1,0 +1,121 @@
+[
+  {
+    "email": "tourisme@moudon.ch",
+    "title": "Le théâtre Barnabé en coulisses",
+    "source_url": "",
+    "source_name": "",
+    "type": "bar"
+  },
+  {
+    "email": "restauration@brp.ch",
+    "title": "\"Délicieux\" en dîner-cinéma",
+    "source_url": "",
+    "source_name": "",
+    "type": "festival"
+  },
+  {
+    "email": "cm.miller@orange.fr",
+    "title": "Exposition d'art comtemporain - ORGANIC",
+    "source_url": "",
+    "source_name": "",
+    "type": "musee_galerie"
+  },
+  {
+    "email": "creactions@trajets.org",
+    "title": "La galerie Trajets EXPOSITIONS",
+    "source_url": "",
+    "source_name": "",
+    "type": "musee_galerie"
+  },
+  {
+    "email": "info.natureum@vd.ch",
+    "title": "Exposition Natura Picta",
+    "source_url": "",
+    "source_name": "",
+    "type": "musee_galerie"
+  },
+  {
+    "email": "reception.semdosi@etat.ge.ch",
+    "title": "Exposition \"À la recherche de la vérité - le journalisme et nous\"",
+    "source_url": "",
+    "source_name": "",
+    "type": "musee_galerie"
+  },
+  {
+    "email": "bolero@versoix.ch",
+    "title": "Silver Power - Des romandes fières de leurs cheveux gris",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "culture@veyrier.ch",
+    "title": "Concert Estelle Revaz & Laudine Dard \"Amor y Pasión\"",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "daiageneve@projektil.ch",
+    "title": "Pixel Zoo Jungle, une aventure immersive pour toute la famille",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "e.deplanta@lancy.ch",
+    "title": "Mosaïque urbaine 2024 : « Patrimoine d’hier et d’aujourd’hui »",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "fermedelachapelle@lancy.ch",
+    "title": "Almost tender - Grégory Sugnaux",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "info.museum@olympic.org",
+    "title": "Espace Let's Move : Bougez!",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "julien@kummerling.ch",
+    "title": "LES SECRETS DE LÉA",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "l.hugi@ntel.ch",
+    "title": "Fabrication de papier - Atelier de peinture",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "lescaves@versoix.ch",
+    "title": "Ya ! De Angel a Perra",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "lfdt@fermedestilleuls.ch",
+    "title": "Maisons-mères – Architectures utopiques et concrètes",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  },
+  {
+    "email": "tcherkassov.s@sunrise.ch",
+    "title": "Récital de piano par Justus Friedrich Eichhorn",
+    "source_url": "",
+    "source_name": "",
+    "type": "autre_event"
+  }
+]

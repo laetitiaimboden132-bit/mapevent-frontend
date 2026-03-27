@@ -1,0 +1,269 @@
+[
+  {
+    "to": "info@dijon-tourisme.com",
+    "org": "Dijon Metropole Tourisme",
+    "city": "Dijon",
+    "pop": 160000,
+    "tier": "Pro Ville",
+    "monthly": 49,
+    "status": "sent"
+  },
+  {
+    "to": "info@saint-etienne-tourisme.com",
+    "org": "Saint-Etienne Tourisme",
+    "city": "Saint-Etienne",
+    "pop": 173000,
+    "tier": "Pro Ville",
+    "monthly": 49,
+    "status": "sent"
+  },
+  {
+    "to": "info@limoges-tourisme.com",
+    "org": "Limoges Tourisme",
+    "city": "Limoges",
+    "pop": 132000,
+    "tier": "Pro Ville",
+    "monthly": 49,
+    "status": "sent"
+  },
+  {
+    "to": "info@tours-tourisme.fr",
+    "org": "Tours Val de Loire Tourisme",
+    "city": "Tours",
+    "pop": 136000,
+    "tier": "Pro Ville",
+    "monthly": 49,
+    "status": "sent"
+  },
+  {
+    "to": "info@amiens-tourisme.com",
+    "org": "Amiens Tourisme",
+    "city": "Amiens",
+    "pop": 134000,
+    "tier": "Pro Ville",
+    "monthly": 49,
+    "status": "sent"
+  },
+  {
+    "to": "contact@reims-tourisme.com",
+    "org": "Reims Tourisme",
+    "city": "Reims",
+    "pop": 183000,
+    "tier": "Pro Ville",
+    "monthly": 49,
+    "status": "sent"
+  },
+  {
+    "to": "info@metz-tourisme.com",
+    "org": "Metz Tourisme",
+    "city": "Metz",
+    "pop": 120000,
+    "tier": "Pro Ville",
+    "monthly": 49,
+    "status": "sent"
+  },
+  {
+    "to": "info@nancy-tourisme.fr",
+    "org": "Nancy Tourisme",
+    "city": "Nancy",
+    "pop": 105000,
+    "tier": "Pro Ville",
+    "monthly": 49,
+    "status": "sent"
+  },
+  {
+    "to": "info@mulhouse-tourisme.com",
+    "org": "Mulhouse Tourisme",
+    "city": "Mulhouse",
+    "pop": 110000,
+    "tier": "Pro Ville",
+    "monthly": 49,
+    "status": "sent"
+  },
+  {
+    "to": "info@besancon-tourisme.com",
+    "org": "Besancon Tourisme",
+    "city": "Besancon",
+    "pop": 120000,
+    "tier": "Pro Ville",
+    "monthly": 49,
+    "status": "sent"
+  },
+  {
+    "to": "info@angouleme-tourisme.com",
+    "org": "Angouleme Tourisme",
+    "city": "Angouleme",
+    "pop": 42000,
+    "tier": "Pro Ville",
+    "monthly": 29,
+    "status": "sent"
+  },
+  {
+    "to": "info@bayonne-tourisme.com",
+    "org": "Bayonne Tourisme",
+    "city": "Bayonne",
+    "pop": 52000,
+    "tier": "Pro Ville",
+    "monthly": 29,
+    "status": "sent"
+  },
+  {
+    "to": "info@pau-tourisme.com",
+    "org": "Pau Tourisme",
+    "city": "Pau",
+    "pop": 77000,
+    "tier": "Pro Ville",
+    "monthly": 29,
+    "status": "sent"
+  },
+  {
+    "to": "info@larochelle-tourisme.com",
+    "org": "La Rochelle Tourisme",
+    "city": "La Rochelle",
+    "pop": 77000,
+    "tier": "Pro Ville",
+    "monthly": 29,
+    "status": "sent"
+  },
+  {
+    "to": "info@poitiers-tourisme.com",
+    "org": "Poitiers Tourisme",
+    "city": "Poitiers",
+    "pop": 89000,
+    "tier": "Pro Ville",
+    "monthly": 49,
+    "status": "sent"
+  },
+  {
+    "to": "info@valence-tourisme.com",
+    "org": "Valence Tourisme",
+    "city": "Valence",
+    "pop": 65000,
+    "tier": "Pro Ville",
+    "monthly": 29,
+    "status": "sent"
+  },
+  {
+    "to": "info@ajaccio-tourisme.com",
+    "org": "Ajaccio Tourisme",
+    "city": "Ajaccio",
+    "pop": 72000,
+    "tier": "Pro Ville",
+    "monthly": 29,
+    "status": "sent"
+  },
+  {
+    "to": "info@toulon-tourisme.com",
+    "org": "Toulon Tourisme",
+    "city": "Toulon",
+    "pop": 180000,
+    "tier": "Pro Ville",
+    "monthly": 49,
+    "status": "sent"
+  },
+  {
+    "to": "info@aix-tourisme.com",
+    "org": "Aix-en-Provence Tourisme",
+    "city": "Aix-en-Provence",
+    "pop": 145000,
+    "tier": "Pro Ville",
+    "monthly": 49,
+    "status": "sent"
+  },
+  {
+    "to": "info@cannes-destination.fr",
+    "org": "Cannes Tourisme",
+    "city": "Cannes",
+    "pop": 75000,
+    "tier": "Pro Ville",
+    "monthly": 29,
+    "status": "sent"
+  },
+  {
+    "to": "info@lucerne.com",
+    "org": "Luzern Tourismus",
+    "city": "Lucerne",
+    "pop": 82000,
+    "tier": "Pro Ville",
+    "monthly": 49,
+    "status": "sent"
+  },
+  {
+    "to": "info@stgallen-bodensee.ch",
+    "org": "St.Gallen-Bodensee Tourismus",
+    "city": "Saint-Gall",
+    "pop": 76000,
+    "tier": "Pro Ville",
+    "monthly": 29,
+    "status": "sent"
+  },
+  {
+    "to": "info@biel-bienne.ch",
+    "org": "Biel/Bienne Tourisme",
+    "city": "Bienne",
+    "pop": 55000,
+    "tier": "Pro Ville",
+    "monthly": 29,
+    "status": "sent"
+  },
+  {
+    "to": "info@thuntourismus.ch",
+    "org": "Thun Tourismus",
+    "city": "Thoune",
+    "pop": 44000,
+    "tier": "Pro Ville",
+    "monthly": 29,
+    "status": "sent"
+  },
+  {
+    "to": "info@winterthur-tourismus.ch",
+    "org": "Winterthur Tourismus",
+    "city": "Winterthur",
+    "pop": 115000,
+    "tier": "Pro Ville",
+    "monthly": 49,
+    "status": "sent"
+  },
+  {
+    "to": "info@schaffhausentourismus.ch",
+    "org": "Schaffhausen Tourismus",
+    "city": "Schaffhouse",
+    "pop": 37000,
+    "tier": "Pro Ville",
+    "monthly": 29,
+    "status": "sent"
+  },
+  {
+    "to": "info@aarau-info.ch",
+    "org": "Aarau Info",
+    "city": "Aarau",
+    "pop": 22000,
+    "tier": "Pro Ville",
+    "monthly": 29,
+    "status": "sent"
+  },
+  {
+    "to": "info@delémont.ch",
+    "org": "Delemont Tourisme",
+    "status": "error",
+    "error": "An error occurred (InvalidParameterValue) when calling the SendEmail operation: Domain contains control or whitespace"
+  },
+  {
+    "to": "info@visitgent.be",
+    "org": "Visit Gent",
+    "city": "Gand",
+    "pop": 265000,
+    "tier": "Ville Plus",
+    "monthly": 99,
+    "status": "sent"
+  },
+  {
+    "to": "info@visitantwerpen.be",
+    "org": "Visit Antwerpen",
+    "city": "Anvers",
+    "pop": 530000,
+    "tier": "Ville Plus",
+    "monthly": 99,
+    "status": "sent"
+  }
+]

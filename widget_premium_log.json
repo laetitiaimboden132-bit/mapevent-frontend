@@ -1,0 +1,237 @@
+[
+  {
+    "to": "info@geneve-tourisme.ch",
+    "org": "Geneve Tourisme",
+    "status": "sent"
+  },
+  {
+    "to": "info@lausanne-tourisme.ch",
+    "org": "Lausanne Tourisme",
+    "status": "sent"
+  },
+  {
+    "to": "info@montreuxriviera.com",
+    "org": "Montreux Riviera Tourisme",
+    "status": "sent"
+  },
+  {
+    "to": "info@lyon-france.com",
+    "org": "Only Lyon Tourisme",
+    "status": "sent"
+  },
+  {
+    "to": "info@parisinfo.com",
+    "org": "Office du Tourisme de Paris",
+    "status": "sent"
+  },
+  {
+    "to": "info@bordeaux-tourisme.com",
+    "org": "Office de Tourisme de Bordeaux",
+    "status": "sent"
+  },
+  {
+    "to": "contact@nantes-tourisme.com",
+    "org": "Nantes Tourisme",
+    "status": "sent"
+  },
+  {
+    "to": "info@lilletourism.com",
+    "org": "Lille Tourisme",
+    "status": "sent"
+  },
+  {
+    "to": "info@marseille-tourisme.com",
+    "org": "Office de Tourisme de Marseille",
+    "status": "sent"
+  },
+  {
+    "to": "info@toulouse-tourisme.com",
+    "org": "Office de Tourisme de Toulouse",
+    "status": "sent"
+  },
+  {
+    "to": "info@strasbourg.eu",
+    "org": "Strasbourg Tourisme",
+    "status": "sent"
+  },
+  {
+    "to": "info@visitbrussels.be",
+    "org": "Visit Brussels",
+    "status": "sent"
+  },
+  {
+    "to": "info@bern.com",
+    "org": "Bern Tourismus",
+    "status": "sent"
+  },
+  {
+    "to": "info@zuerich.com",
+    "org": "Zurich Tourismus",
+    "status": "sent"
+  },
+  {
+    "to": "info@basel.com",
+    "org": "Basel Tourismus",
+    "status": "sent"
+  },
+  {
+    "to": "info@fribourgtourisme.ch",
+    "org": "Fribourg Tourisme",
+    "status": "sent"
+  },
+  {
+    "to": "info@sion-tourisme.ch",
+    "org": "Sion Tourisme",
+    "status": "sent"
+  },
+  {
+    "to": "info@lac-annecy-tourisme.com",
+    "org": "Lac Annecy Tourisme",
+    "status": "sent"
+  },
+  {
+    "to": "info@chambery-tourisme.com",
+    "org": "Chambery Tourisme",
+    "status": "sent"
+  },
+  {
+    "to": "info@grenoble-tourisme.com",
+    "org": "Grenoble Tourisme",
+    "status": "sent"
+  },
+  {
+    "to": "info@nicetourisme.com",
+    "org": "Office de Tourisme de Nice",
+    "status": "sent"
+  },
+  {
+    "to": "info@rouentourisme.com",
+    "org": "Rouen Tourisme",
+    "status": "sent"
+  },
+  {
+    "to": "info@clermont-auvergne-tourisme.com",
+    "org": "Clermont Auvergne Tourisme",
+    "status": "sent"
+  },
+  {
+    "to": "info@caen-tourisme.fr",
+    "org": "Caen Tourisme",
+    "status": "sent"
+  },
+  {
+    "to": "info@avignon-tourisme.com",
+    "org": "Avignon Tourisme",
+    "status": "sent"
+  },
+  {
+    "to": "info@perpignantourisme.com",
+    "org": "Perpignan Tourisme",
+    "status": "sent"
+  },
+  {
+    "to": "contact@quimper-tourisme.com",
+    "org": "Quimper Tourisme",
+    "status": "sent"
+  },
+  {
+    "to": "info@neuchatelville.ch",
+    "org": "Neuchatel Tourisme",
+    "status": "sent"
+  },
+  {
+    "to": "info@interlakentourism.ch",
+    "org": "Interlaken Tourismus",
+    "status": "sent"
+  },
+  {
+    "to": "info@luganoregion.com",
+    "org": "Lugano Region",
+    "status": "sent"
+  },
+  {
+    "to": "info@atout-france.fr",
+    "org": "Atout France",
+    "status": "sent"
+  },
+  {
+    "to": "redaction@leprogramme.ch",
+    "org": "Le Programme",
+    "status": "sent"
+  },
+  {
+    "to": "info@sortir.ch",
+    "org": "Sortir.ch",
+    "status": "sent"
+  },
+  {
+    "to": "contact@timeout.fr",
+    "org": "Time Out France",
+    "status": "sent"
+  },
+  {
+    "to": "redaction@lepetitjournal.com",
+    "org": "Le Petit Journal",
+    "status": "sent"
+  },
+  {
+    "to": "redaction@lyoncapitale.fr",
+    "org": "Lyon Capitale",
+    "status": "sent"
+  },
+  {
+    "to": "contact@lillelanuit.com",
+    "org": "Lille La Nuit",
+    "status": "sent"
+  },
+  {
+    "to": "contact@bordeauxmaville.com",
+    "org": "Bordeaux Ma Ville",
+    "status": "sent"
+  },
+  {
+    "to": "redaction@marseillenews.net",
+    "org": "Marseille News",
+    "status": "sent"
+  },
+  {
+    "to": "info@whatson.ch",
+    "org": "What's On",
+    "status": "sent"
+  },
+  {
+    "to": "info@agenda-culturel.ch",
+    "org": "Agenda Culturel Suisse",
+    "status": "sent"
+  },
+  {
+    "to": "contact@unidivers.fr",
+    "org": "Unidivers",
+    "status": "sent"
+  },
+  {
+    "to": "info@offi.fr",
+    "org": "L'Officiel des spectacles",
+    "status": "sent"
+  },
+  {
+    "to": "info@sortiraparis.com",
+    "org": "Sortir a Paris",
+    "status": "sent"
+  },
+  {
+    "to": "info@montpellier-tourisme.fr",
+    "org": "Office de Tourisme de Montpellier",
+    "status": "sent"
+  },
+  {
+    "to": "info@rennes-tourisme.com",
+    "org": "Destination Rennes",
+    "status": "sent"
+  },
+  {
+    "to": "info@myswitzerland.com",
+    "org": "Switzerland Tourism",
+    "status": "sent"
+  }
+]
